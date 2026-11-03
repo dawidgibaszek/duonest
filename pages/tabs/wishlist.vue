@@ -485,6 +485,7 @@ const {
   wishlistItems,
   currentUser,
   partnerUser,
+  partnership,
   addWishlistItem,
   updateWishlistItem,
   deleteWishlistItem,
@@ -499,6 +500,13 @@ const {
 const urlInput = ref('')
 const isScraping = ref(false)
 const scrapeError = ref<string | null>(null)
+
+// Partner ID helper (falls back to partnership partner1/partner2 if partner profile is still loading)
+const partnerId = computed(() => {
+  return partnerUser.value?.id ||
+    (partnership.value?.partner1_id === currentUser.value?.id ? partnership.value?.partner2_id : partnership.value?.partner1_id) ||
+    null
+})
 
 // Filters
 const activeFilter = ref<'all' | 'me' | 'partner' | 'surprise' | 'together' | 'completed'>('all')
@@ -523,26 +531,8 @@ const resolveDefaultTarget = (): 'me' | 'partner' | 'together' => {
   return 'me'
 }
 
-const _onVisibilityChange = () => {
-  if (document.visibilityState === 'visible') refreshWishlist()
-}
-// pageshow fires on iOS PWA when user returns to the app (focus does not fire reliably in standalone)
-const _onPageShow = (e: PageTransitionEvent) => {
-  if (e.persisted || document.visibilityState === 'visible') refreshWishlist()
-}
-
 onMounted(async () => {
   await refreshWishlist()
-
-  // visibilitychange is the most reliable cross-platform event for PWA lifecycle
-  document.addEventListener('visibilitychange', _onVisibilityChange)
-  // pageshow catches iOS "back from background" which visibilitychange sometimes misses
-  window.addEventListener('pageshow', _onPageShow)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('visibilitychange', _onVisibilityChange)
-  window.removeEventListener('pageshow', _onPageShow)
 })
 
 const formData = ref({
@@ -564,26 +554,29 @@ const uncompletedCount = computed(() => {
 // Filtered items logic
 const filteredItems = computed(() => {
   const currentUserId = currentUser.value?.id
-  const partnerId = partnerUser.value?.id
+  const pId = partnerId.value
 
   return wishlistItems.value.filter(item => {
     switch (activeFilter.value) {
       case 'me':
         return !item.is_completed && (
           (currentUserId && item.for_user_id === currentUserId) ||
-          (!item.for_user_id && currentUserId && item.created_by === currentUserId)
+          (item.for_user_id === 'me') ||
+          (!item.for_user_id && currentUserId && item.created_by === currentUserId) ||
+          (currentUserId && item.created_by === currentUserId && item.for_user_id !== pId && item.for_user_id !== 'partner' && item.for_user_id !== 'together')
         )
       case 'partner':
         return !item.is_completed && (
-          (partnerId && item.for_user_id === partnerId) ||
+          (item.for_user_id === 'partner') ||
+          (pId && item.for_user_id === pId) ||
           (currentUserId && item.created_by !== currentUserId && item.for_user_id !== currentUserId) ||
           (!item.for_user_id && currentUserId && item.created_by !== currentUserId) ||
-          (currentUserId && item.created_by === currentUserId && item.for_user_id && item.for_user_id !== currentUserId)
+          (currentUserId && item.created_by === currentUserId && item.for_user_id && item.for_user_id !== currentUserId && item.for_user_id !== 'together' && item.for_user_id !== 'me')
         )
       case 'surprise':
-        return !item.is_completed && !item.is_visible_to_partner && (currentUserId && item.created_by === currentUserId)
+        return !item.is_completed && !item.is_visible_to_partner && (currentUserId ? item.created_by === currentUserId : true)
       case 'together':
-        return !item.is_completed && (item.for_user_id === null || item.for_user_id === 'together')
+        return !item.is_completed && (!item.for_user_id || item.for_user_id === 'together')
       case 'completed':
         return item.is_completed
       case 'all':
@@ -595,25 +588,28 @@ const filteredItems = computed(() => {
 
 const getFilterCount = (filterId: string): number => {
   const currentUserId = currentUser.value?.id
-  const partnerId = partnerUser.value?.id
+  const pId = partnerId.value
 
   switch (filterId) {
     case 'me':
       return wishlistItems.value.filter(i => !i.is_completed && (
         (currentUserId && i.for_user_id === currentUserId) ||
-        (!i.for_user_id && currentUserId && i.created_by === currentUserId)
+        (i.for_user_id === 'me') ||
+        (!i.for_user_id && currentUserId && i.created_by === currentUserId) ||
+        (currentUserId && i.created_by === currentUserId && i.for_user_id !== pId && i.for_user_id !== 'partner' && i.for_user_id !== 'together')
       )).length
     case 'partner':
       return wishlistItems.value.filter(i => !i.is_completed && (
-        (partnerId && i.for_user_id === partnerId) ||
+        (i.for_user_id === 'partner') ||
+        (pId && i.for_user_id === pId) ||
         (currentUserId && i.created_by !== currentUserId && i.for_user_id !== currentUserId) ||
         (!i.for_user_id && currentUserId && i.created_by !== currentUserId) ||
-        (currentUserId && i.created_by === currentUserId && i.for_user_id && i.for_user_id !== currentUserId)
+        (currentUserId && i.created_by === currentUserId && i.for_user_id && i.for_user_id !== currentUserId && i.for_user_id !== 'together' && i.for_user_id !== 'me')
       )).length
     case 'surprise':
-      return wishlistItems.value.filter(i => !i.is_completed && !i.is_visible_to_partner && (currentUserId && i.created_by === currentUserId)).length
+      return wishlistItems.value.filter(i => !i.is_completed && !i.is_visible_to_partner && (currentUserId ? i.created_by === currentUserId : true)).length
     case 'together':
-      return wishlistItems.value.filter(i => !i.is_completed && (i.for_user_id === null || i.for_user_id === 'together')).length
+      return wishlistItems.value.filter(i => !i.is_completed && (!i.for_user_id || i.for_user_id === 'together')).length
     case 'completed':
       return wishlistItems.value.filter(i => i.is_completed).length
     case 'all':
@@ -794,11 +790,11 @@ const openManualAddModal = () => {
 const openEditModal = (item: WishlistItem) => {
   editingItemId.value = item.id
   const currentUserId = currentUser.value?.id
-  const partnerId = partnerUser.value?.id
+  const pId = partnerId.value
 
-  if (item.for_user_id === currentUserId) {
+  if (item.for_user_id === currentUserId || item.for_user_id === 'me') {
     formTarget.value = 'me'
-  } else if (item.for_user_id === partnerId || (!item.for_user_id && item.created_by !== currentUserId)) {
+  } else if (item.for_user_id === 'partner' || (pId && item.for_user_id === pId) || (!item.for_user_id && currentUserId && item.created_by !== currentUserId)) {
     formTarget.value = 'partner'
   } else {
     formTarget.value = 'together'
@@ -833,20 +829,19 @@ const setFormTarget = (target: 'me' | 'partner' | 'together') => {
 const handleSaveFormData = async () => {
   if (!formData.value.title.trim()) return
 
-  const currentUserId = currentUser.value?.id || 'user_1'
-  const partnerId = partnerUser.value?.id || null
+  const currentUserId = currentUser.value?.id || 'local_user'
+  const pId = partnerId.value
 
   let forUserId: string | null = null
   if (formTarget.value === 'me') {
     forUserId = currentUserId
   } else if (formTarget.value === 'partner') {
-    forUserId = partnerId
+    forUserId = pId || 'partner'
   } else {
     forUserId = null
   }
 
   const isVisible = formTarget.value === 'partner' ? formData.value.is_visible_to_partner : true
-  const savedTarget = formTarget.value
   const isSurprise = !isVisible
 
   if (editingItemId.value) {
@@ -876,15 +871,12 @@ const handleSaveFormData = async () => {
       is_visible_to_partner: isVisible
     })
 
-    // Automatically switch active filter tab so the newly added item is guaranteed to be in view!
+    // Immediately switch active filter tab so the newly added item is guaranteed to be in view!
     if (isSurprise) {
       activeFilter.value = 'surprise'
-    } else if (activeFilter.value !== 'all' && activeFilter.value !== savedTarget) {
+    } else {
       activeFilter.value = 'all'
     }
-    // Note: refreshWishlist is called internally by addWishlistItem with a delay
-    // after the DB insert completes. Calling it here immediately would race with
-    // the insert and could wipe the locally-added item before DB confirms it.
   }
 
   closeModal()
@@ -942,23 +934,23 @@ const handleRefresh = async (event: any) => {
 // Target badge helpers
 const getTargetLabel = (item: WishlistItem): string => {
   const currentUserId = currentUser.value?.id
-  const partnerId = partnerUser.value?.id
-  if (item.for_user_id === currentUserId) return 'Dla mnie'
-  if (partnerId && item.for_user_id === partnerId) return `Dla ${partnerUser.value?.name || 'Partnera'}`
-  if (!item.for_user_id && item.created_by !== currentUserId) return `Dla ${partnerUser.value?.name || 'Partnera'}`
+  const pId = partnerId.value
+  if (item.for_user_id === currentUserId || item.for_user_id === 'me') return 'Dla mnie'
+  if (item.for_user_id === 'partner' || (pId && item.for_user_id === pId)) return `Dla ${partnerUser.value?.name || 'Partnera'}`
+  if (!item.for_user_id && currentUserId && item.created_by !== currentUserId) return `Dla ${partnerUser.value?.name || 'Partnera'}`
   return 'Wspólne'
 }
 
 const getTargetIcon = (item: WishlistItem) => {
   const currentUserId = currentUser.value?.id
-  if (item.for_user_id === currentUserId) return ioniconsPersonOutline
-  if (item.for_user_id === null) return ioniconsPeopleOutline
+  if (item.for_user_id === currentUserId || item.for_user_id === 'me') return ioniconsPersonOutline
+  if (!item.for_user_id || item.for_user_id === 'together') return ioniconsPeopleOutline
   return ioniconsGiftOutline
 }
 
 const getTargetBadgeStyle = (item: WishlistItem) => {
   const currentUserId = currentUser.value?.id
-  if (item.for_user_id === currentUserId) {
+  if (item.for_user_id === currentUserId || item.for_user_id === 'me') {
     const col = getUserAccentColor(currentUserId)
     return {
       backgroundColor: hexToRgba(col, 0.12),
@@ -966,7 +958,7 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
       border: `1px solid ${hexToRgba(col, 0.28)}`
     }
   }
-  if (item.for_user_id === null) {
+  if (!item.for_user_id || item.for_user_id === 'together') {
     return {
       backgroundColor: 'rgba(99, 102, 241, 0.12)',
       color: '#4f46e5',

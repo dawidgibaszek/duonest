@@ -1081,9 +1081,6 @@ export const useDuoState = () => {
         if (currentUser.value?.id && authUser.value) {
           verifyUserAndPartnershipAccess(true)
         }
-        if (partnership.value?.id || currentUser.value?.partnership_id) {
-          refreshWishlist()
-        }
       }
     })
 
@@ -1092,9 +1089,6 @@ export const useDuoState = () => {
       if (currentUser.value?.id && authUser.value) {
         verifyUserAndPartnershipAccess(true)
       }
-      if (partnership.value?.id || currentUser.value?.partnership_id) {
-        refreshWishlist()
-      }
     })
 
     // pageshow fires on iOS PWA when returning from background (persisted=true = from bfcache)
@@ -1102,9 +1096,6 @@ export const useDuoState = () => {
       if (e.persisted || document.visibilityState === 'visible') {
         if (currentUser.value?.id && authUser.value) {
           verifyUserAndPartnershipAccess(true)
-        }
-        if (partnership.value?.id || currentUser.value?.partnership_id) {
-          refreshWishlist()
         }
       }
     })
@@ -1524,8 +1515,6 @@ export const useDuoState = () => {
             }
             triggerToast(`${senderName} dodał(a) ${label}: "${data.title}" 🎁`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
           }
-          // Delayed refresh so DB has time to commit before we query
-          setTimeout(() => refreshWishlist(), 800)
           break
         }
         case 'WISHLIST_UPDATE': {
@@ -1541,7 +1530,6 @@ export const useDuoState = () => {
               syncToStorage()
             }
           }
-          setTimeout(() => refreshWishlist(), 800)
           break
         }
         case 'WISHLIST_DELETE': {
@@ -1551,7 +1539,6 @@ export const useDuoState = () => {
             syncToStorage()
             if (deleted) triggerToast(`${senderName} usunął(a) marzenie: "${deleted.title}"`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
           }
-          setTimeout(() => refreshWishlist(), 800)
           break
         }
         case 'WISHLIST_TOGGLE_COMPLETED': {
@@ -1564,7 +1551,6 @@ export const useDuoState = () => {
               triggerToast(`${senderName} spełnił(a) marzenie: "${item?.title || 'Marzenie'}"! 🎉✨`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
             }
           }
-          refreshWishlist()
           break
         }
 
@@ -1973,8 +1959,8 @@ export const useDuoState = () => {
       }
 
       if (wshs.data && wshs.data.length > 0) {
-        const currentUserId = currentUser.value?.id
-        const filtered = wshs.data.filter((item: WishlistItem) => item.is_visible_to_partner || (currentUserId && item.created_by === currentUserId))
+        const myIds = new Set([currentUser.value?.id, authUser.value?.id].filter(Boolean))
+        const filtered = wshs.data.filter((item: WishlistItem) => item.is_visible_to_partner || myIds.has(item.created_by))
         wishlistItems.value = filtered
       } else if (wishlistItems.value.length > 0) {
         try { await client.from('wishlist_items').upsert(wishlistItems.value) } catch (_) {}
@@ -2901,16 +2887,7 @@ export const useDuoState = () => {
     syncToStorage()
 
     if (supabase && isOnlineWithSupabase.value && partnership.value?.id) {
-      try {
-        await supabase.from('wishlist_items').insert(newItem)
-      } catch (_) {
-        safeDb(supabase.from('wishlist_items').insert(newItem))
-      }
-      // Refresh after a short delay to let the DB commit propagate — but don't
-      // call it immediately because the local state is already correct and an
-      // instant refresh risks returning a response BEFORE the insert is visible,
-      // which would wipe the item we just added locally.
-      setTimeout(() => refreshWishlist(), 800)
+      safeDb(supabase.from('wishlist_items').insert(newItem))
     }
 
     // Only broadcast to partner if visible to partner
@@ -3024,8 +3001,8 @@ export const useDuoState = () => {
         .order('created_at', { ascending: false })
 
       if (!error && data) {
-        const currentUserId = currentUser.value?.id || authUser.value?.id
-        const filtered = data.filter((item: WishlistItem) => item.is_visible_to_partner || (currentUserId && item.created_by === currentUserId))
+        const myIds = new Set([currentUser.value?.id, authUser.value?.id].filter(Boolean))
+        const filtered = data.filter((item: WishlistItem) => item.is_visible_to_partner || myIds.has(item.created_by))
         // Merge: never drop items that are locally present but not yet in DB response
         const remoteIds = new Set(filtered.map((i: WishlistItem) => i.id))
         const localOnly = wishlistItems.value.filter(w => !remoteIds.has(w.id))
