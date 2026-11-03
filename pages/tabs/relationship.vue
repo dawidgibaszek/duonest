@@ -298,34 +298,89 @@
       <div v-show="currentCategory === 'nest_settings'" class="category-content-wrap">
         <!-- 1. WASZE GNIAZDKO & DATA ROCZNICY -->
         <div class="dn-card nest-config-card">
+          <!-- Card Header & Status -->
           <div class="card-title-row">
-            <span class="section-tag">WASZE GNIAZDKO</span>
+            <span class="section-tag nest-section-tag">WASZE GNIAZDKO</span>
             <span class="days-together-badge">
               <ion-icon :icon="ioniconsHeart" />
               {{ daysTogether }} dni razem
             </span>
           </div>
-          <h4>Informacje o Gniazdku</h4>
-          <p class="section-desc">Personalizujcie nazwę Waszego wspólnego domu i datę rozpoczęcia relacji.</p>
 
-          <div class="settings-form-group">
-            <label class="form-label">Nazwa Waszego Gniazdka</label>
-            <ion-input
-              v-model="nestNameInput"
-              placeholder="np. Nasze Ciepłe Gniazdko"
-              class="dn-styled-input"
-            />
+          <!-- Hero Intro Box -->
+          <div class="nest-hero-banner">
+            <div class="nest-hero-icon-wrap">
+              <ion-icon :icon="ioniconsHeart" />
+            </div>
+            <div class="nest-hero-text">
+              <h4>{{ nestNameInput || 'Wasze Ciepłe Gniazdko' }}</h4>
+              <p>Tworzycie własną przestrzeń i wspólną historię dzień po dniu.</p>
+            </div>
           </div>
 
+          <!-- Field 1: Nazwa Gniazdka -->
           <div class="settings-form-group">
-            <label class="form-label">Data rocznicy / początku relacji</label>
-            <ion-input
-              type="date"
-              v-model="anniversaryInput"
-              class="dn-styled-input"
-            />
+            <div class="label-with-hint">
+              <label class="form-label">Nazwa Waszego Gniazdka</label>
+              <span class="field-hint">Widoczna w nagłówku i na ekranie głównym</span>
+            </div>
+            <div class="input-with-icon-wrap">
+              <ion-icon :icon="ioniconsSparkles" class="input-leading-icon" />
+              <ion-input
+                v-model="nestNameInput"
+                placeholder="np. Nasze Ciepłe Gniazdko"
+                class="dn-styled-input"
+                :clear-input="true"
+              />
+            </div>
+            <!-- Quick Name Suggestions -->
+            <div class="quick-chips-row">
+              <span class="chips-mini-label">Propozycje:</span>
+              <button
+                type="button"
+                v-for="sugg in nestNameSuggestions"
+                :key="sugg"
+                class="chip-btn"
+                :class="{ active: nestNameInput === sugg }"
+                @click="nestNameInput = sugg"
+              >
+                {{ sugg }}
+              </button>
+            </div>
           </div>
 
+          <!-- Field 2: Data Rocznicy -->
+          <div class="settings-form-group">
+            <div class="label-with-hint">
+              <label class="form-label">Data rocznicy / początku relacji</label>
+              <span class="field-hint">DuoNest liczy dzięki niej Wasze wspólne dni</span>
+            </div>
+            <div class="input-with-icon-wrap">
+              <ion-icon :icon="ioniconsCalendarOutline" class="input-leading-icon" />
+              <ion-input
+                type="date"
+                v-model="anniversaryInput"
+                class="dn-styled-input date-styled-input"
+              />
+            </div>
+
+            <!-- Milestone preview badge -->
+            <div class="anniversary-milestone-box" v-if="anniversaryInput">
+              <div class="milestone-icon-wrap">
+                <ion-icon :icon="ioniconsHeart" />
+              </div>
+              <div class="milestone-content">
+                <span class="milestone-title">Świętujecie od: <strong>{{ formattedAnniversaryDisplay }}</strong></span>
+                <span class="milestone-subtitle">To już ponad <strong>{{ daysTogether }}</strong> wspaniałych dni razem! 🎉</span>
+              </div>
+            </div>
+            <div class="anniversary-empty-hint" v-else>
+              <ion-icon :icon="ioniconsSparkles" />
+              <span>Wybierzcie datę pierwszej randki lub ślubu, aby odliczać Wasze wspólne dni!</span>
+            </div>
+          </div>
+
+          <!-- Save Button -->
           <button class="dn-button-sea save-settings-btn" @click="handleSaveNestSettings">
             <ion-icon :icon="ioniconsCheckmarkDoneOutline" />
             <span>Zapisz dane Gniazdka</span>
@@ -423,7 +478,247 @@
           </div>
         </div>
 
-        <!-- 3. POŁĄCZENIE PARY & KOD PAROWANIA -->
+        <!-- 3. POWIADOMIENIA PUSH & ALERTY GNIAZDKA -->
+        <div class="dn-card push-settings-card">
+          <div class="card-title-row">
+            <span class="section-tag push-section-tag">POWIADOMIENIA PUSH</span>
+            <span
+              class="push-status-pill"
+              :class="{
+                'is-active': pushPermission === 'granted' && isPushEnabled,
+                'is-waiting': pushPermission === 'default',
+                'is-denied': pushPermission === 'denied',
+                'is-disabled': pushPermission === 'granted' && !isPushEnabled
+              }"
+            >
+              <ion-icon
+                :icon="
+                  pushPermission === 'granted' && isPushEnabled
+                    ? ioniconsCheckmarkCircle
+                    : (pushPermission === 'denied' ? ioniconsCloseCircle : ioniconsAlertCircle)
+                "
+              />
+              <span v-if="pushPermission === 'granted' && isPushEnabled">Aktywne</span>
+              <span v-else-if="pushPermission === 'granted' && !isPushEnabled">Wyłączone</span>
+              <span v-else-if="pushPermission === 'denied'">Zablokowane</span>
+              <span v-else>Wymaga zgody</span>
+            </span>
+          </div>
+
+          <h4>Powiadomienia w telefonie</h4>
+          <p class="section-desc">
+            Bądźcie zawsze blisko – otrzymuj natychmiastowe alerty o gestach, nastroju, planach i zakupach od partnera.
+          </p>
+
+          <!-- Master Toggle Box -->
+          <div class="push-master-toggle-box">
+            <div class="master-toggle-left">
+              <div class="master-toggle-icon">
+                <ion-icon :icon="ioniconsNotificationsOutline" />
+              </div>
+              <div class="master-toggle-text">
+                <span class="master-toggle-title">Główne powiadomienia na tym urządzeniu</span>
+                <span class="master-toggle-subtitle">
+                  {{ isPushEnabled ? 'Powiadomienia są włączone dla tego telefonu/przeglądarki' : 'Włącz, aby nie przegapić wiadomości od partnera' }}
+                </span>
+              </div>
+            </div>
+            <ion-toggle
+              :checked="isPushEnabled && pushPermission === 'granted'"
+              @ionChange="toggleMasterPush()"
+              class="dn-push-toggle"
+            />
+          </div>
+
+          <!-- Alert for Denied Permission -->
+          <div v-if="pushPermission === 'denied'" class="push-denied-box">
+            <ion-icon :icon="ioniconsAlertCircle" class="denied-icon" />
+            <div class="denied-content">
+              <strong>Powiadomienia są zablokowane w przeglądarce</strong>
+              <p>
+                Aby je odblokować na telefonie: kliknij ikonę kłódki 🔒 (lub suwaków) obok adresu strony w przeglądarce, wybierz <em>Uprawnienia → Powiadomienia → Zezwól</em>, a następnie odśwież stronę.
+              </p>
+            </div>
+          </div>
+
+          <!-- Prompt button if Default Permission -->
+          <div v-if="pushPermission === 'default' && isPushSupported" class="push-prompt-box">
+            <button type="button" class="dn-button-sea request-perm-btn" @click="requestPushPermission">
+              <ion-icon :icon="ioniconsNotificationsOutline" />
+              <span>Zezwól na powiadomienia w przeglądarce</span>
+            </button>
+          </div>
+
+          <!-- Granular Category Settings List -->
+          <div class="push-granularity-section">
+            <span class="group-title-label">SZCZEGÓŁOWE KATEGORIE POWIADOMIEŃ</span>
+            <p class="group-sub-desc">Wybierz, o czym chcesz być natychmiast powiadamiany:</p>
+
+            <div class="push-toggles-list">
+              <!-- 1. NUDGES & LOVE -->
+              <div class="push-toggle-item">
+                <div class="toggle-item-left">
+                  <div class="toggle-icon-wrap love-icon-bg">
+                    <ion-icon :icon="ioniconsHeartOutline" />
+                  </div>
+                  <div class="toggle-item-info">
+                    <span class="toggle-name">Puknięcia i gesty miłości</span>
+                    <span class="toggle-desc">Buziaki, uściski, herbatka i gesty czułości od partnera</span>
+                  </div>
+                </div>
+                <ion-toggle
+                  :checked="pushSettings.nudges"
+                  @ionChange="togglePushCategory('nudges')"
+                  class="dn-push-toggle"
+                />
+              </div>
+
+              <!-- 2. MOOD -->
+              <div class="push-toggle-item">
+                <div class="toggle-item-left">
+                  <div class="toggle-icon-wrap mood-icon-bg">
+                    <ion-icon :icon="ioniconsHappyOutline" />
+                  </div>
+                  <div class="toggle-item-info">
+                    <span class="toggle-name">Nastrój partnera</span>
+                    <span class="toggle-desc">Zmiana samopoczucia i notatki o nastroju</span>
+                  </div>
+                </div>
+                <ion-toggle
+                  :checked="pushSettings.mood"
+                  @ionChange="togglePushCategory('mood')"
+                  class="dn-push-toggle"
+                />
+              </div>
+
+              <!-- 3. CALENDAR -->
+              <div class="push-toggle-item">
+                <div class="toggle-item-left">
+                  <div class="toggle-icon-wrap calendar-icon-bg">
+                    <ion-icon :icon="ioniconsCalendarOutline" />
+                  </div>
+                  <div class="toggle-item-info">
+                    <span class="toggle-name">Wspólny terminarz & randki</span>
+                    <span class="toggle-desc">Nowe plany, przypomnienia i zrealizowane wydarzenia</span>
+                  </div>
+                </div>
+                <ion-toggle
+                  :checked="pushSettings.calendar"
+                  @ionChange="togglePushCategory('calendar')"
+                  class="dn-push-toggle"
+                />
+              </div>
+
+              <!-- 4. SHOPPING -->
+              <div class="push-toggle-item">
+                <div class="toggle-item-left">
+                  <div class="toggle-icon-wrap shopping-icon-bg">
+                    <ion-icon :icon="ioniconsCartOutline" />
+                  </div>
+                  <div class="toggle-item-info">
+                    <span class="toggle-name">Wspólna lista zakupów</span>
+                    <span class="toggle-desc">Gdy partner doda nowe produkty do koszyka</span>
+                  </div>
+                </div>
+                <ion-toggle
+                  :checked="pushSettings.shopping"
+                  @ionChange="togglePushCategory('shopping')"
+                  class="dn-push-toggle"
+                />
+              </div>
+
+              <!-- 5. TASKS -->
+              <div class="push-toggle-item">
+                <div class="toggle-item-left">
+                  <div class="toggle-icon-wrap tasks-icon-bg">
+                    <ion-icon :icon="ioniconsCheckboxOutline" />
+                  </div>
+                  <div class="toggle-item-info">
+                    <span class="toggle-name">Zadania domowe i punkty</span>
+                    <span class="toggle-desc">Ukończone obowiązki i zdobyte punkty do Gniazdka</span>
+                  </div>
+                </div>
+                <ion-toggle
+                  :checked="pushSettings.tasks"
+                  @ionChange="togglePushCategory('tasks')"
+                  class="dn-push-toggle"
+                />
+              </div>
+
+              <!-- 6. PARTNER ONLINE -->
+              <div class="push-toggle-item">
+                <div class="toggle-item-left">
+                  <div class="toggle-icon-wrap online-icon-bg">
+                    <ion-icon :icon="ioniconsPersonOutline" />
+                  </div>
+                  <div class="toggle-item-info">
+                    <span class="toggle-name">Wejście partnera do aplikacji</span>
+                    <span class="toggle-desc">Dyskretny sygnał, gdy partner otwiera DuoNest</span>
+                  </div>
+                </div>
+                <ion-toggle
+                  :checked="pushSettings.partnerOnline"
+                  @ionChange="togglePushCategory('partnerOnline')"
+                  class="dn-push-toggle"
+                />
+              </div>
+            </div>
+
+            <span class="group-title-label mt-label">SYGNALIZACJA I DŹWIĘK</span>
+            <div class="push-toggles-list">
+              <!-- 7. SOUND -->
+              <div class="push-toggle-item">
+                <div class="toggle-item-left">
+                  <div class="toggle-icon-wrap sound-icon-bg">
+                    <ion-icon :icon="ioniconsVolumeMediumOutline" />
+                  </div>
+                  <div class="toggle-item-info">
+                    <span class="toggle-name">Dźwięk powiadomienia</span>
+                    <span class="toggle-desc">Sygnał dźwiękowy przy nowym powiadomieniu</span>
+                  </div>
+                </div>
+                <ion-toggle
+                  :checked="pushSettings.sound"
+                  @ionChange="togglePushCategory('sound')"
+                  class="dn-push-toggle"
+                />
+              </div>
+
+              <!-- 8. VIBRATION -->
+              <div class="push-toggle-item">
+                <div class="toggle-item-left">
+                  <div class="toggle-icon-wrap vibrate-icon-bg">
+                    <ion-icon :icon="ioniconsPhonePortraitOutline" />
+                  </div>
+                  <div class="toggle-item-info">
+                    <span class="toggle-name">Wibracja telefonu</span>
+                    <span class="toggle-desc">Impuls haptyczny przy nadejściu powiadomienia</span>
+                  </div>
+                </div>
+                <ion-toggle
+                  :checked="pushSettings.vibrate"
+                  @ionChange="togglePushCategory('vibrate')"
+                  class="dn-push-toggle"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Test Button -->
+          <div class="push-test-action-wrap">
+            <button
+              type="button"
+              class="push-test-btn"
+              @click="sendTestNotification"
+            >
+              <ion-icon :icon="ioniconsSendOutline" />
+              <span>Wyślij testowe powiadomienie push</span>
+            </button>
+            <span class="test-hint">Sprawdź, jak powiadomienie wyświetla się w pasku powiadomień telefonu</span>
+          </div>
+        </div>
+
+        <!-- 4. POŁĄCZENIE PARY & KOD PAROWANIA -->
         <div class="dn-card pairing-card" v-if="partnership">
           <div class="card-title-row">
             <span class="section-tag pairing-tag">POŁĄCZENIE PARY</span>
@@ -511,95 +806,183 @@
       </div>
 
       <!-- 6. EDIT PROFILE MODAL -->
-      <ion-modal :is-open="isEditProfileModalOpen" @didDismiss="closeEditProfileModal" class="dn-edit-profile-modal">
-        <ion-header>
+      <ion-modal
+        :is-open="isEditProfileModalOpen"
+        @didDismiss="closeEditProfileModal"
+        class="dn-edit-profile-modal"
+        :breakpoints="[0, 0.95, 1]"
+        :initial-breakpoint="0.95"
+        :handle="true"
+      >
+        <ion-header class="modal-custom-header">
           <ion-toolbar>
-            <ion-title>Edycja Twojego Profilu</ion-title>
-            <ion-buttons slot="end">
-              <ion-button @click="closeEditProfileModal">Zamknij</ion-button>
-            </ion-buttons>
+            <div class="modal-header-inner">
+              <div class="modal-title-wrap">
+                <ion-icon :icon="ioniconsPersonOutline" class="modal-title-icon" />
+                <ion-title>Edycja Twojego Profilu</ion-title>
+              </div>
+              <ion-buttons slot="end">
+                <button type="button" class="modal-close-icon-btn" @click="closeEditProfileModal" aria-label="Zamknij">
+                  <ion-icon :icon="ioniconsCloseOutline" />
+                </button>
+              </ion-buttons>
+            </div>
           </ion-toolbar>
         </ion-header>
 
         <ion-content class="ion-padding edit-modal-content">
           <div class="modal-form-wrapper">
-            <div class="edit-intro-banner">
-              <ion-icon :icon="ioniconsSparkles" class="intro-sparkle" />
-              <p>Zmień swoje dane. Twój partner <strong>od razu zobaczy zmiany na żywo</strong> na swoim telefonie!</p>
+            <!-- LIVE AVATAR & IDENTITY BANNER -->
+            <div class="profile-modal-hero">
+              <div
+                class="profile-modal-avatar"
+                :style="{
+                  backgroundColor: currentUserAccentColor,
+                  boxShadow: `0 8px 24px ${hexToRgba(currentUserAccentColor, 0.4)}`
+                }"
+              >
+                <span>{{ (editProfileForm.name || currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
+                <div class="avatar-star-badge">
+                  <ion-icon :icon="ioniconsSparkles" />
+                </div>
+              </div>
+              <div class="profile-modal-hero-text">
+                <h3>{{ editProfileForm.name || 'Twój Profil' }}</h3>
+                <span class="live-sync-pill">
+                  <span class="live-dot"></span>
+                  Widoczne dla partnera na żywo
+                </span>
+              </div>
             </div>
 
-            <!-- Imię / Pseudonim -->
-            <div class="form-group">
-              <label class="form-label">Twoje imię lub pseudonim</label>
-              <ion-input
-                v-model="editProfileForm.name"
-                placeholder="np. Dawid, Kasia..."
-                class="dn-styled-input"
-                :clear-input="true"
-              />
+            <!-- GROUP 1: TWOJE IMIĘ -->
+            <div class="modal-section-card">
+              <div class="section-card-header">
+                <span class="mini-section-tag">TOŻSAMOŚĆ</span>
+                <label class="form-label">Twoje imię lub pseudonim</label>
+              </div>
+              <div class="input-with-icon-wrap">
+                <ion-icon :icon="ioniconsPersonOutline" class="input-leading-icon" />
+                <ion-input
+                  v-model="editProfileForm.name"
+                  placeholder="np. Dawid, Kasia..."
+                  class="dn-styled-input"
+                  :clear-input="true"
+                />
+              </div>
             </div>
 
-            <!-- Czuła wiadomość / motto dla partnera -->
-            <div class="form-group">
-              <label class="form-label">Czuła wiadomość / motto dla partnera</label>
-              <ion-textarea
-                v-model="editProfileForm.love_note"
-                placeholder="np. Zawsze przy Tobie! / Najlepszy dzień to ten spędzony z Tobą..."
-                class="dn-styled-textarea"
-                :rows="2"
-                :auto-grow="true"
-              />
-            </div>
+            <!-- GROUP 2: KĄCIK UCZUĆ / LOVE NOTE -->
+            <div class="modal-section-card">
+              <div class="section-card-header">
+                <span class="mini-section-tag tag-love">CZUŁOŚĆ</span>
+                <label class="form-label">Czuła wiadomość / Twoje motto</label>
+              </div>
+              <p class="section-micro-desc">Partner widzi tę wiadomość w nagłówku Twojego profilu.</p>
 
-            <!-- Ulubiony napój -->
-            <div class="form-group">
-              <label class="form-label">Ulubiony napój (by partner wiedział co przynieść)</label>
-              <ion-input
-                v-model="editProfileForm.favorite_drink"
-                placeholder="np. Kawa z mlekiem owsianym, Matcha latte..."
-                class="dn-styled-input"
-                :clear-input="true"
-              />
-              <div class="quick-chips-row">
+              <div class="textarea-with-icon-wrap">
+                <DuoIcon name="quote" :size="16" class="textarea-leading-icon" />
+                <ion-textarea
+                  v-model="editProfileForm.love_note"
+                  placeholder="np. Zawsze przy Tobie! / Dziękuję, że jesteś..."
+                  class="dn-styled-textarea"
+                  :rows="2"
+                  :auto-grow="true"
+                />
+              </div>
+
+              <!-- Quick Love Note Suggestions -->
+              <div class="quick-chips-row mt-chips">
+                <span class="chips-mini-label">Inspiracje:</span>
                 <button
                   type="button"
-                  v-for="drink in quickDrinkSuggestions"
-                  :key="drink"
-                  class="chip-btn"
-                  @click="editProfileForm.favorite_drink = drink"
+                  v-for="note in quickLoveNoteSuggestions"
+                  :key="note"
+                  class="chip-btn love-chip"
+                  :class="{ active: editProfileForm.love_note === note }"
+                  @click="editProfileForm.love_note = note"
                 >
-                  {{ drink }}
+                  {{ note }}
                 </button>
               </div>
             </div>
 
-            <!-- Ulubiona przekąska / słodycz -->
-            <div class="form-group">
-              <label class="form-label">Ulubiona przekąska / słodycz</label>
-              <ion-input
-                v-model="editProfileForm.favorite_treat"
-                placeholder="np. Pistacje, Czekolada z solą morską, Sernik..."
-                class="dn-styled-input"
-                :clear-input="true"
-              />
-              <div class="quick-chips-row">
-                <button
-                  type="button"
-                  v-for="treat in quickTreatSuggestions"
-                  :key="treat"
-                  class="chip-btn"
-                  @click="editProfileForm.favorite_treat = treat"
-                >
-                  {{ treat }}
-                </button>
+            <!-- GROUP 3: ŚCIĄGAWKA DLA PARTNERA (PREFERENCJE) -->
+            <div class="modal-section-card">
+              <div class="section-card-header">
+                <span class="mini-section-tag tag-prefs">ŚCIĄGAWKA DLA PARTNERA</span>
+                <label class="form-label">Co najbardziej lubisz?</label>
+              </div>
+              <p class="section-micro-desc">
+                Partner od razu wie, jaką kawę kupić lub czym osłodzić Ci trudniejszy dzień!
+              </p>
+
+              <!-- Ulubiony napój -->
+              <div class="pref-subfield">
+                <span class="subfield-title">
+                  <DuoIcon name="drink" :size="15" />
+                  <span>Ulubiony napój</span>
+                </span>
+                <div class="input-with-icon-wrap">
+                  <ion-input
+                    v-model="editProfileForm.favorite_drink"
+                    placeholder="np. Kawa z mlekiem owsianym, Matcha..."
+                    class="dn-styled-input"
+                    :clear-input="true"
+                  />
+                </div>
+                <div class="quick-chips-row">
+                  <button
+                    type="button"
+                    v-for="drink in quickDrinkSuggestions"
+                    :key="drink"
+                    class="chip-btn"
+                    :class="{ active: editProfileForm.favorite_drink === drink }"
+                    @click="editProfileForm.favorite_drink = drink"
+                  >
+                    {{ drink }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Ulubiony smakołyk -->
+              <div class="pref-subfield mt-subfield">
+                <span class="subfield-title">
+                  <DuoIcon name="treat" :size="15" />
+                  <span>Ulubiony smakołyk / przekąska</span>
+                </span>
+                <div class="input-with-icon-wrap">
+                  <ion-input
+                    v-model="editProfileForm.favorite_treat"
+                    placeholder="np. Pistacje, Czekolada z solą morską..."
+                    class="dn-styled-input"
+                    :clear-input="true"
+                  />
+                </div>
+                <div class="quick-chips-row">
+                  <button
+                    type="button"
+                    v-for="treat in quickTreatSuggestions"
+                    :key="treat"
+                    class="chip-btn"
+                    :class="{ active: editProfileForm.favorite_treat === treat }"
+                    @click="editProfileForm.favorite_treat = treat"
+                  >
+                    {{ treat }}
+                  </button>
+                </div>
               </div>
             </div>
 
-            <!-- Save Button -->
+            <!-- Save Action Button -->
             <div class="modal-actions-row">
-              <button class="dn-button-sea save-all-profile-btn" @click="handleSaveProfile" :disabled="!editProfileForm.name.trim()">
+              <button
+                class="dn-button-sea save-all-profile-btn"
+                @click="handleSaveProfile"
+                :disabled="!editProfileForm.name.trim()"
+              >
                 <ion-icon :icon="ioniconsCheckmarkDoneOutline" />
-                <span>Zapisz dane profilu</span>
+                <span>Zapisz zmiany w profilu</span>
               </button>
             </div>
           </div>
@@ -616,6 +999,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import confetti from 'canvas-confetti'
 import { useDuoState } from '~/composables/useDuoState'
+import { usePushNotifications } from '~/composables/usePushNotifications'
 import DuoIcon from '~/components/DuoIcon.vue'
 
 const route = useRoute()
@@ -643,6 +1027,17 @@ const {
   triggerToast
 } = useDuoState()
 
+const {
+  isSupported: isPushSupported,
+  permission: pushPermission,
+  isPushEnabled,
+  pushSettings,
+  requestPermission: requestPushPermission,
+  toggleMasterPush,
+  toggleCategory: togglePushCategory,
+  sendTestNotification
+} = usePushNotifications()
+
 const currentCategory = ref<'relationship' | 'nest_settings'>(
   route.query.category === 'nest_settings' ? 'nest_settings' : 'relationship'
 )
@@ -662,6 +1057,32 @@ watch(() => partnership.value?.nest_name, (newName) => {
 })
 watch(() => partnership.value?.anniversary_date, (newDate) => {
   if (newDate) anniversaryInput.value = newDate
+})
+
+// Nest name suggestions
+const nestNameSuggestions = [
+  'Nasze Ciepłe Gniazdko',
+  'Zamek Miłości',
+  'Oaza Spokoju',
+  'Bezpieczny Port',
+  'Przystań Marzeń'
+]
+
+const formattedAnniversaryDisplay = computed(() => {
+  if (!anniversaryInput.value) return ''
+  try {
+    const parts = anniversaryInput.value.split('-')
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10)
+      const month = parseInt(parts[1], 10) - 1
+      const day = parseInt(parts[2], 10)
+      const d = new Date(year, month, day)
+      return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' })
+    }
+    return anniversaryInput.value
+  } catch (_) {
+    return anniversaryInput.value
+  }
 })
 
 const handleSaveNestSettings = async () => {
@@ -707,8 +1128,30 @@ const editProfileForm = ref({
   favorite_treat: ''
 })
 
-const quickDrinkSuggestions = ['Kawa z mlekiem', 'Kawa owsiana', 'Matcha latte', 'Herbata Earl Grey', 'Woda z cytryną']
-const quickTreatSuggestions = ['Czekolada pistacjowa', 'Pistacje', 'Żelki malinowe', 'Sernik', 'Truskawki']
+const quickLoveNoteSuggestions = [
+  'Zawsze przy Tobie ❤️',
+  'Mój ulubiony człowiek! 🥰',
+  'Dziękuję, że jesteś ✨',
+  'Tęsknię za Tobą! 💌',
+  'Najlepsze chwile to te z Tobą 💫'
+]
+
+const quickDrinkSuggestions = [
+  '☕ Kawa z mlekiem',
+  '🥛 Kawa owsiana',
+  '🍵 Matcha latte',
+  '🍋 Woda z cytryną',
+  '🥤 Świeży sok'
+]
+
+const quickTreatSuggestions = [
+  '🍫 Czekolada pistacjowa',
+  '🥜 Solone pistacje',
+  '🥐 Ciepły rogalik',
+  '🍰 Kremowy sernik',
+  '🍓 Świeże truskawki',
+  '🍬 Malinowe żelki'
+]
 
 const openEditProfileModal = () => {
   editProfileForm.value = {
@@ -947,9 +1390,17 @@ const handleRefresh = (event: any) => {
 .custom-note-input {
   --background: #f8fafc;
   --padding-start: 14px;
+  --border-radius: 12px;
   border-radius: 12px;
+  overflow: hidden;
   border: 1px solid #e2e8f0;
   font-size: 13px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.custom-note-input:focus-within {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
 }
 
 .save-mood-btn {
@@ -1282,12 +1733,20 @@ const handleRefresh = (event: any) => {
   flex: 1;
   --background: #f8fafc;
   --padding-start: 14px;
+  --border-radius: 12px;
   border-radius: 12px;
+  overflow: hidden;
   border: 1px solid #e2e8f0;
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.partner-code-input:focus-within {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
 }
 
 .join-submit-btn {
@@ -1652,137 +2111,490 @@ const handleRefresh = (event: any) => {
   padding-bottom: 24px;
 }
 
-.edit-intro-banner {
-  background: linear-gradient(135deg, #f0f9ff 0%, #f0fdfa 100%);
-  border: 1px solid #bae6fd;
-  border-radius: 14px;
-  padding: 12px 14px;
+/* ========================================================== */
+/* SEKCJA INFORMACJI O GNIAZDKU (NEST CONFIG CARD)           */
+/* ========================================================== */
+.nest-config-card {
+  border-left: 4px solid #f43f5e;
+  position: relative;
+  overflow: hidden;
+}
+
+.nest-section-tag {
+  color: #f43f5e !important;
+}
+
+.nest-hero-banner {
+  background: linear-gradient(135deg, #fff1f2 0%, #f0fdfa 100%);
+  border: 1px solid #ffe4e6;
+  border-radius: 16px;
+  padding: 14px 16px;
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.intro-sparkle {
-  color: #0284c7;
-  font-size: 20px;
-  margin-top: 2px;
-  flex-shrink: 0;
-}
-
-.edit-intro-banner p {
-  font-size: 13px;
-  color: #0369a1;
-  margin: 0;
-  line-height: 1.4;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.form-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: #334155;
-}
-
-.dn-styled-input {
-  --background: #ffffff;
-  --padding-start: 14px;
-  --padding-end: 14px;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.dn-styled-textarea {
-  --background: #ffffff;
-  --padding-start: 14px;
-  --padding-end: 14px;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  font-size: 14px;
-}
-
-.avatar-palette-grid {
-  display: flex;
-  gap: 12px;
   align-items: center;
-  flex-wrap: wrap;
+  gap: 14px;
+  margin: 12px 0 16px 0;
 }
 
-.color-pick-circle {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  border: 3px solid transparent;
-  cursor: pointer;
+.nest-hero-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+  font-size: 22px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.35);
+}
+
+.nest-hero-text h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.nest-hero-text p {
+  margin: 2px 0 0 0;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.label-with-hint {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.field-hint {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.input-with-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-leading-icon {
+  position: absolute;
+  left: 12px;
+  font-size: 18px;
+  color: #0284c7;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.input-with-icon-wrap .dn-styled-input {
+  width: 100%;
+  --padding-start: 38px;
+  --padding-end: 14px;
+  --background: #ffffff;
+  --border-radius: 14px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1.5px solid #e2e8f0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
   transition: all 0.2s ease;
 }
 
-.color-pick-circle.active {
-  border-color: #0f172a;
-  transform: scale(1.15);
+.input-with-icon-wrap .dn-styled-input:focus-within {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
 }
 
-.color-check-icon {
-  color: #ffffff;
-  font-size: 18px;
-  font-weight: 800;
+.textarea-with-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
 }
 
+.textarea-leading-icon {
+  position: absolute;
+  left: 12px;
+  top: 14px;
+  color: #f43f5e;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.textarea-with-icon-wrap .dn-styled-textarea {
+  width: 100%;
+  --padding-start: 38px;
+  --padding-end: 14px;
+  --background: #ffffff;
+  --border-radius: 14px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1.5px solid #e2e8f0;
+  font-size: 13.5px;
+  color: #0f172a;
+  line-height: 1.45;
+  transition: all 0.2s ease;
+}
+
+.textarea-with-icon-wrap .dn-styled-textarea:focus-within {
+  border-color: #f43f5e;
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.14);
+}
+
+/* Chips styling */
 .quick-chips-row {
   display: flex;
+  align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  margin-top: 4px;
+  margin-top: 8px;
+}
+
+.chips-mini-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-right: 2px;
 }
 
 .chip-btn {
-  background: #f1f5f9;
+  background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 11px;
+  border-radius: 9999px;
+  padding: 5px 11px;
+  font-size: 11.5px;
   font-weight: 600;
   color: #475569;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chip-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.chip-btn.active {
+  background: #e0f2fe;
+  color: #0284c7;
+  border-color: #7dd3fc;
+  font-weight: 700;
+}
+
+.chip-btn.love-chip:hover {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #e11d48;
+}
+
+.chip-btn.love-chip.active {
+  background: #ffe4e6;
+  color: #e11d48;
+  border-color: #fda4af;
+}
+
+/* Milestone Preview Box */
+.anniversary-milestone-box {
+  margin-top: 10px;
+  background: linear-gradient(135deg, #fff1f2 0%, #fffbeb 100%);
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: fadeInMilestone 0.25s ease;
+}
+
+@keyframes fadeInMilestone {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.milestone-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #f43f5e;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  box-shadow: 0 3px 8px rgba(244, 63, 94, 0.3);
+}
+
+.milestone-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.milestone-title {
+  font-size: 12.5px;
+  color: #9a3412;
+}
+
+.milestone-subtitle {
+  font-size: 12px;
+  color: #7c2d12;
+}
+
+.anniversary-empty-hint {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+}
+
+.anniversary-empty-hint ion-icon {
+  color: #f59e0b;
+}
+
+/* ========================================================== */
+/* MODAL EDYCJI PROFILU (EDIT PROFILE MODAL)                  */
+/* ========================================================== */
+ion-modal.dn-edit-profile-modal {
+  --border-radius: 28px 28px 0 0;
+  --background: #ffffff;
+  --box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
+}
+
+.modal-custom-header ion-toolbar {
+  --background: #ffffff;
+  --border-width: 0;
+  padding: 4px 8px;
+}
+
+.modal-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 4px;
+}
+
+.modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-title-icon {
+  font-size: 20px;
+  color: #0284c7;
+}
+
+.modal-title-wrap ion-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+  padding: 0;
+}
+
+.modal-close-icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: #f1f5f9;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.chip-btn:active {
+.modal-close-icon-btn:hover {
   background: #e2e8f0;
   color: #0f172a;
 }
 
-.nest-subform-box {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.edit-modal-content {
+  --background: #f8fafc;
 }
 
-.subform-header {
+.modal-form-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 24px;
+}
+
+/* Profile Modal Hero Banner */
+.profile-modal-hero {
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  padding: 16px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.profile-modal-avatar {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
   font-weight: 800;
+  flex-shrink: 0;
+}
+
+.avatar-star-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 22px;
+  height: 22px;
+  background: #ffffff;
+  color: #0284c7;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.profile-modal-hero-text h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.live-sync-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0d9488;
+  background: #ccfbf1;
+  border: 1px solid #99f6e4;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  margin-top: 4px;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #0d9488;
+  animation: pulseLive 1.5s infinite;
+}
+
+@keyframes pulseLive {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* Modal Section Card */
+.modal-section-card {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.section-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.mini-section-tag {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: #0284c7;
 }
 
-.modal-actions-row {
+.mini-section-tag.tag-love {
+  color: #f43f5e;
+}
+
+.mini-section-tag.tag-prefs {
+  color: #0d9488;
+}
+
+.section-micro-desc {
+  margin: 0 0 10px 0;
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.mt-chips {
   margin-top: 10px;
+}
+
+.pref-subfield {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pref-subfield.mt-subfield {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.subfield-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+/* Save Button */
+.save-all-profile-btn {
+  width: 100%;
+  padding: 15px 20px;
+  border-radius: 16px;
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.3);
+}
+
+.save-all-profile-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .save-all-profile-btn {
@@ -2057,5 +2869,294 @@ const handleRefresh = (event: any) => {
 .sample-avatar-desc {
   font-size: 12px;
   color: #64748b;
+}
+
+/* ========================================================== */
+/* PUSH NOTIFICATIONS SETTINGS CARD STYLING                   */
+/* ========================================================== */
+.push-settings-card {
+  border-left: 4px solid #0284c7;
+}
+
+.push-section-tag {
+  color: #0284c7 !important;
+}
+
+.push-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.push-status-pill.is-active {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: #bbf7d0;
+}
+
+.push-status-pill.is-waiting {
+  background: #fefce8;
+  color: #ca8a04;
+  border-color: #fef08a;
+}
+
+.push-status-pill.is-denied {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.push-status-pill.is-disabled {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
+/* Master toggle box */
+.push-master-toggle-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.master-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.master-toggle-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0284c7 0%, #0d9488 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+}
+
+.master-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.master-toggle-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.master-toggle-subtitle {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.dn-push-toggle {
+  --track-background-checked: #0284c7;
+  --handle-background-checked: #ffffff;
+}
+
+/* Denied Alert */
+.push-denied-box {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.denied-icon {
+  font-size: 20px;
+  color: #ea580c;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.denied-content strong {
+  display: block;
+  font-size: 13px;
+  color: #9a3412;
+  margin-bottom: 2px;
+}
+
+.denied-content p {
+  margin: 0;
+  font-size: 12px;
+  color: #7c2d12;
+  line-height: 1.4;
+}
+
+/* Prompt Box */
+.push-prompt-box {
+  margin-bottom: 16px;
+}
+
+.request-perm-btn {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Granular Section */
+.push-granularity-section {
+  margin-top: 18px;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 16px;
+}
+
+.group-title-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #0284c7;
+  margin-bottom: 2px;
+}
+
+.group-title-label.mt-label {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.group-sub-desc {
+  font-size: 12.5px;
+  color: #64748b;
+  margin: 0 0 12px 0;
+}
+
+.push-toggles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.push-toggle-item {
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+  border-radius: 14px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  transition: all 0.15s ease;
+}
+
+.push-toggle-item:hover {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.toggle-item-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.toggle-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.love-icon-bg { background: #ffe4e6; color: #f43f5e; }
+.mood-icon-bg { background: #f3e8ff; color: #8b5cf6; }
+.calendar-icon-bg { background: #eef2ff; color: #6366f1; }
+.shopping-icon-bg { background: #ccfbf1; color: #0d9488; }
+.tasks-icon-bg { background: #e0f2fe; color: #0284c7; }
+.online-icon-bg { background: #dcfce7; color: #16a34a; }
+.sound-icon-bg { background: #fef3c7; color: #d97706; }
+.vibrate-icon-bg { background: #f1f5f9; color: #475569; }
+
+.toggle-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.toggle-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.toggle-desc {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.3;
+}
+
+/* Test Button */
+.push-test-action-wrap {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed #e2e8f0;
+  text-align: center;
+}
+
+.push-test-btn {
+  background: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-size: 13.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.push-test-btn:hover {
+  background: #e0f2fe;
+}
+
+.push-test-btn:active {
+  transform: scale(0.98);
+}
+
+.test-hint {
+  display: block;
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 6px;
 }
 </style>

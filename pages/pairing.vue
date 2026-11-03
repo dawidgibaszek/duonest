@@ -236,9 +236,11 @@ import QRCode from 'qrcode'
 import { Html5Qrcode } from 'html5-qrcode'
 import confetti from 'canvas-confetti'
 import { useDuoState } from '~/composables/useDuoState'
+import { usePushNotifications } from '~/composables/usePushNotifications'
 
 const {
   currentUser,
+  partnerUser,
   isPaired,
   updateMyName,
   pairWithCode,
@@ -246,6 +248,8 @@ const {
   signOutUser,
   triggerToast
 } = useDuoState()
+
+const { askPermissionAfterPairing } = usePushNotifications()
 
 const handleSignOut = async () => {
   await signOutUser()
@@ -259,6 +263,7 @@ watch(isPaired, (paired) => {
       origin: { y: 0.6 },
       colors: ['#0284c7', '#0ea5e9', '#0d9488', '#38bdf8']
     })
+    askPermissionAfterPairing(partnerUser.value?.name || 'Partner')
     setTimeout(() => {
       navigateTo('/tabs/nest', { replace: true })
     }, 600)
@@ -735,10 +740,18 @@ onUnmounted(() => {
   flex: 1;
   --background: #f8fafc;
   --padding-start: 12px;
+  --border-radius: 12px;
   border-radius: 12px;
+  overflow: hidden;
   border: 1px solid #e2e8f0;
   font-size: 14px;
   font-weight: 600;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.name-input:focus-within {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
 }
 
 .save-name-btn {
@@ -977,12 +990,20 @@ onUnmounted(() => {
   flex: 1;
   --background: #f8fafc;
   --padding-start: 14px;
+  --border-radius: 12px;
   border-radius: 12px;
+  overflow: hidden;
   border: 1px solid #e2e8f0;
   font-size: 16px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.partner-code-input:focus-within {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
 }
 
 .pair-action-btn {
@@ -1012,10 +1033,18 @@ onUnmounted(() => {
 .partner-name-input-styled {
   --background: #f8fafc;
   --padding-start: 12px;
+  --border-radius: 10px;
   border-radius: 10px;
+  overflow: hidden;
   border: 1px solid #e2e8f0;
   font-size: 14px;
   font-weight: 600;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.partner-name-input-styled:focus-within {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
 }
 
 .error-msg {

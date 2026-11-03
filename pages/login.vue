@@ -393,6 +393,7 @@ const handleSubmit = async () => {
   background: #f8fafc;
   border: 1.5px solid #e2e8f0;
   border-radius: 14px;
+  overflow: hidden;
   padding: 0 14px;
   transition: all 0.2s ease;
 }

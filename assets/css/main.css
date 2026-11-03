@@ -195,3 +195,27 @@ ion-toolbar {
   background: #cbd5e1;
   border-radius: 4px;
 }
+
+/* Global DuoNest Input & Textarea Enhancements (Clean rounded corners, no clipped borders) */
+ion-input,
+ion-textarea {
+  --highlight-height: 0px !important;
+  --highlight-color-focused: transparent !important;
+  overflow: hidden;
+}
+
+ion-input .input-wrapper,
+ion-textarea .textarea-wrapper {
+  border-radius: inherit !important;
+  overflow: hidden;
+}
+
+ion-input .native-wrapper,
+ion-textarea .native-wrapper {
+  border-radius: inherit;
+}
+
+.input-highlight {
+  display: none !important;
+}
+

@@ -27,9 +27,14 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
+    // Server-only keys (not exposed to client browser)
+    vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || '',
+    vapidSubject: process.env.VAPID_SUBJECT || 'mailto:kontakt@duonest.app',
+
     public: {
       supabaseUrl: process.env.SUPABASE_URL || process.env.NUXT_PUBLIC_SUPABASE_URL || ('https://' + 'hfvgobhxiuchchblaajq.supabase.co'),
-      supabaseKey: process.env.SUPABASE_KEY || process.env.NUXT_PUBLIC_SUPABASE_KEY || ['sb_publishable_', 'kQsFx4GuieBdbGJaEl3eDg_', 'RE0FD9lR'].join('')
+      supabaseKey: process.env.SUPABASE_KEY || process.env.NUXT_PUBLIC_SUPABASE_KEY || ['sb_publishable_', 'kQsFx4GuieBdbGJaEl3eDg_', 'RE0FD9lR'].join(''),
+      vapidPublicKey: process.env.VAPID_PUBLIC_KEY || process.env.NUXT_PUBLIC_VAPID_PUBLIC_KEY || ''
     }
   },
 
@@ -70,7 +75,8 @@ export default defineNuxtConfig({
     },
     workbox: {
       navigateFallback: '/',
-      globPatterns: ['**/*.{js,css,html,png,svg,ico}']
+      globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
+      importScripts: ['/sw-push.js']
     },
     devOptions: {
       enabled: false,

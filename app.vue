@@ -1,26 +1,26 @@
 <template>
   <ion-app>
     <ion-router-outlet />
-    <!-- Global DuoNest Toast Notification -->
-    <ion-toast
-      :is-open="!!activeToastMessage"
-      :message="activeToastMessage || ''"
-      :duration="3000"
-      position="top"
-      color="primary"
-      @did-dismiss="activeToastMessage = null"
-    />
+    <!-- Global DuoNest Enhanced Toast with Mobile Swipe Gesture Dismissal -->
+    <DuoToast />
+    <!-- Post-Pairing One-Time Push Permission Prompt -->
+    <DuoPushPromptModal />
   </ion-app>
 </template>
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useDuoState } from '~/composables/useDuoState'
+import { usePushNotifications } from '~/composables/usePushNotifications'
+import DuoToast from '~/components/DuoToast.vue'
+import DuoPushPromptModal from '~/components/DuoPushPromptModal.vue'
 
-const { activeToastMessage, initSupabaseSync } = useDuoState()
+const { initSupabaseSync } = useDuoState()
+const { initPushNotifications } = usePushNotifications()
 
 onMounted(() => {
   initSupabaseSync()
+  initPushNotifications()
 })
 </script>
 

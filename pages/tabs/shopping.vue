@@ -316,19 +316,35 @@ const handleRefresh = (event: any) => {
   --background: #f8fafc;
   --padding-start: 14px;
   --padding-end: 14px;
+  --border-radius: 12px;
   border-radius: 12px;
+  overflow: hidden;
   border: 1px solid #e2e8f0;
   font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.custom-ion-input:focus-within {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
 }
 
 .qty-input {
   flex: 1;
   --background: #f8fafc;
   --padding-start: 12px;
+  --border-radius: 12px;
   border-radius: 12px;
+  overflow: hidden;
   border: 1px solid #e2e8f0;
   font-size: 14px;
   max-width: 90px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.qty-input:focus-within {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
 }
 
 .category-select-scroll {

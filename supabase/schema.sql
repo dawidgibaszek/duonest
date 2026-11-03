@@ -107,6 +107,20 @@ create table if not exists public.nudges (
   created_at timestamptz default now()
 );
 
+-- 8. MILESTONES (Wspólne cele & Nagrody za punkty)
+create table if not exists public.milestones (
+  id text primary key,
+  partnership_id text not null,
+  title text not null,
+  description text,
+  target_points integer not null default 100,
+  assigned_to text,
+  is_completed boolean not null default false,
+  completed_at timestamptz,
+  created_by text,
+  created_at timestamptz default now()
+);
+
 -- ==========================================================
 -- INDEXES FOR FAST REALTIME QUERIES
 -- ==========================================================
@@ -117,6 +131,7 @@ create index if not exists idx_tasks_partnership on public.tasks(partnership_id)
 create index if not exists idx_events_partnership on public.events(partnership_id);
 create index if not exists idx_moods_partnership on public.mood_logs(partnership_id);
 create index if not exists idx_nudges_partnership on public.nudges(partnership_id);
+create index if not exists idx_milestones_partnership on public.milestones(partnership_id);
 
 -- ==========================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -128,6 +143,7 @@ alter table public.tasks enable row level security;
 alter table public.events enable row level security;
 alter table public.mood_logs enable row level security;
 alter table public.nudges enable row level security;
+alter table public.milestones enable row level security;
 
 -- Open policies for anon & authenticated couple access
 drop policy if exists "Allow all on profiles" on public.profiles;
@@ -150,6 +166,9 @@ create policy "Allow all on mood_logs" on public.mood_logs for all using (true) 
 
 drop policy if exists "Allow all on nudges" on public.nudges;
 create policy "Allow all on nudges" on public.nudges for all using (true) with check (true);
+
+drop policy if exists "Allow all on milestones" on public.milestones;
+create policy "Allow all on milestones" on public.milestones for all using (true) with check (true);
 
 -- ==========================================================
 -- ENABLE REALTIME REPLICATION ON ALL TABLES
@@ -195,3 +214,32 @@ begin
   alter publication supabase_realtime add table public.nudges;
 exception when others then null;
 end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.milestones;
+exception when others then null;
+end $$;
+
+-- ==========================================================
+-- 8. PUSH NOTIFICATION SUBSCRIPTIONS (Web Push API)
+-- ==========================================================
+create table if not exists public.push_subscriptions (
+  id text primary key default gen_random_uuid()::text,
+  user_id text not null,
+  partnership_id text,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  user_agent text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_push_user on public.push_subscriptions(user_id);
+create index if not exists idx_push_partnership on public.push_subscriptions(partnership_id);
+
+alter table public.push_subscriptions enable row level security;
+drop policy if exists "Allow all on push_subscriptions" on public.push_subscriptions;
+create policy "Allow all on push_subscriptions" on public.push_subscriptions for all using (true) with check (true);
+

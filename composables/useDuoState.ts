@@ -82,6 +82,19 @@ export interface NudgeItem {
   created_at: string
 }
 
+export interface NestMilestone {
+  id: string
+  partnership_id?: string
+  title: string
+  description?: string
+  target_points: number
+  assigned_to?: string | null
+  is_completed: boolean
+  completed_at?: string | null
+  created_by?: string | null
+  created_at: string
+}
+
 // Helpers for unique code generation
 const generateUniqueCode = () => {
   const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'
@@ -163,6 +176,7 @@ const shoppingItems = ref<ShoppingItem[]>([])
 const tasksList = ref<TaskItem[]>([])
 const eventsList = ref<EventItem[]>([])
 const nudgesList = ref<NudgeItem[]>([])
+const milestonesList = ref<NestMilestone[]>([])
 
 const isOnlineWithSupabase = ref(true)
 const realtimeStatus = ref<'connected' | 'connecting' | 'disconnected'>('disconnected')
@@ -180,7 +194,61 @@ if (typeof window !== 'undefined' && !nudgeTickerInterval) {
   }, 5000)
 }
 
+// Enhanced DuoNest Toast Types & Reactive State
+export type ToastType = 'success' | 'love' | 'points' | 'calendar' | 'shopping' | 'tasks' | 'mood' | 'info' | 'warning'
+
+export interface DuoToastItem {
+  id: string
+  message: string
+  title: string
+  type: ToastType
+  duration: number
+}
+
+export const inferToastMetadata = (msg: string): { title: string; type: ToastType } => {
+  const m = msg.toLowerCase()
+  if (m.includes('pkt') || m.includes('punkt') || m.includes('zrealizowane') || m.includes('gratulacje')) {
+    return { title: 'Gniazdko & Punkty', type: 'points' }
+  }
+  if (m.includes('gest') || m.includes('puknięcie') || m.includes('pocałunek') || m.includes('przytulas') || m.includes('miłość') || m.includes('serce') || m.includes('partner') || m.includes('sparowan')) {
+    return { title: 'Bliskość & Relacja', type: 'love' }
+  }
+  if (m.includes('nastrój') || m.includes('samopoczucie')) {
+    return { title: 'Nastrój Partnera', type: 'mood' }
+  }
+  if (m.includes('plan') || m.includes('terminarz') || m.includes('kalendarz') || m.includes('wydarzenie')) {
+    return { title: 'Wspólny Terminarz', type: 'calendar' }
+  }
+  if (m.includes('zakup') || m.includes('koszyk')) {
+    return { title: 'Lista Zakupów', type: 'shopping' }
+  }
+  if (m.includes('zadani') || m.includes('obowiązk')) {
+    return { title: 'Zadania Domowe', type: 'tasks' }
+  }
+  if (m.includes('rozłączono') || m.includes('nie rozpoznano') || m.includes('błąd') || m.includes('uwaga') || m.includes('nie powiodło')) {
+    return { title: 'Powiadomienie', type: 'warning' }
+  }
+  return { title: 'DuoNest', type: 'success' }
+}
+
 const activeToastMessage = ref<string | null>(null)
+const activeToastItem = ref<DuoToastItem | null>(null)
+
+// Two-way synchronization for activeToastMessage
+watch(activeToastMessage, (val) => {
+  if (!val) {
+    activeToastItem.value = null
+  } else if (!activeToastItem.value || activeToastItem.value.message !== val) {
+    const inferred = inferToastMetadata(val)
+    activeToastItem.value = {
+      id: 'toast_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      message: val,
+      title: inferred.title,
+      type: inferred.type,
+      duration: 4000
+    }
+  }
+})
 const isStateInitialized = ref(false)
 
 const currentUserPasswordHash = ref<string>(
@@ -342,6 +410,16 @@ export const useDuoState = () => {
 
     const savedNudges = loadFromStorage<NudgeItem[]>('duonest_nudges', [])
     if (savedNudges.length > 0) nudgesList.value = savedNudges
+
+    const savedMilestones = loadFromStorage<NestMilestone[]>('duonest_milestones', [])
+    if (savedMilestones && savedMilestones.length > 0) {
+      milestonesList.value = savedMilestones.filter(m => !['m_pizza_night', 'm_massage', 'm_day_off', 'm_date_night'].includes(m.id))
+      if (milestonesList.value.length !== savedMilestones.length) {
+        saveToStorage('duonest_milestones', milestonesList.value)
+      }
+    } else {
+      milestonesList.value = []
+    }
 
     if (typeof window !== 'undefined' && currentUser.value?.id) {
       try {
@@ -762,6 +840,7 @@ export const useDuoState = () => {
     saveToStorage('duonest_tasks', tasksList.value)
     saveToStorage('duonest_events', eventsList.value)
     saveToStorage('duonest_nudges', nudgesList.value)
+    saveToStorage('duonest_milestones', milestonesList.value)
   }
 
   // Broadcast an action to the partner via Supabase Realtime WebSocket
@@ -785,12 +864,35 @@ export const useDuoState = () => {
     }
   }
 
-  // Toast feedback helper
-  const triggerToast = (msg: string) => {
-    activeToastMessage.value = msg
-    setTimeout(() => {
-      if (activeToastMessage.value === msg) activeToastMessage.value = null
-    }, 4000)
+  // Toast feedback helpers with gesture dismiss support & rich metadata
+  const dismissToast = () => {
+    activeToastItem.value = null
+    activeToastMessage.value = null
+  }
+
+  const triggerToast = (
+    msgOrPayload: string | { message: string; title?: string; type?: ToastType; duration?: number },
+    options?: { title?: string; type?: ToastType; duration?: number }
+  ) => {
+    const rawMsg = typeof msgOrPayload === 'string' ? msgOrPayload : msgOrPayload.message
+    if (!rawMsg) {
+      dismissToast()
+      return
+    }
+
+    const inferred = inferToastMetadata(rawMsg)
+    const title = (typeof msgOrPayload === 'object' && msgOrPayload.title) || options?.title || inferred.title
+    const type = (typeof msgOrPayload === 'object' && msgOrPayload.type) || options?.type || inferred.type
+    const duration = (typeof msgOrPayload === 'object' && msgOrPayload.duration) || options?.duration || 4200
+
+    activeToastMessage.value = rawMsg
+    activeToastItem.value = {
+      id: 'toast_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      message: rawMsg,
+      title,
+      type,
+      duration
+    }
   }
 
   // --- REALTIME SUBSCRIPTION FOR PAIRED PARTNERS ---
@@ -983,6 +1085,56 @@ export const useDuoState = () => {
           break
         }
 
+        // --- MILESTONES & REWARDS ---
+        case 'MILESTONE_ADD': {
+          if (data && !milestonesList.value.some(m => m.id === data.id)) {
+            milestonesList.value.push(data)
+            syncToStorage()
+            triggerToast(`Partner dodał nowy wspólny cel: ${data.title}! 🎯`)
+          }
+          break
+        }
+        case 'MILESTONE_UPDATE': {
+          if (data?.id) {
+            const m = milestonesList.value.find(i => i.id === data.id)
+            if (m) {
+              Object.assign(m, data.updates)
+              syncToStorage()
+            }
+          }
+          break
+        }
+        case 'MILESTONE_DELETE': {
+          if (data?.id) {
+            milestonesList.value = milestonesList.value.filter(i => i.id !== data.id)
+            syncToStorage()
+          }
+          break
+        }
+        case 'MILESTONE_CLAIM': {
+          if (data?.id) {
+            const m = milestonesList.value.find(i => i.id === data.id)
+            if (m) {
+              m.is_completed = true
+              m.completed_at = data.completed_at || new Date().toISOString()
+              syncToStorage()
+              triggerToast(`Wspólna nagroda została odebrana: ${m.title}! 🎉`)
+            }
+          }
+          break
+        }
+        case 'MILESTONE_REACTIVATE': {
+          if (data?.id) {
+            const m = milestonesList.value.find(i => i.id === data.id)
+            if (m) {
+              m.is_completed = false
+              m.completed_at = null
+              syncToStorage()
+            }
+          }
+          break
+        }
+
         // --- PARTNERSHIP UPDATES ---
         case 'PARTNERSHIP_UPDATE': {
           if (data && partnership.value) {
@@ -1018,6 +1170,7 @@ export const useDuoState = () => {
             shopping: shoppingItems.value,
             tasks: tasksList.value,
             events: eventsList.value,
+            milestones: milestonesList.value,
             partnership: partnership.value,
             userMood: {
               mood: currentUser.value.current_mood,
@@ -1040,6 +1193,9 @@ export const useDuoState = () => {
             if (Array.isArray(data.events) && data.events.length > 0) {
               eventsList.value = data.events
               eventsList.value.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+            }
+            if (Array.isArray(data.milestones) && data.milestones.length > 0) {
+              milestonesList.value = data.milestones
             }
             if (data.partnership && partnership.value) {
               partnership.value.nest_points = Math.max(partnership.value.nest_points, data.partnership.nest_points || 0)
@@ -1960,6 +2116,148 @@ export const useDuoState = () => {
     return '#64748b'
   }
 
+  // --- DUO POINTS BREAKDOWN PER PERSON ---
+  const userCompletedTasksCount = computed(() => {
+    const myId = currentUser.value?.id
+    if (!myId) return 0
+    return tasksList.value.filter(t => t.is_completed && t.completed_by === myId).length
+  })
+
+  const partnerCompletedTasksCount = computed(() => {
+    const pId = partnerUser.value?.id
+    if (!pId) return 0
+    return tasksList.value.filter(t => t.is_completed && t.completed_by === pId).length
+  })
+
+  const userRawTaskPoints = computed(() => {
+    const myId = currentUser.value?.id
+    if (!myId) return 0
+    return tasksList.value
+      .filter(t => t.is_completed && t.completed_by === myId)
+      .reduce((sum, t) => sum + (t.points || 15), 0)
+  })
+
+  const partnerRawTaskPoints = computed(() => {
+    const pId = partnerUser.value?.id
+    if (!pId) return 0
+    return tasksList.value
+      .filter(t => t.is_completed && t.completed_by === pId)
+      .reduce((sum, t) => sum + (t.points || 15), 0)
+  })
+
+  const userNudgePoints = computed(() => {
+    const myId = currentUser.value?.id
+    if (!myId) return 0
+    return nudgesList.value.filter(n => n.sender_id === myId).length * 5
+  })
+
+  const partnerNudgePoints = computed(() => {
+    const pId = partnerUser.value?.id
+    if (!pId) return 0
+    return nudgesList.value.filter(n => n.sender_id === pId).length * 5
+  })
+
+  const userEarnedPoints = computed(() => userRawTaskPoints.value + userNudgePoints.value)
+  const partnerEarnedPoints = computed(() => partnerRawTaskPoints.value + partnerNudgePoints.value)
+
+  // Clean balanced calculation ensuring userPoints + partnerPoints === nestPoints
+  const userPoints = computed(() => {
+    const total = nestPoints.value
+    if (total <= 0) return 0
+    const myEarned = userEarnedPoints.value
+    const theirEarned = partnerEarnedPoints.value
+    const sumEarned = myEarned + theirEarned
+
+    if (sumEarned === 0) {
+      return Math.round(total / 2)
+    }
+    if (sumEarned === total) {
+      return myEarned
+    }
+    const extra = total - sumEarned
+    if (extra > 0) {
+      const halfExtra = Math.floor(extra / 2)
+      return Math.min(total, myEarned + halfExtra)
+    }
+    return Math.min(total, Math.max(0, Math.round((myEarned / sumEarned) * total)))
+  })
+
+  const partnerPoints = computed(() => {
+    const total = nestPoints.value
+    return Math.max(0, total - userPoints.value)
+  })
+
+  const userPointsPct = computed(() => {
+    if (nestPoints.value <= 0) return 50
+    return Math.min(100, Math.max(0, Math.round((userPoints.value / nestPoints.value) * 100)))
+  })
+
+  const partnerPointsPct = computed(() => {
+    return Math.max(0, 100 - userPointsPct.value)
+  })
+
+  // --- MILESTONES & REWARDS CRUD ACTIONS ---
+  const addMilestone = (title: string, targetPoints: number, assignedTo: string | null = null, description: string = '') => {
+    if (!title.trim()) return
+    const newMilestone: NestMilestone = {
+      id: 'm_' + Math.random().toString(36).substring(2, 9),
+      partnership_id: partnership.value?.id,
+      title: title.trim(),
+      description: description.trim(),
+      target_points: Math.max(10, Number(targetPoints) || 50),
+      assigned_to: assignedTo || null,
+      is_completed: false,
+      created_by: currentUser.value?.id,
+      created_at: new Date().toISOString()
+    }
+    milestonesList.value.push(newMilestone)
+    syncToStorage()
+    broadcastToPartner('MILESTONE_ADD', newMilestone)
+    triggerToast(`Dodano cel: ${newMilestone.title}! 🎯`)
+    return newMilestone
+  }
+
+  const updateMilestone = (id: string, updates: Partial<NestMilestone>) => {
+    const idx = milestonesList.value.findIndex(m => m.id === id)
+    if (idx === -1) return
+    milestonesList.value[idx] = {
+      ...milestonesList.value[idx],
+      ...updates
+    }
+    syncToStorage()
+    broadcastToPartner('MILESTONE_UPDATE', { id, updates })
+    triggerToast('Zaktualizowano cel nagrody.')
+  }
+
+  const deleteMilestone = (id: string) => {
+    const item = milestonesList.value.find(m => m.id === id)
+    milestonesList.value = milestonesList.value.filter(m => m.id !== id)
+    syncToStorage()
+    broadcastToPartner('MILESTONE_DELETE', { id })
+    triggerToast(`Usunięto cel: ${item?.title || ''}.`)
+  }
+
+  const claimMilestone = (id: string) => {
+    const m = milestonesList.value.find(i => i.id === id)
+    if (!m) return
+    const now = new Date().toISOString()
+    m.is_completed = true
+    m.completed_at = now
+    syncToStorage()
+    broadcastToPartner('MILESTONE_CLAIM', { id, completed_at: now })
+    triggerToast(`Gratulacje! Nagroda "${m.title}" została odebrana! 🎉`)
+  }
+
+  const reactivateMilestone = (id: string) => {
+    const m = milestonesList.value.find(i => i.id === id)
+    if (!m) return
+    m.is_completed = false
+    m.completed_at = null
+    syncToStorage()
+    broadcastToPartner('MILESTONE_REACTIVATE', { id })
+    triggerToast(`Cel "${m.title}" został ustawiony ponownie! 🚀`)
+  }
+
   return {
     authUser,
     authSession,
@@ -1976,12 +2274,14 @@ export const useDuoState = () => {
     tasksList,
     eventsList,
     nudgesList,
+    milestonesList,
     isPaired,
     isOnlineWithSupabase,
     dbSchemaStatus,
     realtimeStatus,
     isPartnerOnline,
     activeToastMessage,
+    activeToastItem,
     nestLevel,
     nestPoints,
     pointsToNextLevel,
@@ -1992,9 +2292,21 @@ export const useDuoState = () => {
     getUserAccentColor,
     getCleanAccentColor,
     hexToRgba,
+    userPoints,
+    partnerPoints,
+    userPointsPct,
+    partnerPointsPct,
+    userCompletedTasksCount,
+    partnerCompletedTasksCount,
+    addMilestone,
+    updateMilestone,
+    deleteMilestone,
+    claimMilestone,
+    reactivateMilestone,
     initializeClientState,
     initSupabaseSync,
     triggerToast,
+    dismissToast,
     updateMyName,
     updateMyProfile,
     pairWithCode,

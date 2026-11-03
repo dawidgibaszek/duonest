@@ -2182,9 +2182,17 @@ const handleRefresh = (event: any) => {
 .modal-input {
   --background: #f8fafc;
   --padding-start: 14px;
+  --border-radius: 12px;
   border-radius: 12px;
+  overflow: hidden;
   border: 1px solid #e2e8f0;
   font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.modal-input:focus-within {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
 }
 
 .category-grid {
