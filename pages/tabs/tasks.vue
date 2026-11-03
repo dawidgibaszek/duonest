@@ -500,28 +500,6 @@
             </div>
           </div>
 
-          <!-- Interactive Quick Care Actions for Pet (SVG Icons) -->
-          <div class="dn-card pet-care-card">
-            <div class="care-header-row">
-              <span class="care-section-label">OKAZANIE CZUŁOŚCI DLA {{ petName.toUpperCase() }}</span>
-              <span class="care-section-hint">Interakcja z pupilem</span>
-            </div>
-            <div class="pet-care-actions-row">
-              <button type="button" class="care-action-btn care-btn-treat" @click="handleFeedPet">
-                <ion-icon :icon="ioniconsRestaurantOutline" class="care-svg-icon" />
-                <span class="care-action-title">Przysmak</span>
-              </button>
-              <button type="button" class="care-action-btn care-btn-play" @click="handlePlayPet">
-                <ion-icon :icon="ioniconsGameControllerOutline" class="care-svg-icon" />
-                <span class="care-action-title">Zabawa</span>
-              </button>
-              <button type="button" class="care-action-btn care-btn-pet" @click="handleCaressPet">
-                <ion-icon :icon="ioniconsHeartOutline" class="care-svg-icon" />
-                <span class="care-action-title">Pogłaszcz</span>
-              </button>
-            </div>
-          </div>
-
           <!-- Pet Daily Chores Quest Card (Housework Integration) -->
           <div class="dn-card pet-quests-card">
             <div class="quests-header-row">
@@ -910,7 +888,7 @@ const petSpeechText = computed(() => {
     return `Brak zadań w domu, relaksuję się i ucinam drzemkę... Zzz... 💤`
   }
   if (currentAnimation.value === 'jump') {
-    return `Jupi! Wszystkie zadania zrobione! Jesteście niesamowici! 🎉✨`
+    return `Jupi!`
   }
   if (currentAnimation.value === 'happy') {
     return `Cześć! Super Cię widzieć! Zróbmy dzisiaj porządek! 🐾`
@@ -931,40 +909,6 @@ const handlePetClick = () => {
     origin: { y: 0.4 },
     colors: ['#ec4899', '#f43f5e', '#a855f7']
   })
-}
-
-// Pet Quick Interactions (Treat, Play, Pet)
-const handleFeedPet = () => {
-  triggerPetAnimation('happy', 2200)
-  confetti({
-    particleCount: 35,
-    spread: 55,
-    origin: { y: 0.4 },
-    colors: ['#ef4444', '#f87171', '#ec4899']
-  })
-  setCustomSpeech(`Mniam! Pyszna przekąska! Uwielbiam takie smakołyki! 🍎😋`)
-}
-
-const handlePlayPet = () => {
-  triggerPetAnimation('jump', 2200)
-  confetti({
-    particleCount: 45,
-    spread: 65,
-    origin: { y: 0.4 },
-    colors: ['#06b6d4', '#3b82f6', '#10b981']
-  })
-  setCustomSpeech(`Jupi! Ale super zabawa! Aż chce się skakać ze szczęścia! 🎾✨`)
-}
-
-const handleCaressPet = () => {
-  triggerPetAnimation('happy', 2200)
-  confetti({
-    particleCount: 30,
-    spread: 45,
-    origin: { y: 0.4 },
-    colors: ['#ec4899', '#f43f5e', '#fb7185']
-  })
-  setCustomSpeech(`Mruuu... Ciepło i miękko! Najlepiej w Waszym Gniazdku! 🥰💖`)
 }
 
 // Clean happiness text without emojis
@@ -2133,90 +2077,6 @@ const handleRefresh = (event: any) => {
 /* ============================================= */
 /* PET QUICK CARE ACTIONS CARD                   */
 /* ============================================= */
-.pet-care-card {
-  margin: 0 16px 16px;
-  padding: 16px 18px 18px;
-  border-radius: 22px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
-}
-
-.care-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.care-section-label {
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: #64748b;
-}
-
-.care-section-hint {
-  font-size: 11px;
-  font-weight: 700;
-  color: #db2777;
-}
-
-.pet-care-actions-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-
-.care-action-btn {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 12px 6px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  user-select: none;
-}
-
-.care-action-btn:hover {
-  transform: translateY(-2px);
-  border-color: #cbd5e1;
-}
-
-.care-action-btn:active {
-  transform: scale(0.95);
-}
-
-.care-btn-treat:hover {
-  background: #fef2f2;
-  border-color: #fecaca;
-}
-
-.care-btn-play:hover {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
-}
-
-.care-btn-pet:hover {
-  background: #fdf2f8;
-  border-color: #fbcfe8;
-}
-
-.care-svg-icon {
-  font-size: 22px;
-  color: #334155;
-}
-
-.care-action-title {
-  font-size: 12px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
 /* ============================================= */
 /* PET DAILY HOUSEWORK QUESTS CARD               */
 /* ============================================= */
