@@ -12,7 +12,7 @@
       </ion-toolbar>
     </ion-header>
 
-    <ion-content :fullscreen="true">
+    <ion-content ref="contentRef" :fullscreen="true">
       <!-- Native Pull-To-Refresh -->
       <ion-refresher slot="fixed" @ionRefresh="handleRefresh($event)">
         <ion-refresher-content pulling-text="Przeciągnij, aby odświeżyć..." refreshing-spinner="crescent" />
@@ -86,41 +86,19 @@
         </button>
       </div>
 
-      <!-- WISHLIST ITEMS LIST -->
-      <div class="wishlist-section-header" v-if="filteredItems.length > 0">
-        <span>{{ getSectionTitle() }} ({{ filteredItems.length }})</span>
-      </div>
-
-      <!-- EMPTY STATE -->
-      <div v-if="filteredItems.length === 0" class="wishlist-empty-state dn-card">
-        <div class="empty-icon-wrap">
-          <ion-icon :icon="ioniconsGiftOutline" />
+      <!-- 1. HAS ITEMS VIEW -->
+      <div v-if="filteredItems.length > 0" key="wishlist-has-items" class="wishlist-items-section">
+        <div class="wishlist-section-header">
+          <span>{{ getSectionTitle() }} ({{ filteredItems.length }})</span>
         </div>
-        <h3 class="empty-title">{{ getEmptyTitle() }}</h3>
-        <p class="empty-desc">{{ getEmptyDescription() }}</p>
-        <button
-          v-if="activeFilter !== 'all' && uncompletedCount > 0"
-          type="button"
-          class="dn-button-primary empty-action-btn"
-          @click="activeFilter = 'all'"
-        >
-          <ion-icon :icon="ioniconsSparklesOutline" />
-          <span>Pokaż wszystkie marzenia ({{ uncompletedCount }})</span>
-        </button>
-        <button v-else type="button" class="dn-button-primary empty-action-btn" @click="openManualAddModal">
-          <ion-icon :icon="ioniconsAddOutline" />
-          <span>Dodaj pierwsze marzenie</span>
-        </button>
-      </div>
 
-      <!-- LIST OF CARDS -->
-      <div class="wishlist-grid" v-else>
-        <div
-          v-for="item in filteredItems"
-          :key="item.id"
-          class="wishlist-card dn-card"
-          :class="{ 'is-completed': item.is_completed, 'is-surprise': !item.is_visible_to_partner }"
-        >
+        <div class="wishlist-grid">
+          <div
+            v-for="item in filteredItems"
+            :key="item.id"
+            class="wishlist-card dn-card"
+            :class="{ 'is-completed': item.is_completed, 'is-surprise': !item.is_visible_to_partner }"
+          >
           <!-- CARD HEADER: TARGET BADGE, SURPRISE BADGE, STORE NAME -->
           <div class="card-meta-row">
             <div class="badges-group">
@@ -238,39 +216,59 @@
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- ADD / EDIT MODAL (BOTTOM SHEET) -->
-      <ion-modal
-        :is-open="isModalOpen"
-        @didDismiss="closeModal"
-        class="dn-wishlist-modal"
-        :breakpoints="[0, 0.92, 1]"
-        :initial-breakpoint="0.92"
-        :handle="true"
-      >
-        <ion-header class="modal-custom-header">
-          <ion-toolbar>
-            <div class="modal-header-inner">
-              <div class="modal-title-wrap">
-                <ion-icon :icon="ioniconsGiftOutline" class="modal-title-icon" />
-                <ion-title>{{ editingItemId ? 'Edytuj marzenie' : 'Dodaj do wishlisty' }}</ion-title>
-              </div>
-              <ion-buttons slot="end">
-                <button
-                  type="button"
-                  class="modal-close-icon-btn"
-                  @click="closeModal"
-                  aria-label="Zamknij"
-                >
-                  <ion-icon :icon="ioniconsCloseOutline" />
-                </button>
-              </ion-buttons>
+      <!-- 2. EMPTY STATE VIEW (WHEN NO ITEMS) -->
+      <div v-else key="wishlist-empty-state" class="wishlist-empty-state dn-card">
+        <div class="empty-icon-wrap">
+          <ion-icon :icon="ioniconsGiftOutline" />
+        </div>
+        <h3 class="empty-title">{{ getEmptyTitle() }}</h3>
+        <p class="empty-desc">{{ getEmptyDescription() }}</p>
+        <button
+          v-if="activeFilter !== 'all' && uncompletedCount > 0"
+          type="button"
+          class="dn-button-primary empty-action-btn"
+          @click="activeFilter = 'all'"
+        >
+          <ion-icon :icon="ioniconsSparklesOutline" />
+          <span>Pokaż wszystkie marzenia ({{ uncompletedCount }})</span>
+        </button>
+        <button v-else type="button" class="dn-button-primary empty-action-btn" @click="openManualAddModal">
+          <ion-icon :icon="ioniconsAddOutline" />
+          <span>Dodaj pierwsze marzenie</span>
+        </button>
+      </div>
+
+      <div style="height: 40px;"></div>
+    </ion-content>
+
+    <!-- 3. ADD / EDIT MODAL (Outside ion-content to prevent iOS WebKit PWA sheet/scroll freezing) -->
+    <ion-modal
+      :is-open="isModalOpen"
+      @didDismiss="closeModal"
+      class="dn-wishlist-modal"
+      data-no-swipe="true"
+    >
+      <div class="modal-wrapper-inner">
+        <div class="modal-custom-header">
+          <div class="modal-header-inner">
+            <div class="modal-title-wrap">
+              <ion-icon :icon="ioniconsGiftOutline" class="modal-title-icon" />
+              <h3 class="modal-title-text">{{ editingItemId ? 'Edytuj marzenie' : 'Dodaj do wishlisty' }}</h3>
             </div>
-          </ion-toolbar>
-        </ion-header>
+            <button
+              type="button"
+              class="modal-close-icon-btn"
+              @click="closeModal"
+              aria-label="Zamknij"
+            >
+              <ion-icon :icon="ioniconsCloseOutline" />
+            </button>
+          </div>
+        </div>
 
-        <ion-content class="ion-padding wishlist-modal-content">
-          <div class="modal-form-body">
+        <div class="modal-form-body">
             <!-- PREVIEW CARD INSIDE MODAL IF SCRAPED -->
             <div v-if="formData.image_url || formData.site_name" class="modal-scraped-preview">
               <div class="preview-thumb-box" v-if="formData.image_url">
@@ -468,18 +466,17 @@
             <!-- Extra bottom spacing for smooth mobile scrolling and keyboard -->
             <div style="height: 36px;"></div>
           </div>
-        </ion-content>
+        </div>
       </ion-modal>
-
-      <div style="height: 40px;"></div>
-    </ion-content>
-  </ion-page>
+    </ion-page>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useDuoState, type WishlistItem } from '~/composables/useDuoState'
 import { formatSiteName, extractTitleFromUrl } from '~/utils/wishlistParser'
+
+const contentRef = ref<any>(null)
 
 const {
   wishlistItems,
@@ -880,6 +877,12 @@ const handleSaveFormData = async () => {
   }
 
   closeModal()
+
+  // Ensure DOM reflow and WebKit layer invalidation on iOS PWA standalone
+  await nextTick()
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('resize'))
+  }
 }
 
 // Toggle completed / bought
@@ -892,6 +895,10 @@ const handleDeleteItem = async (id: string) => {
   await deleteWishlistItem(id)
   if (isModalOpen.value && editingItemId.value === id) {
     closeModal()
+  }
+  await nextTick()
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('resize'))
   }
 }
 
@@ -1494,43 +1501,53 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   background: #fef2f2;
 }
 
-/* WISHLIST SHEET MODAL */
+/* WISHLIST MODAL */
 ion-modal.dn-wishlist-modal {
   --border-radius: 28px 28px 0 0;
   --background: #ffffff;
   --box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
 }
 
-.dn-wishlist-modal .modal-custom-header ion-toolbar {
-  --background: #ffffff;
-  --border-width: 0;
-  padding: 6px 10px;
+.modal-wrapper-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 90vh;
+  background: #ffffff;
+  padding: 16px 20px 32px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-.dn-wishlist-modal .modal-header-inner {
+.modal-custom-header {
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 14px;
+}
+
+.modal-header-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 0 4px;
 }
 
-.dn-wishlist-modal .modal-title-wrap {
+.modal-title-wrap {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.dn-wishlist-modal .modal-title-icon {
+.modal-title-icon {
   font-size: 20px;
   color: #0284c7;
 }
 
-.dn-wishlist-modal .modal-title-wrap ion-title {
+.modal-title-text {
   font-size: 17px;
   font-weight: 800;
   color: #0f172a;
-  padding: 0;
+  margin: 0;
 }
 
 .modal-close-icon-btn {
@@ -1557,14 +1574,6 @@ ion-modal.dn-wishlist-modal {
 
 .modal-close-icon-btn:active {
   transform: scale(0.92);
-}
-
-.wishlist-modal-content {
-  --background: #ffffff;
-  --padding-top: 8px;
-  --padding-bottom: 24px;
-  --padding-start: 18px;
-  --padding-end: 18px;
 }
 
 .modal-form-body {
