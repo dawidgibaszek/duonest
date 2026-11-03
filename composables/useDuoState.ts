@@ -1658,15 +1658,22 @@ export const useDuoState = () => {
         const item = payload.new as WishlistItem
         if (payload.eventType === 'INSERT') {
           if (item && (item.is_visible_to_partner || item.created_by === currentUser.value.id)) {
-            if (!wishlistItems.value.some(w => w.id === item.id)) wishlistItems.value.unshift(item)
+            if (!wishlistItems.value.some(w => w.id === item.id)) {
+              wishlistItems.value = [item, ...wishlistItems.value]
+            }
           }
         } else if (payload.eventType === 'UPDATE') {
           const idx = wishlistItems.value.findIndex(w => w.id === payload.new?.id)
           if (item && (item.is_visible_to_partner || item.created_by === currentUser.value.id)) {
-            if (idx !== -1) wishlistItems.value[idx] = item
-            else wishlistItems.value.unshift(item)
+            if (idx !== -1) {
+              const next = [...wishlistItems.value]
+              next[idx] = item
+              wishlistItems.value = next
+            } else {
+              wishlistItems.value = [item, ...wishlistItems.value]
+            }
           } else if (idx !== -1) {
-            wishlistItems.value.splice(idx, 1)
+            wishlistItems.value = wishlistItems.value.filter(w => w.id !== payload.new?.id)
           }
         } else if (payload.eventType === 'DELETE') {
           wishlistItems.value = wishlistItems.value.filter(w => w.id !== payload.old?.id)
@@ -2821,7 +2828,7 @@ export const useDuoState = () => {
       created_at: new Date().toISOString()
     }
 
-    wishlistItems.value.unshift(newItem)
+    wishlistItems.value = [newItem, ...wishlistItems.value.filter(w => w.id !== newItem.id)]
     syncToStorage()
 
     if (supabase && isOnlineWithSupabase.value && partnership.value?.id) {
@@ -2848,7 +2855,7 @@ export const useDuoState = () => {
     const current = wishlistItems.value[idx]
     const oldVisibility = current.is_visible_to_partner
     const updated = { ...current, ...updates }
-    wishlistItems.value[idx] = updated
+    wishlistItems.value = wishlistItems.value.map(w => w.id === id ? updated : w)
     syncToStorage()
 
     if (supabase && isOnlineWithSupabase.value && partnership.value?.id) {
@@ -2895,8 +2902,7 @@ export const useDuoState = () => {
     if (!item) return
     const newCompleted = !item.is_completed
     const completedAt = newCompleted ? new Date().toISOString() : null
-    item.is_completed = newCompleted
-    item.completed_at = completedAt
+    wishlistItems.value = wishlistItems.value.map(w => w.id === id ? { ...w, is_completed: newCompleted, completed_at: completedAt } : w)
     syncToStorage()
 
     if (supabase && isOnlineWithSupabase.value && partnership.value?.id) {

@@ -80,7 +80,9 @@ export default defineNuxtConfig({
     workbox: {
       navigateFallback: '/',
       globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
-      importScripts: ['/sw-push.js']
+      importScripts: ['/sw-push.js'],
+      clientsClaim: true,
+      skipWaiting: true
     },
     devOptions: {
       enabled: false,

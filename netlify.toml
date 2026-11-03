@@ -23,9 +23,24 @@
   to = "/index.html"
   status = 200
 
-# Cache control for Service Worker
+# Cache control for Service Worker, HTML, and Web Manifest
 [[headers]]
   for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/sw-push.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/"
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
 

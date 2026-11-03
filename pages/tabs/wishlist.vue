@@ -542,11 +542,18 @@ const filteredItems = computed(() => {
   return wishlistItems.value.filter(item => {
     switch (activeFilter.value) {
       case 'me':
-        return !item.is_completed && item.for_user_id === currentUserId
+        return !item.is_completed && (
+          (currentUserId && item.for_user_id === currentUserId) ||
+          (!item.for_user_id && currentUserId && item.created_by === currentUserId)
+        )
       case 'partner':
-        return !item.is_completed && ((partnerId && item.for_user_id === partnerId) || (!item.for_user_id && item.created_by !== currentUserId))
+        return !item.is_completed && (
+          (partnerId && item.for_user_id === partnerId) ||
+          (!item.for_user_id && currentUserId && item.created_by !== currentUserId) ||
+          (currentUserId && item.created_by === currentUserId && item.for_user_id && item.for_user_id !== currentUserId)
+        )
       case 'surprise':
-        return !item.is_completed && !item.is_visible_to_partner && item.created_by === currentUserId
+        return !item.is_completed && !item.is_visible_to_partner && (currentUserId && item.created_by === currentUserId)
       case 'together':
         return !item.is_completed && item.for_user_id === null
       case 'completed':
@@ -564,11 +571,18 @@ const getFilterCount = (filterId: string): number => {
 
   switch (filterId) {
     case 'me':
-      return wishlistItems.value.filter(i => !i.is_completed && i.for_user_id === currentUserId).length
+      return wishlistItems.value.filter(i => !i.is_completed && (
+        (currentUserId && i.for_user_id === currentUserId) ||
+        (!i.for_user_id && currentUserId && i.created_by === currentUserId)
+      )).length
     case 'partner':
-      return wishlistItems.value.filter(i => !i.is_completed && ((partnerId && i.for_user_id === partnerId) || (!i.for_user_id && i.created_by !== currentUserId))).length
+      return wishlistItems.value.filter(i => !i.is_completed && (
+        (partnerId && i.for_user_id === partnerId) ||
+        (!i.for_user_id && currentUserId && i.created_by !== currentUserId) ||
+        (currentUserId && i.created_by === currentUserId && i.for_user_id && i.for_user_id !== currentUserId)
+      )).length
     case 'surprise':
-      return wishlistItems.value.filter(i => !i.is_completed && !i.is_visible_to_partner && i.created_by === currentUserId).length
+      return wishlistItems.value.filter(i => !i.is_completed && !i.is_visible_to_partner && (currentUserId && i.created_by === currentUserId)).length
     case 'together':
       return wishlistItems.value.filter(i => !i.is_completed && i.for_user_id === null).length
     case 'completed':
@@ -797,6 +811,8 @@ const handleSaveFormData = async () => {
   }
 
   const isVisible = formTarget.value === 'partner' ? formData.value.is_visible_to_partner : true
+  const savedTarget = formTarget.value
+  const isSurprise = !isVisible
 
   if (editingItemId.value) {
     // Update existing item
@@ -824,6 +840,15 @@ const handleSaveFormData = async () => {
       for_user_id: forUserId,
       is_visible_to_partner: isVisible
     })
+
+    // Automatically switch active filter tab so the newly added item is guaranteed to be in view!
+    if (savedTarget === 'partner') {
+      activeFilter.value = isSurprise ? 'surprise' : 'partner'
+    } else if (savedTarget === 'me') {
+      activeFilter.value = (activeFilter.value === 'all' || activeFilter.value === 'me') ? activeFilter.value : 'all'
+    } else if (savedTarget === 'together') {
+      activeFilter.value = (activeFilter.value === 'all' || activeFilter.value === 'together') ? activeFilter.value : 'together'
+    }
   }
 
   closeModal()
