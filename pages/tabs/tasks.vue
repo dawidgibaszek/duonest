@@ -479,9 +479,6 @@
                 <div class="stat-main-figure">
                   <span class="figure-status-text">{{ cleanHappinessLabel }}</span>
                 </div>
-                <div class="stat-progress-sub">
-                  <span>{{ petHappiness >= 75 ? 'Wzorowy stan czystości' : 'Czeka na wspólne porządki' }}</span>
-                </div>
               </div>
 
               <!-- Clean Track (No Glow) -->
