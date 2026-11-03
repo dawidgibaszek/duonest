@@ -415,77 +415,85 @@
 
           <!-- Stats & Mood Grid -->
           <div class="pet-stats-grid">
-            <!-- Level & XP Card -->
-            <div class="dn-card pet-stat-card">
-              <div class="stat-card-header">
-                <span class="stat-tag">DOŚWIADCZENIE</span>
-                <span class="stat-level-chip">POZIOM {{ petLevel }}</span>
+            <!-- 1. Level & XP Card -->
+            <div class="dn-card pet-stat-card stat-card-xp">
+              <!-- Top Row: Icon badge + Level Pill -->
+              <div class="stat-top-row">
+                <div class="stat-icon-wrap icon-xp">
+                  <ion-icon :icon="ioniconsSparkles" />
+                </div>
+                <div class="stat-pill-chip pill-xp">
+                  <span class="chip-star">⭐</span>
+                  <span>POZIOM {{ petLevel }}</span>
+                </div>
               </div>
-              <div class="stat-main-val">
-                <span>{{ petXp }}</span>
-                <span class="stat-val-unit">XP</span>
+
+              <!-- Category Tag -->
+              <span class="stat-category-label label-xp">DOŚWIADCZENIE</span>
+
+              <!-- Big Value & Unit -->
+              <div class="stat-main-row">
+                <span class="stat-big-val">{{ petXp }}</span>
+                <span class="stat-unit-text">XP</span>
+                <span class="stat-pct-badge badge-xp">{{ petLevelProgressPct }}%</span>
               </div>
-              <div class="pet-xp-bar-wrap">
-                <div class="pet-xp-fill" :style="{ width: `${petLevelProgressPct}%` }" />
+
+              <!-- Candy Progress Bar -->
+              <div class="stat-bar-track track-xp">
+                <div class="stat-bar-fill fill-xp" :style="{ width: `${petLevelProgressPct}%` }">
+                  <span class="bar-gloss-line" />
+                </div>
               </div>
-              <span class="stat-footer-hint">{{ petXpInCurrentLevel }}/50 XP • do nast. poziomu: {{ petXpToNextLevel }} XP</span>
+
+              <!-- Micro Info Footer -->
+              <div class="stat-card-footer">
+                <span class="footer-meta-left">{{ petXpInCurrentLevel }} / 50 XP</span>
+                <span class="footer-meta-right">+{{ petXpToNextLevel }} do nast.</span>
+              </div>
             </div>
 
-            <!-- Happiness Card -->
-            <div class="dn-card pet-stat-card">
-              <div class="stat-card-header">
-                <span class="stat-tag">ZADOWOLENIE</span>
-                <span class="stat-mood-emoji">{{ happinessEmoji }}</span>
+            <!-- 2. Happiness Card -->
+            <div class="dn-card pet-stat-card stat-card-mood">
+              <!-- Top Row: Icon badge + Percentage Pill -->
+              <div class="stat-top-row">
+                <div class="stat-icon-wrap icon-mood">
+                  <span class="mood-top-emoji">{{ happinessEmoji }}</span>
+                </div>
+                <div class="stat-pill-chip pill-mood">
+                  <ion-icon :icon="ioniconsHeart" />
+                  <span>{{ petHappiness }}%</span>
+                </div>
               </div>
-              <div class="stat-main-val">
-                <span>{{ petHappiness }}</span>
-                <span class="stat-val-unit">%</span>
+
+              <!-- Category Tag -->
+              <span class="stat-category-label label-mood">ZADOWOLENIE</span>
+
+              <!-- Big Value & Mood Status -->
+              <div class="stat-main-row">
+                <span class="stat-mood-text">{{ happinessLabel }}</span>
               </div>
-              <div class="pet-xp-bar-wrap happiness-bar">
-                <div class="pet-xp-fill happiness-fill" :style="{ width: `${petHappiness}%` }" />
+
+              <!-- Candy Progress Bar -->
+              <div class="stat-bar-track track-mood">
+                <div class="stat-bar-fill fill-mood" :style="{ width: `${petHappiness}%` }">
+                  <span class="bar-gloss-line" />
+                </div>
               </div>
-              <span class="stat-footer-hint">{{ happinessLabel }}</span>
+
+              <!-- Micro Info Footer -->
+              <div class="stat-card-footer">
+                <span class="footer-meta-left">Nastrój pupila</span>
+                <span class="footer-meta-right">{{ petHappiness >= 70 ? 'Czysto w domu ✨' : 'Czeka na zadania' }}</span>
+              </div>
             </div>
           </div>
 
-          <!-- Animation Testing Toolbar for User -->
-          <div class="dn-card pet-anim-tester-card">
-            <span class="section-tag anim-tag">ANIMACJE</span>
-            <h4>Sprawdź zachowanie pupila</h4>
-            <p class="section-desc">Zobacz, jak Twój zwierzak reaguje w różnych sytuacjach:</p>
-            <div class="anim-buttons-row">
-              <button
-                type="button"
-                class="anim-btn"
-                :class="{ active: currentAnimation === 'idle' }"
-                @click="currentAnimation = 'idle'"
-              >
-                🐾 Spoczynek (idle)
-              </button>
-              <button
-                type="button"
-                class="anim-btn"
-                :class="{ active: currentAnimation === 'happy' }"
-                @click="triggerPetAnimation('happy', 1800)"
-              >
-                😊 Radość (happy)
-              </button>
-              <button
-                type="button"
-                class="anim-btn"
-                :class="{ active: currentAnimation === 'jump' }"
-                @click="triggerPetAnimation('jump', 2000)"
-              >
-                🎉 Podskok (jump)
-              </button>
-              <button
-                type="button"
-                class="anim-btn"
-                :class="{ active: currentAnimation === 'sleep' }"
-                @click="currentAnimation = 'sleep'"
-              >
-                💤 Sen (sleep)
-              </button>
+          <!-- Pet Motivation & Guide Banner -->
+          <div class="pet-guide-card">
+            <div class="guide-icon-box">💡</div>
+            <div class="guide-text-box">
+              <span class="guide-title">Jak dbać o {{ petName }}?</span>
+              <span class="guide-desc">Każde zrobione zadanie domowe daje <strong>+15 XP</strong> oraz podnosi zadowolenie Waszego pupila!</span>
             </div>
           </div>
         </div>
@@ -1757,91 +1765,283 @@ const handleRefresh = (event: any) => {
   transform: scale(0.95);
 }
 
-/* Stats Grid */
+/* ============================================= */
+/* GAMIFIED PET STATS GRID & TILES               */
+/* ============================================= */
 .pet-stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  margin: 0 16px 16px;
+  margin: 0 16px 14px;
 }
 
 .pet-stat-card {
-  padding: 14px 16px;
-  background: #ffffff;
-  border-radius: 18px;
-  border: 1px solid rgba(226, 232, 240, 0.85);
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.02);
+  padding: 15px 14px 13px;
+  border-radius: 22px;
   display: flex;
   flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  user-select: none;
 }
 
-.stat-card-header {
+.pet-stat-card:hover {
+  transform: translateY(-2px);
+}
+
+.stat-card-xp {
+  background: linear-gradient(155deg, #f0fdf4 0%, #ffffff 55%, #f7fee7 100%);
+  border: 1.5px solid rgba(187, 247, 208, 0.9);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.08);
+}
+
+.stat-card-mood {
+  background: linear-gradient(155deg, #fff1f2 0%, #ffffff 55%, #fdf2f8 100%);
+  border: 1.5px solid rgba(254, 205, 211, 0.9);
+  box-shadow: 0 6px 20px rgba(244, 63, 94, 0.08);
+}
+
+/* Card Header: Icon + Pill */
+.stat-top-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
 }
 
-.stat-tag {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: #94a3b8;
+.stat-icon-wrap {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
 }
 
-.stat-level-chip {
+.icon-xp {
+  background: #dcfce7;
+  color: #16a34a;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.15);
+}
+
+.icon-mood {
+  background: #ffe4e6;
+  color: #e11d48;
+  box-shadow: 0 2px 6px rgba(225, 29, 72, 0.15);
+}
+
+.stat-pill-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
   font-size: 10.5px;
   font-weight: 800;
-  background: #f0fdf4;
-  color: #16a34a;
-  padding: 1px 7px;
-  border-radius: 999px;
+  letter-spacing: 0.02em;
 }
 
-.stat-mood-emoji {
-  font-size: 16px;
+.pill-xp {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
 }
 
-.stat-main-val {
-  font-size: 26px;
+.pill-mood {
+  background: #ffe4e6;
+  color: #be123c;
+  border: 1px solid #fecdd3;
+}
+
+.pill-mood ion-icon {
+  font-size: 11px;
+  color: #e11d48;
+}
+
+.chip-star {
+  font-size: 11px;
+}
+
+/* Category Label */
+.stat-category-label {
+  font-size: 9.5px;
   font-weight: 800;
-  color: #0f172a;
-  line-height: 1;
+  letter-spacing: 0.08em;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+}
+
+.label-xp {
+  color: #059669;
+}
+
+.label-mood {
+  color: #e11d48;
+}
+
+/* Big Value Body */
+.stat-main-row {
   display: flex;
   align-items: baseline;
-  gap: 3px;
+  gap: 4px;
+  margin-bottom: 9px;
+  min-height: 28px;
 }
 
-.stat-val-unit {
-  font-size: 13px;
-  font-weight: 700;
-  color: #94a3b8;
+.stat-big-val {
+  font-size: 25px;
+  font-weight: 900;
+  color: #0f172a;
+  line-height: 1;
+  letter-spacing: -0.5px;
 }
 
-.pet-xp-bar-wrap {
-  width: 100%;
-  height: 6px;
-  background: #f1f5f9;
-  border-radius: 999px;
-  margin: 10px 0 6px;
-  overflow: hidden;
-}
-
-.pet-xp-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #10b981, #059669);
-  border-radius: 999px;
-  transition: width 0.4s ease;
-}
-
-.happiness-bar .happiness-fill {
-  background: linear-gradient(90deg, #f43f5e, #ec4899);
-}
-
-.stat-footer-hint {
-  font-size: 11px;
+.stat-unit-text {
+  font-size: 12px;
+  font-weight: 800;
   color: #64748b;
+}
+
+.stat-pct-badge {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.badge-xp {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.stat-mood-text {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Candy Progress Bars */
+.stat-bar-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  position: relative;
+}
+
+.track-xp {
+  background: #e2e8f0;
+}
+
+.track-mood {
+  background: #fee2e2;
+}
+
+.stat-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  position: relative;
+  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.fill-xp {
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);
+}
+
+.fill-mood {
+  background: linear-gradient(90deg, #fb7185 0%, #f43f5e 100%);
+  box-shadow: 0 0 8px rgba(244, 63, 94, 0.35);
+}
+
+.bar-gloss-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 100%);
+  border-radius: 999px;
+}
+
+/* Card Footer */
+.stat-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.footer-meta-left {
+  color: #475569;
+  font-weight: 800;
+}
+
+.footer-meta-right {
+  color: #94a3b8;
   font-weight: 600;
+  text-align: right;
+}
+
+/* Motivation & Guide Card */
+.pet-guide-card {
+  margin: 0 16px 20px;
+  padding: 13px 15px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.02);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.guide-icon-box {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: #fef3c7;
+  color: #d97706;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.guide-text-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.guide-title {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.guide-desc {
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.guide-desc strong {
+  color: #0284c7;
+  font-weight: 800;
 }
 
 /* ============================================= */
