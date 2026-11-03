@@ -413,88 +413,94 @@
             </div>
           </div>
 
-          <!-- Stats & Mood Grid (Spacious, Prominent & Gamified) -->
-          <div class="pet-stats-grid">
-            <!-- 1. Level & XP Card -->
+          <!-- Stats & Mood Column (Full-Width, Vertical Column, SVG Icons, Flat Clean No Glow) -->
+          <div class="pet-stats-column">
+            <!-- 1. DOŚWIADCZENIE I POZIOM -->
             <div class="dn-card pet-stat-card stat-card-xp">
-              <!-- Top Row: Icon badge + Level Pill -->
-              <div class="stat-top-row">
-                <div class="stat-icon-wrap icon-xp">
+              <!-- Header Row -->
+              <div class="stat-card-header-row">
+                <div class="stat-header-left">
+                  <div class="stat-svg-badge badge-green">
+                    <ion-icon :icon="ioniconsStar" />
+                  </div>
+                  <div class="stat-title-wrap">
+                    <span class="stat-title">Doświadczenie i Poziom</span>
+                    <span class="stat-subtitle">Wspólny rozwój Waszego pupila</span>
+                  </div>
+                </div>
+                <div class="stat-pill-tag tag-green">
                   <ion-icon :icon="ioniconsSparkles" />
-                </div>
-                <div class="stat-pill-chip pill-xp">
-                  <span class="chip-star">⭐</span>
-                  <span>POZIOM {{ petLevel }}</span>
+                  <span>Poziom {{ petLevel }}</span>
                 </div>
               </div>
 
-              <!-- Category Tag & Subtitle -->
-              <div class="stat-heading-group">
-                <span class="stat-category-label label-xp">DOŚWIADCZENIE</span>
-                <span class="stat-category-sub">Wspólne postępy</span>
-              </div>
-
-              <!-- Big Value & Unit -->
-              <div class="stat-main-row">
-                <span class="stat-big-val">{{ petXp }}</span>
-                <span class="stat-unit-text">XP</span>
-                <span class="stat-pct-badge badge-xp">{{ petLevelProgressPct }}%</span>
-              </div>
-
-              <!-- Candy Progress Bar (Chunky & Glossy) -->
-              <div class="stat-bar-track track-xp">
-                <div class="stat-bar-fill fill-xp" :style="{ width: `${petLevelProgressPct}%` }">
-                  <span class="bar-gloss-line" />
+              <!-- Metrics Row -->
+              <div class="stat-metrics-row">
+                <div class="stat-main-figure">
+                  <span class="figure-num">{{ petXp }}</span>
+                  <span class="figure-unit">XP</span>
+                </div>
+                <div class="stat-progress-sub">
+                  <span>{{ petXpInCurrentLevel }} z 50 XP na tym poziomie</span>
+                  <span class="progress-pct-chip chip-green">{{ petLevelProgressPct }}%</span>
                 </div>
               </div>
 
-              <!-- Micro Info Footer -->
-              <div class="stat-card-footer">
-                <span class="footer-meta-left">{{ petXpInCurrentLevel }} / 50 XP</span>
-                <span class="footer-meta-right">+{{ petXpToNextLevel }} do nast.</span>
+              <!-- Clean Track (No Glow) -->
+              <div class="stat-clean-track track-green">
+                <div class="stat-clean-fill fill-green" :style="{ width: `${petLevelProgressPct}%` }" />
+              </div>
+
+              <!-- Meta Footer Row -->
+              <div class="stat-card-meta-row">
+                <span class="meta-desc">Do Poziomu {{ petLevel + 1 }} brakuje: <strong>{{ petXpToNextLevel }} XP</strong></span>
+                <span class="meta-action-hint">+15 XP za każde zadanie</span>
               </div>
             </div>
 
-            <!-- 2. Happiness Card -->
+            <!-- 2. ZADOWOLENIE I NASTRÓJ -->
             <div class="dn-card pet-stat-card stat-card-mood">
-              <!-- Top Row: Icon badge + Percentage Pill -->
-              <div class="stat-top-row">
-                <div class="stat-icon-wrap icon-mood">
-                  <span class="mood-top-emoji">{{ happinessEmoji }}</span>
+              <!-- Header Row -->
+              <div class="stat-card-header-row">
+                <div class="stat-header-left">
+                  <div class="stat-svg-badge badge-rose">
+                    <ion-icon :icon="ioniconsHeart" />
+                  </div>
+                  <div class="stat-title-wrap">
+                    <span class="stat-title">Zadowolenie pupila</span>
+                    <span class="stat-subtitle">Wskaźnik dbania o czyste Gniazdko</span>
+                  </div>
                 </div>
-                <div class="stat-pill-chip pill-mood">
+                <div class="stat-pill-tag tag-rose">
                   <ion-icon :icon="ioniconsHeart" />
                   <span>{{ petHappiness }}%</span>
                 </div>
               </div>
 
-              <!-- Category Tag & Subtitle -->
-              <div class="stat-heading-group">
-                <span class="stat-category-label label-mood">ZADOWOLENIE</span>
-                <span class="stat-category-sub">Nastrój pupila</span>
-              </div>
-
-              <!-- Big Value & Mood Status -->
-              <div class="stat-main-row">
-                <span class="stat-mood-text">{{ happinessLabel }}</span>
-              </div>
-
-              <!-- Candy Progress Bar (Chunky & Glossy) -->
-              <div class="stat-bar-track track-mood">
-                <div class="stat-bar-fill fill-mood" :style="{ width: `${petHappiness}%` }">
-                  <span class="bar-gloss-line" />
+              <!-- Metrics Row -->
+              <div class="stat-metrics-row">
+                <div class="stat-main-figure">
+                  <span class="figure-status-text">{{ cleanHappinessLabel }}</span>
+                </div>
+                <div class="stat-progress-sub">
+                  <span>{{ petHappiness >= 75 ? 'Wzorowy stan czystości' : 'Czeka na wspólne porządki' }}</span>
                 </div>
               </div>
 
-              <!-- Micro Info Footer -->
-              <div class="stat-card-footer">
-                <span class="footer-meta-left">Samopoczucie</span>
-                <span class="footer-meta-right">{{ petHappiness >= 75 ? 'Duma z Was 💖' : 'Czeka na zadania' }}</span>
+              <!-- Clean Track (No Glow) -->
+              <div class="stat-clean-track track-rose">
+                <div class="stat-clean-fill fill-rose" :style="{ width: `${petHappiness}%` }" />
+              </div>
+
+              <!-- Meta Footer Row -->
+              <div class="stat-card-meta-row">
+                <span class="meta-desc">Aktualny nastrój: <strong>{{ cleanHappinessLabel }}</strong></span>
+                <span class="meta-action-hint">Rośnie z każdym ukończonym zadaniem</span>
               </div>
             </div>
           </div>
 
-          <!-- Interactive Quick Care Actions for Pet -->
+          <!-- Interactive Quick Care Actions for Pet (SVG Icons) -->
           <div class="dn-card pet-care-card">
             <div class="care-header-row">
               <span class="care-section-label">OKAZANIE CZUŁOŚCI DLA {{ petName.toUpperCase() }}</span>
@@ -502,15 +508,15 @@
             </div>
             <div class="pet-care-actions-row">
               <button type="button" class="care-action-btn care-btn-treat" @click="handleFeedPet">
-                <span class="care-action-emoji">🍎</span>
+                <ion-icon :icon="ioniconsRestaurantOutline" class="care-svg-icon" />
                 <span class="care-action-title">Przysmak</span>
               </button>
               <button type="button" class="care-action-btn care-btn-play" @click="handlePlayPet">
-                <span class="care-action-emoji">🎾</span>
+                <ion-icon :icon="ioniconsGameControllerOutline" class="care-svg-icon" />
                 <span class="care-action-title">Zabawa</span>
               </button>
               <button type="button" class="care-action-btn care-btn-pet" @click="handleCaressPet">
-                <span class="care-action-emoji">💆</span>
+                <ion-icon :icon="ioniconsHeartOutline" class="care-svg-icon" />
                 <span class="care-action-title">Pogłaszcz</span>
               </button>
             </div>
@@ -524,7 +530,7 @@
                   <span class="quests-badge">MISJE DOMOWE</span>
                   <span class="quests-xp-tag">+15 XP KAŻDE</span>
                 </div>
-                <h4 class="quests-heading">Zrób zadanie, nakarm pupila XP! ⭐</h4>
+                <h4 class="quests-heading">Zrób zadanie, nakarm pupila XP!</h4>
               </div>
               <button type="button" class="quests-see-all-btn" @click="handleSwitchToTasks">
                 Wszystkie zadania →
@@ -546,13 +552,15 @@
                   <span class="quest-item-title">{{ task.title }}</span>
                   <span class="quest-item-meta">{{ getAssigneeLabel(task.assigned_to) }}</span>
                 </div>
-                <span class="quest-xp-chip">+15 XP ✨</span>
+                <span class="quest-xp-chip">+15 XP</span>
               </div>
             </div>
 
             <!-- All Completed State -->
             <div v-else class="pet-quests-empty">
-              <span class="empty-quest-emoji">🎉</span>
+              <div class="empty-quest-icon-wrap">
+                <ion-icon :icon="ioniconsCheckmarkDoneCircleOutline" />
+              </div>
               <div class="empty-quest-texts">
                 <span class="empty-quest-title">Wszystkie zadania zrobione!</span>
                 <span class="empty-quest-sub">Wasze Gniazdko lśni, a {{ petName }} odpoczywa zadowolony.</span>
@@ -958,6 +966,15 @@ const handleCaressPet = () => {
   })
   setCustomSpeech(`Mruuu... Ciepło i miękko! Najlepiej w Waszym Gniazdku! 🥰💖`)
 }
+
+// Clean happiness text without emojis
+const cleanHappinessLabel = computed(() => {
+  const h = petHappiness.value
+  if (h >= 90) return 'Przeszczęśliwy'
+  if (h >= 70) return 'Zadowolony'
+  if (h >= 40) return 'Czeka na zadania'
+  return 'Potrzebuje uwagi'
+})
 
 // Pet Daily Tasks / Quests
 const petPriorityTasks = computed(() => {
@@ -1896,252 +1913,221 @@ const handleRefresh = (event: any) => {
 }
 
 /* ============================================= */
-/* GAMIFIED PET STATS GRID & TILES (SPACIOUS)    */
+/* FULL-WIDTH STATS COLUMN (NO GLOW, SVG ICONS)  */
 /* ============================================= */
-.pet-stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.pet-stats-column {
+  display: flex;
+  flex-direction: column;
   gap: 14px;
-  margin: 0 16px 16px;
+  margin: 0 16px 18px;
 }
 
 .pet-stat-card {
-  padding: 20px 16px 18px;
-  min-height: 195px;
-  border-radius: 24px;
+  padding: 18px 20px;
+  border-radius: 22px;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  gap: 12px;
   user-select: none;
 }
 
-.pet-stat-card:hover {
-  transform: translateY(-2px);
-}
-
 .stat-card-xp {
-  background: linear-gradient(155deg, #f0fdf4 0%, #ffffff 55%, #f7fee7 100%);
-  border: 1.5px solid rgba(187, 247, 208, 0.9);
-  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.09);
+  border-color: #bbf7d0;
+  border-left-width: 5px;
+  border-left-color: #10b981;
 }
 
 .stat-card-mood {
-  background: linear-gradient(155deg, #fff1f2 0%, #ffffff 55%, #fdf2f8 100%);
-  border: 1.5px solid rgba(254, 205, 211, 0.9);
-  box-shadow: 0 8px 24px rgba(244, 63, 94, 0.09);
+  border-color: #fecdd3;
+  border-left-width: 5px;
+  border-left-color: #f43f5e;
 }
 
-/* Card Header: Icon + Pill */
-.stat-top-row {
+/* Card Header: SVG Icon + Title + Pill Tag */
+.stat-card-header-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
 }
 
-.stat-icon-wrap {
-  width: 36px;
-  height: 36px;
+.stat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stat-svg-badge {
+  width: 38px;
+  height: 38px;
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 19px;
+  flex-shrink: 0;
 }
 
-.icon-xp {
-  background: #dcfce7;
-  color: #16a34a;
-  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.15);
+.badge-green {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
 }
 
-.icon-mood {
-  background: #ffe4e6;
+.badge-rose {
+  background: #fff1f2;
   color: #e11d48;
-  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.15);
+  border: 1px solid #fecdd3;
 }
 
-.mood-top-emoji {
-  font-size: 20px;
-  line-height: 1;
+.stat-title-wrap {
+  display: flex;
+  flex-direction: column;
 }
 
-.stat-pill-chip {
+.stat-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.2px;
+}
+
+.stat-subtitle {
+  font-size: 11.5px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.stat-pill-tag {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   padding: 4px 10px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 800;
-  letter-spacing: 0.02em;
 }
 
-.pill-xp {
+.tag-green {
   background: #dcfce7;
   color: #15803d;
   border: 1px solid #bbf7d0;
 }
 
-.pill-mood {
+.tag-rose {
   background: #ffe4e6;
   color: #be123c;
   border: 1px solid #fecdd3;
 }
 
-.pill-mood ion-icon {
-  font-size: 12px;
-  color: #e11d48;
+.tag-rose ion-icon,
+.tag-green ion-icon {
+  font-size: 13px;
 }
 
-.chip-star {
-  font-size: 12px;
-}
-
-/* Category Label & Subtitle */
-.stat-heading-group {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  margin-bottom: 4px;
-}
-
-.stat-category-label {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.label-xp {
-  color: #059669;
-}
-
-.label-mood {
-  color: #e11d48;
-}
-
-.stat-category-sub {
-  font-size: 11px;
-  color: #64748b;
-  font-weight: 600;
-}
-
-/* Big Value Body */
-.stat-main-row {
+/* Metrics Middle Row */
+.stat-metrics-row {
   display: flex;
   align-items: baseline;
-  gap: 5px;
-  margin-bottom: 8px;
-  min-height: 32px;
+  justify-content: space-between;
 }
 
-.stat-big-val {
-  font-size: 30px;
+.stat-main-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.figure-num {
+  font-size: 28px;
   font-weight: 900;
   color: #0f172a;
   line-height: 1;
   letter-spacing: -0.5px;
 }
 
-.stat-unit-text {
+.figure-unit {
   font-size: 13px;
   font-weight: 800;
   color: #64748b;
 }
 
-.stat-pct-badge {
-  margin-left: auto;
-  font-size: 11px;
-  font-weight: 800;
-  padding: 3px 8px;
-  border-radius: 8px;
+.figure-status-text {
+  font-size: 20px;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -0.3px;
 }
 
-.badge-xp {
+.stat-progress-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.progress-pct-chip {
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.chip-green {
   background: #ecfdf5;
-  color: #047857;
+  color: #059669;
   border: 1px solid #a7f3d0;
 }
 
-.stat-mood-text {
-  font-size: 15px;
-  font-weight: 900;
-  color: #0f172a;
-  line-height: 1.25;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-/* Candy Progress Bars */
-.stat-bar-track {
+/* Progress Track: Clean, Crisp, Flat, No Glow */
+.stat-clean-track {
   width: 100%;
-  height: 10px;
+  height: 9px;
   border-radius: 999px;
+  background: #f1f5f9;
   overflow: hidden;
-  margin: 4px 0 8px;
-  position: relative;
 }
 
-.track-xp {
-  background: #e2e8f0;
-}
-
-.track-mood {
-  background: #fee2e2;
-}
-
-.stat-bar-fill {
+.stat-clean-fill {
   height: 100%;
   border-radius: 999px;
-  position: relative;
-  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: width 0.4s ease;
 }
 
-.fill-xp {
-  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.35);
+.fill-green {
+  background: #10b981;
 }
 
-.fill-mood {
-  background: linear-gradient(90deg, #fb7185 0%, #f43f5e 100%);
-  box-shadow: 0 0 10px rgba(244, 63, 94, 0.35);
+.fill-rose {
+  background: #f43f5e;
 }
 
-.bar-gloss-line {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 50%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 100%);
-  border-radius: 999px;
-}
-
-/* Card Footer */
-.stat-card-footer {
+/* Card Meta Footer */
+.stat-card-meta-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.2;
+  font-size: 11.5px;
+  line-height: 1.3;
 }
 
-.footer-meta-left {
-  color: #334155;
+.meta-desc {
+  color: #475569;
+  font-weight: 600;
+}
+
+.meta-desc strong {
+  color: #0f172a;
   font-weight: 800;
 }
 
-.footer-meta-right {
+.meta-action-hint {
   color: #64748b;
-  font-weight: 600;
-  text-align: right;
+  font-weight: 700;
 }
 
 /* ============================================= */
@@ -2150,10 +2136,10 @@ const handleRefresh = (event: any) => {
 .pet-care-card {
   margin: 0 16px 16px;
   padding: 16px 18px 18px;
-  border-radius: 24px;
+  border-radius: 22px;
   background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
 }
 
 .care-header-row {
@@ -2184,15 +2170,15 @@ const handleRefresh = (event: any) => {
 
 .care-action-btn {
   background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
   padding: 12px 6px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   cursor: pointer;
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.15s ease;
   user-select: none;
 }
 
@@ -2220,9 +2206,9 @@ const handleRefresh = (event: any) => {
   border-color: #fbcfe8;
 }
 
-.care-action-emoji {
-  font-size: 24px;
-  line-height: 1;
+.care-svg-icon {
+  font-size: 22px;
+  color: #334155;
 }
 
 .care-action-title {
@@ -2236,11 +2222,11 @@ const handleRefresh = (event: any) => {
 /* ============================================= */
 .pet-quests-card {
   margin: 0 16px 22px;
-  padding: 18px;
-  border-radius: 24px;
+  padding: 18px 20px;
+  border-radius: 22px;
   background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.03);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
 }
 
 .quests-header-row {
@@ -2316,9 +2302,9 @@ const handleRefresh = (event: any) => {
   align-items: center;
   gap: 12px;
   background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
-  padding: 10px 14px;
+  padding: 11px 14px;
   cursor: pointer;
   transition: all 0.15s ease;
   user-select: none;
@@ -2331,9 +2317,9 @@ const handleRefresh = (event: any) => {
 }
 
 .quest-checkbox-mock {
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
   border: 2px solid #cbd5e1;
   background: #ffffff;
   display: flex;
@@ -2344,7 +2330,7 @@ const handleRefresh = (event: any) => {
 }
 
 .quest-check-icon {
-  font-size: 16px;
+  font-size: 15px;
   color: #ffffff;
   opacity: 0;
   transition: opacity 0.15s ease;
@@ -2402,8 +2388,12 @@ const handleRefresh = (event: any) => {
   gap: 8px;
 }
 
-.empty-quest-emoji {
-  font-size: 28px;
+.empty-quest-icon-wrap {
+  font-size: 32px;
+  color: #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .empty-quest-texts {
