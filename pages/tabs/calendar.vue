@@ -302,7 +302,14 @@
                 </div>
 
                 <div class="event-creator-row">
-                  <span class="creator-tag">
+                  <span
+                    class="creator-tag"
+                    :style="{
+                      color: getUserAccentColor(evt.created_by),
+                      backgroundColor: hexToRgba(getUserAccentColor(evt.created_by), 0.1),
+                      borderColor: hexToRgba(getUserAccentColor(evt.created_by), 0.25)
+                    }"
+                  >
                     Inicjatywa: {{ evt.planner_name || (evt.created_by === currentUser.id ? 'Ty' : (partnerUser?.name || 'Partner')) }}
                   </span>
                 </div>
@@ -418,7 +425,14 @@
               <p class="agenda-desc" v-if="evt.description">{{ evt.description }}</p>
 
               <div class="agenda-footer-row">
-                <span class="planner-text">
+                <span
+                  class="planner-text"
+                  :style="{
+                    color: getUserAccentColor(evt.created_by),
+                    backgroundColor: hexToRgba(getUserAccentColor(evt.created_by), 0.1),
+                    borderColor: hexToRgba(getUserAccentColor(evt.created_by), 0.25)
+                  }"
+                >
                   Inicjatywa: {{ evt.planner_name || (evt.created_by === currentUser.id ? 'Ty' : (partnerUser?.name || 'Partner')) }}
                 </span>
                 <div class="agenda-card-actions" @click.stop>
@@ -579,6 +593,7 @@
                   type="button"
                   class="planner-chip"
                   :class="{ active: modalForm.plannerName === currentUser.name }"
+                  :style="modalForm.plannerName === currentUser.name ? { backgroundColor: currentUserAccentColor, borderColor: currentUserAccentColor, color: '#fff' } : {}"
                   @click="modalForm.plannerName = currentUser.name"
                 >
                   {{ currentUser.name || 'Ja' }}
@@ -587,6 +602,7 @@
                   type="button"
                   class="planner-chip"
                   :class="{ active: modalForm.plannerName === (partnerUser?.name || 'Partner') }"
+                  :style="modalForm.plannerName === (partnerUser?.name || 'Partner') ? { backgroundColor: partnerUserAccentColor, borderColor: partnerUserAccentColor, color: '#fff' } : {}"
                   @click="modalForm.plannerName = partnerUser?.name || 'Partner'"
                 >
                   {{ partnerUser?.name || 'Partner' }}
@@ -658,7 +674,11 @@ const {
   updateEvent,
   deleteEvent,
   toggleEventCompleted,
-  triggerToast
+  triggerToast,
+  currentUserAccentColor,
+  partnerUserAccentColor,
+  getUserAccentColor,
+  hexToRgba
 } = useDuoState()
 
 // View modes: 'month' | 'week' | 'agenda'
@@ -2279,5 +2299,29 @@ const handleRefresh = (event: any) => {
   width: 100%;
   margin-top: 10px;
   padding: 14px;
+}
+
+.event-creator-row {
+  margin-top: 4px;
+}
+
+.creator-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+}
+
+.planner-text {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
 }
 </style>

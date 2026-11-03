@@ -112,21 +112,42 @@ const saveToStorage = (key: string, value: any) => {
   }
 }
 
-// Initial un-paired user template
+// Initial un-paired user template (no pre-filled mock data)
 const createInitialProfile = (): Profile => ({
   id: 'usr_' + Math.random().toString(36).substring(2, 11),
   email: null,
-  name: 'Użytkownik',
+  name: '',
   avatar_color: '#0284c7',
   pairing_code: generateUniqueCode(),
   partnership_id: null,
   current_mood: 'happy',
   mood_note: '',
   mood_updated_at: new Date().toISOString(),
-  love_note: 'Budujemy nasze wspólne gniazdko!',
-  favorite_drink: 'Kawa z mlekiem',
-  favorite_treat: 'Czekolada'
+  love_note: '',
+  favorite_drink: '',
+  favorite_treat: ''
 })
+
+// Color & styling helper utilities
+export const getCleanAccentColor = (rawColor?: string | null, fallback = '#0284c7'): string => {
+  if (!rawColor) return fallback
+  const first = rawColor.split('|')[0].trim()
+  return first.startsWith('#') ? first : (first ? `#${first}` : fallback)
+}
+
+export const hexToRgba = (hex: string, alpha = 0.15): string => {
+  if (!hex) return `rgba(2, 132, 199, ${alpha})`
+  let c = hex.replace('#', '').trim()
+  if (c.length === 3) {
+    c = c.split('').map(x => x + x).join('')
+  }
+  const num = parseInt(c, 16)
+  if (isNaN(num)) return `rgba(2, 132, 199, ${alpha})`
+  const r = (num >> 16) & 255
+  const g = (num >> 8) & 255
+  const b = num & 255
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
 
 // Global Singleton Reactive State
 const authUser = ref<any>(null)
@@ -271,10 +292,22 @@ export const useDuoState = () => {
 
     const savedUser = loadFromStorage<Profile | null>('duonest_current_user', null)
     if (savedUser) {
+      // Clear legacy hardcoded mock values so profiles are not automatically pre-filled
+      const cleanLoveNote = savedUser.love_note === 'Budujemy nasze wspólne gniazdko!' ? '' : (savedUser.love_note || '')
+      const cleanDrink = savedUser.favorite_drink === 'Kawa z mlekiem' ? '' : (savedUser.favorite_drink || '')
+      const cleanTreat = savedUser.favorite_treat === 'Czekolada' ? '' : (savedUser.favorite_treat || '')
+      const cleanName = (savedUser.name === 'Mój Profil' || savedUser.name === 'Dawid' || savedUser.name === 'Użytkownik')
+        ? (savedUser.email ? savedUser.name : '')
+        : (savedUser.name || '')
+
       currentUser.value = {
         ...createInitialProfile(),
         ...savedUser,
-        name: (savedUser.name === 'Mój Profil' ? 'Dawid' : savedUser.name) || 'Dawid'
+        name: cleanName,
+        avatar_color: getCleanAccentColor(savedUser.avatar_color, '#0284c7'),
+        love_note: cleanLoveNote,
+        favorite_drink: cleanDrink,
+        favorite_treat: cleanTreat
       }
     } else {
       saveToStorage('duonest_current_user', currentUser.value)
@@ -282,9 +315,16 @@ export const useDuoState = () => {
 
     const savedPartner = loadFromStorage<Profile | null>('duonest_partner_user', null)
     if (savedPartner) {
+      const cleanPartnerLoveNote = (savedPartner.love_note === 'Cieszę się, że jesteśmy razem!' || savedPartner.love_note === 'Budujemy nasze wspólne gniazdko!') ? '' : (savedPartner.love_note || '')
+      const cleanPartnerDrink = savedPartner.favorite_drink === 'Kawa z mlekiem' ? '' : (savedPartner.favorite_drink || '')
+      const cleanPartnerTreat = savedPartner.favorite_treat === 'Czekolada' ? '' : (savedPartner.favorite_treat || '')
       partnerUser.value = {
         ...createInitialProfile(),
-        ...savedPartner
+        ...savedPartner,
+        avatar_color: getCleanAccentColor(savedPartner.avatar_color, '#0d9488'),
+        love_note: cleanPartnerLoveNote,
+        favorite_drink: cleanPartnerDrink,
+        favorite_treat: cleanPartnerTreat
       }
     }
 
@@ -458,6 +498,10 @@ export const useDuoState = () => {
             partnerUser.value = {
               ...createInitialProfile(),
               ...pUser,
+              name: pUser.name || '',
+              love_note: (pUser.love_note === 'Budujemy nasze wspólne gniazdko!' || pUser.love_note === 'Cieszę się, że jesteśmy razem!') ? '' : (pUser.love_note || ''),
+              favorite_drink: pUser.favorite_drink === 'Kawa z mlekiem' ? '' : (pUser.favorite_drink || ''),
+              favorite_treat: pUser.favorite_treat === 'Czekolada' ? '' : (pUser.favorite_treat || ''),
               avatar_color: cleanPartnerColor
             }
             saveToStorage('duonest_partner_user', partnerUser.value)
@@ -569,6 +613,10 @@ export const useDuoState = () => {
       currentUser.value = {
         ...createInitialProfile(),
         ...dbProfile,
+        name: dbProfile.name || '',
+        love_note: (dbProfile.love_note === 'Budujemy nasze wspólne gniazdko!' || dbProfile.love_note === 'Cieszę się, że jesteśmy razem!') ? '' : (dbProfile.love_note || ''),
+        favorite_drink: dbProfile.favorite_drink === 'Kawa z mlekiem' ? '' : (dbProfile.favorite_drink || ''),
+        favorite_treat: dbProfile.favorite_treat === 'Czekolada' ? '' : (dbProfile.favorite_treat || ''),
         avatar_color: displayColor
       }
       syncToStorage()
@@ -629,9 +677,9 @@ export const useDuoState = () => {
         partnership_id: null,
         current_mood: 'happy',
         mood_note: '',
-        love_note: 'Budujemy nasze wspólne gniazdko!',
-        favorite_drink: 'Kawa z mlekiem',
-        favorite_treat: 'Czekolada'
+        love_note: '',
+        favorite_drink: '',
+        favorite_treat: ''
       }
 
       // 3. Insert into Supabase profiles
@@ -1322,11 +1370,11 @@ export const useDuoState = () => {
       partnership_id: newPartnershipId,
       current_mood: 'loved',
       avatar_color: '#0d9488',
-      mood_note: 'Witaj we wspólnym gniazdku!',
+      mood_note: '',
       mood_updated_at: new Date().toISOString(),
-      love_note: 'Cieszę się, że jesteśmy razem!',
-      favorite_drink: 'Kawa z mlekiem',
-      favorite_treat: 'Czekolada'
+      love_note: '',
+      favorite_drink: '',
+      favorite_treat: ''
     }
 
     // Set local state immediately so partnerUser exists before receiving handshake
@@ -1805,7 +1853,7 @@ export const useDuoState = () => {
       currentUser.value.name = updates.name.trim()
     }
     if (updates.avatar_color) {
-      currentUser.value.avatar_color = updates.avatar_color
+      currentUser.value.avatar_color = getCleanAccentColor(updates.avatar_color)
     }
     if (updates.love_note !== undefined) {
       currentUser.value.love_note = updates.love_note.trim()
@@ -1833,7 +1881,7 @@ export const useDuoState = () => {
       profile: {
         id: currentUser.value.id,
         name: currentUser.value.name,
-        avatar_color: currentUser.value.avatar_color,
+        avatar_color: getCleanAccentColor(currentUser.value.avatar_color),
         love_note: currentUser.value.love_note,
         favorite_drink: currentUser.value.favorite_drink,
         favorite_treat: currentUser.value.favorite_treat,
@@ -1847,7 +1895,8 @@ export const useDuoState = () => {
     })
 
     const currentHash = currentUserPasswordHash.value || ''
-    const colorToSave = currentHash ? `${currentUser.value.avatar_color}|${currentHash}` : currentUser.value.avatar_color
+    const cleanCurrentColor = getCleanAccentColor(currentUser.value.avatar_color)
+    const colorToSave = currentHash ? `${cleanCurrentColor}|${currentHash}` : cleanCurrentColor
 
     if (supabase && isOnlineWithSupabase.value) {
       safeDb(supabase.from('profiles').update({
@@ -1891,6 +1940,26 @@ export const useDuoState = () => {
     return Math.floor(diff / (1000 * 60 * 60 * 24)) + 1
   })
 
+  // User Accent Colors (for tasks, assignments, and personalized styling)
+  const currentUserAccentColor = computed(() => {
+    return getCleanAccentColor(currentUser.value?.avatar_color, '#0284c7')
+  })
+
+  const partnerUserAccentColor = computed(() => {
+    return getCleanAccentColor(partnerUser.value?.avatar_color, '#0d9488')
+  })
+
+  const getUserAccentColor = (userId?: string | null): string => {
+    if (!userId) return '#64748b' // Shared / neutral
+    if (currentUser.value && userId === currentUser.value.id) {
+      return currentUserAccentColor.value
+    }
+    if (partnerUser.value && userId === partnerUser.value.id) {
+      return partnerUserAccentColor.value
+    }
+    return '#64748b'
+  }
+
   return {
     authUser,
     authSession,
@@ -1918,6 +1987,11 @@ export const useDuoState = () => {
     pointsToNextLevel,
     levelProgress,
     daysTogether,
+    currentUserAccentColor,
+    partnerUserAccentColor,
+    getUserAccentColor,
+    getCleanAccentColor,
+    hexToRgba,
     initializeClientState,
     initSupabaseSync,
     triggerToast,

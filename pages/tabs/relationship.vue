@@ -4,9 +4,11 @@
       <ion-toolbar>
         <div class="dn-page-header">
           <div class="dn-header-title">
-            <span>Strefa Relacji</span>
+            <span>{{ currentCategory === 'relationship' ? 'Strefa Relacji' : 'Ustawienia Gniazdka' }}</span>
           </div>
-          <p class="dn-header-subtitle">Nastroje, drobne gesty i bliskość</p>
+          <p class="dn-header-subtitle">
+            {{ currentCategory === 'relationship' ? 'Nastroje, drobne gesty i bliskość' : 'Personalizacja Waszego domu, kolory i para' }}
+          </p>
         </div>
       </ion-toolbar>
     </ion-header>
@@ -17,103 +19,132 @@
         <ion-refresher-content pulling-text="Przeciągnij, aby odświeżyć..." refreshing-spinner="crescent" />
       </ion-refresher>
 
-      <!-- 0A. TWÓJ PROFIL & DANE OSOBOWE -->
-      <div class="dn-card my-profile-card">
-        <div class="card-title-row">
-          <span class="section-tag">TWÓJ PROFIL</span>
-          <span class="active-profile-pill">
-            <span class="pulsing-green-dot"></span>
-            Twój profil
-          </span>
-        </div>
-
-        <div class="profile-hero-row">
-          <div class="profile-avatar-circle" :style="{ backgroundColor: currentUser.avatar_color || '#0284c7' }">
-            <span>{{ currentUser.name.charAt(0) }}</span>
-          </div>
-          <div class="profile-name-info">
-            <div class="profile-name-row">
-              <h3>{{ currentUser.name }}</h3>
-              <span class="me-pill">Ty</span>
-            </div>
-          </div>
-          <button class="edit-profile-btn" @click="openEditProfileModal" title="Edytuj profil">
-            <DuoIcon name="edit" :size="16" />
-            <span>Edytuj profil</span>
+      <!-- CATEGORY SEGMENTED SELECTOR -->
+      <div class="category-toggle-container">
+        <div class="category-toggle-pill">
+          <button
+            type="button"
+            class="cat-toggle-btn"
+            :class="{ active: currentCategory === 'relationship' }"
+            @click="currentCategory = 'relationship'"
+          >
+            <ion-icon :icon="ioniconsHeart" />
+            <span>Strefa Relacji</span>
+          </button>
+          <button
+            type="button"
+            class="cat-toggle-btn"
+            :class="{ active: currentCategory === 'nest_settings' }"
+            @click="currentCategory = 'nest_settings'"
+          >
+            <ion-icon :icon="ioniconsSettingsOutline" />
+            <span>Ustawienia Gniazdka</span>
           </button>
         </div>
+      </div>
 
-        <!-- Love Note / Motto -->
-        <div class="profile-note-box" v-if="currentUser.love_note">
-          <DuoIcon name="quote" :size="14" class="quote-icon" />
-          <span class="quote-text">"{{ currentUser.love_note }}"</span>
-        </div>
-
-        <!-- Quick Preferences (Drink & Treat) -->
-        <div class="profile-prefs-grid">
-          <div class="pref-badge">
-            <DuoIcon name="drink" :size="16" />
-            <div class="pref-texts">
-              <span class="pref-label">Ulubiony napój:</span>
-              <span class="pref-value">{{ currentUser.favorite_drink || 'Kawa z mlekiem' }}</span>
-            </div>
+      <!-- ============================================== -->
+      <!-- KATEGORIA 1: STREFA RELACJI                   -->
+      <!-- ============================================== -->
+      <div v-show="currentCategory === 'relationship'" class="category-content-wrap">
+        <!-- 0A. TWÓJ PROFIL & DANE OSOBOWE -->
+        <div class="dn-card my-profile-card">
+          <div class="card-title-row">
+            <span class="section-tag" :style="{ color: currentUserAccentColor }">TWÓJ PROFIL</span>
+            <span class="active-profile-pill">
+              <span class="pulsing-green-dot"></span>
+              Twój profil
+            </span>
           </div>
-          <div class="pref-badge">
-            <DuoIcon name="treat" :size="16" />
-            <div class="pref-texts">
-              <span class="pref-label">Ulubiona przekąska:</span>
-              <span class="pref-value">{{ currentUser.favorite_treat || 'Czekolada' }}</span>
+
+          <div class="profile-hero-row">
+            <div class="profile-avatar-circle" :style="{ backgroundColor: currentUserAccentColor }">
+              <span>{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
+            </div>
+            <div class="profile-name-info">
+              <div class="profile-name-row">
+                <h3>{{ currentUser.name || 'Twój Profil' }}</h3>
+                <span class="me-pill">Ty</span>
+              </div>
+            </div>
+            <button class="edit-profile-btn" @click="openEditProfileModal" title="Edytuj profil">
+              <DuoIcon name="edit" :size="16" />
+              <span>Edytuj profil</span>
+            </button>
+          </div>
+
+          <!-- Love Note / Motto -->
+          <div class="profile-note-box" v-if="currentUser.love_note && currentUser.love_note.trim()">
+            <DuoIcon name="quote" :size="14" class="quote-icon" />
+            <span class="quote-text">"{{ currentUser.love_note }}"</span>
+          </div>
+
+          <!-- Quick Preferences (Drink & Treat) - no auto-filled mock data -->
+          <div class="profile-prefs-grid">
+            <div class="pref-badge">
+              <DuoIcon name="drink" :size="16" />
+              <div class="pref-texts">
+                <span class="pref-label">Ulubiony napój:</span>
+                <span class="pref-value">{{ currentUser.favorite_drink || 'Nie podano' }}</span>
+              </div>
+            </div>
+            <div class="pref-badge">
+              <DuoIcon name="treat" :size="16" />
+              <div class="pref-texts">
+                <span class="pref-label">Ulubiona przekąska:</span>
+                <span class="pref-value">{{ currentUser.favorite_treat || 'Nie podano' }}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 0B. PROFIL PARTNERA -->
-      <div class="dn-card partner-profile-card" v-if="partnerUser">
-        <div class="card-title-row">
-          <span class="section-tag partner-tag">PROFIL PARTNERA</span>
-          <span class="partner-online-pill" :class="{ 'is-live': isPartnerOnline }">
-            <span class="online-dot" :class="{ 'is-live': isPartnerOnline }"></span>
-            {{ isPartnerOnline ? 'W aplikacji' : 'Offline' }}
-          </span>
-        </div>
-
-        <div class="profile-hero-row">
-          <div class="profile-avatar-circle partner-avatar" :style="{ backgroundColor: partnerUser.avatar_color || '#0d9488' }">
-            <span>{{ partnerUser.name.charAt(0) }}</span>
+        <!-- 0B. PROFIL PARTNERA -->
+        <div class="dn-card partner-profile-card" v-if="partnerUser">
+          <div class="card-title-row">
+            <span class="section-tag partner-tag" :style="{ color: partnerUserAccentColor }">PROFIL PARTNERA</span>
+            <span class="partner-online-pill" :class="{ 'is-live': isPartnerOnline }">
+              <span class="online-dot" :class="{ 'is-live': isPartnerOnline }"></span>
+              {{ isPartnerOnline ? 'W aplikacji' : 'Offline' }}
+            </span>
           </div>
-          <div class="profile-name-info">
-            <div class="profile-name-row">
-              <h3>{{ partnerUser.name }}</h3>
-              <span class="partner-pill">Partner</span>
+
+          <div class="profile-hero-row">
+            <div class="profile-avatar-circle partner-avatar" :style="{ backgroundColor: partnerUserAccentColor }">
+              <span>{{ (partnerUser.name || 'P').charAt(0).toUpperCase() }}</span>
+            </div>
+            <div class="profile-name-info">
+              <div class="profile-name-row">
+                <h3>{{ partnerUser.name || 'Partner' }}</h3>
+                <span class="partner-pill">Partner</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Partner's Love Note -->
+          <div class="profile-note-box partner-note-box" v-if="partnerUser.love_note && partnerUser.love_note.trim()">
+            <DuoIcon name="quote" :size="14" class="quote-icon" />
+            <span class="quote-text">"{{ partnerUser.love_note }}"</span>
+          </div>
+
+          <!-- Partner's Favorite drink & treat -->
+          <div class="profile-prefs-grid">
+            <div class="pref-badge partner-pref">
+              <DuoIcon name="drink" :size="16" />
+              <div class="pref-texts">
+                <span class="pref-label">Ulubiony napój partnera:</span>
+                <span class="pref-value">{{ partnerUser.favorite_drink || 'Nie podano' }}</span>
+              </div>
+            </div>
+            <div class="pref-badge partner-pref">
+              <DuoIcon name="treat" :size="16" />
+              <div class="pref-texts">
+                <span class="pref-label">Ulubiona przekąska partnera:</span>
+                <span class="pref-value">{{ partnerUser.favorite_treat || 'Nie podano' }}</span>
+              </div>
             </div>
           </div>
         </div>
-
-        <!-- Partner's Love Note -->
-        <div class="profile-note-box partner-note-box" v-if="partnerUser.love_note">
-          <DuoIcon name="quote" :size="14" class="quote-icon" />
-          <span class="quote-text">"{{ partnerUser.love_note }}"</span>
-        </div>
-
-        <!-- Partner's Favorite drink & treat -->
-        <div class="profile-prefs-grid">
-          <div class="pref-badge partner-pref">
-            <DuoIcon name="drink" :size="16" />
-            <div class="pref-texts">
-              <span class="pref-label">Ulubiony napój partnera:</span>
-              <span class="pref-value">{{ partnerUser.favorite_drink || 'Herbata / Kawa' }}</span>
-            </div>
-          </div>
-          <div class="pref-badge partner-pref">
-            <DuoIcon name="treat" :size="16" />
-            <div class="pref-texts">
-              <span class="pref-label">Ulubiona przekąska partnera:</span>
-              <span class="pref-value">{{ partnerUser.favorite_treat || 'Słodycze' }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- 1. JAK SIĘ DZIŚ CZUJESZ? (UPDATE MY MOOD) -->
       <div class="dn-card mood-selector-card">
@@ -261,69 +292,221 @@
         </div>
       </div>
 
-      <!-- 4. WASZE POŁĄCZENIE I USTAWIENIA PARSTWA -->
-      <div class="dn-card pairing-card" v-if="partnership">
-        <div class="card-title-row">
-          <span class="section-tag pairing-tag">WASZE GNIAZDKO</span>
-          <span class="connected-pill">
-            <ion-icon :icon="ioniconsCheckmarkCircle" />
-            Połączono
-          </span>
-        </div>
-        <h4>{{ partnership.nest_name || 'Nasze Ciepłe Gniazdko' }}</h4>
-        <p class="section-desc">Budujecie wspólne gniazdko od {{ daysTogether }} dni.</p>
-
-        <div class="partnership-actions-box">
-          <div class="partnership-meta-info" v-if="partnerUser">
-            <span class="partner-meta-label">Twój Partner:</span>
-            <span class="partner-meta-name">{{ partnerUser.name }}</span>
+      <!-- ============================================== -->
+      <!-- KATEGORIA 2: USTAWIENIA GNIAZDKA (DEDYKOWANE)  -->
+      <!-- ============================================== -->
+      <div v-show="currentCategory === 'nest_settings'" class="category-content-wrap">
+        <!-- 1. WASZE GNIAZDKO & DATA ROCZNICY -->
+        <div class="dn-card nest-config-card">
+          <div class="card-title-row">
+            <span class="section-tag">WASZE GNIAZDKO</span>
+            <span class="days-together-badge">
+              <ion-icon :icon="ioniconsHeart" />
+              {{ daysTogether }} dni razem
+            </span>
           </div>
+          <h4>Informacje o Gniazdku</h4>
+          <p class="section-desc">Personalizujcie nazwę Waszego wspólnego domu i datę rozpoczęcia relacji.</p>
+
+          <div class="settings-form-group">
+            <label class="form-label">Nazwa Waszego Gniazdka</label>
+            <ion-input
+              v-model="nestNameInput"
+              placeholder="np. Nasze Ciepłe Gniazdko"
+              class="dn-styled-input"
+            />
+          </div>
+
+          <div class="settings-form-group">
+            <label class="form-label">Data rocznicy / początku relacji</label>
+            <ion-input
+              type="date"
+              v-model="anniversaryInput"
+              class="dn-styled-input"
+            />
+          </div>
+
+          <button class="dn-button-sea save-settings-btn" @click="handleSaveNestSettings">
+            <ion-icon :icon="ioniconsCheckmarkDoneOutline" />
+            <span>Zapisz dane Gniazdka</span>
+          </button>
+        </div>
+
+        <!-- 2. TWÓJ KOLOR AKCENTU W GNIAZDKU -->
+        <div class="dn-card accent-color-card">
+          <div class="card-title-row">
+            <span class="section-tag" :style="{ color: currentUserAccentColor }">TWÓJ KOLOR AKCENTU</span>
+            <span
+              class="active-color-badge"
+              :style="{
+                backgroundColor: hexToRgba(currentUserAccentColor, 0.15),
+                color: currentUserAccentColor,
+                borderColor: hexToRgba(currentUserAccentColor, 0.3)
+              }"
+            >
+              Aktywny kolor
+            </span>
+          </div>
+          <h4>Wybierz swój kolor akcentu</h4>
+          <p class="section-desc">
+            Twój kolor bezpośrednio decyduje o tym, jak wyróżniają się Twoje zadania, zakupy, awatar i wszystkie elementy przypisane do Ciebie w aplikacji!
+          </p>
+
+          <!-- Color swatches grid -->
+          <div class="accent-palette-grid">
+            <button
+              type="button"
+              v-for="c in accentColorPresets"
+              :key="c.hex"
+              class="accent-color-btn"
+              :class="{ active: currentUserAccentColor === c.hex }"
+              :style="{ backgroundColor: c.hex }"
+              @click="handleSelectAccentColor(c.hex)"
+              :title="c.label"
+            >
+              <ion-icon v-if="currentUserAccentColor === c.hex" :icon="ioniconsCheckmark" class="color-check-icon" />
+            </button>
+          </div>
+
+          <!-- LIVE PREVIEW BOX -->
+          <div class="live-preview-box" :style="{ borderColor: hexToRgba(currentUserAccentColor, 0.35) }">
+            <div class="preview-header">
+              <ion-icon :icon="ioniconsSparkles" class="preview-sparkle" :style="{ color: currentUserAccentColor }" />
+              <span>Podgląd na żywo Twojego stylu:</span>
+            </div>
+
+            <!-- Sample Task Preview -->
+            <div
+              class="sample-task-card"
+              :style="{
+                borderLeft: `4px solid ${currentUserAccentColor}`,
+                backgroundColor: hexToRgba(currentUserAccentColor, 0.05)
+              }"
+            >
+              <div
+                class="sample-checkbox"
+                :style="{
+                  backgroundColor: currentUserAccentColor,
+                  borderColor: currentUserAccentColor
+                }"
+              >
+                <ion-icon :icon="ioniconsCheckmark" />
+              </div>
+              <div class="sample-task-info">
+                <span class="sample-task-title">Przykładowe zadanie domowe</span>
+                <div class="sample-tags-row">
+                  <span
+                    class="sample-pill"
+                    :style="{
+                      backgroundColor: hexToRgba(currentUserAccentColor, 0.14),
+                      color: currentUserAccentColor,
+                      borderColor: hexToRgba(currentUserAccentColor, 0.3)
+                    }"
+                  >
+                    <ion-icon :icon="ioniconsPersonOutline" />
+                    <span>Moje zadanie</span>
+                  </span>
+                  <span class="sample-pts-badge">+15 pkt</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sample Avatar Preview -->
+            <div class="sample-avatar-row">
+              <div class="sample-avatar-circle" :style="{ backgroundColor: currentUserAccentColor }">
+                <span>{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
+              </div>
+              <span class="sample-avatar-desc">
+                Twój awatar: <strong>{{ currentUser.name || 'Ty' }}</strong> (kliknij inny kolor powyżej, aby zmienić)
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. POŁĄCZENIE PARY & KOD PAROWANIA -->
+        <div class="dn-card pairing-card" v-if="partnership">
+          <div class="card-title-row">
+            <span class="section-tag pairing-tag">POŁĄCZENIE PARY</span>
+            <span class="connected-pill">
+              <ion-icon :icon="ioniconsCheckmarkCircle" />
+              Połączono
+            </span>
+          </div>
+          <h4>Wasze połączenie</h4>
+          <p class="section-desc" v-if="partnerUser">
+            Jesteście sparowani z: <strong>{{ partnerUser.name || 'Partner' }}</strong>
+          </p>
+
+          <div class="my-code-box">
+            <span class="code-label">TWÓJ KOD PAROWANIA</span>
+            <div class="code-display-row">
+              <span class="code-text">{{ currentUser.pairing_code }}</span>
+              <button class="copy-btn" @click="copyPairingCode" title="Kopiuj kod">
+                <ion-icon :icon="ioniconsCopyOutline" />
+                <span>{{ copyStatus }}</span>
+              </button>
+            </div>
+          </div>
+
           <div class="partnership-buttons-row">
             <button class="disconnect-pair-btn" @click="handleDisconnect">
               <ion-icon :icon="ioniconsLogOutOutline" />
-              <span>Rozłącz konto</span>
+              <span>Rozłącz konto pary</span>
             </button>
+          </div>
+        </div>
+
+        <!-- Jeśli niepołączony -->
+        <div class="dn-card pairing-card" v-else>
+          <div class="card-title-row">
+            <span class="section-tag pairing-tag">POŁĄCZENIE PARY</span>
+          </div>
+          <h4>Połącz się z partnerem</h4>
+          <p class="section-desc">Wpisz kod partnera lub przekaż mu swój kod, aby połączyć Wasze konta.</p>
+
+          <div class="my-code-box">
+            <span class="code-label">TWÓJ KOD</span>
+            <div class="code-display-row">
+              <span class="code-text">{{ currentUser.pairing_code }}</span>
+              <button class="copy-btn" @click="copyPairingCode" title="Kopiuj kod">
+                <ion-icon :icon="ioniconsCopyOutline" />
+                <span>{{ copyStatus }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="join-box">
+            <label class="input-label">Kod partnera:</label>
+            <div class="join-input-row">
+              <ion-input
+                v-model="inputPartnerCode"
+                placeholder="np. DN-LOVE"
+                class="partner-code-input"
+                maxlength="10"
+              />
+              <button class="join-submit-btn" @click="handlePairWithCode" :disabled="!inputPartnerCode.trim()">
+                Połącz
+              </button>
+            </div>
+            <span class="error-text" v-if="pairingError">{{ pairingError }}</span>
+          </div>
+        </div>
+
+        <!-- 4. KONTO I SESJA -->
+        <div class="dn-card account-card">
+          <div class="card-title-row">
+            <span class="section-tag">KONTO</span>
+          </div>
+          <h4>Zarządzanie kontem</h4>
+          <p class="section-desc">
+            Zalogowano jako: <strong>{{ currentUser.email || currentUser.name || 'Użytkownik' }}</strong>
+          </p>
+          <div class="partnership-buttons-row">
             <button class="signout-app-btn" @click="handleSignOut">
               <ion-icon :icon="ioniconsPowerOutline" />
-              <span>Wyloguj się</span>
+              <span>Wyloguj się z DuoNest</span>
             </button>
           </div>
-        </div>
-      </div>
-
-      <!-- Jeśli jeszcze nie połączony -->
-      <div class="dn-card pairing-card" v-else>
-        <div class="card-title-row">
-          <span class="section-tag pairing-tag">POŁĄCZENIE PARY</span>
-        </div>
-        <h4>Połącz się z partnerem</h4>
-        <p class="section-desc">Wpisz kod partnera lub przekaż mu swój, aby wspólnie korzystać z aplikacji.</p>
-
-        <div class="my-code-box">
-          <span class="code-label">TWÓJ KOD</span>
-          <div class="code-display-row">
-            <span class="code-text">{{ currentUser.pairing_code }}</span>
-            <button class="copy-btn" @click="copyPairingCode" title="Kopiuj kod">
-              <ion-icon :icon="ioniconsCopyOutline" />
-              <span>{{ copyStatus }}</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="join-box">
-          <label class="input-label">Kod partnera:</label>
-          <div class="join-input-row">
-            <ion-input
-              v-model="inputPartnerCode"
-              placeholder="np. DN-LOVE"
-              class="partner-code-input"
-              maxlength="10"
-            />
-            <button class="join-submit-btn" @click="handlePairWithCode" :disabled="!inputPartnerCode.trim()">
-              Połącz
-            </button>
-          </div>
-          <span class="error-text" v-if="pairingError">{{ pairingError }}</span>
         </div>
       </div>
 
@@ -354,25 +537,6 @@
                 class="dn-styled-input"
                 :clear-input="true"
               />
-            </div>
-
-            <!-- Wybór koloru avatara -->
-            <div class="form-group">
-              <label class="form-label">Wybierz kolor swojego awatara</label>
-              <div class="avatar-palette-grid">
-                <button
-                  type="button"
-                  v-for="c in avatarColorPresets"
-                  :key="c.hex"
-                  class="color-pick-circle"
-                  :style="{ backgroundColor: c.hex }"
-                  :class="{ active: editProfileForm.avatar_color === c.hex }"
-                  @click="editProfileForm.avatar_color = c.hex"
-                  :title="c.label"
-                >
-                  <ion-icon v-if="editProfileForm.avatar_color === c.hex" :icon="ioniconsCheckmark" class="color-check-icon" />
-                </button>
-              </div>
             </div>
 
             <!-- Czuła wiadomość / motto dla partnera -->
@@ -431,37 +595,11 @@
               </div>
             </div>
 
-            <!-- Nazwa Gniazdka & Rocznica -->
-            <div class="nest-subform-box" v-if="partnership">
-              <div class="subform-header">
-                <DuoIcon name="calendar-heart" :size="18" />
-                <span>Wasze Gniazdko & Data Rocznicy</span>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">Nazwa Waszego Gniazdka</label>
-                <ion-input
-                  v-model="editProfileForm.nest_name"
-                  placeholder="np. Nasze Ciepłe Gniazdko"
-                  class="dn-styled-input"
-                />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">Data rocznicy / początku relacji</label>
-                <ion-input
-                  type="date"
-                  v-model="editProfileForm.anniversary_date"
-                  class="dn-styled-input"
-                />
-              </div>
-            </div>
-
             <!-- Save Button -->
             <div class="modal-actions-row">
               <button class="dn-button-sea save-all-profile-btn" @click="handleSaveProfile" :disabled="!editProfileForm.name.trim()">
                 <ion-icon :icon="ioniconsCheckmarkDoneOutline" />
-                <span>Zapisz zmiany (partner widzi natychmiast)</span>
+                <span>Zapisz dane profilu</span>
               </button>
             </div>
           </div>
@@ -474,10 +612,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import confetti from 'canvas-confetti'
 import { useDuoState } from '~/composables/useDuoState'
 import DuoIcon from '~/components/DuoIcon.vue'
+
+const route = useRoute()
 
 const {
   currentUser,
@@ -486,36 +627,85 @@ const {
   daysTogether,
   nudgesList,
   isPartnerOnline,
+  currentUserAccentColor,
+  partnerUserAccentColor,
+  getUserAccentColor,
+  hexToRgba,
   updateMood,
   sendNudge,
   hasSentDailyNudge,
   formattedNextNudgeTime,
   updateMyProfile,
+  updatePartnershipSettings,
   pairWithCode,
   disconnectPartnership,
   signOutUser,
   triggerToast
 } = useDuoState()
 
+const currentCategory = ref<'relationship' | 'nest_settings'>(
+  route.query.category === 'nest_settings' ? 'nest_settings' : 'relationship'
+)
+
+watch(() => route.query.category, (newCat) => {
+  if (newCat === 'nest_settings' || newCat === 'relationship') {
+    currentCategory.value = newCat
+  }
+})
+
+// Nest Settings Inputs
+const nestNameInput = ref(partnership.value?.nest_name || 'Nasze Ciepłe Gniazdko')
+const anniversaryInput = ref(partnership.value?.anniversary_date || '')
+
+watch(() => partnership.value?.nest_name, (newName) => {
+  if (newName) nestNameInput.value = newName
+})
+watch(() => partnership.value?.anniversary_date, (newDate) => {
+  if (newDate) anniversaryInput.value = newDate
+})
+
+const handleSaveNestSettings = async () => {
+  await updatePartnershipSettings(nestNameInput.value, anniversaryInput.value)
+  confetti({
+    particleCount: 50,
+    spread: 60,
+    origin: { y: 0.6 }
+  })
+}
+
+// Accent Color Presets (10 curated vibrant colors)
+const accentColorPresets = [
+  { hex: '#0284c7', label: 'Błękit Oceanu' },
+  { hex: '#0d9488', label: 'Morski Szmaragd' },
+  { hex: '#e11d48', label: 'Różana Czerwień' },
+  { hex: '#6366f1', label: 'Głębokie Indygo' },
+  { hex: '#8b5cf6', label: 'Lawendowy Fiolet' },
+  { hex: '#f59e0b', label: 'Ciepły Bursztyn' },
+  { hex: '#f97316', label: 'Słoneczny Koral' },
+  { hex: '#059669', label: 'Leśny Szmaragd' },
+  { hex: '#ec4899', label: 'Malinowy Róż' },
+  { hex: '#7c3aed', label: 'Królewski Fiolet' }
+]
+
+const handleSelectAccentColor = async (colorHex: string) => {
+  await updateMyProfile({ avatar_color: colorHex })
+  triggerToast('Zmieniono kolor akcentu! Zadania i elementy zostały zaktualizowane.')
+  confetti({
+    particleCount: 40,
+    spread: 50,
+    origin: { y: 0.6 },
+    colors: [colorHex]
+  })
+}
+
+// Personal Profile Modal
 const isEditProfileModalOpen = ref(false)
 const editProfileForm = ref({
   name: '',
-  avatar_color: '#0284c7',
   love_note: '',
   favorite_drink: '',
-  favorite_treat: '',
-  nest_name: '',
-  anniversary_date: ''
+  favorite_treat: ''
 })
-
-const avatarColorPresets = [
-  { hex: '#0284c7', label: 'Błękit Oceanu' },
-  { hex: '#0d9488', label: 'Morski Szmaragd' },
-  { hex: '#f43f5e', label: 'Różana Czerwień' },
-  { hex: '#8b5cf6', label: 'Fiolet Lawendowy' },
-  { hex: '#f59e0b', label: 'Ciepły Bursztyn' },
-  { hex: '#6366f1', label: 'Głębokie Indygo' }
-]
 
 const quickDrinkSuggestions = ['Kawa z mlekiem', 'Kawa owsiana', 'Matcha latte', 'Herbata Earl Grey', 'Woda z cytryną']
 const quickTreatSuggestions = ['Czekolada pistacjowa', 'Pistacje', 'Żelki malinowe', 'Sernik', 'Truskawki']
@@ -523,12 +713,9 @@ const quickTreatSuggestions = ['Czekolada pistacjowa', 'Pistacje', 'Żelki malin
 const openEditProfileModal = () => {
   editProfileForm.value = {
     name: currentUser.value.name || '',
-    avatar_color: currentUser.value.avatar_color || '#0284c7',
     love_note: currentUser.value.love_note || '',
     favorite_drink: currentUser.value.favorite_drink || '',
-    favorite_treat: currentUser.value.favorite_treat || '',
-    nest_name: partnership.value?.nest_name || 'Nasze Ciepłe Gniazdko',
-    anniversary_date: partnership.value?.anniversary_date || ''
+    favorite_treat: currentUser.value.favorite_treat || ''
   }
   isEditProfileModalOpen.value = true
 }
@@ -545,7 +732,7 @@ const handleSaveProfile = async () => {
     particleCount: 60,
     spread: 60,
     origin: { y: 0.6 },
-    colors: ['#0284c7', '#0d9488', '#38bdf8', '#f43f5e']
+    colors: [currentUserAccentColor.value, '#38bdf8', '#f43f5e']
   })
 }
 
@@ -601,7 +788,7 @@ const handleSendNudge = async () => {
       particleCount: 50,
       spread: 60,
       origin: { y: 0.6 },
-      colors: ['#0284c7', '#0ea5e9', '#0d9488', '#f43f5e']
+      colors: [currentUserAccentColor.value, '#0ea5e9', '#0d9488', '#f43f5e']
     })
   }
 }
@@ -1638,5 +1825,237 @@ const handleRefresh = (event: any) => {
 .signout-app-btn:hover {
   background: #f1f5f9;
   color: #0f172a;
+}
+
+/* CATEGORY SEGMENTED SELECTOR */
+.category-toggle-container {
+  display: flex;
+  justify-content: center;
+  padding: 12px 16px 8px 16px;
+}
+
+.category-toggle-pill {
+  display: flex;
+  background: #e2e8f0;
+  padding: 3px;
+  border-radius: 999px;
+  gap: 2px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.cat-toggle-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cat-toggle-btn.active {
+  background: #ffffff;
+  color: #0284c7;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.category-content-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+/* NEST SETTINGS SPECIFIC */
+.days-together-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #f43f5e;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.settings-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.save-settings-btn {
+  width: 100%;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+/* ACCENT COLOR PALETTE */
+.active-color-badge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+
+.accent-palette-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin: 12px 0 16px 0;
+}
+
+.accent-color-btn {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 20px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.accent-color-btn:active {
+  transform: scale(0.92);
+}
+
+.accent-color-btn.active {
+  transform: scale(1.1);
+  border-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.5), 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* LIVE ACCENT PREVIEW BOX */
+.live-preview-box {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.25s ease;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sample-task-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.sample-checkbox {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.sample-task-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sample-task-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.sample-tags-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sample-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid;
+}
+
+.sample-pts-badge {
+  font-size: 10px;
+  font-weight: 800;
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.sample-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.sample-avatar-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 13px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+.sample-avatar-desc {
+  font-size: 12px;
+  color: #64748b;
 }
 </style>

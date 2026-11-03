@@ -102,8 +102,16 @@
               </div>
               <div class="item-meta">
                 <span class="item-category-tag">{{ item.category }}</span>
-                <span class="item-author" v-if="item.added_by">
-                  dodał(a): {{ item.added_by === currentUser.id ? 'Ty' : (partnerUser?.name || 'Partner') }}
+                <span
+                  class="item-author-badge"
+                  v-if="item.added_by"
+                  :style="{
+                    color: getUserAccentColor(item.added_by),
+                    backgroundColor: hexToRgba(getUserAccentColor(item.added_by), 0.12),
+                    borderColor: hexToRgba(getUserAccentColor(item.added_by), 0.3)
+                  }"
+                >
+                  {{ item.added_by === currentUser.id ? 'Ty' : (partnerUser?.name || 'Partner') }}
                 </span>
               </div>
             </ion-label>
@@ -186,7 +194,9 @@ const {
   addShoppingItem,
   toggleShoppingItem,
   deleteShoppingItem,
-  clearCompletedShopping
+  clearCompletedShopping,
+  getUserAccentColor,
+  hexToRgba
 } = useDuoState()
 
 const newItemTitle = ref('')
@@ -468,6 +478,16 @@ const handleRefresh = (event: any) => {
 .item-author {
   font-size: 11px;
   color: #94a3b8;
+}
+
+.item-author-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
 }
 
 /* COMPLETED SECTION */

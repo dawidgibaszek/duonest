@@ -25,11 +25,21 @@
           <ion-segment-button value="all">
             <ion-label>Wszystkie</ion-label>
           </ion-segment-button>
-          <ion-segment-button value="mine">
-            <ion-label>Moje</ion-label>
+          <ion-segment-button
+            value="mine"
+            :style="selectedSegment === 'mine' ? { '--color-checked': currentUserAccentColor, '--indicator-color': hexToRgba(currentUserAccentColor, 0.18) } : {}"
+          >
+            <ion-label :style="selectedSegment === 'mine' ? { color: currentUserAccentColor, fontWeight: '700' } : {}">
+              Moje
+            </ion-label>
           </ion-segment-button>
-          <ion-segment-button value="partner">
-            <ion-label>{{ partnerUser?.name || 'Partnera' }}</ion-label>
+          <ion-segment-button
+            value="partner"
+            :style="selectedSegment === 'partner' ? { '--color-checked': partnerUserAccentColor, '--indicator-color': hexToRgba(partnerUserAccentColor, 0.18) } : {}"
+          >
+            <ion-label :style="selectedSegment === 'partner' ? { color: partnerUserAccentColor, fontWeight: '700' } : {}">
+              {{ partnerUser?.name || 'Partnera' }}
+            </ion-label>
           </ion-segment-button>
           <ion-segment-button value="shared">
             <ion-label>Wspólne</ion-label>
@@ -59,12 +69,22 @@
             </ion-item-option>
           </ion-item-options>
 
-          <ion-item class="task-item" lines="full">
+          <ion-item
+            class="task-item"
+            :style="{
+              borderLeft: `4.5px solid ${getUserAccentColor(task.assigned_to)}`,
+              backgroundColor: task.assigned_to ? hexToRgba(getUserAccentColor(task.assigned_to), 0.03) : '#ffffff'
+            }"
+            lines="full"
+          >
             <ion-checkbox
               slot="start"
               :checked="task.is_completed"
               @ionChange="handleToggleTask(task)"
-              color="primary"
+              :style="{
+                '--checkbox-background-checked': getUserAccentColor(task.assigned_to),
+                '--border-color-checked': getUserAccentColor(task.assigned_to)
+              }"
             />
             <ion-label>
               <div class="task-title-row">
@@ -75,8 +95,15 @@
               <p class="task-desc" v-if="task.description">{{ task.description }}</p>
 
               <div class="task-tags-row">
-                <!-- Assignee badge with SVG icons -->
-                <span class="tag-pill" :class="getAssigneeClass(task.assigned_to)">
+                <!-- Assignee badge with dynamic accent color styling -->
+                <span
+                  class="tag-pill"
+                  :style="{
+                    backgroundColor: hexToRgba(getUserAccentColor(task.assigned_to), 0.13),
+                    color: getUserAccentColor(task.assigned_to),
+                    border: `1px solid ${hexToRgba(getUserAccentColor(task.assigned_to), 0.28)}`
+                  }"
+                >
                   <ion-icon :icon="getAssigneeIonicon(task.assigned_to)" />
                   <span>{{ getAssigneeLabel(task.assigned_to) }}</span>
                 </span>
@@ -122,7 +149,13 @@
               </ion-item-option>
             </ion-item-options>
 
-            <ion-item class="task-item completed" lines="full">
+            <ion-item
+              class="task-item completed"
+              :style="{
+                borderLeft: `4.5px solid ${hexToRgba(getUserAccentColor(task.assigned_to), 0.35)}`
+              }"
+              lines="full"
+            >
               <ion-checkbox
                 slot="start"
                 :checked="true"
@@ -186,6 +219,12 @@
                   type="button"
                   class="assignee-btn"
                   :class="{ active: newTaskAssignee === currentUser.id }"
+                  :style="newTaskAssignee === currentUser.id ? {
+                    backgroundColor: hexToRgba(currentUserAccentColor, 0.15),
+                    borderColor: currentUserAccentColor,
+                    color: currentUserAccentColor,
+                    boxShadow: `0 0 0 1px ${currentUserAccentColor}`
+                  } : {}"
                   @click="newTaskAssignee = currentUser.id"
                 >
                   <ion-icon :icon="ioniconsPersonOutline" />
@@ -195,6 +234,12 @@
                   type="button"
                   class="assignee-btn"
                   :class="{ active: newTaskAssignee === (partnerUser?.id || 'partner') }"
+                  :style="newTaskAssignee === (partnerUser?.id || 'partner') ? {
+                    backgroundColor: hexToRgba(partnerUserAccentColor, 0.15),
+                    borderColor: partnerUserAccentColor,
+                    color: partnerUserAccentColor,
+                    boxShadow: `0 0 0 1px ${partnerUserAccentColor}`
+                  } : {}"
                   @click="newTaskAssignee = partnerUser?.id || 'partner'"
                 >
                   <ion-icon :icon="ioniconsHeartOutline" />
@@ -274,6 +319,10 @@ const {
   tasksList,
   currentUser,
   partnerUser,
+  currentUserAccentColor,
+  partnerUserAccentColor,
+  getUserAccentColor,
+  hexToRgba,
   addTask,
   toggleTask,
   deleteTask

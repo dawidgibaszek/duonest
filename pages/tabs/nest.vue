@@ -10,10 +10,19 @@
               <span class="brand-sub">Wspólna przestrzeń</span>
             </div>
           </div>
-          <div class="couple-indicator-badge" @click="navigateTo('/tabs/relationship')">
-            <span class="online-indicator-dot" :class="{ 'is-live': isPartnerOnline }"></span>
-            <span class="partner-name-tag">{{ partnerUser?.name || 'Partner' }}</span>
-            <span class="online-tag-pill" v-if="isPartnerOnline">online</span>
+          <div class="header-actions-group">
+            <div class="couple-indicator-badge" @click="navigateTo('/tabs/relationship')">
+              <span class="online-indicator-dot" :class="{ 'is-live': isPartnerOnline }"></span>
+              <span class="partner-name-tag">{{ partnerUser?.name || 'Partner' }}</span>
+              <span class="online-tag-pill" v-if="isPartnerOnline">online</span>
+            </div>
+            <button
+              class="quick-gear-btn"
+              @click="navigateTo('/tabs/relationship?category=nest_settings')"
+              title="Ustawienia Gniazdka"
+            >
+              <ion-icon :icon="ioniconsSettingsOutline" />
+            </button>
           </div>
         </div>
       </ion-toolbar>
@@ -29,14 +38,14 @@
       <div class="dn-card hero-card">
         <div class="hero-top">
           <div class="avatar-duo" @click="navigateTo('/tabs/relationship')" title="Kliknij, aby przejść do profilu">
-            <div class="avatar-ring avatar-mine" :style="{ backgroundColor: currentUser.avatar_color || '#38bdf8' }">
-              <span class="avatar-letter">{{ currentUser.name.charAt(0) }}</span>
+            <div class="avatar-ring avatar-mine" :style="{ backgroundColor: currentUserAccentColor }">
+              <span class="avatar-letter">{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
             </div>
             <div class="avatar-heart">
               <ion-icon :icon="ioniconsHeart" />
             </div>
-            <div class="avatar-ring avatar-theirs" :style="{ backgroundColor: partnerUser?.avatar_color || '#2dd4bf' }">
-              <span class="avatar-letter">{{ partnerUser ? partnerUser.name.charAt(0) : '?' }}</span>
+            <div class="avatar-ring avatar-theirs" :style="{ backgroundColor: partnerUserAccentColor }">
+              <span class="avatar-letter">{{ partnerUser ? (partnerUser.name || 'P').charAt(0).toUpperCase() : '?' }}</span>
             </div>
           </div>
 
@@ -194,15 +203,26 @@
             v-for="task in pendingChores.slice(0, 3)"
             :key="task.id"
             class="mini-task-item"
+            :style="{ borderLeft: `3.5px solid ${getUserAccentColor(task.assigned_to)}` }"
             @click="toggleTask(task.id)"
           >
-            <div class="checkbox-circle" :class="{ checked: task.is_completed }">
+            <div
+              class="checkbox-circle"
+              :class="{ checked: task.is_completed }"
+              :style="task.is_completed ? {
+                backgroundColor: getUserAccentColor(task.assigned_to),
+                borderColor: getUserAccentColor(task.assigned_to)
+              } : {}"
+            >
               <ion-icon v-if="task.is_completed" :icon="ioniconsCheckmarkOutline" />
             </div>
             <div class="mini-task-details">
               <span class="mini-task-title">{{ task.title }}</span>
-              <span class="mini-task-assignee">
-                {{ task.assigned_to ? (task.assigned_to === currentUser.id ? 'Dla Ciebie' : 'Dla partnera') : 'Wspólne' }}
+              <span
+                class="mini-task-assignee"
+                :style="{ color: getUserAccentColor(task.assigned_to), fontWeight: '700' }"
+              >
+                {{ task.assigned_to ? (task.assigned_to === currentUser.id ? 'Dla Ciebie' : ('Dla ' + (partnerUser?.name || 'partnera'))) : 'Wspólne' }}
               </span>
             </div>
             <span class="mini-task-pts">+{{ task.points }} pkt</span>
@@ -256,7 +276,10 @@ const {
   sendNudge,
   hasSentDailyNudge,
   formattedNextNudgeTime,
-  toggleTask
+  toggleTask,
+  currentUserAccentColor,
+  partnerUserAccentColor,
+  getUserAccentColor
 } = useDuoState()
 
 const stageNames: Record<number, { name: string; desc: string }> = {
@@ -370,6 +393,38 @@ const handleRefresh = (event: any) => {
   font-size: 11px;
   color: #64748b;
   font-weight: 600;
+}
+
+.header-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quick-gear-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.quick-gear-btn:hover {
+  background: #f1f5f9;
+  color: #0284c7;
+  transform: rotate(25deg);
+}
+
+.quick-gear-btn:active {
+  transform: scale(0.92);
 }
 
 .couple-indicator-badge {
