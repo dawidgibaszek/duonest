@@ -11,12 +11,6 @@
 [functions]
   directory = "netlify/functions"
 
-# API Redirects for Serverless Functions
-[[redirects]]
-  from = "/api/wishlist/preview"
-  to = "/.netlify/functions/wishlist-preview"
-  status = 200
-
 # PWA & SPA Routing Fallback for Netlify
 [[redirects]]
   from = "/*"

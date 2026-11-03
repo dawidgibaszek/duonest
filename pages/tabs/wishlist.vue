@@ -694,13 +694,19 @@ const handleScrapeUrl = async () => {
 
   // 3. Pre-fill form & open modal
   if (resData && (resData.title || resData.site_name)) {
+    let fallbackLogo = ''
+    try {
+      const parsed = new URL(url)
+      fallbackLogo = `https://www.google.com/s2/favicons?domain=${parsed.hostname}&sz=128`
+    } catch (_) {}
+
     formData.value = {
       title: resData.title || '',
       price: resData.price || '',
       currency: resData.currency || 'PLN',
       site_name: resData.site_name || '',
       url: resData.url || url,
-      image_url: resData.image_url || '',
+      image_url: resData.image_url || fallbackLogo,
       note: '',
       is_visible_to_partner: true
     }
