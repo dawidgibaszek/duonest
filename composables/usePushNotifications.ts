@@ -85,7 +85,15 @@ export const usePushNotifications = () => {
 
       const m = newToast.message.toLowerCase()
       // Skip self-feedback confirmation toasts
-      if (m.includes('skopiowan') || m.includes('zapisano') || m.includes('zmieniono kolor') || m.includes('twoje imię')) {
+      if (
+        m.includes('skopiowan') ||
+        m.includes('zapisano') ||
+        m.includes('zmieniono') ||
+        m.includes('twoje imię') ||
+        m.includes('twój profil') ||
+        m.includes('twój nastrój') ||
+        m.includes('zaktualizowano')
+      ) {
         return
       }
 

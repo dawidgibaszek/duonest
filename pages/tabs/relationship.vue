@@ -156,7 +156,7 @@
           </span>
         </div>
         <h4>Jak się dziś czujesz?</h4>
-        <p class="section-desc">Twój partner natychmiast zobaczy ten stan na swoim pulpicie.</p>
+        <p class="section-desc">Twój aktualny nastrój i samopoczucie na dziś.</p>
 
         <div class="moods-grid">
           <button
@@ -850,7 +850,7 @@
                 <h3>{{ editProfileForm.name || 'Twój Profil' }}</h3>
                 <span class="live-sync-pill">
                   <span class="live-dot"></span>
-                  Widoczne dla partnera na żywo
+                  Twój profil w Gniazdku
                 </span>
               </div>
             </div>
@@ -878,7 +878,7 @@
                 <span class="mini-section-tag tag-love">CZUŁOŚĆ</span>
                 <label class="form-label">Czuła wiadomość / Twoje motto</label>
               </div>
-              <p class="section-micro-desc">Partner widzi tę wiadomość w nagłówku Twojego profilu.</p>
+              <p class="section-micro-desc">Wiadomość wyświetlana w nagłówku Twojego profilu.</p>
 
               <div class="textarea-with-icon-wrap">
                 <DuoIcon name="quote" :size="16" class="textarea-leading-icon" />

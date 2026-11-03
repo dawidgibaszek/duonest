@@ -927,8 +927,8 @@ export const useDuoState = () => {
         if (key !== currentUser.value.id) {
           isPartnerOnline.value = true
           triggerToast(`${partnerUser.value?.name || 'Partner'} jest teraz w aplikacji!`)
-          // Synchronize our profile to the newly joined partner immediately
-          broadcastToPartner('PROFILE_UPDATE', {
+          // Synchronize our profile silently to the newly joined partner immediately
+          broadcastToPartner('PROFILE_SYNC', {
             profile: currentUser.value,
             partnership: partnership.value ? {
               nest_name: partnership.value.nest_name,
@@ -1144,7 +1144,24 @@ export const useDuoState = () => {
           break
         }
 
-        // --- PROFILE UPDATES ---
+        // --- PROFILE SYNC (SILENT BACKGROUND EXCHANGE ON CONNECT) ---
+        case 'PROFILE_SYNC': {
+          if (data?.profile) {
+            partnerUser.value = {
+              ...(partnerUser.value || {}),
+              ...data.profile,
+              name: data.profile.name || partnerUser.value?.name || 'Partner'
+            }
+            if (data.partnership && partnership.value) {
+              if (data.partnership.nest_name) partnership.value.nest_name = data.partnership.nest_name
+              if (data.partnership.anniversary_date) partnership.value.anniversary_date = data.partnership.anniversary_date
+            }
+            syncToStorage()
+          }
+          break
+        }
+
+        // --- PROFILE UPDATES (EXPLICIT USER EDIT IN MODAL) ---
         case 'PROFILE_UPDATE': {
           if (data?.profile) {
             partnerUser.value = {
@@ -1157,7 +1174,9 @@ export const useDuoState = () => {
               if (data.partnership.anniversary_date) partnership.value.anniversary_date = data.partnership.anniversary_date
             }
             syncToStorage()
-            triggerToast(`${data.profile.name || 'Partner'} zaktualizował(a) swój profil!`)
+            if (data.is_manual_edit) {
+              triggerToast(`${data.profile.name || 'Partner'} zaktualizował(a) swój profil!`)
+            }
           }
           break
         }
@@ -1270,8 +1289,8 @@ export const useDuoState = () => {
           online_at: new Date().toISOString()
         })
 
-        // Broadcast our profile immediately so partner gets our up-to-date name & details
-        broadcastToPartner('PROFILE_UPDATE', {
+        // Broadcast our profile silently so partner gets our up-to-date name & details without false notifications
+        broadcastToPartner('PROFILE_SYNC', {
           profile: currentUser.value,
           partnership: partnership.value ? {
             nest_name: partnership.value.nest_name,
@@ -1890,7 +1909,7 @@ export const useDuoState = () => {
         }))
       }
     }
-    triggerToast('Zaktualizowano Twój nastrój! Partner widzi to na żywo.')
+    triggerToast('Zaktualizowano Twój nastrój!')
   }
 
   const lastNudgeSentTimestamp = computed(() => {
@@ -2035,6 +2054,7 @@ export const useDuoState = () => {
 
     // Live broadcast across Supabase Realtime WebSocket
     broadcastToPartner('PROFILE_UPDATE', {
+      is_manual_edit: true,
       profile: {
         id: currentUser.value.id,
         name: currentUser.value.name,
@@ -2072,7 +2092,7 @@ export const useDuoState = () => {
       }
     }
 
-    triggerToast('Zaktualizowano Twój profil! Partner widzi zmiany na żywo.')
+    triggerToast('Zaktualizowano Twój profil!')
   }
 
   // Nest calculations
