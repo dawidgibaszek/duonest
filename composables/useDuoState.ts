@@ -622,7 +622,10 @@ export const useDuoState = () => {
         partnership.value = pData
         saveToStorage('duonest_partnership', pData)
 
-        const partnerId = pData.partner1_id === currentUserId ? pData.partner2_id : pData.partner1_id
+        const myId = currentUserId || currentUser.value?.id || authUser.value?.id
+        const partnerId = (myId && pData.partner1_id === myId)
+          ? pData.partner2_id
+          : ((myId && pData.partner2_id === myId) ? pData.partner1_id : (pData.partner1_id || pData.partner2_id))
         if (partnerId) {
           const { data: pUser } = await supabase
             .from('profiles')
@@ -636,7 +639,7 @@ export const useDuoState = () => {
             partnerUser.value = {
               ...createInitialProfile(),
               ...pUser,
-              name: pUser.name || '',
+              name: pUser.name || (pUser.email ? pUser.email.split('@')[0] : 'Partner'),
               love_note: (pUser.love_note === 'Budujemy nasze wspólne gniazdko!' || pUser.love_note === 'Cieszę się, że jesteśmy razem!') ? '' : (pUser.love_note || ''),
               favorite_drink: pUser.favorite_drink === 'Kawa z mlekiem' ? '' : (pUser.favorite_drink || ''),
               favorite_treat: pUser.favorite_treat === 'Czekolada' ? '' : (pUser.favorite_treat || ''),
@@ -1173,6 +1176,32 @@ export const useDuoState = () => {
           })
           await signOutUser()
           return false
+        }
+
+        // Auto-heal partner name if missing or placeholder 'Partner'
+        if (dbPartnership && (!partnerUser.value || !partnerUser.value.name || partnerUser.value.name === 'Partner')) {
+          const myId = userId
+          const partnerId = (myId && dbPartnership.partner1_id === myId)
+            ? dbPartnership.partner2_id
+            : ((myId && dbPartnership.partner2_id === myId) ? dbPartnership.partner1_id : (dbPartnership.partner1_id || dbPartnership.partner2_id))
+          if (partnerId) {
+            const { data: pUser } = await client
+              .from('profiles')
+              .select('*')
+              .eq('id', partnerId)
+              .maybeSingle()
+            if (pUser && pUser.name) {
+              const rawPColor = pUser.avatar_color || '#0d9488'
+              const cleanPColor = rawPColor.includes('|') ? rawPColor.split('|')[0] : rawPColor
+              partnerUser.value = {
+                ...createInitialProfile(),
+                ...pUser,
+                name: pUser.name,
+                avatar_color: cleanPColor
+              }
+              saveToStorage('duonest_partner_user', partnerUser.value)
+            }
+          }
         }
       }
 
@@ -1820,13 +1849,20 @@ export const useDuoState = () => {
             .eq('id', currentUser.value.id)
             .maybeSingle()
 
+          if (dbProfile) {
+            currentUser.value = {
+              ...currentUser.value,
+              ...dbProfile,
+              name: dbProfile.name || currentUser.value.name || '',
+              avatar_color: getCleanAccentColor(dbProfile.avatar_color, currentUser.value.avatar_color || '#0284c7'),
+              partnership_id: dbProfile.partnership_id || null
+            }
+            syncToStorage()
+          }
+
           const effectivePartnershipId = dbProfile?.partnership_id || partnership.value?.id
           if (effectivePartnershipId) {
-            if (dbProfile?.partnership_id && dbProfile.partnership_id !== partnership.value?.id) {
-              await loadPartnershipAndPartner(dbProfile.partnership_id, currentUser.value.id)
-            } else {
-              await loadSupabaseData(effectivePartnershipId)
-            }
+            await loadPartnershipAndPartner(effectivePartnershipId, currentUser.value.id)
           }
 
           // Sync our profile to Supabase profiles table
@@ -1845,28 +1881,11 @@ export const useDuoState = () => {
             })
           } catch (_) {}
         } else if (partnership.value?.id) {
-          await loadSupabaseData(partnership.value.id)
+          await loadPartnershipAndPartner(partnership.value.id, currentUser.value?.id || '')
         }
 
-          // Sync partner profile if available
-          if (partnerUser.value?.id) {
-            try {
-              await client.from('profiles').upsert({
-                id: partnerUser.value.id,
-                name: partnerUser.value.name,
-                avatar_color: partnerUser.value.avatar_color,
-                pairing_code: partnerUser.value.pairing_code,
-                partnership_id: partnerUser.value.partnership_id,
-                current_mood: partnerUser.value.current_mood,
-                mood_note: partnerUser.value.mood_note,
-                love_note: partnerUser.value.love_note,
-                favorite_drink: partnerUser.value.favorite_drink,
-                favorite_treat: partnerUser.value.favorite_treat
-              })
-            } catch (_) {}
-          }
-
-          // Sync partnership to Supabase partnerships table
+        // Sync partnership to Supabase partnerships table if available
+        if (partnership.value?.id) {
           try {
             await client.from('partnerships').upsert({
               id: partnership.value.id,
@@ -1879,6 +1898,7 @@ export const useDuoState = () => {
             })
           } catch (_) {}
         }
+      }
     } catch (err) {
       console.warn('initSupabaseSync attempt:', err)
     }
@@ -1958,8 +1978,23 @@ export const useDuoState = () => {
       return { success: false, error: 'Nie możesz sparować konta ze swoim własnym kodem.' }
     }
 
-    const newPartnershipId = 'part_' + Math.random().toString(36).substring(2, 10)
-    const newPartnerId = 'usr_partner_' + Math.random().toString(36).substring(2, 8)
+    let foundPartnerProfile: Profile | null = null
+    if (supabase) {
+      try {
+        const { data: dbTarget } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('pairing_code', code)
+          .maybeSingle()
+        if (dbTarget) {
+          foundPartnerProfile = dbTarget
+        }
+      } catch (_) {}
+    }
+
+    const newPartnershipId = foundPartnerProfile?.partnership_id || ('part_' + Math.random().toString(36).substring(2, 10))
+    const newPartnerId = foundPartnerProfile?.id || ('usr_partner_' + Math.random().toString(36).substring(2, 8))
+    const partnerName = foundPartnerProfile?.name || (partnerDisplayName && partnerDisplayName !== 'Partner' ? partnerDisplayName : (foundPartnerProfile?.email ? foundPartnerProfile.email.split('@')[0] : 'Partner'))
 
     const createdPartnership: Partnership = {
       id: newPartnershipId,
@@ -1973,18 +2008,14 @@ export const useDuoState = () => {
     }
 
     const createdPartner: Profile = {
+      ...createInitialProfile(),
+      ...(foundPartnerProfile || {}),
       id: newPartnerId,
-      email: null,
-      name: (partnerDisplayName && partnerDisplayName !== 'Partner') ? partnerDisplayName : 'Partner',
+      name: partnerName,
       pairing_code: code,
       partnership_id: newPartnershipId,
-      current_mood: 'loved',
-      avatar_color: '#0d9488',
-      mood_note: '',
-      mood_updated_at: new Date().toISOString(),
-      love_note: '',
-      favorite_drink: '',
-      favorite_treat: ''
+      current_mood: foundPartnerProfile?.current_mood || 'loved',
+      avatar_color: getCleanAccentColor(foundPartnerProfile?.avatar_color, '#0d9488')
     }
 
     // Set local state immediately so partnerUser exists before receiving handshake
@@ -2065,7 +2096,11 @@ export const useDuoState = () => {
 
     // Try storing in Supabase DB if tables exist
     if (supabase) {
-      safeDb(supabase.from('partnerships').insert(createdPartnership))
+      safeDb(supabase.from('profiles').update({ partnership_id: newPartnershipId }).eq('id', currentUser.value.id))
+      if (foundPartnerProfile) {
+        safeDb(supabase.from('profiles').update({ partnership_id: newPartnershipId }).eq('id', foundPartnerProfile.id))
+      }
+      safeDb(supabase.from('partnerships').upsert(createdPartnership))
     }
 
     // Subscribe to shared realtime channel
