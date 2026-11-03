@@ -1157,6 +1157,11 @@ const handleToggleTask = async (task: TaskItem) => {
         colors: ['#0284c7', '#0ea5e9', '#10b981', '#f59e0b']
       })
     }
+  } else {
+    // If a task is unmarked (restored) and pet was sleeping because all tasks were done, wake it up to idle
+    if (currentAnimation.value === 'sleep') {
+      currentAnimation.value = 'idle'
+    }
   }
 }
 

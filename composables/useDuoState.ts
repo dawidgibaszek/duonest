@@ -1082,8 +1082,14 @@ export const useDuoState = () => {
                 const delta = data.is_completed ? task.points : -task.points
                 partnership.value.nest_points = Math.max(0, partnership.value.nest_points + delta)
                 partnership.value.nest_level = 1 + Math.floor(partnership.value.nest_points / 50)
-                if (data.is_completed) {
-                  partnership.value.pet_xp = (partnership.value.pet_xp || 0) + task.points
+                if (data.pet_xp !== undefined) {
+                  partnership.value.pet_xp = Math.max(0, data.pet_xp)
+                } else {
+                  partnership.value.pet_xp = Math.max(0, (partnership.value.pet_xp || 0) + delta)
+                }
+                if (data.nest_points !== undefined) {
+                  partnership.value.nest_points = Math.max(0, data.nest_points)
+                  partnership.value.nest_level = 1 + Math.floor(partnership.value.nest_points / 50)
                 }
               }
               syncToStorage()
@@ -1898,14 +1904,17 @@ export const useDuoState = () => {
       const delta = nowCompleted ? task.points : -task.points
       partnership.value.nest_points = Math.max(0, partnership.value.nest_points + delta)
       partnership.value.nest_level = 1 + Math.floor(partnership.value.nest_points / 50)
-      if (nowCompleted) {
-        partnership.value.pet_xp = (partnership.value.pet_xp || 0) + task.points
-      }
+      partnership.value.pet_xp = Math.max(0, (partnership.value.pet_xp || 0) + delta)
     }
     syncToStorage()
 
     // Broadcast live to partner
-    broadcastToPartner('TASK_TOGGLE', { id, is_completed: nowCompleted })
+    broadcastToPartner('TASK_TOGGLE', {
+      id,
+      is_completed: nowCompleted,
+      pet_xp: partnership.value?.pet_xp,
+      nest_points: partnership.value?.nest_points
+    })
 
     if (supabase) {
       safeDb(supabase.from('tasks').update({
@@ -1913,6 +1922,14 @@ export const useDuoState = () => {
         completed_at: nowCompleted ? new Date().toISOString() : null,
         completed_by: nowCompleted ? currentUser.value.id : null
       }).eq('id', id))
+
+      if (partnership.value?.id) {
+        safeDb(supabase.from('partnerships').update({
+          nest_points: partnership.value.nest_points,
+          nest_level: partnership.value.nest_level,
+          pet_xp: partnership.value.pet_xp
+        }).eq('id', partnership.value.id))
+      }
     }
   }
 
@@ -1931,7 +1948,8 @@ export const useDuoState = () => {
     if (supabase && partnership.value.id) {
       safeDb(supabase.from('partnerships').update({
         pet_id: petId,
-        pet_name: partnership.value.pet_name
+        pet_name: partnership.value.pet_name,
+        pet_xp: partnership.value.pet_xp || 0
       }).eq('id', partnership.value.id))
     }
   }
