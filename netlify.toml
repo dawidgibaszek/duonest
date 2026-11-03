@@ -1,11 +1,21 @@
 [build]
-  command = "npm run generate"
+  command = "npm run build"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "22"
+  NITRO_PRESET = "netlify"
   SECRETS_SCAN_ENABLED = "false"
   SECRETS_SCAN_OMIT_KEYS = "SUPABASE_KEY,NUXT_PUBLIC_SUPABASE_KEY,SUPABASE_URL,NUXT_PUBLIC_SUPABASE_URL"
+
+[functions]
+  directory = "netlify/functions"
+
+# API Redirects for Serverless Functions
+[[redirects]]
+  from = "/api/wishlist/preview"
+  to = "/.netlify/functions/wishlist-preview"
+  status = 200
 
 # PWA & SPA Routing Fallback for Netlify
 [[redirects]]

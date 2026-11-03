@@ -14,6 +14,10 @@ export default defineNuxtConfig({
     '@vite-pwa/nuxt'
   ],
 
+  nitro: {
+    preset: process.env.NITRO_PRESET || (process.env.NETLIFY ? 'netlify' : undefined)
+  },
+
   ionic: {
     css: {
       utilities: true

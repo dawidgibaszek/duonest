@@ -6,21 +6,61 @@
           <div class="header-action-row">
             <div>
               <div class="dn-header-title">
-                <span>Zadania Domowe</span>
-                <span class="count-chip">{{ uncompletedTasksCount }}</span>
+                <span>{{ activeMainTab === 'tasks' ? 'Zadania Domowe' : (hasPet ? 'Wspólny Pupil' : 'Przygarnij Zwierzaka') }}</span>
+                <span class="count-chip" v-if="activeMainTab === 'tasks'">{{ uncompletedTasksCount }}</span>
+                <span class="count-chip pet-header-lvl" v-else-if="hasPet">lvl {{ petLevel }}</span>
+                <span class="count-chip pet-header-new" v-else>Nowy ✨</span>
               </div>
-              <p class="dn-header-subtitle">Wspólne dbanie o czysty i ciepły dom</p>
+              <p class="dn-header-subtitle">
+                {{ activeMainTab === 'tasks' ? 'Wspólne dbanie o czysty i ciepły dom' : (hasPet ? 'Twój wirtualny towarzysz domowych obowiązków' : 'Wybierzcie pupila do Waszego Gniazdka') }}
+              </p>
             </div>
-            <button class="new-chore-btn" @click="showAddModal = true">
+            <button v-if="activeMainTab === 'tasks'" class="new-chore-btn" @click="showAddModal = true">
               <ion-icon :icon="ioniconsAddOutline" />
               <span>Nowe</span>
+            </button>
+            <button
+              v-else-if="hasPet"
+              class="pet-header-gear-btn"
+              @click="openPetSettingsModal"
+              aria-label="Ustawienia zwierzaka"
+            >
+              <ion-icon :icon="ioniconsSettingsOutline" />
             </button>
           </div>
         </div>
       </ion-toolbar>
 
-      <!-- SEGMENTS: Podział obowiązków (Wszystkie, Moje, Partnera, Wspólne) -->
-      <ion-toolbar class="segment-toolbar">
+      <!-- MAIN TABS: Zadania vs Zwierzak -->
+      <ion-toolbar class="main-tabs-toolbar">
+        <div class="main-tabs-pill-row">
+          <button
+            type="button"
+            class="main-tab-pill"
+            :class="{ active: activeMainTab === 'tasks' }"
+            @click="handleSwitchToTasks"
+          >
+            <ion-icon :icon="ioniconsCheckboxOutline" />
+            <span>Zadania</span>
+            <span class="pill-count-chip" v-if="uncompletedTasksCount > 0">{{ uncompletedTasksCount }}</span>
+          </button>
+
+          <button
+            type="button"
+            class="main-tab-pill pet-tab-pill"
+            :class="{ active: activeMainTab === 'pet' }"
+            @click="handleSwitchToPet"
+          >
+            <span class="tab-pet-emoji">{{ hasPet ? currentPetDef.emoji : '🐾' }}</span>
+            <span>Zwierzak</span>
+            <span class="tab-pet-lvl" v-if="hasPet">lvl {{ petLevel }}</span>
+            <span class="tab-pet-lvl new-pill" v-else>Nowy ✨</span>
+          </button>
+        </div>
+      </ion-toolbar>
+
+      <!-- SEGMENTS: Podział obowiązków (Wszystkie, Moje, Partnera, Wspólne) - tylko w widoku Zadań -->
+      <ion-toolbar class="segment-toolbar" v-if="activeMainTab === 'tasks'">
         <ion-segment v-model="selectedSegment" :scrollable="true" mode="ios">
           <ion-segment-button value="all">
             <ion-label>Wszystkie</ion-label>
@@ -54,118 +94,96 @@
         <ion-refresher-content pulling-text="Przeciągnij, aby odświeżyć..." refreshing-spinner="crescent" />
       </ion-refresher>
 
-      <!-- ACTIVE TASKS LIST -->
-      <div class="tasks-section-header" v-if="filteredActiveTasks.length > 0">
-        <span>DO ZROBIENIA ({{ filteredActiveTasks.length }})</span>
-      </div>
-
-
-      <ion-list class="tasks-ion-list" :inset="true" v-if="filteredActiveTasks.length > 0">
-        <ion-item-sliding v-for="task in filteredActiveTasks" :key="task.id">
-          <!-- Swipe RIGHT gesture (side="start"): Complete task (+XP) -->
-          <ion-item-options side="start" @ionSwipe="handleSwipeCompleteTask(task)">
-            <ion-item-option color="success" :expandable="true" @click="handleSwipeCompleteTask(task)">
-              <ion-icon slot="icon-only" :icon="ioniconsCheckmarkDoneOutline" />
-            </ion-item-option>
-          </ion-item-options>
-
-          <ion-item
-            class="task-item"
-            :style="{
-              borderLeft: `4.5px solid ${getUserAccentColor(task.assigned_to)}`,
-              backgroundColor: task.assigned_to ? hexToRgba(getUserAccentColor(task.assigned_to), 0.03) : '#ffffff'
-            }"
-            lines="full"
-          >
-            <ion-checkbox
-              slot="start"
-              :checked="task.is_completed"
-              @ionChange="handleToggleTask(task)"
-              :style="{
-                '--checkbox-background-checked': getUserAccentColor(task.assigned_to),
-                '--border-color-checked': getUserAccentColor(task.assigned_to)
-              }"
+      <!-- ============================================== -->
+      <!-- TAB 1: LISTA ZADAŃ DOMOWYCH                    -->
+      <!-- ============================================== -->
+      <div v-if="activeMainTab === 'tasks'" class="tasks-tab-content">
+        <!-- Companion Pet Mini-Bar in Tasks -->
+        <div class="tasks-pet-status-bar" @click="handleSwitchToPet">
+          <div class="pet-status-left" v-if="hasPet">
+            <PetSprite
+              :pet="petId"
+              :animation="currentAnimation"
+              :scale="1.6"
+              :interactive="false"
             />
-            <ion-label>
-              <div class="task-title-row">
-                <span class="task-title">{{ task.title }}</span>
-                <span class="points-badge">+{{ task.points }} pkt</span>
-              </div>
-
-              <p class="task-desc" v-if="task.description">{{ task.description }}</p>
-
-              <div class="task-tags-row">
-                <!-- Assignee badge with dynamic accent color styling -->
-                <span
-                  class="tag-pill"
-                  :style="{
-                    backgroundColor: hexToRgba(getUserAccentColor(task.assigned_to), 0.13),
-                    color: getUserAccentColor(task.assigned_to),
-                    border: `1px solid ${hexToRgba(getUserAccentColor(task.assigned_to), 0.28)}`
-                  }"
-                >
-                  <ion-icon :icon="getAssigneeIonicon(task.assigned_to)" />
-                  <span>{{ getAssigneeLabel(task.assigned_to) }}</span>
-                </span>
-
-                <!-- Recurring chore badge -->
-                <span class="tag-pill recurring-pill" v-if="task.is_recurring">
-                  <ion-icon :icon="ioniconsRepeatOutline" />
-                  <span>{{ getRecurrenceLabel(task.recurrence_interval) }}</span>
-                </span>
-              </div>
-            </ion-label>
-          </ion-item>
-
-          <!-- Swipe LEFT gesture (side="end"): Delete -->
-          <ion-item-options side="end" @ionSwipe="handleSwipeDeleteTask(task.id)">
-            <ion-item-option color="danger" :expandable="true" @click="handleSwipeDeleteTask(task.id)">
-              <ion-icon slot="icon-only" :icon="ioniconsTrashOutline" />
-            </ion-item-option>
-          </ion-item-options>
-        </ion-item-sliding>
-      </ion-list>
-
-      <div class="empty-state" v-else-if="filteredCompletedTasks.length === 0">
-        <div class="empty-icon-circle">
-          <DuoIcon name="empty-tasks" :size="42" />
-        </div>
-        <h3>Brak zadań w tej kategorii!</h3>
-        <p>Możecie odpocząć lub dodać nowe wspólne obowiązki.</p>
-      </div>
-
-      <!-- COMPLETED TASKS -->
-      <div class="completed-tasks-wrapper" v-if="filteredCompletedTasks.length > 0">
-        <div class="tasks-section-header">
-          <span>UKOŃCZONE ({{ filteredCompletedTasks.length }})</span>
+            <div class="pet-status-texts">
+              <span class="pet-status-name">{{ petName }} • Poziom {{ petLevel }}</span>
+              <span class="pet-status-sub">
+                {{ uncompletedTasksCount === 0 ? 'Wszystko zrobione! Śpi smacznie 💤' : `${uncompletedTasksCount} zadań do zrobienia • ${happinessLabel}` }}
+              </span>
+            </div>
+          </div>
+          <div class="pet-status-left" v-else>
+            <div class="pet-status-adopt-icon">🐾</div>
+            <div class="pet-status-texts">
+              <span class="pet-status-name">Przygarnijcie wspólnego pupila!</span>
+              <span class="pet-status-sub">Wybierzcie zwierzaka, który zamieszka w Waszym Gniazdku ✨</span>
+            </div>
+          </div>
+          <div class="pet-status-right">
+            <span class="pet-open-pill">{{ hasPet ? 'Odwiedź pupila →' : 'Wybierz zwierzaka →' }}</span>
+          </div>
         </div>
 
-        <ion-list class="tasks-ion-list completed-list" :inset="true">
-          <ion-item-sliding v-for="task in filteredCompletedTasks" :key="task.id">
-            <!-- Swipe RIGHT gesture (side="start"): Restore task -->
-            <ion-item-options side="start" @ionSwipe="handleSwipeRestoreTask(task)">
-              <ion-item-option color="primary" :expandable="true" @click="handleSwipeRestoreTask(task)">
-                <ion-icon slot="icon-only" :icon="ioniconsArrowUndoOutline" />
+        <!-- ACTIVE TASKS LIST -->
+        <div class="tasks-section-header" v-if="filteredActiveTasks.length > 0">
+          <span>DO ZROBIENIA ({{ filteredActiveTasks.length }})</span>
+        </div>
+
+        <ion-list class="tasks-ion-list" :inset="true" v-if="filteredActiveTasks.length > 0">
+          <ion-item-sliding v-for="task in filteredActiveTasks" :key="task.id">
+            <!-- Swipe RIGHT gesture (side="start"): Complete task (+XP) -->
+            <ion-item-options side="start" @ionSwipe="handleSwipeCompleteTask(task)">
+              <ion-item-option color="success" :expandable="true" @click="handleSwipeCompleteTask(task)">
+                <ion-icon slot="icon-only" :icon="ioniconsCheckmarkDoneOutline" />
               </ion-item-option>
             </ion-item-options>
 
             <ion-item
-              class="task-item completed"
+              class="task-item"
               :style="{
-                borderLeft: `4.5px solid ${hexToRgba(getUserAccentColor(task.assigned_to), 0.35)}`
+                borderLeft: `4.5px solid ${getUserAccentColor(task.assigned_to)}`,
+                backgroundColor: task.assigned_to ? hexToRgba(getUserAccentColor(task.assigned_to), 0.03) : '#ffffff'
               }"
               lines="full"
             >
               <ion-checkbox
                 slot="start"
-                :checked="true"
+                :checked="task.is_completed"
                 @ionChange="handleToggleTask(task)"
-                color="success"
+                :style="{
+                  '--checkbox-background-checked': getUserAccentColor(task.assigned_to),
+                  '--border-color-checked': getUserAccentColor(task.assigned_to)
+                }"
               />
               <ion-label>
                 <div class="task-title-row">
-                  <span class="task-title strike">{{ task.title }}</span>
-                  <span class="points-badge completed-badge">+{{ task.points }} pkt</span>
+                  <span class="task-title">{{ task.title }}</span>
+                  <span class="points-badge">+{{ task.points }} pkt</span>
+                </div>
+
+                <p class="task-desc" v-if="task.description">{{ task.description }}</p>
+
+                <div class="task-tags-row">
+                  <!-- Assignee badge with dynamic accent color styling -->
+                  <span
+                    class="tag-pill"
+                    :style="{
+                      backgroundColor: hexToRgba(getUserAccentColor(task.assigned_to), 0.13),
+                      color: getUserAccentColor(task.assigned_to),
+                      border: `1px solid ${hexToRgba(getUserAccentColor(task.assigned_to), 0.28)}`
+                    }"
+                  >
+                    <ion-icon :icon="getAssigneeIonicon(task.assigned_to)" />
+                    <span>{{ getAssigneeLabel(task.assigned_to) }}</span>
+                  </span>
+
+                  <!-- Recurring chore badge -->
+                  <span class="tag-pill recurring-pill" v-if="task.is_recurring">
+                    <ion-icon :icon="ioniconsRepeatOutline" />
+                    <span>{{ getRecurrenceLabel(task.recurrence_interval) }}</span>
+                  </span>
                 </div>
               </ion-label>
             </ion-item>
@@ -178,6 +196,299 @@
             </ion-item-options>
           </ion-item-sliding>
         </ion-list>
+
+        <div class="empty-state" v-else-if="filteredCompletedTasks.length === 0">
+          <div class="empty-icon-circle">
+            <DuoIcon name="empty-tasks" :size="42" />
+          </div>
+          <h3>Brak zadań w tej kategorii!</h3>
+          <p>Możecie odpocząć lub dodać nowe wspólne obowiązki.</p>
+        </div>
+
+        <!-- COMPLETED TASKS -->
+        <div class="completed-tasks-wrapper" v-if="filteredCompletedTasks.length > 0">
+          <div class="tasks-section-header">
+            <span>UKOŃCZONE ({{ filteredCompletedTasks.length }})</span>
+          </div>
+
+          <ion-list class="tasks-ion-list completed-list" :inset="true">
+            <ion-item-sliding v-for="task in filteredCompletedTasks" :key="task.id">
+              <!-- Swipe RIGHT gesture (side="start"): Restore task -->
+              <ion-item-options side="start" @ionSwipe="handleSwipeRestoreTask(task)">
+                <ion-item-option color="primary" :expandable="true" @click="handleSwipeRestoreTask(task)">
+                  <ion-icon slot="icon-only" :icon="ioniconsArrowUndoOutline" />
+                </ion-item-option>
+              </ion-item-options>
+
+              <ion-item
+                class="task-item completed"
+                :style="{
+                  borderLeft: `4.5px solid ${hexToRgba(getUserAccentColor(task.assigned_to), 0.35)}`
+                }"
+                lines="full"
+              >
+                <ion-checkbox
+                  slot="start"
+                  :checked="true"
+                  @ionChange="handleToggleTask(task)"
+                  color="success"
+                />
+                <ion-label>
+                  <div class="task-title-row">
+                    <span class="task-title strike">{{ task.title }}</span>
+                    <span class="points-badge completed-badge">+{{ task.points }} pkt</span>
+                  </div>
+                </ion-label>
+              </ion-item>
+
+              <!-- Swipe LEFT gesture (side="end"): Delete -->
+              <ion-item-options side="end" @ionSwipe="handleSwipeDeleteTask(task.id)">
+                <ion-item-option color="danger" :expandable="true" @click="handleSwipeDeleteTask(task.id)">
+                  <ion-icon slot="icon-only" :icon="ioniconsTrashOutline" />
+                </ion-item-option>
+              </ion-item-options>
+            </ion-item-sliding>
+          </ion-list>
+        </div>
+      </div>
+
+      <!-- ============================================== -->
+      <!-- TAB 2: WIDOK ZWIERZAKA (PET COMPANION VIEW)    -->
+      <!-- ============================================== -->
+      <div v-else-if="activeMainTab === 'pet'" class="pet-tab-content">
+        <!-- 1. KREATOR ZWIERZAKA (Gdy para jeszcze nie wybrała pupila) -->
+        <div v-if="!hasPet" class="pet-creator-container">
+          <!-- Hero Stage Showcase -->
+          <div class="dn-card pet-creator-showcase">
+            <div class="creator-sparkle-pill">
+              <ion-icon :icon="ioniconsSparkles" />
+              <span>NOWY CZŁONEK RODZINY</span>
+            </div>
+
+            <h3 class="creator-title">Przygarnijcie Pupila</h3>
+            <p class="creator-subtitle">
+              Wybierzcie swojego towarzysza do wspólnego dbania o Gniazdko!
+            </p>
+
+            <!-- Dynamic dialogue bubble -->
+            <div class="creator-speech-bubble">
+              <span class="dialogue-tail" />
+              <span class="dialogue-text">{{ creatorSpeechText }}</span>
+            </div>
+
+            <!-- Pet Stage -->
+            <div class="creator-stage-center">
+              <div class="stage-ambient-light" />
+              <div class="stage-pedestal" />
+              <PetSprite
+                :pet="creatorSelectedPetId"
+                animation="happy"
+                :scale="3.8"
+                :interactive="true"
+              />
+            </div>
+
+            <div class="creator-species-badge">
+              <span class="creator-species-name">{{ creatorSelectedDef.emoji }} {{ creatorSelectedDef.polishName }}</span>
+              <span class="creator-species-dot">•</span>
+              <span class="creator-species-theme">{{ creatorSelectedDef.theme }}</span>
+            </div>
+          </div>
+
+          <!-- Section: Wybór gatunku (4-kolumnowa estetyczna siatka kafelków) -->
+          <div class="dn-card creator-selection-card">
+            <div class="section-label-row">
+              <span class="section-badge-icon">🐾</span>
+              <span class="section-title-text">WYBIERZCIE GATUNEK (12 ZWIERZAKÓW)</span>
+            </div>
+
+            <div class="creator-tiles-grid">
+              <button
+                type="button"
+                v-for="p in PET_CATALOG"
+                :key="p.id"
+                class="creator-pet-tile"
+                :class="{ 'is-selected': creatorSelectedPetId.toLowerCase() === p.id.toLowerCase() }"
+                @click="creatorSelectedPetId = p.id"
+              >
+                <div class="tile-sprite-wrap">
+                  <PetSprite :pet="p.id" animation="idle" :scale="1.5" :interactive="false" />
+                </div>
+                <span class="tile-name">{{ p.polishName }}</span>
+                <div class="tile-check-badge" v-if="creatorSelectedPetId.toLowerCase() === p.id.toLowerCase()">
+                  <ion-icon :icon="ioniconsCheckmarkCircle" />
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Section: Imię Pupila -->
+          <div class="dn-card creator-name-card">
+            <div class="section-label-row">
+              <span class="section-badge-icon">🏷️</span>
+              <span class="section-title-text">JAK MA SIĘ WABIĆ?</span>
+            </div>
+
+            <div class="creator-input-wrapper">
+              <ion-input
+                v-model="creatorPetName"
+                placeholder="Wpisz imię pupila..."
+                class="creator-pretty-input"
+                :clear-input="true"
+              />
+            </div>
+
+            <!-- Suggested names tags -->
+            <div class="cute-names-shelf">
+              <span class="shelf-hint">Szybkie propozycje:</span>
+              <div class="shelf-pills">
+                <button
+                  type="button"
+                  v-for="sug in suggestedNames"
+                  :key="sug"
+                  class="cute-sug-pill"
+                  :class="{ active: creatorPetName === sug }"
+                  @click="creatorPetName = sug"
+                >
+                  {{ sug }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- CTA Button -->
+          <div class="creator-cta-wrap">
+            <button
+              type="button"
+              class="dn-button-primary creator-adopt-action-btn"
+              :disabled="!creatorPetName.trim()"
+              @click="handleAdoptPet"
+            >
+              <ion-icon :icon="ioniconsHeart" />
+              <span>Przygarnij {{ creatorSelectedDef.polishName }} ({{ creatorPetName.trim() || 'Wpisz imię' }}) ✨</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. AKTYWNY PUPIL (Gdy zwierzak został już przygarnięty) -->
+        <div v-else class="pet-active-container">
+          <!-- Hero Stage Card -->
+          <div class="dn-card pet-stage-card">
+            <!-- Floating Dialogue Bubble -->
+            <div class="pet-dialogue-bubble">
+              <span class="dialogue-tail" />
+              <span class="dialogue-text">{{ petSpeechText }}</span>
+            </div>
+
+            <!-- Pet Stage Canvas Area -->
+            <div class="stage-sprite-wrap" @click="handlePetClick">
+              <div class="stage-ambient-light" />
+              <div class="stage-pedestal" />
+              <PetSprite
+                :pet="petId"
+                :animation="currentAnimation"
+                :scale="3.8"
+              />
+            </div>
+
+            <!-- Pet Info & Settings Gear Action Row -->
+            <div class="pet-name-badge-row">
+              <div class="pet-title-box">
+                <span class="pet-display-name">{{ petName }}</span>
+                <span class="pet-species-pill">
+                  {{ currentPetDef.emoji }} {{ currentPetDef.polishName }} • {{ currentPetDef.theme }}
+                </span>
+              </div>
+
+              <!-- Przycisk z ikonką zębatki do otwierania modalu ustawień i kreacji -->
+              <button
+                type="button"
+                class="pet-gear-action-btn"
+                @click="openPetSettingsModal"
+                aria-label="Ustawienia zwierzaka"
+              >
+                <ion-icon :icon="ioniconsSettingsOutline" />
+                <span>Ustawienia</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Stats & Mood Grid -->
+          <div class="pet-stats-grid">
+            <!-- Level & XP Card -->
+            <div class="dn-card pet-stat-card">
+              <div class="stat-card-header">
+                <span class="stat-tag">DOŚWIADCZENIE</span>
+                <span class="stat-level-chip">POZIOM {{ petLevel }}</span>
+              </div>
+              <div class="stat-main-val">
+                <span>{{ petXp }}</span>
+                <span class="stat-val-unit">XP</span>
+              </div>
+              <div class="pet-xp-bar-wrap">
+                <div class="pet-xp-fill" :style="{ width: `${petLevelProgressPct}%` }" />
+              </div>
+              <span class="stat-footer-hint">{{ petXpInCurrentLevel }}/50 XP • do nast. poziomu: {{ petXpToNextLevel }} XP</span>
+            </div>
+
+            <!-- Happiness Card -->
+            <div class="dn-card pet-stat-card">
+              <div class="stat-card-header">
+                <span class="stat-tag">ZADOWOLENIE</span>
+                <span class="stat-mood-emoji">{{ happinessEmoji }}</span>
+              </div>
+              <div class="stat-main-val">
+                <span>{{ petHappiness }}</span>
+                <span class="stat-val-unit">%</span>
+              </div>
+              <div class="pet-xp-bar-wrap happiness-bar">
+                <div class="pet-xp-fill happiness-fill" :style="{ width: `${petHappiness}%` }" />
+              </div>
+              <span class="stat-footer-hint">{{ happinessLabel }}</span>
+            </div>
+          </div>
+
+          <!-- Animation Testing Toolbar for User -->
+          <div class="dn-card pet-anim-tester-card">
+            <span class="section-tag anim-tag">ANIMACJE</span>
+            <h4>Sprawdź zachowanie pupila</h4>
+            <p class="section-desc">Zobacz, jak Twój zwierzak reaguje w różnych sytuacjach:</p>
+            <div class="anim-buttons-row">
+              <button
+                type="button"
+                class="anim-btn"
+                :class="{ active: currentAnimation === 'idle' }"
+                @click="currentAnimation = 'idle'"
+              >
+                🐾 Spoczynek (idle)
+              </button>
+              <button
+                type="button"
+                class="anim-btn"
+                :class="{ active: currentAnimation === 'happy' }"
+                @click="triggerPetAnimation('happy', 1800)"
+              >
+                😊 Radość (happy)
+              </button>
+              <button
+                type="button"
+                class="anim-btn"
+                :class="{ active: currentAnimation === 'jump' }"
+                @click="triggerPetAnimation('jump', 2000)"
+              >
+                🎉 Podskok (jump)
+              </button>
+              <button
+                type="button"
+                class="anim-btn"
+                :class="{ active: currentAnimation === 'sleep' }"
+                @click="currentAnimation = 'sleep'"
+              >
+                💤 Sen (sleep)
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- MODAL DLA NOWEGO ZADANIA -->
@@ -304,16 +615,149 @@
         </ion-content>
       </ion-modal>
 
+      <!-- PET SETTINGS & CREATOR MODAL (BOTTOM SHEET) -->
+      <ion-modal
+        :is-open="showPetSettingsModal"
+        @didDismiss="showPetSettingsModal = false"
+        class="dn-pet-settings-modal"
+        :breakpoints="[0, 0.94, 1]"
+        :initial-breakpoint="0.94"
+        :handle="true"
+      >
+        <ion-header class="modal-custom-header">
+          <ion-toolbar>
+            <div class="modal-header-inner">
+              <div class="modal-title-wrap">
+                <ion-icon :icon="ioniconsSettingsOutline" class="modal-title-icon" />
+                <ion-title>Ustawienia i Kreacja Pupila</ion-title>
+              </div>
+              <ion-buttons slot="end">
+                <button
+                  type="button"
+                  class="modal-close-icon-btn"
+                  @click="showPetSettingsModal = false"
+                  aria-label="Zamknij"
+                >
+                  <ion-icon :icon="ioniconsCloseOutline" />
+                </button>
+              </ion-buttons>
+            </div>
+          </ion-toolbar>
+        </ion-header>
+
+        <ion-content class="ion-padding pet-settings-modal-content">
+          <div class="pet-settings-body">
+            <!-- Centered Pet Hero Showcase Stage -->
+            <div class="settings-showcase-card">
+              <div class="settings-stage-ambient" />
+              <div class="settings-stage-pedestal" />
+              <div class="settings-stage-sprite" @click="handleSettingsPetClick">
+                <PetSprite
+                  :pet="settingsPetId"
+                  :animation="settingsAnimation"
+                  :scale="3.3"
+                  :interactive="true"
+                />
+              </div>
+              <div class="settings-stage-badge">
+                <span class="settings-stage-name">{{ settingsPetDef.emoji }} {{ settingsPetDef.polishName }}</span>
+                <span class="settings-stage-dot">•</span>
+                <span class="settings-stage-theme">{{ settingsPetDef.theme }}</span>
+              </div>
+              <p class="settings-stage-desc">{{ settingsPetDef.description }}</p>
+            </div>
+
+            <!-- Section 1: Gatunek zwierzaka (Siatka 4 kolumny) -->
+            <div class="settings-group-card">
+              <div class="section-label-row">
+                <span class="section-badge-icon">🐾</span>
+                <span class="section-title-text">GATUNEK PUPILA (12 DO WYBORU)</span>
+              </div>
+
+              <div class="creator-tiles-grid">
+                <button
+                  type="button"
+                  v-for="p in PET_CATALOG"
+                  :key="p.id"
+                  class="creator-pet-tile"
+                  :class="{ 'is-selected': settingsPetId.toLowerCase() === p.id.toLowerCase() }"
+                  @click="selectSettingsSpecies(p.id)"
+                >
+                  <div class="tile-sprite-wrap">
+                    <PetSprite :pet="p.id" animation="idle" :scale="1.4" :interactive="false" />
+                  </div>
+                  <span class="tile-name">{{ p.polishName }}</span>
+                  <div class="tile-check-badge" v-if="settingsPetId.toLowerCase() === p.id.toLowerCase()">
+                    <ion-icon :icon="ioniconsCheckmarkCircle" />
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <!-- Section 2: Imię zwierzaka -->
+            <div class="settings-group-card">
+              <div class="section-label-row">
+                <span class="section-badge-icon">🏷️</span>
+                <span class="section-title-text">IMIĘ WASZEGO PUPILA</span>
+              </div>
+
+              <div class="creator-input-wrapper">
+                <ion-input
+                  v-model="settingsPetName"
+                  placeholder="Wpisz nowe imię..."
+                  class="creator-pretty-input"
+                  :clear-input="true"
+                />
+              </div>
+
+              <!-- Szybkie propozycje imion dla wybranego gatunku -->
+              <div class="cute-names-shelf">
+                <span class="shelf-hint">Propozycje dla {{ settingsPetDef.polishName }}:</span>
+                <div class="shelf-pills">
+                  <button
+                    type="button"
+                    v-for="sug in settingsSuggestedNames"
+                    :key="sug"
+                    class="cute-sug-pill"
+                    :class="{ active: settingsPetName === sug }"
+                    @click="settingsPetName = sug"
+                  >
+                    {{ sug }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Save CTA -->
+            <div class="settings-save-wrap">
+              <button
+                type="button"
+                class="dn-button-primary save-pet-settings-btn"
+                :disabled="!settingsPetName.trim()"
+                @click="handleSavePetSettings"
+              >
+                <ion-icon :icon="ioniconsCheckmarkOutline" />
+                <span>Zapisz zmiany ✨</span>
+              </button>
+            </div>
+
+            <div style="height: 36px;"></div>
+          </div>
+        </ion-content>
+      </ion-modal>
+
       <div style="height: 30px;"></div>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import confetti from 'canvas-confetti'
 import { useDuoState, type TaskItem } from '~/composables/useDuoState'
+import { usePetState } from '~/composables/usePetState'
 import DuoIcon from '~/components/DuoIcon.vue'
+import PetSprite from '~/components/PetSprite.vue'
 
 const {
   tasksList,
@@ -327,6 +771,195 @@ const {
   toggleTask,
   deleteTask
 } = useDuoState()
+
+const {
+  hasPet,
+  PET_CATALOG,
+  getPetDefinition,
+  currentAnimation,
+  petId,
+  petName,
+  currentPetDef,
+  petXp,
+  petLevel,
+  petXpInCurrentLevel,
+  petXpToNextLevel,
+  petLevelProgressPct,
+  petHappiness,
+  happinessLabel,
+  happinessEmoji,
+  triggerPetAnimation,
+  onEnterPetView,
+  selectPet,
+  renamePet
+} = usePetState()
+
+// Main Tab Navigation: 'tasks' | 'pet'
+const activeMainTab = ref<'tasks' | 'pet'>('tasks')
+
+const handleSwitchToTasks = () => {
+  activeMainTab.value = 'tasks'
+}
+
+const handleSwitchToPet = () => {
+  activeMainTab.value = 'pet'
+  onEnterPetView()
+}
+
+// Pet Speech Bubble Dynamic Text
+const petSpeechText = computed(() => {
+  if (currentAnimation.value === 'sleep') {
+    if (uncompletedTasksCount.value === 0) {
+      return `Chrrr... Zzz... Wszystkie zadania wykonane! Czas na słodką drzemkę... 💤`
+    }
+    return `Brak zadań w domu, relaksuję się i ucinam drzemkę... Zzz... 💤`
+  }
+  if (currentAnimation.value === 'jump') {
+    return `Jupi! Wszystkie zadania zrobione! Jesteście niesamowici! 🎉✨`
+  }
+  if (currentAnimation.value === 'happy') {
+    return `Cześć! Super Cię widzieć! Zróbmy dzisiaj porządek! 🐾`
+  }
+  // idle
+  if (uncompletedTasksCount.value > 0) {
+    return `Mamy dzisiaj ${uncompletedTasksCount.value} ${uncompletedTasksCount.value === 1 ? 'zadanie' : 'zadań'} do zrobienia. Damy radę! 💖`
+  }
+  return `Wszystko lśni czystością! Pogłaszcz mnie lub odpocznijcie! 💕`
+})
+
+// Pet Interactions
+const handlePetClick = () => {
+  triggerPetAnimation('jump', 1400)
+  confetti({
+    particleCount: 25,
+    spread: 45,
+    origin: { y: 0.4 },
+    colors: ['#ec4899', '#f43f5e', '#a855f7']
+  })
+}
+
+// Pet Creator State (when !hasPet)
+const creatorSelectedPetId = ref<string>('Cat')
+const creatorPetName = ref<string>('Kotek')
+const creatorSelectedDef = computed(() => getPetDefinition(creatorSelectedPetId.value))
+
+// Speech text inside the creator adoption showcase
+const creatorSpeechText = computed(() => {
+  const map: Record<string, string> = {
+    Cat: 'Miau! Będę pilnować porządku i mruczeć przy każdym zrobionym zadaniu! 🐱',
+    Dog: 'Hau hau! Pomogę Wam w każdym zadaniu, byle szybko i razem! 🐶',
+    Bunny: 'Kic kic! Posprzątamy całe Gniazdko w mgnieniu oka! 🐰',
+    Fox: 'Chytry plan na czysty dom? Zostawcie to mnie! 🦊',
+    Panda: 'Spokojnie i bez pośpiechu, wspólnie ogarniemy każde zadanie! 🐼',
+    Bear: 'Mocny i pracowity! Żaden domowy obowiązek mi niestraszny! 🐻',
+    Chick: 'Ćwir ćwir! Każdy mały krok przybliża Was do lśniącego gniazdka! 🐥',
+    Dragon: 'Spalę wszystkie zaległe obowiązki! Gotowi na wyzwania? 🐲',
+    Frog: 'Kum kum! Skaczemy do zadań z wielkim uśmiechem! 🐸',
+    Ghost: 'Booo! Sprawię, że bałagan zniknie jak za dotknięciem czarów! 👻',
+    Penguin: 'Elegancko i z klasą! Wasze gniazdko będzie lśnić jak lód! 🐧',
+    Slime: 'Bulgotek! Wchłonę każdy problem i przyniosę masę radości! 🫧'
+  }
+  return map[creatorSelectedPetId.value] || 'Cześć! Wybierz mnie, a będziemy razem dbać o Wasze Gniazdko! ✨'
+})
+
+watch(creatorSelectedPetId, (newId) => {
+  const def = getPetDefinition(newId)
+  creatorPetName.value = def.polishName
+})
+
+const suggestedNames = computed(() => {
+  const map: Record<string, string[]> = {
+    Cat: ['Teodor', 'Puszek', 'Luna', 'Karmel', 'Chmurka'],
+    Dog: ['Milo', 'Badi', 'Tofik', 'Fafik', 'Piorun'],
+    Bunny: ['Nita', 'Puchatek', 'Kiki', 'Śnieżka'],
+    Fox: ['Rudy', 'Kitsune', 'Błysk', 'Iskierka', 'Foxy'],
+    Panda: ['Bambus', 'Pandi', 'Mochi', 'Oreo', 'Pao'],
+    Bear: ['Misio', 'Baryła', 'Grizli', 'Baloo', 'Cynamon'],
+    Chick: ['Żółtek', 'Pik-Pik', 'Bąbel', 'Puszek', 'Pestka'],
+    Dragon: ['Drago', 'Iskra', 'Smok', 'Fafnir', 'Płomyk'],
+    Frog: ['Kumka', 'Żabolek', 'Kermit', 'Skoczek', 'Glutek'],
+    Ghost: ['Kacperek', 'Bubu', 'Duszek', 'Cień', 'Zjawa'],
+    Penguin: ['Pingu', 'Lodzik', 'Skipper', 'Frak', 'Pingwinek'],
+    Slime: ['Glucik', 'Żelka', 'Bąbel', 'Jelly', 'Pianka']
+  }
+  return map[creatorSelectedPetId.value] || ['Milo', 'Puszek', 'Luna', 'Bąbel', 'Karmel']
+})
+
+const handleAdoptPet = async () => {
+  const clean = creatorPetName.value.trim()
+  if (!clean) return
+  await selectPet(creatorSelectedPetId.value, clean)
+  confetti({
+    particleCount: 80,
+    spread: 70,
+    origin: { y: 0.6 }
+  })
+}
+
+// Pet Settings Modal (Gear Icon)
+const showPetSettingsModal = ref(false)
+const settingsPetId = ref<string>('Cat')
+const settingsPetName = ref<string>('')
+const settingsAnimation = ref<'idle' | 'happy' | 'jump' | 'sleep'>('happy')
+const settingsPetDef = computed(() => getPetDefinition(settingsPetId.value))
+
+const settingsSuggestedNames = computed(() => {
+  const map: Record<string, string[]> = {
+    Cat: ['Teodor', 'Puszek', 'Luna', 'Karmel', 'Chmurka'],
+    Dog: ['Milo', 'Badi', 'Tofik', 'Fafik', 'Piorun'],
+    Bunny: ['Nita', 'Kropek', 'Puchatek', 'Kiki', 'Śnieżka'],
+    Fox: ['Rudy', 'Kitsune', 'Błysk', 'Iskierka', 'Foxy'],
+    Panda: ['Bambus', 'Pandi', 'Mochi', 'Oreo', 'Pao'],
+    Bear: ['Misio', 'Baryła', 'Grizli', 'Baloo', 'Cynamon'],
+    Chick: ['Żółtek', 'Pik-Pik', 'Bąbel', 'Puszek', 'Pestka'],
+    Dragon: ['Drago', 'Iskra', 'Smok', 'Fafnir', 'Płomyk'],
+    Frog: ['Kumka', 'Żabolek', 'Kermit', 'Skoczek', 'Glutek'],
+    Ghost: ['Kacperek', 'Bubu', 'Duszek', 'Cień', 'Zjawa'],
+    Penguin: ['Pingu', 'Lodzik', 'Skipper', 'Frak', 'Pingwinek'],
+    Slime: ['Glucik', 'Żelka', 'Bąbel', 'Jelly', 'Pianka']
+  }
+  return map[settingsPetId.value] || ['Milo', 'Puszek', 'Luna', 'Bąbel', 'Karmel']
+})
+
+const openPetSettingsModal = () => {
+  settingsPetId.value = petId.value
+  settingsPetName.value = petName.value
+  settingsAnimation.value = 'happy'
+  showPetSettingsModal.value = true
+}
+
+const selectSettingsSpecies = (id: string) => {
+  settingsPetId.value = id
+  settingsAnimation.value = 'jump'
+  setTimeout(() => {
+    settingsAnimation.value = 'happy'
+  }, 800)
+}
+
+const handleSettingsPetClick = () => {
+  settingsAnimation.value = 'jump'
+  confetti({
+    particleCount: 20,
+    spread: 45,
+    origin: { y: 0.5 },
+    colors: ['#ec4899', '#f43f5e', '#a855f7']
+  })
+  setTimeout(() => {
+    settingsAnimation.value = 'happy'
+  }, 900)
+}
+
+const handleSavePetSettings = async () => {
+  const clean = settingsPetName.value.trim()
+  if (!clean) return
+  await selectPet(settingsPetId.value, clean)
+  showPetSettingsModal.value = false
+  confetti({
+    particleCount: 60,
+    spread: 60,
+    origin: { y: 0.5 }
+  })
+}
 
 const selectedSegment = ref('all')
 const showAddModal = ref(false)
@@ -404,12 +1037,27 @@ const handleToggleTask = async (task: TaskItem) => {
   await toggleTask(task.id)
 
   if (willBeCompleted) {
-    confetti({
-      particleCount: 60,
-      spread: 50,
-      origin: { y: 0.7 },
-      colors: ['#0284c7', '#0ea5e9', '#10b981', '#f59e0b']
-    })
+    const remainingActive = tasksList.value.filter(t => !t.is_completed).length
+    if (remainingActive === 0) {
+      // User completed the very last task! Pet jumps with joy, then sleeps!
+      triggerPetAnimation('jump', 2200, () => {
+        currentAnimation.value = 'sleep'
+      })
+      confetti({
+        particleCount: 110,
+        spread: 80,
+        origin: { y: 0.6 },
+        colors: ['#0284c7', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6']
+      })
+    } else {
+      triggerPetAnimation('happy', 1400)
+      confetti({
+        particleCount: 60,
+        spread: 50,
+        origin: { y: 0.7 },
+        colors: ['#0284c7', '#0ea5e9', '#10b981', '#f59e0b']
+      })
+    }
   }
 }
 
@@ -777,5 +1425,842 @@ const handleRefresh = (event: any) => {
   font-size: 13px;
   color: #64748b;
   margin-top: 4px;
+}
+
+/* ============================================= */
+/* PET & COMPANION STYLES                        */
+/* ============================================= */
+
+/* PET HEADER CONTROLS */
+.pet-header-lvl {
+  background: #fdf2f8;
+  color: #db2777;
+}
+
+.pet-header-new {
+  background: #eff6ff;
+  color: #0284c7;
+}
+
+.pet-header-gear-btn {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.pet-header-gear-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.pet-header-gear-btn:active {
+  transform: scale(0.92);
+  background: #e2e8f0;
+}
+
+/* MAIN TABS SWITCHER (Zadania vs Zwierzak) */
+.main-tabs-toolbar {
+  --background: #ffffff;
+  padding: 4px 16px 8px 16px;
+}
+
+.main-tabs-pill-row {
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 14px;
+  gap: 4px;
+}
+
+.main-tab-pill {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.main-tab-pill.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.main-tab-pill.pet-tab-pill.active {
+  color: #db2777;
+}
+
+.pill-count-chip {
+  background: #0284c7;
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.tab-pet-emoji {
+  font-size: 15px;
+}
+
+.tab-pet-lvl {
+  font-size: 10.5px;
+  font-weight: 800;
+  background: #fdf2f8;
+  color: #db2777;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+/* TASKS VIEW: PET COMPANION STATUS BAR */
+.tasks-pet-status-bar {
+  margin: 10px 16px 14px;
+  padding: 10px 14px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.03);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tasks-pet-status-bar:hover {
+  border-color: #cbd5e1;
+}
+
+.tasks-pet-status-bar:active {
+  transform: scale(0.98);
+}
+
+.pet-status-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.pet-status-texts {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pet-status-name {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.pet-status-sub {
+  font-size: 11.5px;
+  color: #64748b;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pet-status-adopt-icon {
+  font-size: 26px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fdf2f8;
+  border-radius: 50%;
+}
+
+.tab-pet-lvl.new-pill {
+  background: #eff6ff;
+  color: #0284c7;
+}
+
+.pet-open-pill {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #0284c7;
+  background: #f0f9ff;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* ============================================= */
+/* PET COMPANION VIEW STYLES                     */
+/* ============================================= */
+.pet-tab-content {
+  padding-bottom: 30px;
+}
+
+/* Hero Stage Card */
+.pet-stage-card {
+  margin: 12px 16px 16px;
+  padding: 24px 20px 18px;
+  background: radial-gradient(circle at 50% 35%, #fff5f7 0%, #ffffff 80%);
+  border: 1px solid rgba(251, 207, 232, 0.6);
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Speech Bubble */
+.pet-dialogue-bubble {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #fbcfe8;
+  border-radius: 16px;
+  padding: 10px 16px;
+  max-width: 280px;
+  text-align: center;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 14px rgba(219, 39, 119, 0.08);
+  animation: float-bubble 3.2s ease-in-out infinite;
+}
+
+@keyframes float-bubble {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.dialogue-tail {
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 12px;
+  height: 12px;
+  background: #ffffff;
+  border-right: 1px solid #fbcfe8;
+  border-bottom: 1px solid #fbcfe8;
+}
+
+.dialogue-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+  line-height: 1.4;
+}
+
+/* Stage Area with Pedestal */
+.stage-sprite-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 0 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.stage-ambient-light {
+  position: absolute;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(244, 114, 182, 0.22) 0%, rgba(255, 255, 255, 0) 70%);
+  pointer-events: none;
+}
+
+.stage-pedestal {
+  position: absolute;
+  bottom: 6px;
+  width: 130px;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(236, 72, 153, 0.16) 0%, rgba(236, 72, 153, 0.02) 80%);
+  pointer-events: none;
+}
+
+/* Pet Identity Bar */
+.pet-name-badge-row {
+  width: 100%;
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(244, 114, 182, 0.25);
+}
+
+.pet-title-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.pet-display-name {
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+}
+
+.pet-species-pill {
+  font-size: 11.5px;
+  color: #db2777;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.pet-gear-action-btn {
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pet-gear-action-btn ion-icon {
+  font-size: 16px;
+  color: #0284c7;
+}
+
+.pet-gear-action-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.pet-gear-action-btn:active {
+  transform: scale(0.95);
+}
+
+/* Stats Grid */
+.pet-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 0 16px 16px;
+}
+
+.pet-stat-card {
+  padding: 14px 16px;
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.stat-tag {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+
+.stat-level-chip {
+  font-size: 10.5px;
+  font-weight: 800;
+  background: #f0fdf4;
+  color: #16a34a;
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+
+.stat-mood-emoji {
+  font-size: 16px;
+}
+
+.stat-main-val {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.stat-val-unit {
+  font-size: 13px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.pet-xp-bar-wrap {
+  width: 100%;
+  height: 6px;
+  background: #f1f5f9;
+  border-radius: 999px;
+  margin: 10px 0 6px;
+  overflow: hidden;
+}
+
+.pet-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #059669);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.happiness-bar .happiness-fill {
+  background: linear-gradient(90deg, #f43f5e, #ec4899);
+}
+
+.stat-footer-hint {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* ============================================= */
+/* PET CREATOR & ADOPTION VIEW STYLES            */
+/* ============================================= */
+.pet-creator-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px 16px 36px;
+}
+
+.pet-creator-showcase {
+  padding: 22px 18px 20px;
+  background: radial-gradient(circle at 50% 30%, #fff0f6 0%, #ffffff 85%);
+  border: 1.5px solid rgba(251, 207, 232, 0.7);
+  border-radius: 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(236, 72, 153, 0.08);
+  position: relative;
+}
+
+.creator-sparkle-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #db2777;
+  background: #fdf2f8;
+  border: 1px solid #fbcfe8;
+  padding: 4px 14px;
+  border-radius: 999px;
+  margin-bottom: 8px;
+}
+
+.creator-sparkle-pill ion-icon {
+  font-size: 13px;
+}
+
+.creator-title {
+  font-size: 22px;
+  font-weight: 900;
+  color: #0f172a;
+  margin: 0 0 4px;
+  letter-spacing: -0.4px;
+}
+
+.creator-subtitle {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0 0 14px;
+  max-width: 300px;
+  line-height: 1.4;
+}
+
+.creator-speech-bubble {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #fbcfe8;
+  border-radius: 16px;
+  padding: 10px 16px;
+  max-width: 300px;
+  text-align: center;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 14px rgba(219, 39, 119, 0.08);
+  animation: float-bubble 3.2s ease-in-out infinite;
+}
+
+.creator-stage-center {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 0 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.creator-species-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  background: #ffffff;
+  border: 1px solid #fbcfe8;
+  padding: 5px 14px;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(219, 39, 119, 0.08);
+}
+
+.creator-species-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: #db2777;
+}
+
+.creator-species-dot {
+  color: #f472b6;
+  font-size: 12px;
+}
+
+.creator-species-theme {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+/* Reusable Section Cards in Creator & Settings */
+.creator-selection-card,
+.creator-name-card,
+.settings-group-card {
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 22px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.02);
+}
+
+.section-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.section-badge-icon {
+  font-size: 16px;
+}
+
+.section-title-text {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #64748b;
+}
+
+/* 4-COLUMN COMPACT SPECIES TILES GRID */
+.creator-tiles-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.creator-pet-tile {
+  position: relative;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 10px 4px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.creator-pet-tile:hover {
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+}
+
+.creator-pet-tile.is-selected {
+  background: #fdf2f8;
+  border-color: #db2777;
+  box-shadow: 0 4px 14px rgba(219, 39, 119, 0.16);
+  transform: translateY(-2px) scale(1.02);
+}
+
+.tile-sprite-wrap {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 3px;
+}
+
+.tile-name {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #0f172a;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.tile-check-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  color: #db2777;
+  font-size: 17px;
+  background: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  box-shadow: 0 2px 6px rgba(219, 39, 119, 0.2);
+}
+
+/* Pretty Input and Suggestions Shelf */
+.creator-input-wrapper {
+  margin-bottom: 8px;
+}
+
+.creator-pretty-input {
+  --background: #f8fafc;
+  --color: #0f172a;
+  --placeholder-color: #94a3b8;
+  --padding-start: 14px;
+  --padding-end: 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  font-size: 15px;
+  font-weight: 700;
+  height: 48px;
+}
+
+.cute-names-shelf {
+  margin-top: 8px;
+}
+
+.shelf-hint {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.shelf-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cute-sug-pill {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cute-sug-pill:hover {
+  background: #e2e8f0;
+}
+
+.cute-sug-pill.active {
+  background: #db2777;
+  border-color: #db2777;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(219, 39, 119, 0.25);
+}
+
+/* Action CTA Buttons */
+.creator-cta-wrap,
+.settings-save-wrap {
+  margin-top: 6px;
+}
+
+.creator-adopt-action-btn,
+.save-pet-settings-btn {
+  width: 100%;
+  padding: 15px;
+  font-size: 15px;
+  font-weight: 800;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(219, 39, 119, 0.25);
+}
+
+.creator-adopt-action-btn:disabled,
+.save-pet-settings-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================= */
+/* PET SETTINGS MODAL STYLES                     */
+/* ============================================= */
+ion-modal.dn-pet-settings-modal {
+  --border-radius: 28px 28px 0 0;
+  --background: #ffffff;
+  --box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
+}
+
+.dn-pet-settings-modal .modal-custom-header ion-toolbar {
+  --background: #ffffff;
+  --border-width: 0;
+  padding: 6px 12px;
+}
+
+.dn-pet-settings-modal .modal-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 4px;
+}
+
+.dn-pet-settings-modal .modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dn-pet-settings-modal .modal-title-icon {
+  font-size: 20px;
+  color: #0284c7;
+}
+
+.dn-pet-settings-modal .modal-title-wrap ion-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+  padding: 0;
+}
+
+.pet-settings-modal-content {
+  --background: #ffffff;
+}
+
+.pet-settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 24px;
+}
+
+.settings-showcase-card {
+  padding: 20px 16px 18px;
+  background: radial-gradient(circle at 50% 30%, #fff0f6 0%, #ffffff 85%);
+  border: 1.5px solid rgba(251, 207, 232, 0.7);
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 6px 20px rgba(236, 72, 153, 0.08);
+  position: relative;
+}
+
+.settings-stage-ambient {
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(244, 114, 182, 0.25) 0%, rgba(255, 255, 255, 0) 70%);
+  pointer-events: none;
+}
+
+.settings-stage-pedestal {
+  position: absolute;
+  bottom: 58px;
+  width: 120px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(236, 72, 153, 0.2) 0%, rgba(236, 72, 153, 0.02) 80%);
+  pointer-events: none;
+}
+
+.settings-stage-sprite {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.settings-stage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  background: #ffffff;
+  border: 1px solid #fbcfe8;
+  padding: 4px 12px;
+  border-radius: 999px;
+  box-shadow: 0 2px 6px rgba(219, 39, 119, 0.08);
+}
+
+.settings-stage-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: #db2777;
+}
+
+.settings-stage-dot {
+  color: #f472b6;
+  font-size: 11px;
+}
+
+.settings-stage-theme {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.settings-stage-desc {
+  font-size: 12px;
+  color: #64748b;
+  margin: 8px 0 0;
+  line-height: 1.4;
+  max-width: 280px;
 }
 </style>

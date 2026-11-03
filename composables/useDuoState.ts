@@ -25,6 +25,9 @@ export interface Partnership {
   nest_level: number
   nest_points: number
   anniversary_date?: string | null
+  pet_id?: string
+  pet_name?: string
+  pet_xp?: number
   created_at: string
 }
 
@@ -419,7 +422,10 @@ export const useDuoState = () => {
     }
 
     const savedPartnership = loadFromStorage<Partnership | null>('duonest_partnership', null)
-    if (savedPartnership) partnership.value = savedPartnership
+    if (savedPartnership) {
+      partnership.value = savedPartnership
+      if (partnership.value.pet_xp === undefined) partnership.value.pet_xp = 0
+    }
 
     const savedShopping = loadFromStorage<ShoppingItem[]>('duonest_shopping', [])
     if (savedShopping.length > 0) shoppingItems.value = savedShopping
@@ -1076,6 +1082,9 @@ export const useDuoState = () => {
                 const delta = data.is_completed ? task.points : -task.points
                 partnership.value.nest_points = Math.max(0, partnership.value.nest_points + delta)
                 partnership.value.nest_level = 1 + Math.floor(partnership.value.nest_points / 50)
+                if (data.is_completed) {
+                  partnership.value.pet_xp = (partnership.value.pet_xp || 0) + task.points
+                }
               }
               syncToStorage()
               if (data.is_completed) {
@@ -1089,6 +1098,18 @@ export const useDuoState = () => {
           if (data?.id) {
             tasksList.value = tasksList.value.filter(t => t.id !== data.id)
             syncToStorage()
+          }
+          break
+        }
+
+        // --- PET UPDATES ---
+        case 'PET_UPDATE': {
+          if (data && partnership.value) {
+            if (data.pet_id) partnership.value.pet_id = data.pet_id
+            if (data.pet_name) partnership.value.pet_name = data.pet_name
+            if (data.pet_xp !== undefined) partnership.value.pet_xp = data.pet_xp
+            syncToStorage()
+            triggerToast(`${senderName} zaktualizował(a) Waszego zwierzaka! 🐾`, { type: 'love', title: 'Wspólny Zwierzak' })
           }
           break
         }
@@ -1877,6 +1898,9 @@ export const useDuoState = () => {
       const delta = nowCompleted ? task.points : -task.points
       partnership.value.nest_points = Math.max(0, partnership.value.nest_points + delta)
       partnership.value.nest_level = 1 + Math.floor(partnership.value.nest_points / 50)
+      if (nowCompleted) {
+        partnership.value.pet_xp = (partnership.value.pet_xp || 0) + task.points
+      }
     }
     syncToStorage()
 
@@ -1889,6 +1913,26 @@ export const useDuoState = () => {
         completed_at: nowCompleted ? new Date().toISOString() : null,
         completed_by: nowCompleted ? currentUser.value.id : null
       }).eq('id', id))
+    }
+  }
+
+  const updatePet = async (petId: string, petName?: string) => {
+    if (!partnership.value) return
+    partnership.value.pet_id = petId
+    if (petName) partnership.value.pet_name = petName
+    syncToStorage()
+
+    broadcastToPartner('PET_UPDATE', {
+      pet_id: petId,
+      pet_name: partnership.value.pet_name,
+      pet_xp: partnership.value.pet_xp || 0
+    })
+
+    if (supabase && partnership.value.id) {
+      safeDb(supabase.from('partnerships').update({
+        pet_id: petId,
+        pet_name: partnership.value.pet_name
+      }).eq('id', partnership.value.id))
     }
   }
 
@@ -2546,6 +2590,7 @@ export const useDuoState = () => {
     updateWishlistItem,
     deleteWishlistItem,
     toggleWishlistCompleted,
+    updatePet,
     isPaired,
     isOnlineWithSupabase,
     dbSchemaStatus,

@@ -33,6 +33,9 @@ create table if not exists public.partnerships (
   nest_level integer not null default 1,
   nest_points integer not null default 0,
   anniversary_date text,
+  pet_id text default null,
+  pet_name text default null,
+  pet_xp integer default 0,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -270,6 +273,11 @@ create index if not exists idx_push_user on public.push_subscriptions(user_id);
 create index if not exists idx_push_partnership on public.push_subscriptions(partnership_id);
 
 alter table public.push_subscriptions enable row level security;
+
+-- Partnerships Pet Migration
+alter table public.partnerships add column if not exists pet_id text default null;
+alter table public.partnerships add column if not exists pet_name text default null;
+alter table public.partnerships add column if not exists pet_xp integer default 0;
 drop policy if exists "Allow all on push_subscriptions" on public.push_subscriptions;
 create policy "Allow all on push_subscriptions" on public.push_subscriptions for all using (true) with check (true);
 

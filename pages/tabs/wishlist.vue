@@ -230,21 +230,37 @@
         </div>
       </div>
 
-      <!-- ADD / EDIT MODAL -->
+      <!-- ADD / EDIT MODAL (BOTTOM SHEET) -->
       <ion-modal
         :is-open="isModalOpen"
         @didDismiss="closeModal"
-        class="dn-custom-modal"
-        data-no-swipe="true"
+        class="dn-wishlist-modal"
+        :breakpoints="[0, 0.92, 1]"
+        :initial-breakpoint="0.92"
+        :handle="true"
       >
-        <div class="modal-wrapper-inner">
-          <div class="modal-header-bar">
-            <h3>{{ editingItemId ? 'Edytuj marzenie' : 'Dodaj do wishlisty' }}</h3>
-            <button class="modal-close-icon-btn" @click="closeModal">
-              <ion-icon :icon="ioniconsCloseOutline" />
-            </button>
-          </div>
+        <ion-header class="modal-custom-header">
+          <ion-toolbar>
+            <div class="modal-header-inner">
+              <div class="modal-title-wrap">
+                <ion-icon :icon="ioniconsGiftOutline" class="modal-title-icon" />
+                <ion-title>{{ editingItemId ? 'Edytuj marzenie' : 'Dodaj do wishlisty' }}</ion-title>
+              </div>
+              <ion-buttons slot="end">
+                <button
+                  type="button"
+                  class="modal-close-icon-btn"
+                  @click="closeModal"
+                  aria-label="Zamknij"
+                >
+                  <ion-icon :icon="ioniconsCloseOutline" />
+                </button>
+              </ion-buttons>
+            </div>
+          </ion-toolbar>
+        </ion-header>
 
+        <ion-content class="ion-padding wishlist-modal-content">
           <div class="modal-form-body">
             <!-- PREVIEW CARD INSIDE MODAL IF SCRAPED -->
             <div v-if="formData.image_url || formData.site_name" class="modal-scraped-preview">
@@ -439,8 +455,11 @@
                 <span>{{ editingItemId ? 'Zapisz zmiany' : 'Dodaj do wishlisty' }}</span>
               </button>
             </div>
+
+            <!-- Extra bottom spacing for smooth mobile scrolling and keyboard -->
+            <div style="height: 36px;"></div>
           </div>
-        </div>
+        </ion-content>
       </ion-modal>
 
       <div style="height: 40px;"></div>
@@ -451,6 +470,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useDuoState, type WishlistItem } from '~/composables/useDuoState'
+import { formatSiteName, extractTitleFromUrl } from '~/utils/wishlistParser'
 
 const {
   wishlistItems,
@@ -587,82 +607,95 @@ const getEmptyDescription = (): string => {
 
 // Scrape URL Action
 const handleScrapeUrl = async () => {
-  const url = urlInput.value.trim()
+  let url = urlInput.value.trim()
   if (!url) return
+  if (!/^https?:\/\//i.test(url)) {
+    url = 'https://' + url
+  }
 
   isScraping.value = true
   scrapeError.value = null
 
-  try {
-    const res = await $fetch<{
-      success: boolean
-      data?: {
-        title: string
-        price: string | null
-        currency: string | null
-        image_url: string | null
-        site_name: string | null
-        url: string
-      }
-      fallback?: {
-        title: string
-        price: string | null
-        currency: string | null
-        image_url: string | null
-        site_name: string | null
-        url: string
-      }
-      notice?: string
-      error?: string
-    }>('/api/wishlist/preview', {
-      method: 'POST',
-      body: { url }
-    })
+  let resData: any = null
+  let resNotice = ''
 
-    if (res.success && res.data) {
-      // Scrape succeeded: Pre-fill form and open modal so user can review and edit!
-      formData.value = {
-        title: res.data.title || '',
-        price: res.data.price || '',
-        currency: res.data.currency || 'PLN',
-        site_name: res.data.site_name || '',
-        url: res.data.url || url,
-        image_url: res.data.image_url || '',
-        note: '',
-        is_visible_to_partner: true
+  // 1. Try server endpoints (Nitro endpoint or Netlify Function)
+  const endpoints = ['/api/wishlist/preview', '/.netlify/functions/wishlist-preview']
+  for (const ep of endpoints) {
+    try {
+      const response = await fetch(ep, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      })
+
+      const contentType = response.headers.get('content-type') || ''
+      if (response.ok && contentType.includes('application/json')) {
+        const json = await response.json()
+        if (json.success && json.data) {
+          resData = json.data
+          resNotice = json.notice || ''
+          break
+        } else if (json.fallback) {
+          resData = json.fallback
+          break
+        }
       }
-      editingItemId.value = null
-      formTarget.value = 'me'
-      isModalOpen.value = true
-      urlInput.value = ''
-      triggerToast(res.notice || 'Pobrano dane ze sklepu! Sprawdź i dostosuj szczegóły ✨')
-    } else {
-      // Graceful fallback: Open modal with pre-filled URL and site name
-      const fallback = res.fallback
-      formData.value = {
-        title: fallback?.title || '',
-        price: fallback?.price || '',
-        currency: fallback?.currency || 'PLN',
-        site_name: fallback?.site_name || '',
-        url: fallback?.url || url,
-        image_url: fallback?.image_url || '',
-        note: '',
-        is_visible_to_partner: true
-      }
-      editingItemId.value = null
-      formTarget.value = 'me'
-      isModalOpen.value = true
-      urlInput.value = ''
-      scrapeError.value = res.error || 'Nie udało się pobrać wszystkich danych. Uzupełnij je ręcznie.'
-      triggerToast('Uzupełnij brakujące dane ręcznie w formularzu ✨')
+    } catch (_) {
+      // Continue to next endpoint or fallback
     }
-  } catch (err: any) {
-    // Total network or request failure fallback
+  }
+
+  // 2. Resilient Client-Side Parser Fallback
+  // If server endpoints failed, timed out, or got blocked by bot protections on cloud IPs
+  if (!resData || !resData.title) {
+    try {
+      const parsedUrl = new URL(url)
+      const siteName = formatSiteName(parsedUrl.hostname)
+      const slugTitle = extractTitleFromUrl(parsedUrl)
+      if (slugTitle) {
+        resData = {
+          title: slugTitle,
+          price: resData?.price || '',
+          currency: resData?.currency || 'PLN',
+          site_name: resData?.site_name || siteName,
+          url: url,
+          image_url: resData?.image_url || ''
+        }
+        resNotice = `Rozpoznano przedmiot z ${siteName || 'linku'}! Uzupełnij cenę i sprawdź szczegóły ✨`
+      }
+    } catch (_) {}
+  }
+
+  // 3. Pre-fill form & open modal
+  if (resData && (resData.title || resData.site_name)) {
+    formData.value = {
+      title: resData.title || '',
+      price: resData.price || '',
+      currency: resData.currency || 'PLN',
+      site_name: resData.site_name || '',
+      url: resData.url || url,
+      image_url: resData.image_url || '',
+      note: '',
+      is_visible_to_partner: true
+    }
+    editingItemId.value = null
+    formTarget.value = 'me'
+    isModalOpen.value = true
+    urlInput.value = ''
+    triggerToast(resNotice || 'Pobrano dane ze sklepu! Sprawdź i dostosuj szczegóły ✨')
+  } else {
+    // Pure manual fallback
+    let fallbackSite = ''
+    try {
+      fallbackSite = formatSiteName(new URL(url).hostname)
+    } catch (_) {}
+
     formData.value = {
       title: '',
       price: '',
       currency: 'PLN',
-      site_name: '',
+      site_name: fallbackSite,
       url: url,
       image_url: '',
       note: '',
@@ -672,11 +705,11 @@ const handleScrapeUrl = async () => {
     formTarget.value = 'me'
     isModalOpen.value = true
     urlInput.value = ''
-    scrapeError.value = 'Nie udało się połączyć ze sklepem. Wpisz szczegóły ręcznie.'
+    scrapeError.value = 'Wpisz szczegóły przedmiotu ręcznie.'
     triggerToast('Wpisz szczegóły marzenia ręcznie ✨')
-  } finally {
-    isScraping.value = false
   }
+
+  isScraping.value = false
 }
 
 // Open manual add modal (backup when no link)
@@ -1395,49 +1428,77 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   background: #fef2f2;
 }
 
-/* CUSTOM MODAL */
-ion-modal.dn-custom-modal {
-  --border-radius: 24px 24px 0 0;
+/* WISHLIST SHEET MODAL */
+ion-modal.dn-wishlist-modal {
+  --border-radius: 28px 28px 0 0;
   --background: #ffffff;
   --box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
 }
 
-.modal-wrapper-inner {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  max-height: 90vh;
-  background: #ffffff;
-  padding: 16px 20px 24px;
-  overflow-y: auto;
+.dn-wishlist-modal .modal-custom-header ion-toolbar {
+  --background: #ffffff;
+  --border-width: 0;
+  padding: 6px 10px;
 }
 
-.modal-header-bar {
+.dn-wishlist-modal .modal-header-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  width: 100%;
+  padding: 0 4px;
 }
 
-.modal-header-bar h3 {
-  font-size: 18px;
+.dn-wishlist-modal .modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dn-wishlist-modal .modal-title-icon {
+  font-size: 20px;
+  color: #0284c7;
+}
+
+.dn-wishlist-modal .modal-title-wrap ion-title {
+  font-size: 17px;
   font-weight: 800;
   color: #0f172a;
-  margin: 0;
+  padding: 0;
 }
 
 .modal-close-icon-btn {
   background: #f1f5f9;
   border: none;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: #475569;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 22px;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+}
+
+.modal-close-icon-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.modal-close-icon-btn:active {
+  transform: scale(0.92);
+}
+
+.wishlist-modal-content {
+  --background: #ffffff;
+  --padding-top: 8px;
+  --padding-bottom: 24px;
+  --padding-start: 18px;
+  --padding-end: 18px;
 }
 
 .modal-form-body {
