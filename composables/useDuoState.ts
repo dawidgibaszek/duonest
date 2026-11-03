@@ -321,7 +321,13 @@ export const SUPABASE_PUBLIC_KEY = getSupabaseConfig().key
 // Active Supabase Realtime Channels references
 let activePartnershipChannel: any = null
 let activePairingChannel: any = null
+let activeSecurityChannel: any = null
 let globalSupabaseClient: any = null
+let securityLifecycleBound = false
+let securityCheckInterval: any = null
+let lastSecurityVerifiedAt = 0
+let isSecurityVerifying = false
+let isLoggingOut = false
 
 export const getSupabaseClient = () => {
   if (globalSupabaseClient) return globalSupabaseClient
@@ -519,6 +525,11 @@ export const useDuoState = () => {
       // Listen for incoming pairing request
       subscribeToPairingChannel(currentUser.value.pairing_code)
     }
+
+    if (currentUser.value?.id) {
+      subscribeToSecurityChannel(currentUser.value.id, partnership.value?.id)
+    }
+    setupSecurityLifecycleListeners()
   }
 
   const syncUserProfileWithAuth = async (user: any) => {
@@ -577,6 +588,7 @@ export const useDuoState = () => {
       } else if (currentUser.value?.pairing_code) {
         subscribeToPairingChannel(currentUser.value.pairing_code)
       }
+      subscribeToSecurityChannel(user.id, partnership.value?.id)
     } catch (err) {
       if (process.dev) {
         console.warn('syncUserProfileWithAuth error:', err)
@@ -742,6 +754,7 @@ export const useDuoState = () => {
       } else if (currentUser.value?.pairing_code) {
         subscribeToPairingChannel(currentUser.value.pairing_code)
       }
+      subscribeToSecurityChannel(dbProfile.id, dbProfile.partnership_id)
 
       return { data: { user: authUserObj, session: authSessionObj }, error: null }
     } catch (err: any) {
@@ -835,6 +848,7 @@ export const useDuoState = () => {
       syncToStorage()
 
       subscribeToPairingChannel(newPairingCode)
+      subscribeToSecurityChannel(newProfile.id, null)
 
       return { data: { user: authUserObj, session: authSessionObj }, error: null }
     } catch (err: any) {
@@ -847,6 +861,17 @@ export const useDuoState = () => {
   }
 
   const signOutUser = async () => {
+    if (isLoggingOut) return
+    isLoggingOut = true
+
+    if (securityCheckInterval) {
+      clearInterval(securityCheckInterval)
+      securityCheckInterval = null
+    }
+    if (activeSecurityChannel && supabase) {
+      try { supabase.removeChannel(activeSecurityChannel) } catch (_) {}
+      activeSecurityChannel = null
+    }
     if (activePartnershipChannel && supabase) {
       try { supabase.removeChannel(activePartnershipChannel) } catch (_) {}
       activePartnershipChannel = null
@@ -866,6 +891,7 @@ export const useDuoState = () => {
     if (typeof window !== 'undefined') {
       await navigateTo('/login', { replace: true })
     }
+    isLoggingOut = false
   }
 
   // Save changes to storage
@@ -933,6 +959,222 @@ export const useDuoState = () => {
     }
   }
 
+  // --- REALTIME SECURITY LISTENER (AUTO-LOGOUT ON DB DELETE / UNPAIR) ---
+  const subscribeToSecurityChannel = (userId: string, partnershipId?: string | null) => {
+    if (!supabase || typeof window === 'undefined' || !userId) return
+
+    if (activeSecurityChannel) {
+      try {
+        supabase.removeChannel(activeSecurityChannel)
+      } catch (_) {}
+      activeSecurityChannel = null
+    }
+
+    const channelName = `duonest_sec_${userId}`
+    const channel = supabase.channel(channelName)
+
+    // 1. Listen for user profile deletion or unpairing in Supabase
+    channel.on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'profiles',
+        filter: `id=eq.${userId}`
+      },
+      async (payload: any) => {
+        if (payload.eventType === 'DELETE') {
+          triggerToast('Twoje konto zostało usunięte z bazy danych. Zostałeś wylogowany.', {
+            type: 'warning',
+            title: 'Konto usunięte'
+          })
+          await signOutUser()
+          return
+        }
+
+        if (payload.eventType === 'UPDATE') {
+          const newPartId = payload.new?.partnership_id
+          if (partnership.value?.id && (!newPartId || newPartId !== partnership.value.id)) {
+            triggerToast('Twoje parowanie zostało zakończone w bazie danych. Zostałeś wylogowany.', {
+              type: 'warning',
+              title: 'Utrata parowania'
+            })
+            await signOutUser()
+          }
+        }
+      }
+    )
+
+    // 2. If paired, listen for partnership deletion or removal in Supabase
+    if (partnershipId) {
+      channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'partnerships',
+          filter: `id=eq.${partnershipId}`
+        },
+        async (payload: any) => {
+          if (payload.eventType === 'DELETE') {
+            triggerToast('Wasze Gniazdko zostało usunięte w bazie danych. Zostałeś wylogowany.', {
+              type: 'warning',
+              title: 'Gniazdko usunięte'
+            })
+            await signOutUser()
+            return
+          }
+
+          if (payload.eventType === 'UPDATE') {
+            const { partner1_id, partner2_id } = payload.new || {}
+            if (partner1_id !== userId && partner2_id !== userId) {
+              triggerToast('Nie należysz już do tego Gniazdka. Zostałeś wylogowany.', {
+                type: 'warning',
+                title: 'Brak uprawnień'
+              })
+              await signOutUser()
+            }
+          }
+        }
+      )
+    }
+
+    channel.subscribe((status: string) => {
+      if (status === 'SUBSCRIBED') {
+        activeSecurityChannel = channel
+      }
+    })
+  }
+
+  const setupSecurityLifecycleListeners = () => {
+    if (typeof window === 'undefined' || securityLifecycleBound) return
+    securityLifecycleBound = true
+
+    // Periodic heartbeat check: every 20 seconds
+    if (!securityCheckInterval) {
+      securityCheckInterval = setInterval(() => {
+        if (currentUser.value?.id && authUser.value) {
+          verifyUserAndPartnershipAccess(true)
+        }
+      }, 20000)
+    }
+
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && currentUser.value?.id && authUser.value) {
+        verifyUserAndPartnershipAccess(true)
+      }
+    })
+
+    window.addEventListener('focus', () => {
+      if (currentUser.value?.id && authUser.value) {
+        verifyUserAndPartnershipAccess(true)
+      }
+    })
+  }
+
+  const verifyUserAndPartnershipAccess = async (force: boolean = false): Promise<boolean> => {
+    if (typeof window === 'undefined' || isLoggingOut) return true
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return true
+    }
+
+    const now = Date.now()
+    if (!force && now - lastSecurityVerifiedAt < 2500) {
+      return true
+    }
+
+    const client = getSupabaseClient()
+    if (!client) return true
+
+    const userId = currentUser.value?.id
+    const pId = partnership.value?.id
+
+    if (!userId) {
+      await signOutUser()
+      return false
+    }
+
+    if (isSecurityVerifying) return true
+    isSecurityVerifying = true
+
+    try {
+      // 1. Verify user profile exists in database
+      const { data: dbProfile, error: profileErr } = await client
+        .from('profiles')
+        .select('id, partnership_id')
+        .eq('id', userId)
+        .maybeSingle()
+
+      if (profileErr) {
+        if (profileErr.code === '42P01' || profileErr.message?.includes('fetch') || profileErr.message?.includes('network')) {
+          return true
+        }
+      }
+
+      if (!dbProfile && !profileErr) {
+        triggerToast('Twoje konto nie istnieje w bazie danych. Zostałeś wylogowany.', {
+          type: 'warning',
+          title: 'Konto nie istnieje'
+        })
+        await signOutUser()
+        return false
+      }
+
+      // 2. If user is in an active Gniazdko, verify partnership linkage
+      if (pId) {
+        if (dbProfile && (!dbProfile.partnership_id || dbProfile.partnership_id !== pId)) {
+          triggerToast('Utracono połączenie z Gniazdkiem (brak parowania w bazie). Zostałeś wylogowany.', {
+            type: 'warning',
+            title: 'Utrata parowania'
+          })
+          await signOutUser()
+          return false
+        }
+
+        const { data: dbPartnership, error: partErr } = await client
+          .from('partnerships')
+          .select('id, partner1_id, partner2_id')
+          .eq('id', pId)
+          .maybeSingle()
+
+        if (partErr) {
+          if (partErr.code === '42P01' || partErr.message?.includes('fetch') || partErr.message?.includes('network')) {
+            return true
+          }
+        }
+
+        if (!dbPartnership && !partErr) {
+          triggerToast('Wasze Gniazdko zostało usunięte w bazie danych. Zostałeś wylogowany.', {
+            type: 'warning',
+            title: 'Gniazdko usunięte'
+          })
+          await signOutUser()
+          return false
+        }
+
+        if (dbPartnership && dbPartnership.partner1_id !== userId && dbPartnership.partner2_id !== userId) {
+          triggerToast('Nie masz uprawnień do tego Gniazdka w bazie danych. Zostałeś wylogowany.', {
+            type: 'warning',
+            title: 'Brak uprawnień'
+          })
+          await signOutUser()
+          return false
+        }
+      }
+
+      lastSecurityVerifiedAt = Date.now()
+      return true
+    } catch (err: any) {
+      if (process.dev) {
+        console.warn('[Security] Access verification error:', err)
+      }
+      return true
+    } finally {
+      isSecurityVerifying = false
+    }
+  }
+
   // --- REALTIME SUBSCRIPTION FOR PAIRED PARTNERS ---
   const subscribeToPartnershipRealtime = (partnershipId: string) => {
     if (!supabase || typeof window === 'undefined') return
@@ -982,11 +1224,19 @@ export const useDuoState = () => {
       })
 
     // 2. Realtime Broadcast Actions: Instant sync across devices (<50ms)
-    channel.on('broadcast', { event: 'duo_sync' }, (envelope: any) => {
+    channel.on('broadcast', { event: 'duo_sync' }, async (envelope: any) => {
       const { action, senderId, senderName, data } = envelope.payload || {}
       if (senderId === currentUser.value.id) return // ignore own echoes
 
       switch (action) {
+        case 'PARTNERSHIP_DISCONNECT': {
+          triggerToast('Wasze Gniazdko zostało rozłączone. Zostałeś wylogowany.', {
+            type: 'warning',
+            title: 'Gniazdko rozłączone'
+          })
+          await signOutUser()
+          break
+        }
         // --- CALENDAR EVENTS ---
         case 'EVENT_ADD': {
           if (data && !eventsList.value.some(e => e.id === data.id)) {
@@ -1504,6 +1754,7 @@ export const useDuoState = () => {
         try { supabase.removeChannel(pairChan) } catch (_) {}
         activePairingChannel = null
         subscribeToPartnershipRealtime(newPartnership.id)
+        subscribeToSecurityChannel(currentUser.value.id, newPartnership.id)
       }, 500)
     })
 
@@ -1519,6 +1770,11 @@ export const useDuoState = () => {
     initializeClientState()
     const client = getSupabaseClient()
     if (!client) return
+
+    if (currentUser.value?.id && authUser.value) {
+      const isAllowed = await verifyUserAndPartnershipAccess(true)
+      if (!isAllowed) return
+    }
 
     isOnlineWithSupabase.value = true
 
@@ -1651,8 +1907,9 @@ export const useDuoState = () => {
     return !!(currentUser.value?.partnership_id && partnership.value)
   })
 
-  const updateMyName = (newName: string) => {
+  const updateMyName = async (newName: string) => {
     if (!newName.trim()) return
+    if (!await verifyUserAndPartnershipAccess()) return
     currentUser.value.name = newName.trim()
     syncToStorage()
     if (supabase && isOnlineWithSupabase.value) {
@@ -1780,26 +2037,49 @@ export const useDuoState = () => {
 
     // Subscribe to shared realtime channel
     subscribeToPartnershipRealtime(newPartnershipId)
+    subscribeToSecurityChannel(currentUser.value.id, newPartnershipId)
 
     triggerToast('Konta zostały pomyślnie sparowane! Witajcie w Waszym Gniazdku!')
     return { success: true }
   }
 
-  const disconnectPartnership = () => {
+  const disconnectPartnership = async () => {
+    const pId = partnership.value?.id
+    const myId = currentUser.value?.id
+    const partnerId = partnerUser.value?.id
+
+    // Broadcast disconnection notice so partner reacts instantly
+    broadcastToPartner('PARTNERSHIP_DISCONNECT', {})
+
+    if (supabase) {
+      if (myId) {
+        safeDb(supabase.from('profiles').update({ partnership_id: null }).eq('id', myId))
+      }
+      if (partnerId) {
+        safeDb(supabase.from('profiles').update({ partnership_id: null }).eq('id', partnerId))
+      }
+      if (pId) {
+        safeDb(supabase.from('partnerships').delete().eq('id', pId))
+      }
+    }
+
     if (activePartnershipChannel && supabase) {
       try { supabase.removeChannel(activePartnershipChannel) } catch (_) {}
       activePartnershipChannel = null
     }
+
     currentUser.value.partnership_id = null
     partnerUser.value = null
     partnership.value = null
     syncToStorage()
-    triggerToast('Rozłączono partnerstwo.')
+    triggerToast('Rozłączono partnerstwo. Zostałeś wylogowany.', { type: 'warning', title: 'Rozłączono' })
+    await signOutUser()
   }
 
   // --- SHOPPING LIST ACTIONS ---
   const addShoppingItem = async (title: string, category: string, quantity: string = '') => {
     if (!title.trim() || !partnership.value) return
+    if (!await verifyUserAndPartnershipAccess()) return
     const cleanQty = quantity ? String(quantity).replace(/\D/g, '').trim() : ''
     const newItem: ShoppingItem = {
       id: 'shop_' + Math.random().toString(36).substring(2, 9),
@@ -1823,6 +2103,7 @@ export const useDuoState = () => {
   }
 
   const toggleShoppingItem = async (id: string) => {
+    if (!await verifyUserAndPartnershipAccess()) return
     const item = shoppingItems.value.find(i => i.id === id)
     if (!item) return
     item.is_completed = !item.is_completed
@@ -1841,6 +2122,7 @@ export const useDuoState = () => {
   }
 
   const deleteShoppingItem = async (id: string) => {
+    if (!await verifyUserAndPartnershipAccess()) return
     shoppingItems.value = shoppingItems.value.filter(i => i.id !== id)
     syncToStorage()
 
@@ -1853,6 +2135,7 @@ export const useDuoState = () => {
   }
 
   const clearCompletedShopping = async () => {
+    if (!await verifyUserAndPartnershipAccess()) return
     const toDelete = shoppingItems.value.filter(i => i.is_completed).map(i => i.id)
     shoppingItems.value = shoppingItems.value.filter(i => !i.is_completed)
     syncToStorage()
@@ -1868,6 +2151,7 @@ export const useDuoState = () => {
   // --- TASKS ACTIONS ---
   const addTask = async (title: string, description: string = '', assignedTo: string | null = null, isRecurring: boolean = false, recurrenceInterval: string = 'weekly', points: number = 15) => {
     if (!title.trim() || !partnership.value) return
+    if (!await verifyUserAndPartnershipAccess()) return
     const newTask: TaskItem = {
       id: 'task_' + Math.random().toString(36).substring(2, 9),
       partnership_id: partnership.value.id,
@@ -1894,6 +2178,7 @@ export const useDuoState = () => {
   }
 
   const toggleTask = async (id: string) => {
+    if (!await verifyUserAndPartnershipAccess()) return
     const task = tasksList.value.find(t => t.id === id)
     if (!task) return
     task.is_completed = !task.is_completed
@@ -1935,6 +2220,7 @@ export const useDuoState = () => {
 
   const updatePet = async (petId: string, petName?: string) => {
     if (!partnership.value) return
+    if (!await verifyUserAndPartnershipAccess()) return
     partnership.value.pet_id = petId
     if (petName) partnership.value.pet_name = petName
     syncToStorage()
@@ -1955,6 +2241,7 @@ export const useDuoState = () => {
   }
 
   const deleteTask = async (id: string) => {
+    if (!await verifyUserAndPartnershipAccess()) return
     tasksList.value = tasksList.value.filter(t => t.id !== id)
     syncToStorage()
 
@@ -1978,6 +2265,7 @@ export const useDuoState = () => {
     plannerName: string = ''
   ) => {
     if (!title.trim() || !partnership.value) return
+    if (!await verifyUserAndPartnershipAccess()) return
     const newEvent: EventItem = {
       id: 'ev_' + Math.random().toString(36).substring(2, 9),
       partnership_id: partnership.value.id,
@@ -2012,6 +2300,7 @@ export const useDuoState = () => {
     id: string,
     updates: Partial<EventItem>
   ) => {
+    if (!await verifyUserAndPartnershipAccess()) return
     const idx = eventsList.value.findIndex(e => e.id === id)
     if (idx === -1) return
 
@@ -2029,6 +2318,7 @@ export const useDuoState = () => {
   }
 
   const toggleEventCompleted = async (id: string) => {
+    if (!await verifyUserAndPartnershipAccess()) return
     const ev = eventsList.value.find(e => e.id === id)
     if (!ev) return
     ev.is_completed = !ev.is_completed
@@ -2051,6 +2341,7 @@ export const useDuoState = () => {
   }
 
   const deleteEvent = async (id: string) => {
+    if (!await verifyUserAndPartnershipAccess()) return
     eventsList.value = eventsList.value.filter(e => e.id !== id)
     syncToStorage()
 
@@ -2065,6 +2356,7 @@ export const useDuoState = () => {
 
   // --- MOOD & NUDGES ACTIONS ---
   const updateMood = async (mood: string, note: string = '') => {
+    if (!await verifyUserAndPartnershipAccess()) return
     currentUser.value.current_mood = mood
     currentUser.value.mood_note = note.trim()
     currentUser.value.mood_updated_at = new Date().toISOString()
@@ -2131,6 +2423,7 @@ export const useDuoState = () => {
 
   const sendNudge = async (nudgeType: string, message: string = '') => {
     if (!partnership.value || !partnerUser.value) return false
+    if (!await verifyUserAndPartnershipAccess()) return false
 
     // Limit: only 1 nudge per person per 24 hours
     if (hasSentDailyNudge.value) {
@@ -2177,6 +2470,7 @@ export const useDuoState = () => {
 
   const updatePartnershipSettings = async (nestName: string, anniversaryDate: string) => {
     if (!partnership.value) return
+    if (!await verifyUserAndPartnershipAccess()) return
     partnership.value.nest_name = nestName || partnership.value.nest_name
     partnership.value.anniversary_date = anniversaryDate || partnership.value.anniversary_date
     syncToStorage()
@@ -2205,6 +2499,7 @@ export const useDuoState = () => {
     nest_name?: string
     anniversary_date?: string
   }) => {
+    if (!await verifyUserAndPartnershipAccess()) return
     if (updates.name && updates.name.trim()) {
       currentUser.value.name = updates.name.trim()
     }
@@ -2398,8 +2693,9 @@ export const useDuoState = () => {
   })
 
   // --- MILESTONES & REWARDS CRUD ACTIONS ---
-  const addMilestone = (title: string, targetPoints: number, assignedTo: string | null = null, description: string = '') => {
+  const addMilestone = async (title: string, targetPoints: number, assignedTo: string | null = null, description: string = '') => {
     if (!title.trim()) return
+    if (!await verifyUserAndPartnershipAccess()) return
     const newMilestone: NestMilestone = {
       id: 'm_' + Math.random().toString(36).substring(2, 9),
       partnership_id: partnership.value?.id,
@@ -2418,7 +2714,8 @@ export const useDuoState = () => {
     return newMilestone
   }
 
-  const updateMilestone = (id: string, updates: Partial<NestMilestone>) => {
+  const updateMilestone = async (id: string, updates: Partial<NestMilestone>) => {
+    if (!await verifyUserAndPartnershipAccess()) return
     const idx = milestonesList.value.findIndex(m => m.id === id)
     if (idx === -1) return
     milestonesList.value[idx] = {
@@ -2430,7 +2727,8 @@ export const useDuoState = () => {
     triggerToast('Zaktualizowano cel nagrody.')
   }
 
-  const deleteMilestone = (id: string) => {
+  const deleteMilestone = async (id: string) => {
+    if (!await verifyUserAndPartnershipAccess()) return
     const item = milestonesList.value.find(m => m.id === id)
     milestonesList.value = milestonesList.value.filter(m => m.id !== id)
     syncToStorage()
@@ -2438,7 +2736,8 @@ export const useDuoState = () => {
     triggerToast(`Usunięto cel: ${item?.title || ''}.`)
   }
 
-  const claimMilestone = (id: string) => {
+  const claimMilestone = async (id: string) => {
+    if (!await verifyUserAndPartnershipAccess()) return
     const m = milestonesList.value.find(i => i.id === id)
     if (!m) return
     const now = new Date().toISOString()
@@ -2449,7 +2748,8 @@ export const useDuoState = () => {
     triggerToast(`Gratulacje! Nagroda "${m.title}" została odebrana! 🎉`)
   }
 
-  const reactivateMilestone = (id: string) => {
+  const reactivateMilestone = async (id: string) => {
+    if (!await verifyUserAndPartnershipAccess()) return
     const m = milestonesList.value.find(i => i.id === id)
     if (!m) return
     m.is_completed = false
@@ -2472,6 +2772,7 @@ export const useDuoState = () => {
     is_visible_to_partner?: boolean // default true; if false, it's a secret surprise gift for partner
   }) => {
     if (!itemData.title || !itemData.title.trim()) return null
+    if (!await verifyUserAndPartnershipAccess()) return null
     const partnershipId = partnership.value?.id || 'local_partnership'
     const userId = currentUser.value?.id || 'local_user'
 
@@ -2514,6 +2815,7 @@ export const useDuoState = () => {
   }
 
   const updateWishlistItem = async (id: string, updates: Partial<Omit<WishlistItem, 'id' | 'created_at' | 'created_by' | 'partnership_id'>>) => {
+    if (!await verifyUserAndPartnershipAccess()) return null
     const idx = wishlistItems.value.findIndex(w => w.id === id)
     if (idx === -1) return
     const current = wishlistItems.value[idx]
@@ -2543,6 +2845,7 @@ export const useDuoState = () => {
   }
 
   const deleteWishlistItem = async (id: string) => {
+    if (!await verifyUserAndPartnershipAccess()) return
     const item = wishlistItems.value.find(w => w.id === id)
     if (!item) return
     wishlistItems.value = wishlistItems.value.filter(w => w.id !== id)
@@ -2560,6 +2863,7 @@ export const useDuoState = () => {
   }
 
   const toggleWishlistCompleted = async (id: string) => {
+    if (!await verifyUserAndPartnershipAccess()) return
     const item = wishlistItems.value.find(w => w.id === id)
     if (!item) return
     const newCompleted = !item.is_completed
@@ -2663,6 +2967,7 @@ export const useDuoState = () => {
     nextNudgeRemainingMs,
     updatePartnershipSettings,
     subscribeToPairingChannel,
-    normalizePairingCode
+    normalizePairingCode,
+    verifyUserAndPartnershipAccess
   }
 }
