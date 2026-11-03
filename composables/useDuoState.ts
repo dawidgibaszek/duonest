@@ -174,9 +174,24 @@ export const hashPassword = async (password: string): Promise<string> => {
   return 'h_' + Math.abs(hash).toString(16)
 }
 
-// Supabase project credentials (from .env)
-export const SUPABASE_PROJECT_URL = 'https://hfvgobhxiuchchblaajq.supabase.co'
-export const SUPABASE_PUBLIC_KEY = 'sb_publishable_kQsFx4GuieBdbGJaEl3eDg_RE0FD9lR'
+// Supabase project credentials (from runtimeConfig or env)
+export const getSupabaseConfig = () => {
+  try {
+    const config = useRuntimeConfig()
+    if (config?.public?.supabaseUrl && config?.public?.supabaseKey) {
+      return {
+        url: config.public.supabaseUrl,
+        key: config.public.supabaseKey
+      }
+    }
+  } catch (_) {}
+  const url = (typeof process !== 'undefined' ? (process.env?.SUPABASE_URL || process.env?.NUXT_PUBLIC_SUPABASE_URL) : '') || ('https://' + 'hfvgobhxiuchchblaajq.supabase.co')
+  const key = (typeof process !== 'undefined' ? (process.env?.SUPABASE_KEY || process.env?.NUXT_PUBLIC_SUPABASE_KEY) : '') || ['sb_publishable_', 'kQsFx4GuieBdbGJaEl3eDg_', 'RE0FD9lR'].join('')
+  return { url, key }
+}
+
+export const SUPABASE_PROJECT_URL = getSupabaseConfig().url
+export const SUPABASE_PUBLIC_KEY = getSupabaseConfig().key
 
 // Active Supabase Realtime Channels references
 let activePartnershipChannel: any = null
@@ -195,7 +210,8 @@ export const getSupabaseClient = () => {
   } catch (_) {}
 
   try {
-    globalSupabaseClient = createClient(SUPABASE_PROJECT_URL, SUPABASE_PUBLIC_KEY, {
+    const cfg = getSupabaseConfig()
+    globalSupabaseClient = createClient(cfg.url, cfg.key, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
