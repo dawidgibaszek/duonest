@@ -243,31 +243,38 @@
       <div style="height: 40px;"></div>
     </ion-content>
 
-    <!-- 3. ADD / EDIT MODAL (Outside ion-content to prevent iOS WebKit PWA sheet/scroll freezing) -->
+    <!-- 3. ADD / EDIT MODAL (BOTTOM SHEET WITH DRAG HANDLE & BREAKPOINTS) -->
     <ion-modal
       :is-open="isModalOpen"
       @didDismiss="closeModal"
       class="dn-wishlist-modal"
+      :breakpoints="[0, 0.92, 1]"
+      :initial-breakpoint="0.92"
+      :handle="true"
       data-no-swipe="true"
     >
-      <div class="modal-wrapper-inner">
-        <div class="modal-custom-header">
+      <ion-header class="modal-custom-header">
+        <ion-toolbar>
           <div class="modal-header-inner">
             <div class="modal-title-wrap">
               <ion-icon :icon="ioniconsGiftOutline" class="modal-title-icon" />
-              <h3 class="modal-title-text">{{ editingItemId ? 'Edytuj marzenie' : 'Dodaj do wishlisty' }}</h3>
+              <ion-title>{{ editingItemId ? 'Edytuj marzenie' : 'Dodaj do wishlisty' }}</ion-title>
             </div>
-            <button
-              type="button"
-              class="modal-close-icon-btn"
-              @click="closeModal"
-              aria-label="Zamknij"
-            >
-              <ion-icon :icon="ioniconsCloseOutline" />
-            </button>
+            <ion-buttons slot="end">
+              <button
+                type="button"
+                class="modal-close-icon-btn"
+                @click="closeModal"
+                aria-label="Zamknij"
+              >
+                <ion-icon :icon="ioniconsCloseOutline" />
+              </button>
+            </ion-buttons>
           </div>
-        </div>
+        </ion-toolbar>
+      </ion-header>
 
+      <ion-content class="ion-padding wishlist-modal-content">
         <div class="modal-form-body">
             <!-- PREVIEW CARD INSIDE MODAL IF SCRAPED -->
             <div v-if="formData.image_url || formData.site_name" class="modal-scraped-preview">
@@ -466,7 +473,7 @@
             <!-- Extra bottom spacing for smooth mobile scrolling and keyboard -->
             <div style="height: 36px;"></div>
           </div>
-        </div>
+        </ion-content>
       </ion-modal>
     </ion-page>
 </template>
@@ -1501,53 +1508,43 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   background: #fef2f2;
 }
 
-/* WISHLIST MODAL */
+/* WISHLIST SHEET MODAL (DRAGGABLE BOTTOM SHEET) */
 ion-modal.dn-wishlist-modal {
   --border-radius: 28px 28px 0 0;
   --background: #ffffff;
   --box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
 }
 
-.modal-wrapper-inner {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  max-height: 90vh;
-  background: #ffffff;
-  padding: 16px 20px 32px;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+.dn-wishlist-modal .modal-custom-header ion-toolbar {
+  --background: #ffffff;
+  --border-width: 0;
+  padding: 6px 12px;
 }
 
-.modal-custom-header {
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f1f5f9;
-  margin-bottom: 14px;
-}
-
-.modal-header-inner {
+.dn-wishlist-modal .modal-header-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
+  padding: 0 4px;
 }
 
-.modal-title-wrap {
+.dn-wishlist-modal .modal-title-wrap {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.modal-title-icon {
+.dn-wishlist-modal .modal-title-icon {
   font-size: 20px;
   color: #0284c7;
 }
 
-.modal-title-text {
+.dn-wishlist-modal .modal-title-wrap ion-title {
   font-size: 17px;
   font-weight: 800;
   color: #0f172a;
-  margin: 0;
+  padding: 0;
 }
 
 .modal-close-icon-btn {
@@ -1574,6 +1571,14 @@ ion-modal.dn-wishlist-modal {
 
 .modal-close-icon-btn:active {
   transform: scale(0.92);
+}
+
+.wishlist-modal-content {
+  --background: #ffffff;
+  --padding-top: 8px;
+  --padding-bottom: 28px;
+  --padding-start: 18px;
+  --padding-end: 18px;
 }
 
 .modal-form-body {
