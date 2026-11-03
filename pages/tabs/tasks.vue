@@ -413,7 +413,7 @@
             </div>
           </div>
 
-          <!-- Stats & Mood Grid -->
+          <!-- Stats & Mood Grid (Spacious, Prominent & Gamified) -->
           <div class="pet-stats-grid">
             <!-- 1. Level & XP Card -->
             <div class="dn-card pet-stat-card stat-card-xp">
@@ -428,8 +428,11 @@
                 </div>
               </div>
 
-              <!-- Category Tag -->
-              <span class="stat-category-label label-xp">DOŚWIADCZENIE</span>
+              <!-- Category Tag & Subtitle -->
+              <div class="stat-heading-group">
+                <span class="stat-category-label label-xp">DOŚWIADCZENIE</span>
+                <span class="stat-category-sub">Wspólne postępy</span>
+              </div>
 
               <!-- Big Value & Unit -->
               <div class="stat-main-row">
@@ -438,7 +441,7 @@
                 <span class="stat-pct-badge badge-xp">{{ petLevelProgressPct }}%</span>
               </div>
 
-              <!-- Candy Progress Bar -->
+              <!-- Candy Progress Bar (Chunky & Glossy) -->
               <div class="stat-bar-track track-xp">
                 <div class="stat-bar-fill fill-xp" :style="{ width: `${petLevelProgressPct}%` }">
                   <span class="bar-gloss-line" />
@@ -465,15 +468,18 @@
                 </div>
               </div>
 
-              <!-- Category Tag -->
-              <span class="stat-category-label label-mood">ZADOWOLENIE</span>
+              <!-- Category Tag & Subtitle -->
+              <div class="stat-heading-group">
+                <span class="stat-category-label label-mood">ZADOWOLENIE</span>
+                <span class="stat-category-sub">Nastrój pupila</span>
+              </div>
 
               <!-- Big Value & Mood Status -->
               <div class="stat-main-row">
                 <span class="stat-mood-text">{{ happinessLabel }}</span>
               </div>
 
-              <!-- Candy Progress Bar -->
+              <!-- Candy Progress Bar (Chunky & Glossy) -->
               <div class="stat-bar-track track-mood">
                 <div class="stat-bar-fill fill-mood" :style="{ width: `${petHappiness}%` }">
                   <span class="bar-gloss-line" />
@@ -482,18 +488,78 @@
 
               <!-- Micro Info Footer -->
               <div class="stat-card-footer">
-                <span class="footer-meta-left">Nastrój pupila</span>
-                <span class="footer-meta-right">{{ petHappiness >= 70 ? 'Czysto w domu ✨' : 'Czeka na zadania' }}</span>
+                <span class="footer-meta-left">Samopoczucie</span>
+                <span class="footer-meta-right">{{ petHappiness >= 75 ? 'Duma z Was 💖' : 'Czeka na zadania' }}</span>
               </div>
             </div>
           </div>
 
-          <!-- Pet Motivation & Guide Banner -->
-          <div class="pet-guide-card">
-            <div class="guide-icon-box">💡</div>
-            <div class="guide-text-box">
-              <span class="guide-title">Jak dbać o {{ petName }}?</span>
-              <span class="guide-desc">Każde zrobione zadanie domowe daje <strong>+15 XP</strong> oraz podnosi zadowolenie Waszego pupila!</span>
+          <!-- Interactive Quick Care Actions for Pet -->
+          <div class="dn-card pet-care-card">
+            <div class="care-header-row">
+              <span class="care-section-label">OKAZANIE CZUŁOŚCI DLA {{ petName.toUpperCase() }}</span>
+              <span class="care-section-hint">Interakcja z pupilem</span>
+            </div>
+            <div class="pet-care-actions-row">
+              <button type="button" class="care-action-btn care-btn-treat" @click="handleFeedPet">
+                <span class="care-action-emoji">🍎</span>
+                <span class="care-action-title">Przysmak</span>
+              </button>
+              <button type="button" class="care-action-btn care-btn-play" @click="handlePlayPet">
+                <span class="care-action-emoji">🎾</span>
+                <span class="care-action-title">Zabawa</span>
+              </button>
+              <button type="button" class="care-action-btn care-btn-pet" @click="handleCaressPet">
+                <span class="care-action-emoji">💆</span>
+                <span class="care-action-title">Pogłaszcz</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Pet Daily Chores Quest Card (Housework Integration) -->
+          <div class="dn-card pet-quests-card">
+            <div class="quests-header-row">
+              <div class="quests-title-box">
+                <div class="quests-badge-row">
+                  <span class="quests-badge">MISJE DOMOWE</span>
+                  <span class="quests-xp-tag">+15 XP KAŻDE</span>
+                </div>
+                <h4 class="quests-heading">Zrób zadanie, nakarm pupila XP! ⭐</h4>
+              </div>
+              <button type="button" class="quests-see-all-btn" @click="handleSwitchToTasks">
+                Wszystkie zadania →
+              </button>
+            </div>
+
+            <!-- Quest Items List -->
+            <div v-if="petPriorityTasks.length > 0" class="pet-quests-list">
+              <div
+                v-for="task in petPriorityTasks"
+                :key="task.id"
+                class="pet-quest-item"
+                @click="handleQuickCompletePetTask(task)"
+              >
+                <div class="quest-checkbox-mock">
+                  <ion-icon :icon="ioniconsCheckmark" class="quest-check-icon" />
+                </div>
+                <div class="quest-info-box">
+                  <span class="quest-item-title">{{ task.title }}</span>
+                  <span class="quest-item-meta">{{ getAssigneeLabel(task.assigned_to) }}</span>
+                </div>
+                <span class="quest-xp-chip">+15 XP ✨</span>
+              </div>
+            </div>
+
+            <!-- All Completed State -->
+            <div v-else class="pet-quests-empty">
+              <span class="empty-quest-emoji">🎉</span>
+              <div class="empty-quest-texts">
+                <span class="empty-quest-title">Wszystkie zadania zrobione!</span>
+                <span class="empty-quest-sub">Wasze Gniazdko lśni, a {{ petName }} odpoczywa zadowolony.</span>
+              </div>
+              <button type="button" class="add-chore-mini-btn" @click="showAddModal = true">
+                + Dodaj zadanie
+              </button>
             </div>
           </div>
         </div>
@@ -646,7 +712,7 @@
                   @click="showPetSettingsModal = false"
                   aria-label="Zamknij"
                 >
-                  <ion-icon :icon="ioniconsCloseOutline" />
+                  <ion-icon :icon="ioniconsCloseCircle" />
                 </button>
               </ion-buttons>
             </div>
@@ -814,8 +880,21 @@ const handleSwitchToPet = () => {
   onEnterPetView()
 }
 
+// Custom speech bubble feedback override
+const customPetSpeech = ref<string | null>(null)
+let customSpeechTimer: any = null
+
+const setCustomSpeech = (text: string, durationMs = 3500) => {
+  if (customSpeechTimer) clearTimeout(customSpeechTimer)
+  customPetSpeech.value = text
+  customSpeechTimer = setTimeout(() => {
+    customPetSpeech.value = null
+  }, durationMs)
+}
+
 // Pet Speech Bubble Dynamic Text
 const petSpeechText = computed(() => {
+  if (customPetSpeech.value) return customPetSpeech.value
   if (currentAnimation.value === 'sleep') {
     if (uncompletedTasksCount.value === 0) {
       return `Chrrr... Zzz... Wszystkie zadania wykonane! Czas na słodką drzemkę... 💤`
@@ -844,6 +923,57 @@ const handlePetClick = () => {
     origin: { y: 0.4 },
     colors: ['#ec4899', '#f43f5e', '#a855f7']
   })
+}
+
+// Pet Quick Interactions (Treat, Play, Pet)
+const handleFeedPet = () => {
+  triggerPetAnimation('happy', 2200)
+  confetti({
+    particleCount: 35,
+    spread: 55,
+    origin: { y: 0.4 },
+    colors: ['#ef4444', '#f87171', '#ec4899']
+  })
+  setCustomSpeech(`Mniam! Pyszna przekąska! Uwielbiam takie smakołyki! 🍎😋`)
+}
+
+const handlePlayPet = () => {
+  triggerPetAnimation('jump', 2200)
+  confetti({
+    particleCount: 45,
+    spread: 65,
+    origin: { y: 0.4 },
+    colors: ['#06b6d4', '#3b82f6', '#10b981']
+  })
+  setCustomSpeech(`Jupi! Ale super zabawa! Aż chce się skakać ze szczęścia! 🎾✨`)
+}
+
+const handleCaressPet = () => {
+  triggerPetAnimation('happy', 2200)
+  confetti({
+    particleCount: 30,
+    spread: 45,
+    origin: { y: 0.4 },
+    colors: ['#ec4899', '#f43f5e', '#fb7185']
+  })
+  setCustomSpeech(`Mruuu... Ciepło i miękko! Najlepiej w Waszym Gniazdku! 🥰💖`)
+}
+
+// Pet Daily Tasks / Quests
+const petPriorityTasks = computed(() => {
+  return tasksList.value.filter(t => !t.is_completed).slice(0, 3)
+})
+
+const handleQuickCompletePetTask = async (task: TaskItem) => {
+  await toggleTask(task.id)
+  triggerPetAnimation('jump', 2200)
+  confetti({
+    particleCount: 70,
+    spread: 75,
+    origin: { y: 0.45 },
+    colors: ['#10b981', '#06b6d4', '#f59e0b', '#ec4899']
+  })
+  setCustomSpeech(`Brawo! Kolejne zadanie zrobione! +15 XP dla mnie! ⭐🎉`)
 }
 
 // Pet Creator State (when !hasPet)
@@ -1766,20 +1896,22 @@ const handleRefresh = (event: any) => {
 }
 
 /* ============================================= */
-/* GAMIFIED PET STATS GRID & TILES               */
+/* GAMIFIED PET STATS GRID & TILES (SPACIOUS)    */
 /* ============================================= */
 .pet-stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin: 0 16px 14px;
+  gap: 14px;
+  margin: 0 16px 16px;
 }
 
 .pet-stat-card {
-  padding: 15px 14px 13px;
-  border-radius: 22px;
+  padding: 20px 16px 18px;
+  min-height: 195px;
+  border-radius: 24px;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   position: relative;
   overflow: hidden;
   transition: transform 0.18s ease, box-shadow 0.18s ease;
@@ -1793,13 +1925,13 @@ const handleRefresh = (event: any) => {
 .stat-card-xp {
   background: linear-gradient(155deg, #f0fdf4 0%, #ffffff 55%, #f7fee7 100%);
   border: 1.5px solid rgba(187, 247, 208, 0.9);
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.08);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.09);
 }
 
 .stat-card-mood {
   background: linear-gradient(155deg, #fff1f2 0%, #ffffff 55%, #fdf2f8 100%);
   border: 1.5px solid rgba(254, 205, 211, 0.9);
-  box-shadow: 0 6px 20px rgba(244, 63, 94, 0.08);
+  box-shadow: 0 8px 24px rgba(244, 63, 94, 0.09);
 }
 
 /* Card Header: Icon + Pill */
@@ -1811,34 +1943,39 @@ const handleRefresh = (event: any) => {
 }
 
 .stat-icon-wrap {
-  width: 30px;
-  height: 30px;
-  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 18px;
 }
 
 .icon-xp {
   background: #dcfce7;
   color: #16a34a;
-  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.15);
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.15);
 }
 
 .icon-mood {
   background: #ffe4e6;
   color: #e11d48;
-  box-shadow: 0 2px 6px rgba(225, 29, 72, 0.15);
+  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.15);
+}
+
+.mood-top-emoji {
+  font-size: 20px;
+  line-height: 1;
 }
 
 .stat-pill-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 999px;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.02em;
 }
@@ -1856,20 +1993,26 @@ const handleRefresh = (event: any) => {
 }
 
 .pill-mood ion-icon {
-  font-size: 11px;
+  font-size: 12px;
   color: #e11d48;
 }
 
 .chip-star {
-  font-size: 11px;
+  font-size: 12px;
 }
 
-/* Category Label */
+/* Category Label & Subtitle */
+.stat-heading-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-bottom: 4px;
+}
+
 .stat-category-label {
-  font-size: 9.5px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  margin-bottom: 3px;
   text-transform: uppercase;
 }
 
@@ -1881,17 +2024,23 @@ const handleRefresh = (event: any) => {
   color: #e11d48;
 }
 
+.stat-category-sub {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+
 /* Big Value Body */
 .stat-main-row {
   display: flex;
   align-items: baseline;
-  gap: 4px;
-  margin-bottom: 9px;
-  min-height: 28px;
+  gap: 5px;
+  margin-bottom: 8px;
+  min-height: 32px;
 }
 
 .stat-big-val {
-  font-size: 25px;
+  font-size: 30px;
   font-weight: 900;
   color: #0f172a;
   line-height: 1;
@@ -1899,17 +2048,17 @@ const handleRefresh = (event: any) => {
 }
 
 .stat-unit-text {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   color: #64748b;
 }
 
 .stat-pct-badge {
   margin-left: auto;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
-  padding: 2px 6px;
-  border-radius: 6px;
+  padding: 3px 8px;
+  border-radius: 8px;
 }
 
 .badge-xp {
@@ -1919,8 +2068,8 @@ const handleRefresh = (event: any) => {
 }
 
 .stat-mood-text {
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 15px;
+  font-weight: 900;
   color: #0f172a;
   line-height: 1.25;
   white-space: nowrap;
@@ -1932,10 +2081,10 @@ const handleRefresh = (event: any) => {
 /* Candy Progress Bars */
 .stat-bar-track {
   width: 100%;
-  height: 8px;
+  height: 10px;
   border-radius: 999px;
   overflow: hidden;
-  margin-bottom: 8px;
+  margin: 4px 0 8px;
   position: relative;
 }
 
@@ -1956,12 +2105,12 @@ const handleRefresh = (event: any) => {
 
 .fill-xp {
   background: linear-gradient(90deg, #10b981 0%, #059669 100%);
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.35);
 }
 
 .fill-mood {
   background: linear-gradient(90deg, #fb7185 0%, #f43f5e 100%);
-  box-shadow: 0 0 8px rgba(244, 63, 94, 0.35);
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.35);
 }
 
 .bar-gloss-line {
@@ -1970,7 +2119,7 @@ const handleRefresh = (event: any) => {
   left: 0;
   right: 0;
   height: 50%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 100%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0) 100%);
   border-radius: 999px;
 }
 
@@ -1979,69 +2128,317 @@ const handleRefresh = (event: any) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1.2;
 }
 
 .footer-meta-left {
-  color: #475569;
+  color: #334155;
   font-weight: 800;
 }
 
 .footer-meta-right {
-  color: #94a3b8;
+  color: #64748b;
   font-weight: 600;
   text-align: right;
 }
 
-/* Motivation & Guide Card */
-.pet-guide-card {
-  margin: 0 16px 20px;
-  padding: 13px 15px;
-  border-radius: 20px;
+/* ============================================= */
+/* PET QUICK CARE ACTIONS CARD                   */
+/* ============================================= */
+.pet-care-card {
+  margin: 0 16px 16px;
+  padding: 16px 18px 18px;
+  border-radius: 24px;
   background: #ffffff;
   border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
+}
+
+.care-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.care-section-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+
+.care-section-hint {
+  font-size: 11px;
+  font-weight: 700;
+  color: #db2777;
+}
+
+.pet-care-actions-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.care-action-btn {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 12px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.care-action-btn:hover {
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
+}
+
+.care-action-btn:active {
+  transform: scale(0.95);
+}
+
+.care-btn-treat:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.care-btn-play:hover {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.care-btn-pet:hover {
+  background: #fdf2f8;
+  border-color: #fbcfe8;
+}
+
+.care-action-emoji {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.care-action-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+/* ============================================= */
+/* PET DAILY HOUSEWORK QUESTS CARD               */
+/* ============================================= */
+.pet-quests-card {
+  margin: 0 16px 22px;
+  padding: 18px;
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.03);
+}
+
+.quests-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.quests-title-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quests-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.quests-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #0284c7;
+  background: #e0f2fe;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.quests-xp-tag {
+  font-size: 10px;
+  font-weight: 800;
+  color: #16a34a;
+  background: #dcfce7;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.quests-heading {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+.quests-see-all-btn {
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  font-weight: 800;
+  color: #0284c7;
+  cursor: pointer;
+  padding: 4px 6px;
+  white-space: nowrap;
+}
+
+.quests-see-all-btn:hover {
+  text-decoration: underline;
+}
+
+.pet-quests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pet-quest-item {
   display: flex;
   align-items: center;
   gap: 12px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
 }
 
-.guide-icon-box {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  background: #fef3c7;
-  color: #d97706;
+.pet-quest-item:hover {
+  background: #f0fdf4;
+  border-color: #86efac;
+  transform: translateX(2px);
+}
+
+.quest-checkbox-mock {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  border: 2px solid #cbd5e1;
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  transition: all 0.15s ease;
   flex-shrink: 0;
 }
 
-.guide-text-box {
+.quest-check-icon {
+  font-size: 16px;
+  color: #ffffff;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.pet-quest-item:hover .quest-checkbox-mock {
+  border-color: #10b981;
+  background: #10b981;
+}
+
+.pet-quest-item:hover .quest-check-icon {
+  opacity: 1;
+}
+
+.quest-info-box {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.quest-item-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quest-item-meta {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.quest-xp-chip {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #059669;
+  background: #dcfce7;
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.pet-quests-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 16px 12px;
+  background: #f8fafc;
+  border-radius: 18px;
+  gap: 8px;
+}
+
+.empty-quest-emoji {
+  font-size: 28px;
+}
+
+.empty-quest-texts {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.guide-title {
-  font-size: 12.5px;
+.empty-quest-title {
+  font-size: 14px;
   font-weight: 800;
   color: #0f172a;
 }
 
-.guide-desc {
-  font-size: 11.5px;
+.empty-quest-sub {
+  font-size: 12px;
   color: #64748b;
-  line-height: 1.35;
+  max-width: 280px;
 }
 
-.guide-desc strong {
-  color: #0284c7;
+.add-chore-mini-btn {
+  margin-top: 6px;
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  padding: 7px 16px;
+  border-radius: 999px;
+  font-size: 12px;
   font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.add-chore-mini-btn:hover {
+  background: #0369a1;
 }
 
 /* ============================================= */
@@ -2372,6 +2769,33 @@ ion-modal.dn-pet-settings-modal {
   font-weight: 800;
   color: #0f172a;
   padding: 0;
+}
+
+.dn-pet-settings-modal .modal-close-icon-btn {
+  background: #f1f5f9;
+  border: none;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 26px;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+  padding: 0;
+}
+
+.dn-pet-settings-modal .modal-close-icon-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.dn-pet-settings-modal .modal-close-icon-btn:active {
+  transform: scale(0.92);
 }
 
 .pet-settings-modal-content {
