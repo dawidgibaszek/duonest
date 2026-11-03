@@ -427,12 +427,6 @@ export const useDuoState = () => {
       }
     }
 
-    const savedPartnership = loadFromStorage<Partnership | null>('duonest_partnership', null)
-    if (savedPartnership) {
-      partnership.value = savedPartnership
-      if (partnership.value.pet_xp === undefined) partnership.value.pet_xp = 0
-    }
-
     const savedShopping = loadFromStorage<ShoppingItem[]>('duonest_shopping', [])
     if (savedShopping.length > 0) shoppingItems.value = savedShopping
 
@@ -444,6 +438,19 @@ export const useDuoState = () => {
 
     const savedNudges = loadFromStorage<NudgeItem[]>('duonest_nudges', [])
     if (savedNudges.length > 0) nudgesList.value = savedNudges
+
+    const savedPartnership = loadFromStorage<Partnership | null>('duonest_partnership', null)
+    if (savedPartnership) {
+      // Clear legacy initial 20 points if no tasks or nudges exist yet
+      const hasEarnedPoints = (savedTasks && savedTasks.some(t => t.is_completed)) || (savedNudges && savedNudges.length > 0)
+      if (savedPartnership.nest_points === 20 && !hasEarnedPoints) {
+        savedPartnership.nest_points = 0
+        savedPartnership.nest_level = 1
+        saveToStorage('duonest_partnership', savedPartnership)
+      }
+      partnership.value = savedPartnership
+      if (partnership.value.pet_xp === undefined) partnership.value.pet_xp = 0
+    }
 
     const savedMilestones = loadFromStorage<NestMilestone[]>('duonest_milestones', [])
     if (savedMilestones && savedMilestones.length > 0) {
@@ -606,6 +613,12 @@ export const useDuoState = () => {
         .maybeSingle()
 
       if (pData) {
+        const hasEarnedPoints = tasksList.value.some(t => t.is_completed) || nudgesList.value.length > 0
+        if (pData.nest_points === 20 && !hasEarnedPoints) {
+          pData.nest_points = 0
+          pData.nest_level = 1
+          safeDb(supabase.from('partnerships').update({ nest_points: 0, nest_level: 1 }).eq('id', partnershipId))
+        }
         partnership.value = pData
         saveToStorage('duonest_partnership', pData)
 
@@ -1934,7 +1947,7 @@ export const useDuoState = () => {
       partner2_id: newPartnerId,
       nest_name: 'Nasze Ciepłe Gniazdko',
       nest_level: 1,
-      nest_points: 20,
+      nest_points: 0,
       anniversary_date: new Date().toISOString().split('T')[0],
       created_at: new Date().toISOString()
     }
@@ -2684,11 +2697,12 @@ export const useDuoState = () => {
   })
 
   const userPointsPct = computed(() => {
-    if (nestPoints.value <= 0) return 50
+    if (nestPoints.value <= 0) return 0
     return Math.min(100, Math.max(0, Math.round((userPoints.value / nestPoints.value) * 100)))
   })
 
   const partnerPointsPct = computed(() => {
+    if (nestPoints.value <= 0) return 0
     return Math.max(0, 100 - userPointsPct.value)
   })
 

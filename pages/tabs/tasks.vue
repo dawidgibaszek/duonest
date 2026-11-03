@@ -115,7 +115,7 @@
           <div class="pet-status-left" v-else>
             <div class="pet-status-adopt-icon">🐾</div>
             <div class="pet-status-texts">
-              <span class="pet-status-name">Przygarnijcie wspólnego pupila!</span>
+              <span class="pet-status-name">Przygarnijcie pupila!</span>
               <span class="pet-status-sub">Wybierzcie zwierzaka, który zamieszka w Waszym Gniazdku ✨</span>
             </div>
           </div>
