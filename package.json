@@ -1,0 +1,30 @@
+{
+  "name": "duonest",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev --host",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@nuxtjs/ionic": "^1.0.2",
+    "@nuxtjs/supabase": "^2.1.0",
+    "@supabase/supabase-js": "^2.49.1",
+    "@vite-pwa/nuxt": "^1.1.1",
+    "canvas-confetti": "^1.9.4",
+    "html5-qrcode": "^2.3.8",
+    "ionicons": "^7.4.0",
+    "nuxt": "^3.15.4",
+    "qrcode": "^1.5.4",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/qrcode": "^1.5.6",
+    "pg": "^8.23.1"
+  }
+}
