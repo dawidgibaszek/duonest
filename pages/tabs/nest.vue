@@ -123,35 +123,59 @@
             <span class="section-badge love-badge">DROBNE GESTY</span>
             <h4>Codzienne puknięcie (Nudge)</h4>
           </div>
-          <span class="nudge-points-tag">+5 pkt</span>
+          <span class="nudge-points-tag" :class="{ 'points-done': hasSentDailyNudge }">
+            {{ hasSentDailyNudge ? 'Wysłano dzisiaj' : '+5 pkt' }}
+          </span>
         </div>
-        <p class="nudge-sub">Wyślij szybką reakcję, by wywołać uśmiech u {{ partnerUser?.name || 'partnera' }}:</p>
 
-        <div class="nudge-actions-grid">
-          <button class="nudge-btn" @click="sendQuickNudge('hug', 'Ciepły uścisk!')">
-            <div class="nudge-icon-circle">
-              <DuoIcon name="nudge-hug" :size="20" />
+        <!-- STATE A: ALREADY SENT TODAY -->
+        <div v-if="hasSentDailyNudge" class="nudge-already-sent-box">
+          <div class="sent-status-icon-row">
+            <div class="sent-sparkle-badge">
+              <ion-icon :icon="ioniconsCheckmarkCircle" />
             </div>
-            <span class="nudge-text">Uścisk</span>
-          </button>
-          <button class="nudge-btn" @click="sendQuickNudge('kiss', 'Słodki buziak!')">
-            <div class="nudge-icon-circle">
-              <DuoIcon name="nudge-kiss" :size="20" />
+            <div class="sent-status-texts">
+              <span class="sent-title">Wysłano dzisiejsze puknięcie! 💕</span>
+              <span class="sent-subtitle">{{ partnerUser?.name || 'Partner' }} otrzymał Twój ciepły gest.</span>
             </div>
-            <span class="nudge-text">Buziak</span>
-          </button>
-          <button class="nudge-btn" @click="sendQuickNudge('tea', 'Ciepła herbatka!')">
-            <div class="nudge-icon-circle">
-              <DuoIcon name="nudge-tea" :size="20" />
-            </div>
-            <span class="nudge-text">Herbatka</span>
-          </button>
-          <button class="nudge-btn" @click="sendQuickNudge('love', 'Bardzo Cię kocham!')">
-            <div class="nudge-icon-circle">
-              <DuoIcon name="nudge-love" :size="20" />
-            </div>
-            <span class="nudge-text">Kocham Cię</span>
-          </button>
+          </div>
+
+          <div class="nudge-timer-pill">
+            <ion-icon :icon="ioniconsTimeOutline" class="timer-clock-icon" />
+            <span>Kolejne możesz wysłać za: <strong>{{ formattedNextNudgeTime }}</strong></span>
+          </div>
+        </div>
+
+        <!-- STATE B: AVAILABLE TO SEND -->
+        <div v-else>
+          <p class="nudge-sub">Wyślij szybką reakcję, by wywołać uśmiech u {{ partnerUser?.name || 'partnera' }}:</p>
+
+          <div class="nudge-actions-grid">
+            <button class="nudge-btn" @click="sendQuickNudge('hug', 'Ciepły uścisk!')">
+              <div class="nudge-icon-circle">
+                <DuoIcon name="nudge-hug" :size="20" />
+              </div>
+              <span class="nudge-text">Uścisk</span>
+            </button>
+            <button class="nudge-btn" @click="sendQuickNudge('kiss', 'Słodki buziak!')">
+              <div class="nudge-icon-circle">
+                <DuoIcon name="nudge-kiss" :size="20" />
+              </div>
+              <span class="nudge-text">Buziak</span>
+            </button>
+            <button class="nudge-btn" @click="sendQuickNudge('tea', 'Ciepła herbatka!')">
+              <div class="nudge-icon-circle">
+                <DuoIcon name="nudge-tea" :size="20" />
+              </div>
+              <span class="nudge-text">Herbatka</span>
+            </button>
+            <button class="nudge-btn" @click="sendQuickNudge('love', 'Bardzo Cię kocham!')">
+              <div class="nudge-icon-circle">
+                <DuoIcon name="nudge-love" :size="20" />
+              </div>
+              <span class="nudge-text">Kocham Cię</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -230,6 +254,8 @@ const {
   eventsList,
   isPartnerOnline,
   sendNudge,
+  hasSentDailyNudge,
+  formattedNextNudgeTime,
   toggleTask
 } = useDuoState()
 
@@ -718,6 +744,79 @@ const handleRefresh = (event: any) => {
   padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid #bbf7d0;
+}
+
+.nudge-points-tag.points-done {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #86efac;
+}
+
+.nudge-already-sent-box {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1px solid #bbf7d0;
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sent-status-icon-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sent-sparkle-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #dcfce7;
+  color: #16a34a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.15);
+}
+
+.sent-status-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sent-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #15803d;
+}
+
+.sent-subtitle {
+  font-size: 12px;
+  color: #166534;
+}
+
+.nudge-timer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: #ffffff;
+  border: 1px solid #86efac;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  color: #166534;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  width: fit-content;
+}
+
+.timer-clock-icon {
+  font-size: 15px;
+  color: #16a34a;
 }
 
 .nudge-actions-grid {

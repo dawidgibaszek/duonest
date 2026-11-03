@@ -147,7 +147,18 @@ const isOnlineWithSupabase = ref(true)
 const realtimeStatus = ref<'connected' | 'connecting' | 'disconnected'>('disconnected')
 const dbSchemaStatus = ref<'checking' | 'connected' | 'missing_tables'>('checking')
 const isPartnerOnline = ref(false)
-const lastNudgeTime = ref<number | null>(null)
+const NUDGE_COOLDOWN_MS = 24 * 60 * 60 * 1000 // 24 hours per nudge per user
+const lastNudgeSentAt = ref<number | null>(null)
+const nowTimestamp = ref(Date.now())
+
+// Live tick every 5 seconds for accurate countdown
+let nudgeTickerInterval: any = null
+if (typeof window !== 'undefined' && !nudgeTickerInterval) {
+  nudgeTickerInterval = setInterval(() => {
+    nowTimestamp.value = Date.now()
+  }, 5000)
+}
+
 const activeToastMessage = ref<string | null>(null)
 const isStateInitialized = ref(false)
 
@@ -291,6 +302,16 @@ export const useDuoState = () => {
 
     const savedNudges = loadFromStorage<NudgeItem[]>('duonest_nudges', [])
     if (savedNudges.length > 0) nudgesList.value = savedNudges
+
+    if (typeof window !== 'undefined' && currentUser.value?.id) {
+      try {
+        const savedTs = localStorage.getItem(`duonest_last_nudge_ts_${currentUser.value.id}`)
+        if (savedTs) {
+          const parsed = parseInt(savedTs, 10)
+          if (!isNaN(parsed)) lastNudgeSentAt.value = parsed
+        }
+      } catch {}
+    }
 
     // Asynchronously verify with Supabase Auth
     if (supabase) {
@@ -459,6 +480,7 @@ export const useDuoState = () => {
     tasksList.value = []
     eventsList.value = []
     nudgesList.value = []
+    lastNudgeSentAt.value = null
     if (typeof window !== 'undefined') {
       localStorage.removeItem('duonest_auth_user')
       localStorage.removeItem('duonest_auth_session')
@@ -1666,16 +1688,59 @@ export const useDuoState = () => {
     triggerToast('Zaktualizowano Twój nastrój! Partner widzi to na żywo.')
   }
 
-  const sendNudge = async (nudgeType: string, message: string = '') => {
-    if (!partnership.value || !partnerUser.value) return
+  const lastNudgeSentTimestamp = computed(() => {
+    let latest = lastNudgeSentAt.value || 0
+    const myRecent = nudgesList.value.find(n => n.sender_id === currentUser.value?.id)
+    if (myRecent?.created_at) {
+      const t = new Date(myRecent.created_at).getTime()
+      if (t > latest) latest = t
+    }
+    return latest > 0 ? latest : null
+  })
 
-    const now = Date.now()
-    if (lastNudgeTime.value && now - lastNudgeTime.value < 15000) {
-      triggerToast('Puknięcie zostało już wysłane przed chwilą. Daj partnerowi chwilę na uśmiech!')
+  const hasSentDailyNudge = computed(() => {
+    if (!lastNudgeSentTimestamp.value) return false
+    const elapsed = nowTimestamp.value - lastNudgeSentTimestamp.value
+    return elapsed < NUDGE_COOLDOWN_MS
+  })
+
+  const nextNudgeRemainingMs = computed(() => {
+    if (!lastNudgeSentTimestamp.value) return 0
+    const elapsed = nowTimestamp.value - lastNudgeSentTimestamp.value
+    return Math.max(0, NUDGE_COOLDOWN_MS - elapsed)
+  })
+
+  const formattedNextNudgeTime = computed(() => {
+    const ms = nextNudgeRemainingMs.value
+    if (ms <= 0) return ''
+    const totalMinutes = Math.floor(ms / (60 * 1000))
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
+    if (hours > 0) {
+      return `${hours} godz. ${minutes} min`
+    }
+    if (minutes > 0) {
+      return `${minutes} min`
+    }
+    return 'mniej niż minutę'
+  })
+
+  const sendNudge = async (nudgeType: string, message: string = '') => {
+    if (!partnership.value || !partnerUser.value) return false
+
+    // Limit: only 1 nudge per person per 24 hours
+    if (hasSentDailyNudge.value) {
+      triggerToast(`Dzisiejsze puknięcie zostało już wysłane! Kolejne za: ${formattedNextNudgeTime.value}.`)
       return false
     }
 
-    lastNudgeTime.value = now
+    const now = Date.now()
+    lastNudgeSentAt.value = now
+    if (typeof window !== 'undefined' && currentUser.value?.id) {
+      try {
+        localStorage.setItem(`duonest_last_nudge_ts_${currentUser.value.id}`, now.toString())
+      } catch {}
+    }
 
     const newNudge: NudgeItem = {
       id: 'ndg_' + Math.random().toString(36).substring(2, 9),
@@ -1702,7 +1767,7 @@ export const useDuoState = () => {
       safeDb(supabase.from('nudges').insert(newNudge))
     }
 
-    triggerToast(`Wysłano gest do ${partnerUser.value.name}! (+5 pkt do Gniazdka)`)
+    triggerToast(`Wysłano dzisiejsze puknięcie do ${partnerUser.value.name}! (+5 pkt do Gniazdka)`)
     return true
   }
 
@@ -1873,6 +1938,9 @@ export const useDuoState = () => {
     deleteEvent,
     updateMood,
     sendNudge,
+    hasSentDailyNudge,
+    formattedNextNudgeTime,
+    nextNudgeRemainingMs,
     updatePartnershipSettings,
     subscribeToPairingChannel,
     normalizePairingCode

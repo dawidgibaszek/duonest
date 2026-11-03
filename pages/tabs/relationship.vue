@@ -185,38 +185,62 @@
       <div class="dn-card daily-nudge-card">
         <div class="card-title-row">
           <span class="section-tag love-tag">DROBNE GESTY</span>
-          <span class="limit-badge">1 raz dziennie • +5 pkt</span>
+          <span class="limit-badge" :class="{ 'points-done': hasSentDailyNudge }">
+            {{ hasSentDailyNudge ? 'Wysłano dzisiaj' : '1 raz na dobę • +5 pkt' }}
+          </span>
         </div>
         <h4>Codzienne puknięcie (Nudge)</h4>
-        <p class="section-desc">Wyślij ciepły gest, aby przypomnieć o sobie w ciągu dnia.</p>
 
-        <div class="nudge-types-grid">
-          <button
-            type="button"
-            v-for="n in nudgePresets"
-            :key="n.id"
-            class="nudge-preset-btn"
-            :class="{ active: selectedNudgeType === n.id }"
-            @click="selectedNudgeType = n.id"
-          >
-            <div class="nudge-icon-circle">
-              <DuoIcon :name="'nudge-' + n.id" :size="22" />
+        <!-- STATE A: ALREADY SENT TODAY -->
+        <div v-if="hasSentDailyNudge" class="nudge-already-sent-box">
+          <div class="sent-status-icon-row">
+            <div class="sent-sparkle-badge">
+              <ion-icon :icon="ioniconsCheckmarkCircle" />
             </div>
-            <span class="nudge-name">{{ n.title }}</span>
-          </button>
+            <div class="sent-status-texts">
+              <span class="sent-title">Wysłano dzisiejsze puknięcie! 💕</span>
+              <span class="sent-subtitle">{{ partnerUser?.name || 'Partner' }} otrzymał Twój ciepły gest.</span>
+            </div>
+          </div>
+
+          <div class="nudge-timer-pill">
+            <ion-icon :icon="ioniconsTimeOutline" class="timer-clock-icon" />
+            <span>Kolejne puknięcie możesz wysłać za: <strong>{{ formattedNextNudgeTime }}</strong></span>
+          </div>
         </div>
 
-        <div class="nudge-send-box">
-          <ion-input
-            v-model="customNudgeMessage"
-            placeholder="Opcjonalna czuła wiadomość do gestu..."
-            class="custom-note-input"
-          />
-          <button class="dn-button-sea send-nudge-btn" @click="handleSendNudge">
-            <ion-icon :icon="ioniconsHeartOutline" />
-            <span>Wyślij puknięcie</span>
-          </button>
-        </div>
+        <!-- STATE B: AVAILABLE TO SEND -->
+        <template v-else>
+          <p class="section-desc">Wyślij ciepły gest, aby przypomnieć o sobie w ciągu dnia.</p>
+
+          <div class="nudge-types-grid">
+            <button
+              type="button"
+              v-for="n in nudgePresets"
+              :key="n.id"
+              class="nudge-preset-btn"
+              :class="{ active: selectedNudgeType === n.id }"
+              @click="selectedNudgeType = n.id"
+            >
+              <div class="nudge-icon-circle">
+                <DuoIcon :name="'nudge-' + n.id" :size="22" />
+              </div>
+              <span class="nudge-name">{{ n.title }}</span>
+            </button>
+          </div>
+
+          <div class="nudge-send-box">
+            <ion-input
+              v-model="customNudgeMessage"
+              placeholder="Opcjonalna czuła wiadomość do gestu..."
+              class="custom-note-input"
+            />
+            <button class="dn-button-sea send-nudge-btn" @click="handleSendNudge">
+              <ion-icon :icon="ioniconsHeartOutline" />
+              <span>Wyślij puknięcie</span>
+            </button>
+          </div>
+        </template>
 
         <!-- RECENT NUDGES LOG -->
         <div class="recent-nudges-section" v-if="nudgesList.length > 0">
@@ -464,6 +488,8 @@ const {
   isPartnerOnline,
   updateMood,
   sendNudge,
+  hasSentDailyNudge,
+  formattedNextNudgeTime,
   updateMyProfile,
   pairWithCode,
   disconnectPartnership,
@@ -805,6 +831,80 @@ const handleRefresh = (event: any) => {
   padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid #ffe4e6;
+}
+
+.limit-badge.points-done {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #86efac;
+}
+
+.nudge-already-sent-box {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1px solid #bbf7d0;
+  border-radius: 16px;
+  padding: 16px;
+  margin-top: 10px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sent-status-icon-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sent-sparkle-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #dcfce7;
+  color: #16a34a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.15);
+}
+
+.sent-status-texts {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sent-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #15803d;
+}
+
+.sent-subtitle {
+  font-size: 12px;
+  color: #166534;
+}
+
+.nudge-timer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #86efac;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: #166534;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  width: fit-content;
+}
+
+.timer-clock-icon {
+  font-size: 15px;
+  color: #16a34a;
 }
 
 .nudge-types-grid {
