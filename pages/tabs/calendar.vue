@@ -123,8 +123,9 @@
       <div v-show="activeViewMode === 'month'" class="month-view-container">
         <div
           class="dn-card calendar-card"
-          @touchstart="onCalendarTouchStart"
-          @touchend="onCalendarTouchEnd"
+          data-no-swipe
+          @touchstart.stop="onCalendarTouchStart"
+          @touchend.stop="onCalendarTouchEnd"
         >
           <!-- Month Navigation Bar -->
           <div class="month-nav-bar">
@@ -189,8 +190,9 @@
       <div v-show="activeViewMode === 'week'" class="week-view-container">
         <div
           class="dn-card week-strip-card"
-          @touchstart="onWeekTouchStart"
-          @touchend="onWeekTouchEnd"
+          data-no-swipe
+          @touchstart.stop="onWeekTouchStart"
+          @touchend.stop="onWeekTouchEnd"
         >
           <div class="week-strip-header">
             <button class="nav-arrow-btn mini" @click="prevWeek">
@@ -732,11 +734,13 @@ let calTouchStartX = 0
 let calTouchStartY = 0
 
 const onCalendarTouchStart = (e: TouchEvent) => {
+  e.stopPropagation()
   calTouchStartX = e.changedTouches[0].screenX
   calTouchStartY = e.changedTouches[0].screenY
 }
 
 const onCalendarTouchEnd = (e: TouchEvent) => {
+  e.stopPropagation()
   if (!calTouchStartX) return
   const deltaX = e.changedTouches[0].screenX - calTouchStartX
   const deltaY = e.changedTouches[0].screenY - calTouchStartY
@@ -755,11 +759,13 @@ const onCalendarTouchEnd = (e: TouchEvent) => {
 }
 
 const onWeekTouchStart = (e: TouchEvent) => {
+  e.stopPropagation()
   calTouchStartX = e.changedTouches[0].screenX
   calTouchStartY = e.changedTouches[0].screenY
 }
 
 const onWeekTouchEnd = (e: TouchEvent) => {
+  e.stopPropagation()
   if (!calTouchStartX) return
   const deltaX = e.changedTouches[0].screenX - calTouchStartX
   const deltaY = e.changedTouches[0].screenY - calTouchStartY
@@ -1233,6 +1239,7 @@ const handleRefresh = (event: any) => {
   font-weight: 800;
   margin: 0 0 10px 0;
   line-height: 1.3;
+  color: #fff;
 }
 
 .featured-meta-row {
