@@ -25,3 +25,7 @@ logs
 
 # Netlify
 .netlify
+
+# Supabase CLI temp
+supabase/.temp/
+
