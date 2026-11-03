@@ -515,9 +515,12 @@ export const useDuoState = () => {
               await syncUserProfileWithAuth(session.user)
             }
           } else if (event === 'SIGNED_OUT') {
-            authUser.value = null
-            authSession.value = null
-            clearAllDuoState()
+            const isDirectAuth = authSession.value?.access_token?.startsWith?.('duonest_direct_')
+            if (!isDirectAuth && (authUser.value || authSession.value)) {
+              authUser.value = null
+              authSession.value = null
+              clearAllDuoState()
+            }
           }
         })
       }
@@ -1011,11 +1014,17 @@ export const useDuoState = () => {
         if (payload.eventType === 'UPDATE') {
           const newPartId = payload.new?.partnership_id
           if (partnership.value?.id && (!newPartId || newPartId !== partnership.value.id)) {
-            triggerToast('Twoje parowanie zostało zakończone w bazie danych. Zostałeś wylogowany.', {
-              type: 'warning',
-              title: 'Utrata parowania'
-            })
-            await signOutUser()
+            if (newPartId) {
+              await loadPartnershipAndPartner(newPartId, userId)
+            } else {
+              partnership.value = null
+              partnerUser.value = null
+              currentUser.value.partnership_id = null
+              syncToStorage()
+              if (typeof window !== 'undefined') {
+                await navigateTo('/pairing', { replace: true })
+              }
+            }
           }
         }
       }
@@ -1033,22 +1042,26 @@ export const useDuoState = () => {
         },
         async (payload: any) => {
           if (payload.eventType === 'DELETE') {
-            triggerToast('Wasze Gniazdko zostało usunięte w bazie danych. Zostałeś wylogowany.', {
-              type: 'warning',
-              title: 'Gniazdko usunięte'
-            })
-            await signOutUser()
+            partnership.value = null
+            partnerUser.value = null
+            currentUser.value.partnership_id = null
+            syncToStorage()
+            if (typeof window !== 'undefined') {
+              await navigateTo('/pairing', { replace: true })
+            }
             return
           }
 
           if (payload.eventType === 'UPDATE') {
             const { partner1_id, partner2_id } = payload.new || {}
             if (partner1_id !== userId && partner2_id !== userId) {
-              triggerToast('Nie należysz już do tego Gniazdka. Zostałeś wylogowany.', {
-                type: 'warning',
-                title: 'Brak uprawnień'
-              })
-              await signOutUser()
+              partnership.value = null
+              partnerUser.value = null
+              currentUser.value.partnership_id = null
+              syncToStorage()
+              if (typeof window !== 'undefined') {
+                await navigateTo('/pairing', { replace: true })
+              }
             }
           }
         }
@@ -1116,11 +1129,10 @@ export const useDuoState = () => {
     const client = getSupabaseClient()
     if (!client) return true
 
-    const userId = currentUser.value?.id
-    const pId = partnership.value?.id
+    const userId = currentUser.value?.id || authUser.value?.id
+    const pId = partnership.value?.id || currentUser.value?.partnership_id
 
     if (!userId) {
-      await signOutUser()
       return false
     }
 
@@ -1129,7 +1141,7 @@ export const useDuoState = () => {
 
     try {
       // 1. Verify user profile exists in database
-      const { data: dbProfile, error: profileErr } = await client
+      let { data: dbProfile, error: profileErr } = await client
         .from('profiles')
         .select('id, partnership_id')
         .eq('id', userId)
@@ -1142,23 +1154,54 @@ export const useDuoState = () => {
       }
 
       if (!dbProfile && !profileErr) {
-        triggerToast('Twoje konto nie istnieje w bazie danych. Zostałeś wylogowany.', {
-          type: 'warning',
-          title: 'Konto nie istnieje'
-        })
-        await signOutUser()
-        return false
+        // Recovery by email in case userId in localStorage was stale/desynced
+        const userEmail = currentUser.value?.email || authUser.value?.email
+        if (userEmail) {
+          const { data: profileByEmail } = await client
+            .from('profiles')
+            .select('id, partnership_id')
+            .ilike('email', userEmail)
+            .maybeSingle()
+
+          if (profileByEmail) {
+            dbProfile = profileByEmail
+            currentUser.value.id = profileByEmail.id
+            if (authUser.value) authUser.value.id = profileByEmail.id
+            saveToStorage('duonest_auth_user', authUser.value)
+            syncToStorage()
+          }
+        }
+
+        if (!dbProfile) {
+          triggerToast('Twoje konto nie istnieje w bazie danych. Zostałeś wylogowany.', {
+            type: 'warning',
+            title: 'Konto nie istnieje'
+          })
+          await signOutUser()
+          return false
+        }
       }
 
       // 2. If user is in an active Gniazdko, verify partnership linkage
       if (pId) {
         if (dbProfile && (!dbProfile.partnership_id || dbProfile.partnership_id !== pId)) {
-          triggerToast('Utracono połączenie z Gniazdkiem (brak parowania w bazie). Zostałeś wylogowany.', {
-            type: 'warning',
-            title: 'Utrata parowania'
-          })
-          await signOutUser()
-          return false
+          if (dbProfile.partnership_id) {
+            // Auto-heal: partnership ID in DB is different from local cache, load DB partnership
+            currentUser.value.partnership_id = dbProfile.partnership_id
+            await loadPartnershipAndPartner(dbProfile.partnership_id, dbProfile.id)
+            syncToStorage()
+            return true
+          } else {
+            // Partner un-paired: clear partnership state and route to /pairing, DO NOT LOG OUT USER!
+            partnership.value = null
+            partnerUser.value = null
+            currentUser.value.partnership_id = null
+            syncToStorage()
+            if (typeof window !== 'undefined') {
+              await navigateTo('/pairing', { replace: true })
+            }
+            return false
+          }
         }
 
         const { data: dbPartnership, error: partErr } = await client
@@ -1174,20 +1217,26 @@ export const useDuoState = () => {
         }
 
         if (!dbPartnership && !partErr) {
-          triggerToast('Wasze Gniazdko zostało usunięte w bazie danych. Zostałeś wylogowany.', {
-            type: 'warning',
-            title: 'Gniazdko usunięte'
-          })
-          await signOutUser()
+          // Partnership was removed: clear partnership and go to /pairing, DO NOT LOG OUT USER!
+          partnership.value = null
+          partnerUser.value = null
+          currentUser.value.partnership_id = null
+          syncToStorage()
+          if (typeof window !== 'undefined') {
+            await navigateTo('/pairing', { replace: true })
+          }
           return false
         }
 
         if (dbPartnership && dbPartnership.partner1_id !== userId && dbPartnership.partner2_id !== userId) {
-          triggerToast('Nie masz uprawnień do tego Gniazdka w bazie danych. Zostałeś wylogowany.', {
-            type: 'warning',
-            title: 'Brak uprawnień'
-          })
-          await signOutUser()
+          // User is no longer part of this partnership: go to /pairing, DO NOT LOG OUT USER!
+          partnership.value = null
+          partnerUser.value = null
+          currentUser.value.partnership_id = null
+          syncToStorage()
+          if (typeof window !== 'undefined') {
+            await navigateTo('/pairing', { replace: true })
+          }
           return false
         }
 
@@ -1887,10 +1936,13 @@ export const useDuoState = () => {
 
           // Sync our profile to Supabase profiles table
           try {
+            const currentHash = currentUserPasswordHash.value || ''
+            const cleanColor = getCleanAccentColor(currentUser.value.avatar_color, '#0284c7')
+            const colorToSave = currentHash ? `${cleanColor}|${currentHash}` : cleanColor
             await client.from('profiles').upsert({
               id: currentUser.value.id,
               name: currentUser.value.name,
-              avatar_color: currentUser.value.avatar_color,
+              avatar_color: colorToSave,
               pairing_code: currentUser.value.pairing_code,
               partnership_id: partnership.value?.id || currentUser.value.partnership_id || null,
               current_mood: currentUser.value.current_mood,
