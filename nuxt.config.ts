@@ -82,7 +82,19 @@ export default defineNuxtConfig({
       globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
       importScripts: ['/sw-push.js'],
       clientsClaim: true,
-      skipWaiting: true
+      skipWaiting: true,
+      // Supabase REST API and Realtime must always go to network — never serve from cache.
+      // Without this, iOS PWA returns stale Supabase responses from cache, causing
+      // wishlist items (and other data) not to appear until the app is restarted.
+      runtimeCaching: [
+        {
+          urlPattern: /^https:\/\/[^/]+\.supabase\.co\/.*/i,
+          handler: 'NetworkOnly',
+          options: {
+            cacheName: 'supabase-api',
+          }
+        }
+      ]
     },
     devOptions: {
       enabled: false,

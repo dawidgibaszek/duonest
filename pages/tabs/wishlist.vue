@@ -477,7 +477,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useDuoState, type WishlistItem } from '~/composables/useDuoState'
 import { formatSiteName, extractTitleFromUrl } from '~/utils/wishlistParser'
 
@@ -523,20 +523,27 @@ const resolveDefaultTarget = (): 'me' | 'partner' | 'together' => {
   return 'me'
 }
 
+const _onVisibilityChange = () => {
+  if (document.visibilityState === 'visible') refreshWishlist()
+}
+// pageshow fires on iOS PWA when user returns to the app (focus does not fire reliably in standalone)
+const _onPageShow = (e: PageTransitionEvent) => {
+  if (e.persisted || document.visibilityState === 'visible') refreshWishlist()
+}
+
 onMounted(async () => {
   await refreshWishlist()
+
+  // visibilitychange is the most reliable cross-platform event for PWA lifecycle
+  document.addEventListener('visibilitychange', _onVisibilityChange)
+  // pageshow catches iOS "back from background" which visibilitychange sometimes misses
+  window.addEventListener('pageshow', _onPageShow)
 })
 
-if (typeof window !== 'undefined') {
-  window.addEventListener('focus', () => {
-    refreshWishlist()
-  })
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      refreshWishlist()
-    }
-  })
-}
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', _onVisibilityChange)
+  window.removeEventListener('pageshow', _onPageShow)
+})
 
 const formData = ref({
   title: '',

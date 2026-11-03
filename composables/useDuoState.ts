@@ -1075,7 +1075,8 @@ export const useDuoState = () => {
       }, 20000)
     }
 
-    window.addEventListener('visibilitychange', () => {
+    // Use document for visibilitychange — more reliable cross-platform
+    document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         if (currentUser.value?.id && authUser.value) {
           verifyUserAndPartnershipAccess(true)
@@ -1086,12 +1087,25 @@ export const useDuoState = () => {
       }
     })
 
+    // window.focus fires in browser but NOT reliably in iOS PWA standalone mode
     window.addEventListener('focus', () => {
       if (currentUser.value?.id && authUser.value) {
         verifyUserAndPartnershipAccess(true)
       }
       if (partnership.value?.id || currentUser.value?.partnership_id) {
         refreshWishlist()
+      }
+    })
+
+    // pageshow fires on iOS PWA when returning from background (persisted=true = from bfcache)
+    window.addEventListener('pageshow', (e: PageTransitionEvent) => {
+      if (e.persisted || document.visibilityState === 'visible') {
+        if (currentUser.value?.id && authUser.value) {
+          verifyUserAndPartnershipAccess(true)
+        }
+        if (partnership.value?.id || currentUser.value?.partnership_id) {
+          refreshWishlist()
+        }
       }
     })
   }
