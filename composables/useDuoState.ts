@@ -1076,14 +1076,22 @@ export const useDuoState = () => {
     }
 
     window.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && currentUser.value?.id && authUser.value) {
-        verifyUserAndPartnershipAccess(true)
+      if (document.visibilityState === 'visible') {
+        if (currentUser.value?.id && authUser.value) {
+          verifyUserAndPartnershipAccess(true)
+        }
+        if (partnership.value?.id || currentUser.value?.partnership_id) {
+          refreshWishlist()
+        }
       }
     })
 
     window.addEventListener('focus', () => {
       if (currentUser.value?.id && authUser.value) {
         verifyUserAndPartnershipAccess(true)
+      }
+      if (partnership.value?.id || currentUser.value?.partnership_id) {
+        refreshWishlist()
       }
     })
   }
@@ -1488,27 +1496,37 @@ export const useDuoState = () => {
 
         // --- WISHLIST ITEMS ---
         case 'WISHLIST_ADD': {
-          if (data && !wishlistItems.value.some(w => w.id === data.id)) {
-            wishlistItems.value.unshift(data)
+          if (data && data.id) {
+            wishlistItems.value = [data, ...wishlistItems.value.filter(w => w.id !== data.id)]
             syncToStorage()
             const isForMe = data.for_user_id === currentUser.value.id
-            const label = isForMe ? 'do Twojej wishlisty' : 'do wspólnej listy marzeń'
+            let label = 'do listy marzeń'
+            if (isForMe) {
+              label = 'do Twojej wishlisty (dla Ciebie)'
+            } else if (!data.for_user_id) {
+              label = 'do wspólnej listy marzeń'
+            } else if (data.for_user_id === data.created_by) {
+              label = 'do swojej wishlisty'
+            }
             triggerToast(`${senderName} dodał(a) ${label}: "${data.title}" 🎁`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
           }
+          refreshWishlist()
           break
         }
         case 'WISHLIST_UPDATE': {
           if (data?.id) {
             const idx = wishlistItems.value.findIndex(w => w.id === data.id)
             if (idx !== -1) {
-              wishlistItems.value[idx] = { ...wishlistItems.value[idx], ...data.updates }
+              const updated = { ...wishlistItems.value[idx], ...data.updates }
+              wishlistItems.value = wishlistItems.value.map(w => w.id === data.id ? updated : w)
               syncToStorage()
-              triggerToast(`${senderName} zaktualizował(a) marzenie: "${wishlistItems.value[idx].title}" ✨`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
+              triggerToast(`${senderName} zaktualizował(a) marzenie: "${updated.title}" ✨`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
             } else if (data.item) {
-              wishlistItems.value.unshift(data.item)
+              wishlistItems.value = [data.item, ...wishlistItems.value.filter(w => w.id !== data.item.id)]
               syncToStorage()
             }
           }
+          refreshWishlist()
           break
         }
         case 'WISHLIST_DELETE': {
@@ -1518,20 +1536,20 @@ export const useDuoState = () => {
             syncToStorage()
             if (deleted) triggerToast(`${senderName} usunął(a) marzenie: "${deleted.title}"`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
           }
+          refreshWishlist()
           break
         }
         case 'WISHLIST_TOGGLE_COMPLETED': {
           if (data?.id) {
+            const completedAt = data.completed_at || (data.is_completed ? new Date().toISOString() : null)
+            wishlistItems.value = wishlistItems.value.map(w => w.id === data.id ? { ...w, is_completed: data.is_completed, completed_at: completedAt } : w)
+            syncToStorage()
             const item = wishlistItems.value.find(w => w.id === data.id)
-            if (item) {
-              item.is_completed = data.is_completed
-              item.completed_at = data.completed_at || (data.is_completed ? new Date().toISOString() : null)
-              syncToStorage()
-              if (data.is_completed) {
-                triggerToast(`${senderName} spełnił(a) marzenie: "${item.title}"! 🎉✨`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
-              }
+            if (data.is_completed) {
+              triggerToast(`${senderName} spełnił(a) marzenie: "${item?.title || 'Marzenie'}"! 🎉✨`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
             }
           }
+          refreshWishlist()
           break
         }
 
@@ -1620,10 +1638,14 @@ export const useDuoState = () => {
               milestonesList.value = data.milestones
             }
             if (Array.isArray(data.wishlist)) {
-              // Preserve our locally saved surprise items that partner shouldn't have overwritten
-              const ourSecretItems = wishlistItems.value.filter(i => !i.is_visible_to_partner && i.created_by === currentUser.value.id)
-              const incomingIds = new Set(data.wishlist.map((w: WishlistItem) => w.id))
-              wishlistItems.value = [...data.wishlist, ...ourSecretItems.filter(s => !incomingIds.has(s.id))]
+              // Merge incoming wishlist with existing items without dropping any local items
+              const existingMap = new Map(wishlistItems.value.map(w => [w.id, w]))
+              for (const item of data.wishlist) {
+                if (item && item.id) {
+                  existingMap.set(item.id, item)
+                }
+              }
+              wishlistItems.value = Array.from(existingMap.values())
             }
             if (data.partnership && partnership.value) {
               partnership.value.nest_points = Math.max(partnership.value.nest_points, data.partnership.nest_points || 0)
@@ -1685,23 +1707,20 @@ export const useDuoState = () => {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wishlist_items', filter: `partnership_id=eq.${partnershipId}` }, (payload: any) => {
         const item = payload.new as WishlistItem
+        const currentUserId = currentUser.value?.id || authUser.value?.id
         if (payload.eventType === 'INSERT') {
-          if (item && (item.is_visible_to_partner || item.created_by === currentUser.value.id)) {
-            if (!wishlistItems.value.some(w => w.id === item.id)) {
-              wishlistItems.value = [item, ...wishlistItems.value]
-            }
+          if (item && (item.is_visible_to_partner || item.created_by === currentUserId)) {
+            wishlistItems.value = [item, ...wishlistItems.value.filter(w => w.id !== item.id)]
           }
         } else if (payload.eventType === 'UPDATE') {
-          const idx = wishlistItems.value.findIndex(w => w.id === payload.new?.id)
-          if (item && (item.is_visible_to_partner || item.created_by === currentUser.value.id)) {
-            if (idx !== -1) {
-              const next = [...wishlistItems.value]
-              next[idx] = item
-              wishlistItems.value = next
+          if (item && (item.is_visible_to_partner || item.created_by === currentUserId)) {
+            const exists = wishlistItems.value.some(w => w.id === item.id)
+            if (exists) {
+              wishlistItems.value = wishlistItems.value.map(w => w.id === item.id ? item : w)
             } else {
               wishlistItems.value = [item, ...wishlistItems.value]
             }
-          } else if (idx !== -1) {
+          } else {
             wishlistItems.value = wishlistItems.value.filter(w => w.id !== payload.new?.id)
           }
         } else if (payload.eventType === 'DELETE') {
@@ -2867,7 +2886,11 @@ export const useDuoState = () => {
     syncToStorage()
 
     if (supabase && isOnlineWithSupabase.value && partnership.value?.id) {
-      safeDb(supabase.from('wishlist_items').insert(newItem))
+      try {
+        await supabase.from('wishlist_items').insert(newItem)
+      } catch (_) {
+        safeDb(supabase.from('wishlist_items').insert(newItem))
+      }
     }
 
     // Only broadcast to partner if visible to partner
@@ -2971,7 +2994,7 @@ export const useDuoState = () => {
         .order('created_at', { ascending: false })
 
       if (!error && data) {
-        const currentUserId = currentUser.value?.id
+        const currentUserId = currentUser.value?.id || authUser.value?.id
         const filtered = data.filter((item: WishlistItem) => item.is_visible_to_partner || (currentUserId && item.created_by === currentUserId))
         wishlistItems.value = filtered
         syncToStorage()

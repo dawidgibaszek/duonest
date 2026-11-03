@@ -141,7 +141,7 @@ import TabWishlist from '~/pages/tabs/wishlist.vue'
 import TabRelationship from '~/pages/tabs/relationship.vue'
 
 const route = useRoute()
-const { shoppingItems, tasksList, eventsList, wishlistItems } = useDuoState()
+const { shoppingItems, tasksList, eventsList, wishlistItems, refreshWishlist } = useDuoState()
 
 const pendingShoppingCount = computed(() => {
   return shoppingItems.value.filter(i => !i.is_completed).length
@@ -334,6 +334,10 @@ const goToTab = (index: number) => {
   if (index < 0 || index >= TABS.length) return
   activeTabIndex.value = index
 
+  if (index === 4) {
+    refreshWishlist()
+  }
+
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     try { navigator.vibrate(12) } catch {}
   }
@@ -350,8 +354,13 @@ const syncTabFromRoute = () => {
   const tabName = TABS.find(t => path.includes(t))
   if (tabName) {
     const idx = TABS.indexOf(tabName)
-    if (idx !== -1 && idx !== activeTabIndex.value) {
-      activeTabIndex.value = idx
+    if (idx !== -1) {
+      if (idx !== activeTabIndex.value) {
+        activeTabIndex.value = idx
+      }
+      if (idx === 4) {
+        refreshWishlist()
+      }
     }
   }
 }

@@ -98,7 +98,16 @@
         </div>
         <h3 class="empty-title">{{ getEmptyTitle() }}</h3>
         <p class="empty-desc">{{ getEmptyDescription() }}</p>
-        <button type="button" class="dn-button-primary empty-action-btn" @click="openManualAddModal">
+        <button
+          v-if="activeFilter !== 'all' && uncompletedCount > 0"
+          type="button"
+          class="dn-button-primary empty-action-btn"
+          @click="activeFilter = 'all'"
+        >
+          <ion-icon :icon="ioniconsSparklesOutline" />
+          <span>Pokaż wszystkie marzenia ({{ uncompletedCount }})</span>
+        </button>
+        <button v-else type="button" class="dn-button-primary empty-action-btn" @click="openManualAddModal">
           <ion-icon :icon="ioniconsAddOutline" />
           <span>Dodaj pierwsze marzenie</span>
         </button>
@@ -518,6 +527,17 @@ onMounted(async () => {
   await refreshWishlist()
 })
 
+if (typeof window !== 'undefined') {
+  window.addEventListener('focus', () => {
+    refreshWishlist()
+  })
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      refreshWishlist()
+    }
+  })
+}
+
 const formData = ref({
   title: '',
   price: '',
@@ -549,13 +569,14 @@ const filteredItems = computed(() => {
       case 'partner':
         return !item.is_completed && (
           (partnerId && item.for_user_id === partnerId) ||
+          (currentUserId && item.created_by !== currentUserId && item.for_user_id !== currentUserId) ||
           (!item.for_user_id && currentUserId && item.created_by !== currentUserId) ||
           (currentUserId && item.created_by === currentUserId && item.for_user_id && item.for_user_id !== currentUserId)
         )
       case 'surprise':
         return !item.is_completed && !item.is_visible_to_partner && (currentUserId && item.created_by === currentUserId)
       case 'together':
-        return !item.is_completed && item.for_user_id === null
+        return !item.is_completed && (item.for_user_id === null || item.for_user_id === 'together')
       case 'completed':
         return item.is_completed
       case 'all':
@@ -578,13 +599,14 @@ const getFilterCount = (filterId: string): number => {
     case 'partner':
       return wishlistItems.value.filter(i => !i.is_completed && (
         (partnerId && i.for_user_id === partnerId) ||
+        (currentUserId && i.created_by !== currentUserId && i.for_user_id !== currentUserId) ||
         (!i.for_user_id && currentUserId && i.created_by !== currentUserId) ||
         (currentUserId && i.created_by === currentUserId && i.for_user_id && i.for_user_id !== currentUserId)
       )).length
     case 'surprise':
       return wishlistItems.value.filter(i => !i.is_completed && !i.is_visible_to_partner && (currentUserId && i.created_by === currentUserId)).length
     case 'together':
-      return wishlistItems.value.filter(i => !i.is_completed && i.for_user_id === null).length
+      return wishlistItems.value.filter(i => !i.is_completed && (i.for_user_id === null || i.for_user_id === 'together')).length
     case 'completed':
       return wishlistItems.value.filter(i => i.is_completed).length
     case 'all':
@@ -848,13 +870,13 @@ const handleSaveFormData = async () => {
     })
 
     // Automatically switch active filter tab so the newly added item is guaranteed to be in view!
-    if (savedTarget === 'partner') {
-      activeFilter.value = isSurprise ? 'surprise' : 'partner'
-    } else if (savedTarget === 'me') {
-      activeFilter.value = (activeFilter.value === 'all' || activeFilter.value === 'me') ? activeFilter.value : 'all'
-    } else if (savedTarget === 'together') {
-      activeFilter.value = (activeFilter.value === 'all' || activeFilter.value === 'together') ? activeFilter.value : 'together'
+    if (isSurprise) {
+      activeFilter.value = 'surprise'
+    } else if (activeFilter.value !== 'all' && activeFilter.value !== savedTarget) {
+      activeFilter.value = 'all'
     }
+
+    refreshWishlist()
   }
 
   closeModal()
