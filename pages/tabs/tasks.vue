@@ -9,7 +9,6 @@
                 <span>{{ activeMainTab === 'tasks' ? 'Zadania Domowe' : (hasPet ? 'Wspólny Pupil' : 'Przygarnij Zwierzaka') }}</span>
                 <span class="count-chip" v-if="activeMainTab === 'tasks'">{{ uncompletedTasksCount }}</span>
                 <span class="count-chip pet-header-lvl" v-else-if="hasPet">lvl {{ petLevel }}</span>
-                <span class="count-chip pet-header-new" v-else>Nowy ✨</span>
               </div>
               <p class="dn-header-subtitle">
                 {{ activeMainTab === 'tasks' ? 'Wspólne dbanie o czysty i ciepły dom' : (hasPet ? 'Twój wirtualny towarzysz domowych obowiązków' : 'Wybierzcie pupila do Waszego Gniazdka') }}
@@ -54,7 +53,6 @@
             <span class="tab-pet-emoji">{{ hasPet ? currentPetDef.emoji : '🐾' }}</span>
             <span>Zwierzak</span>
             <span class="tab-pet-lvl" v-if="hasPet">lvl {{ petLevel }}</span>
-            <span class="tab-pet-lvl new-pill" v-else>Nowy ✨</span>
           </button>
         </div>
       </ion-toolbar>
@@ -262,7 +260,7 @@
           <div class="dn-card pet-creator-showcase">
             <div class="creator-sparkle-pill">
               <ion-icon :icon="ioniconsSparkles" />
-              <span>NOWY CZŁONEK RODZINY</span>
+              <span>NOWY TOWARZYSZ GNIAZDKA</span>
             </div>
 
             <h3 class="creator-title">Przygarnijcie Pupila</h3>
@@ -278,7 +276,6 @@
 
             <!-- Pet Stage -->
             <div class="creator-stage-center">
-              <div class="stage-ambient-light" />
               <div class="stage-pedestal" />
               <PetSprite
                 :pet="creatorSelectedPetId"
@@ -289,16 +286,16 @@
             </div>
 
             <div class="creator-species-badge">
-              <span class="creator-species-name">{{ creatorSelectedDef.emoji }} {{ creatorSelectedDef.polishName }}</span>
+              <span class="creator-species-name">{{ creatorSelectedDef.polishName }}</span>
               <span class="creator-species-dot">•</span>
               <span class="creator-species-theme">{{ creatorSelectedDef.theme }}</span>
             </div>
           </div>
 
-          <!-- Section: Wybór gatunku (4-kolumnowa estetyczna siatka kafelków) -->
+          <!-- Section: Wybór gatunku (3-kolumnowa symetryczna siatka kafelków) -->
           <div class="dn-card creator-selection-card">
             <div class="section-label-row">
-              <span class="section-badge-icon">🐾</span>
+              <ion-icon :icon="ioniconsPawOutline" class="section-badge-icon" />
               <span class="section-title-text">WYBIERZCIE GATUNEK (12 ZWIERZAKÓW)</span>
             </div>
 
@@ -325,7 +322,7 @@
           <!-- Section: Imię Pupila -->
           <div class="dn-card creator-name-card">
             <div class="section-label-row">
-              <span class="section-badge-icon">🏷️</span>
+              <ion-icon :icon="ioniconsPricetagOutline" class="section-badge-icon" />
               <span class="section-title-text">JAK MA SIĘ WABIĆ?</span>
             </div>
 
@@ -360,12 +357,12 @@
           <div class="creator-cta-wrap">
             <button
               type="button"
-              class="dn-button-primary creator-adopt-action-btn"
+              class="creator-adopt-action-btn"
               :disabled="!creatorPetName.trim()"
               @click="handleAdoptPet"
             >
               <ion-icon :icon="ioniconsHeart" />
-              <span>Przygarnij {{ creatorSelectedDef.polishName }} ({{ creatorPetName.trim() || 'Wpisz imię' }}) ✨</span>
+              <span>Przygarnij {{ creatorSelectedDef.polishName }} ({{ creatorPetName.trim() || 'Wpisz imię' }})</span>
             </button>
           </div>
         </div>
@@ -727,10 +724,10 @@
               <p class="settings-stage-desc">{{ settingsPetDef.description }}</p>
             </div>
 
-            <!-- Section 1: Gatunek zwierzaka (Siatka 4 kolumny) -->
+            <!-- Section 1: Gatunek zwierzaka (Siatka 3 kolumny) -->
             <div class="settings-group-card">
               <div class="section-label-row">
-                <span class="section-badge-icon">🐾</span>
+                <ion-icon :icon="ioniconsPawOutline" class="section-badge-icon" />
                 <span class="section-title-text">GATUNEK PUPILA (12 DO WYBORU)</span>
               </div>
 
@@ -757,7 +754,7 @@
             <!-- Section 2: Imię zwierzaka -->
             <div class="settings-group-card">
               <div class="section-label-row">
-                <span class="section-badge-icon">🏷️</span>
+                <ion-icon :icon="ioniconsPricetagOutline" class="section-badge-icon" />
                 <span class="section-title-text">IMIĘ WASZEGO PUPILA</span>
               </div>
 
@@ -792,12 +789,12 @@
             <div class="settings-save-wrap">
               <button
                 type="button"
-                class="dn-button-primary save-pet-settings-btn"
+                class="save-pet-settings-btn"
                 :disabled="!settingsPetName.trim()"
                 @click="handleSavePetSettings"
               >
                 <ion-icon :icon="ioniconsCheckmarkOutline" />
-                <span>Zapisz zmiany ✨</span>
+                <span>Zapisz zmiany</span>
               </button>
             </div>
 
@@ -2303,35 +2300,35 @@ const handleRefresh = (event: any) => {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 12px 16px 36px;
+  padding: 12px 16px 40px;
 }
 
 .pet-creator-showcase {
-  padding: 22px 18px 20px;
-  background: radial-gradient(circle at 50% 30%, #fff0f6 0%, #ffffff 85%);
-  border: 1.5px solid rgba(251, 207, 232, 0.7);
-  border-radius: 26px;
+  padding: 24px 18px 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  box-shadow: 0 10px 30px rgba(236, 72, 153, 0.08);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
   position: relative;
 }
 
 .creator-sparkle-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.06em;
-  color: #db2777;
-  background: #fdf2f8;
-  border: 1px solid #fbcfe8;
+  color: #0284c7;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
   padding: 4px 14px;
   border-radius: 999px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .creator-sparkle-pill ion-icon {
@@ -2339,32 +2336,38 @@ const handleRefresh = (event: any) => {
 }
 
 .creator-title {
-  font-size: 22px;
+  font-size: 21px;
   font-weight: 900;
   color: #0f172a;
   margin: 0 0 4px;
-  letter-spacing: -0.4px;
+  letter-spacing: -0.3px;
 }
 
 .creator-subtitle {
   font-size: 13px;
   color: #64748b;
-  margin: 0 0 14px;
+  margin: 0 0 16px;
   max-width: 300px;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .creator-speech-bubble {
   position: relative;
-  background: #ffffff;
-  border: 1px solid #fbcfe8;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
   padding: 10px 16px;
   max-width: 300px;
   text-align: center;
-  margin-bottom: 12px;
-  box-shadow: 0 4px 14px rgba(219, 39, 119, 0.08);
+  margin-bottom: 14px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
   animation: float-bubble 3.2s ease-in-out infinite;
+}
+
+.creator-speech-bubble .dialogue-tail {
+  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
 }
 
 .creator-stage-center {
@@ -2372,9 +2375,18 @@ const handleRefresh = (event: any) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 14px 0 10px;
-  cursor: pointer;
+  padding: 12px 0 8px;
   user-select: none;
+}
+
+.creator-stage-center .stage-pedestal {
+  position: absolute;
+  bottom: 4px;
+  width: 120px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(15, 23, 42, 0.09) 0%, rgba(15, 23, 42, 0) 75%);
+  pointer-events: none;
 }
 
 .creator-species-badge {
@@ -2382,21 +2394,20 @@ const handleRefresh = (event: any) => {
   align-items: center;
   gap: 6px;
   margin-top: 10px;
-  background: #ffffff;
-  border: 1px solid #fbcfe8;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   padding: 5px 14px;
   border-radius: 999px;
-  box-shadow: 0 2px 8px rgba(219, 39, 119, 0.08);
 }
 
 .creator-species-name {
   font-size: 13px;
   font-weight: 800;
-  color: #db2777;
+  color: #0f172a;
 }
 
 .creator-species-dot {
-  color: #f472b6;
+  color: #94a3b8;
   font-size: 12px;
 }
 
@@ -2410,22 +2421,23 @@ const handleRefresh = (event: any) => {
 .creator-selection-card,
 .creator-name-card,
 .settings-group-card {
-  padding: 16px;
+  padding: 18px 16px;
   background: #ffffff;
   border-radius: 22px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.02);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
 }
 
 .section-label-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .section-badge-icon {
   font-size: 16px;
+  color: #0284c7;
 }
 
 .section-title-text {
@@ -2435,50 +2447,53 @@ const handleRefresh = (event: any) => {
   color: #64748b;
 }
 
-/* 4-COLUMN COMPACT SPECIES TILES GRID */
+/* 3-COLUMN BEAUTIFUL MOBILE SPECIES TILES GRID */
 .creator-tiles-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
 }
 
 .creator-pet-tile {
   position: relative;
   background: #f8fafc;
   border: 1.5px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 10px 4px 8px;
+  border-radius: 18px;
+  padding: 12px 6px 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
   cursor: pointer;
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.16s ease;
   user-select: none;
 }
 
 .creator-pet-tile:hover {
   border-color: #cbd5e1;
-  transform: translateY(-2px);
+  background: #ffffff;
 }
 
 .creator-pet-tile.is-selected {
-  background: #fdf2f8;
-  border-color: #db2777;
-  box-shadow: 0 4px 14px rgba(219, 39, 119, 0.16);
-  transform: translateY(-2px) scale(1.02);
+  background: #f0f9ff;
+  border-color: #0284c7;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.14);
+}
+
+.creator-pet-tile.is-selected .tile-name {
+  color: #0284c7;
 }
 
 .tile-sprite-wrap {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 
 .tile-name {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 800;
   color: #0f172a;
   text-align: center;
@@ -2490,85 +2505,93 @@ const handleRefresh = (event: any) => {
 
 .tile-check-badge {
   position: absolute;
-  top: -5px;
-  right: -5px;
-  color: #db2777;
-  font-size: 17px;
-  background: #ffffff;
-  border-radius: 50%;
+  top: 6px;
+  right: 6px;
+  color: #0284c7;
+  font-size: 16px;
   display: flex;
-  box-shadow: 0 2px 6px rgba(219, 39, 119, 0.2);
+  align-items: center;
+  justify-content: center;
 }
 
 /* Pretty Input and Suggestions Shelf */
 .creator-input-wrapper {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .creator-pretty-input {
   --background: #f8fafc;
   --color: #0f172a;
   --placeholder-color: #94a3b8;
-  --padding-start: 14px;
-  --padding-end: 14px;
+  --padding-start: 16px;
+  --padding-end: 16px;
   border: 1.5px solid #e2e8f0;
   border-radius: 16px;
   font-size: 15px;
   font-weight: 700;
-  height: 48px;
+  height: 50px;
+  transition: all 0.15s ease;
+}
+
+.creator-pretty-input:focus-within {
+  border-color: #0284c7;
+  --background: #ffffff;
 }
 
 .cute-names-shelf {
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .shelf-hint {
   font-size: 11.5px;
   font-weight: 700;
-  color: #94a3b8;
-  margin-bottom: 6px;
+  color: #64748b;
+  margin-bottom: 8px;
   display: block;
 }
 
 .shelf-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .cute-sug-pill {
-  background: #f1f5f9;
+  background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 999px;
-  padding: 5px 12px;
-  font-size: 12px;
+  padding: 6px 14px;
+  font-size: 12.5px;
   font-weight: 700;
-  color: #475569;
+  color: #334155;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .cute-sug-pill:hover {
-  background: #e2e8f0;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 .cute-sug-pill.active {
-  background: #db2777;
-  border-color: #db2777;
+  background: #0284c7;
+  border-color: #0284c7;
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(219, 39, 119, 0.25);
+  font-weight: 800;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.2);
 }
 
 /* Action CTA Buttons */
 .creator-cta-wrap,
 .settings-save-wrap {
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .creator-adopt-action-btn,
 .save-pet-settings-btn {
   width: 100%;
-  padding: 15px;
+  height: 52px;
+  padding: 0 20px;
   font-size: 15px;
   font-weight: 800;
   border-radius: 18px;
@@ -2576,13 +2599,32 @@ const handleRefresh = (event: any) => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 8px 24px rgba(219, 39, 119, 0.25);
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.25);
+}
+
+.creator-adopt-action-btn:hover:not(:disabled),
+.save-pet-settings-btn:hover:not(:disabled) {
+  background: #0369a1;
+  transform: translateY(-1px);
+}
+
+.creator-adopt-action-btn:active:not(:disabled),
+.save-pet-settings-btn:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .creator-adopt-action-btn:disabled,
 .save-pet-settings-btn:disabled {
-  opacity: 0.5;
+  background: #cbd5e1;
+  color: #94a3b8;
+  opacity: 0.8;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* ============================================= */
@@ -2665,34 +2707,29 @@ ion-modal.dn-pet-settings-modal {
 }
 
 .settings-showcase-card {
-  padding: 20px 16px 18px;
-  background: radial-gradient(circle at 50% 30%, #fff0f6 0%, #ffffff 85%);
-  border: 1.5px solid rgba(251, 207, 232, 0.7);
+  padding: 22px 16px 18px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  box-shadow: 0 6px 20px rgba(236, 72, 153, 0.08);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
   position: relative;
 }
 
 .settings-stage-ambient {
-  position: absolute;
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(244, 114, 182, 0.25) 0%, rgba(255, 255, 255, 0) 70%);
-  pointer-events: none;
+  display: none;
 }
 
 .settings-stage-pedestal {
   position: absolute;
   bottom: 58px;
   width: 120px;
-  height: 22px;
+  height: 20px;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(236, 72, 153, 0.2) 0%, rgba(236, 72, 153, 0.02) 80%);
+  background: radial-gradient(ellipse at center, rgba(15, 23, 42, 0.09) 0%, rgba(15, 23, 42, 0) 75%);
   pointer-events: none;
 }
 
@@ -2710,23 +2747,22 @@ ion-modal.dn-pet-settings-modal {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 6px;
-  background: #ffffff;
-  border: 1px solid #fbcfe8;
-  padding: 4px 12px;
+  margin-top: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 5px 14px;
   border-radius: 999px;
-  box-shadow: 0 2px 6px rgba(219, 39, 119, 0.08);
 }
 
 .settings-stage-name {
   font-size: 13px;
   font-weight: 800;
-  color: #db2777;
+  color: #0f172a;
 }
 
 .settings-stage-dot {
-  color: #f472b6;
-  font-size: 11px;
+  color: #94a3b8;
+  font-size: 12px;
 }
 
 .settings-stage-theme {
