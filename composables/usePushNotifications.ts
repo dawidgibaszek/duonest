@@ -8,6 +8,7 @@ export interface PushCategorySettings {
   shopping: boolean      // Nowe pozycje na liście zakupów
   tasks: boolean         // Zadania domowe i punkty
   partnerOnline: boolean // Wejście partnera do aplikacji
+  wishlist: boolean      // Wishlista i marzenia partnera
   sound: boolean         // Dźwięk powiadomienia
   vibrate: boolean       // Wibracja telefonu
 }
@@ -19,6 +20,7 @@ const DEFAULT_PUSH_SETTINGS: PushCategorySettings = {
   shopping: true,
   tasks: true,
   partnerOnline: false, // domyślnie wyłączone, aby nie rozpraszać
+  wishlist: true,       // Nowe marzenia i prezenty
   sound: true,
   vibrate: true
 }
@@ -92,25 +94,44 @@ export const usePushNotifications = () => {
         m.includes('twoje imię') ||
         m.includes('twój profil') ||
         m.includes('twój nastrój') ||
-        m.includes('zaktualizowano')
+        m.startsWith('zaktualizowano') ||
+        m.startsWith('dodano') ||
+        m.startsWith('usunięto') ||
+        m.startsWith('spełniono') ||
+        m.startsWith('oznaczono')
       ) {
         return
       }
 
       let category: keyof PushCategorySettings = 'nudges'
-      if (newToast.type === 'calendar') category = 'calendar'
-      else if (newToast.type === 'shopping') category = 'shopping'
-      else if (newToast.type === 'tasks' || newToast.type === 'points') category = 'tasks'
-      else if (newToast.type === 'mood') category = 'mood'
-      else if (newToast.type === 'love') category = 'nudges'
-      else if (m.includes('w aplikacji')) category = 'partnerOnline'
+      let targetUrl = '/tabs/nest'
+
+      if (newToast.type === 'calendar') {
+        category = 'calendar'
+        targetUrl = '/tabs/calendar'
+      } else if (newToast.type === 'shopping') {
+        category = 'shopping'
+        targetUrl = '/tabs/shopping'
+      } else if (newToast.type === 'tasks' || newToast.type === 'points') {
+        category = 'tasks'
+        targetUrl = '/tabs/tasks'
+      } else if (newToast.type === 'wishlist' || m.includes('marzeni') || m.includes('wishlist') || m.includes('prezent')) {
+        category = 'wishlist'
+        targetUrl = '/tabs/wishlist'
+      } else if (newToast.type === 'mood') {
+        category = 'mood'
+      } else if (newToast.type === 'love') {
+        category = 'nudges'
+      } else if (m.includes('w aplikacji')) {
+        category = 'partnerOnline'
+      }
 
       if (!pushSettings[category]) return
 
       sendDirectNotification(
         newToast.title || 'DuoNest',
         newToast.message,
-        '/tabs/nest'
+        targetUrl
       )
     })
   }
@@ -290,6 +311,11 @@ export const usePushNotifications = () => {
     if (typeof window === 'undefined') return
     if (!isSupported.value || permission.value !== 'granted') return
 
+    // Ensure title, body and url are always valid strings (never DOM events or objects)
+    const finalTitle = (typeof title === 'string' && title.trim()) ? title : 'DuoNest'
+    const finalBody = typeof body === 'string' ? body : String(body || '')
+    const finalUrl = (typeof url === 'string' && url.trim()) ? url : '/tabs/nest'
+
     // Do NOT show system push notifications when the user is currently inside the active app!
     if (!force && isAppInForeground()) {
       return
@@ -301,12 +327,12 @@ export const usePushNotifications = () => {
       if ('serviceWorker' in navigator) {
         const reg = await navigator.serviceWorker.ready
         if (reg && 'showNotification' in reg) {
-          await reg.showNotification(title, {
-            body,
+          await reg.showNotification(finalTitle, {
+            body: finalBody,
             icon: '/pwa-192x192.png',
             badge: '/favicon.png',
             vibrate: vibratePattern,
-            data: { url },
+            data: { url: finalUrl },
             tag: 'duonest-' + Date.now(),
             renotify: true
           })
@@ -315,8 +341,8 @@ export const usePushNotifications = () => {
       }
 
       // Fallback if ServiceWorker not ready
-      new Notification(title, {
-        body,
+      new Notification(finalTitle, {
+        body: finalBody,
         icon: '/pwa-192x192.png',
         badge: '/favicon.png',
         vibrate: vibratePattern
@@ -340,7 +366,7 @@ export const usePushNotifications = () => {
   }
 
   // Test notification action
-  const sendTestNotification = async () => {
+  const sendTestNotification = async (customTitle?: any, customBody?: any, customUrl?: any) => {
     if (permission.value !== 'granted') {
       const granted = await requestPermission()
       if (!granted) return
@@ -350,12 +376,17 @@ export const usePushNotifications = () => {
     persistSettings()
 
     const partnerName = partnerUser.value?.name || 'Partner'
-    sendDirectNotification(
-      `DuoNest – Test Powiadomień 💌`,
-      `Wszystko działa idealnie! Gdy ${partnerName} wyśle Ci buziaka lub doda zadanie, dowiesz się od razu.`,
-      '/tabs/nest',
-      true
-    )
+    const title = (typeof customTitle === 'string' && customTitle.trim())
+      ? customTitle
+      : 'DuoNest – Test Powiadomień 💌'
+    const body = (typeof customBody === 'string' && customBody.trim())
+      ? customBody
+      : `Wszystko działa idealnie! Gdy ${partnerName} wyśle Ci buziaka, marzenie lub doda zadanie, dowiesz się od razu.`
+    const url = (typeof customUrl === 'string' && customUrl.trim())
+      ? customUrl
+      : '/tabs/nest'
+
+    sendDirectNotification(title, body, url, true)
     triggerToast('Wysłano testowe powiadomienie na Twoje urządzenie!', { type: 'success', title: 'Powiadomienie Push' })
   }
 

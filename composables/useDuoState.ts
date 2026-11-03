@@ -95,6 +95,24 @@ export interface NestMilestone {
   created_at: string
 }
 
+export interface WishlistItem {
+  id: string
+  partnership_id: string
+  created_by: string
+  for_user_id: string | null // null = Wspólne marzenie, lub user.id
+  title: string
+  url?: string | null
+  image_url?: string | null
+  price?: string | null
+  currency?: string | null
+  site_name?: string | null
+  note?: string | null
+  is_visible_to_partner: boolean // jeśli false, partner nie widzi (pomysł na prezent niespodziankę)
+  is_completed: boolean
+  completed_at?: string | null
+  created_at: string
+}
+
 // Helpers for unique code generation
 const generateUniqueCode = () => {
   const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'
@@ -177,6 +195,7 @@ const tasksList = ref<TaskItem[]>([])
 const eventsList = ref<EventItem[]>([])
 const nudgesList = ref<NudgeItem[]>([])
 const milestonesList = ref<NestMilestone[]>([])
+const wishlistItems = ref<WishlistItem[]>([])
 
 const isOnlineWithSupabase = ref(true)
 const realtimeStatus = ref<'connected' | 'connecting' | 'disconnected'>('disconnected')
@@ -195,7 +214,7 @@ if (typeof window !== 'undefined' && !nudgeTickerInterval) {
 }
 
 // Enhanced DuoNest Toast Types & Reactive State
-export type ToastType = 'success' | 'love' | 'points' | 'calendar' | 'shopping' | 'tasks' | 'mood' | 'info' | 'warning'
+export type ToastType = 'success' | 'love' | 'points' | 'calendar' | 'shopping' | 'tasks' | 'mood' | 'wishlist' | 'info' | 'warning'
 
 export interface DuoToastItem {
   id: string
@@ -207,6 +226,9 @@ export interface DuoToastItem {
 
 export const inferToastMetadata = (msg: string): { title: string; type: ToastType } => {
   const m = msg.toLowerCase()
+  if (m.includes('marzeni') || m.includes('wishlist') || m.includes('prezent')) {
+    return { title: 'Wishlista & Prezenty', type: 'wishlist' }
+  }
   if (m.includes('pkt') || m.includes('punkt') || m.includes('zrealizowane') || m.includes('gratulacje')) {
     return { title: 'Gniazdko & Punkty', type: 'points' }
   }
@@ -421,6 +443,13 @@ export const useDuoState = () => {
       milestonesList.value = []
     }
 
+    const savedWishlist = loadFromStorage<WishlistItem[]>('duonest_wishlist', [])
+    if (savedWishlist && savedWishlist.length > 0) {
+      wishlistItems.value = savedWishlist
+    } else {
+      wishlistItems.value = []
+    }
+
     if (typeof window !== 'undefined' && currentUser.value?.id) {
       try {
         const savedTs = localStorage.getItem(`duonest_last_nudge_ts_${currentUser.value.id}`)
@@ -602,6 +631,7 @@ export const useDuoState = () => {
     tasksList.value = []
     eventsList.value = []
     nudgesList.value = []
+    wishlistItems.value = []
     lastNudgeSentAt.value = null
     if (typeof window !== 'undefined') {
       localStorage.removeItem('duonest_auth_user')
@@ -614,6 +644,7 @@ export const useDuoState = () => {
       localStorage.removeItem('duonest_tasks')
       localStorage.removeItem('duonest_events')
       localStorage.removeItem('duonest_nudges')
+      localStorage.removeItem('duonest_wishlist')
     }
   }
 
@@ -841,6 +872,7 @@ export const useDuoState = () => {
     saveToStorage('duonest_events', eventsList.value)
     saveToStorage('duonest_nudges', nudgesList.value)
     saveToStorage('duonest_milestones', milestonesList.value)
+    saveToStorage('duonest_wishlist', wishlistItems.value)
   }
 
   // Broadcast an action to the partner via Supabase Realtime WebSocket
@@ -1135,6 +1167,55 @@ export const useDuoState = () => {
           break
         }
 
+        // --- WISHLIST ITEMS ---
+        case 'WISHLIST_ADD': {
+          if (data && !wishlistItems.value.some(w => w.id === data.id)) {
+            wishlistItems.value.unshift(data)
+            syncToStorage()
+            const isForMe = data.for_user_id === currentUser.value.id
+            const label = isForMe ? 'do Twojej wishlisty' : 'do wspólnej listy marzeń'
+            triggerToast(`${senderName} dodał(a) ${label}: "${data.title}" 🎁`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
+          }
+          break
+        }
+        case 'WISHLIST_UPDATE': {
+          if (data?.id) {
+            const idx = wishlistItems.value.findIndex(w => w.id === data.id)
+            if (idx !== -1) {
+              wishlistItems.value[idx] = { ...wishlistItems.value[idx], ...data.updates }
+              syncToStorage()
+              triggerToast(`${senderName} zaktualizował(a) marzenie: "${wishlistItems.value[idx].title}" ✨`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
+            } else if (data.item) {
+              wishlistItems.value.unshift(data.item)
+              syncToStorage()
+            }
+          }
+          break
+        }
+        case 'WISHLIST_DELETE': {
+          if (data?.id) {
+            const deleted = wishlistItems.value.find(w => w.id === data.id)
+            wishlistItems.value = wishlistItems.value.filter(w => w.id !== data.id)
+            syncToStorage()
+            if (deleted) triggerToast(`${senderName} usunął(a) marzenie: "${deleted.title}"`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
+          }
+          break
+        }
+        case 'WISHLIST_TOGGLE_COMPLETED': {
+          if (data?.id) {
+            const item = wishlistItems.value.find(w => w.id === data.id)
+            if (item) {
+              item.is_completed = data.is_completed
+              item.completed_at = data.completed_at || (data.is_completed ? new Date().toISOString() : null)
+              syncToStorage()
+              if (data.is_completed) {
+                triggerToast(`${senderName} spełnił(a) marzenie: "${item.title}"! 🎉✨`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
+              }
+            }
+          }
+          break
+        }
+
         // --- PARTNERSHIP UPDATES ---
         case 'PARTNERSHIP_UPDATE': {
           if (data && partnership.value) {
@@ -1184,12 +1265,15 @@ export const useDuoState = () => {
         // --- BIDIRECTIONAL SYNC ON CONNECT ---
         case 'REQ_STATE_SYNC': {
           // Send all our items and profile to partner so both are 100% in sync
+          // Filter out surprise gift items created by us that are hidden from partner
+          const shareableWishlist = wishlistItems.value.filter(i => i.is_visible_to_partner || i.created_by !== currentUser.value.id)
           broadcastToPartner('RESP_STATE_SYNC', {
             profile: currentUser.value,
             shopping: shoppingItems.value,
             tasks: tasksList.value,
             events: eventsList.value,
             milestones: milestonesList.value,
+            wishlist: shareableWishlist,
             partnership: partnership.value,
             userMood: {
               mood: currentUser.value.current_mood,
@@ -1215,6 +1299,12 @@ export const useDuoState = () => {
             }
             if (Array.isArray(data.milestones) && data.milestones.length > 0) {
               milestonesList.value = data.milestones
+            }
+            if (Array.isArray(data.wishlist)) {
+              // Preserve our locally saved surprise items that partner shouldn't have overwritten
+              const ourSecretItems = wishlistItems.value.filter(i => !i.is_visible_to_partner && i.created_by === currentUser.value.id)
+              const incomingIds = new Set(data.wishlist.map((w: WishlistItem) => w.id))
+              wishlistItems.value = [...data.wishlist, ...ourSecretItems.filter(s => !incomingIds.has(s.id))]
             }
             if (data.partnership && partnership.value) {
               partnership.value.nest_points = Math.max(partnership.value.nest_points, data.partnership.nest_points || 0)
@@ -1271,6 +1361,25 @@ export const useDuoState = () => {
           }
         } else if (payload.eventType === 'DELETE') {
           eventsList.value = eventsList.value.filter(e => e.id !== payload.old.id)
+        }
+        syncToStorage()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wishlist_items', filter: `partnership_id=eq.${partnershipId}` }, (payload: any) => {
+        const item = payload.new as WishlistItem
+        if (payload.eventType === 'INSERT') {
+          if (item && (item.is_visible_to_partner || item.created_by === currentUser.value.id)) {
+            if (!wishlistItems.value.some(w => w.id === item.id)) wishlistItems.value.unshift(item)
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          const idx = wishlistItems.value.findIndex(w => w.id === payload.new?.id)
+          if (item && (item.is_visible_to_partner || item.created_by === currentUser.value.id)) {
+            if (idx !== -1) wishlistItems.value[idx] = item
+            else wishlistItems.value.unshift(item)
+          } else if (idx !== -1) {
+            wishlistItems.value.splice(idx, 1)
+          }
+        } else if (payload.eventType === 'DELETE') {
+          wishlistItems.value = wishlistItems.value.filter(w => w.id !== payload.old?.id)
         }
         syncToStorage()
       })
@@ -1463,11 +1572,12 @@ export const useDuoState = () => {
     const client = getSupabaseClient()
     if (!client) return
     try {
-      const [shops, tasks, evts, ndgs] = await Promise.all([
+      const [shops, tasks, evts, ndgs, wshs] = await Promise.all([
         client.from('shopping_items').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         client.from('tasks').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         client.from('events').select('*').eq('partnership_id', partnershipId).order('start_time', { ascending: true }),
-        client.from('nudges').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }).limit(20)
+        client.from('nudges').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }).limit(20),
+        client.from('wishlist_items').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false })
       ])
 
       if (shops.data && shops.data.length > 0) {
@@ -1490,6 +1600,14 @@ export const useDuoState = () => {
 
       if (ndgs.data && ndgs.data.length > 0) {
         nudgesList.value = ndgs.data
+      }
+
+      if (wshs.data && wshs.data.length > 0) {
+        const currentUserId = currentUser.value?.id
+        const filtered = wshs.data.filter((item: WishlistItem) => item.is_visible_to_partner || (currentUserId && item.created_by === currentUserId))
+        wishlistItems.value = filtered
+      } else if (wishlistItems.value.length > 0) {
+        try { await client.from('wishlist_items').upsert(wishlistItems.value) } catch (_) {}
       }
       syncToStorage()
     } catch (e) {
@@ -2279,6 +2397,133 @@ export const useDuoState = () => {
     triggerToast(`Cel "${m.title}" został ustawiony ponownie! 🚀`)
   }
 
+  // --- WISHLIST & GIFT CRUD ACTIONS ---
+  const addWishlistItem = async (itemData: {
+    title: string
+    url?: string | null
+    image_url?: string | null
+    price?: string | null
+    currency?: string | null
+    site_name?: string | null
+    note?: string | null
+    for_user_id?: string | null // null = Wspólne, currentUser.id = Dla mnie, partnerUser.id = Dla partnera
+    is_visible_to_partner?: boolean // default true; if false, it's a secret surprise gift for partner
+  }) => {
+    if (!itemData.title || !itemData.title.trim()) return null
+    const partnershipId = partnership.value?.id || 'local_partnership'
+    const userId = currentUser.value?.id || 'local_user'
+
+    const newItem: WishlistItem = {
+      id: 'wish_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      partnership_id: partnershipId,
+      created_by: userId,
+      for_user_id: itemData.for_user_id !== undefined ? itemData.for_user_id : userId,
+      title: itemData.title.trim(),
+      url: itemData.url ? itemData.url.trim() : null,
+      image_url: itemData.image_url ? itemData.image_url.trim() : null,
+      price: itemData.price ? itemData.price.trim() : null,
+      currency: itemData.currency || 'PLN',
+      site_name: itemData.site_name ? itemData.site_name.trim() : null,
+      note: itemData.note ? itemData.note.trim() : null,
+      is_visible_to_partner: itemData.is_visible_to_partner !== false,
+      is_completed: false,
+      completed_at: null,
+      created_at: new Date().toISOString()
+    }
+
+    wishlistItems.value.unshift(newItem)
+    syncToStorage()
+
+    if (supabase && isOnlineWithSupabase.value && partnership.value?.id) {
+      safeDb(supabase.from('wishlist_items').insert(newItem))
+    }
+
+    // Only broadcast to partner if visible to partner
+    if (newItem.is_visible_to_partner) {
+      broadcastToPartner('WISHLIST_ADD', newItem)
+    }
+
+    const msg = !newItem.is_visible_to_partner
+      ? `Dodano niespodziankę dla partnera (ukryte przed nim 🤫): "${newItem.title}"`
+      : `Dodano do listy marzeń: "${newItem.title}"! ✨`
+    triggerToast(msg)
+
+    return newItem
+  }
+
+  const updateWishlistItem = async (id: string, updates: Partial<Omit<WishlistItem, 'id' | 'created_at' | 'created_by' | 'partnership_id'>>) => {
+    const idx = wishlistItems.value.findIndex(w => w.id === id)
+    if (idx === -1) return
+    const current = wishlistItems.value[idx]
+    const oldVisibility = current.is_visible_to_partner
+    const updated = { ...current, ...updates }
+    wishlistItems.value[idx] = updated
+    syncToStorage()
+
+    if (supabase && isOnlineWithSupabase.value && partnership.value?.id) {
+      safeDb(supabase.from('wishlist_items').update(updates).eq('id', id))
+    }
+
+    if (updated.is_visible_to_partner) {
+      if (!oldVisibility) {
+        // Was hidden, now made visible
+        broadcastToPartner('WISHLIST_ADD', updated)
+      } else {
+        broadcastToPartner('WISHLIST_UPDATE', { id, updates, item: updated })
+      }
+    } else if (oldVisibility) {
+      // Was visible, now hidden -> partner should remove it
+      broadcastToPartner('WISHLIST_DELETE', { id })
+    }
+
+    triggerToast(`Zaktualizowano marzenie: "${updated.title}"! ✨`)
+    return updated
+  }
+
+  const deleteWishlistItem = async (id: string) => {
+    const item = wishlistItems.value.find(w => w.id === id)
+    if (!item) return
+    wishlistItems.value = wishlistItems.value.filter(w => w.id !== id)
+    syncToStorage()
+
+    if (supabase && isOnlineWithSupabase.value && partnership.value?.id) {
+      safeDb(supabase.from('wishlist_items').delete().eq('id', id))
+    }
+
+    if (item.is_visible_to_partner) {
+      broadcastToPartner('WISHLIST_DELETE', { id })
+    }
+
+    triggerToast(`Usunięto z listy marzeń: "${item.title}".`)
+  }
+
+  const toggleWishlistCompleted = async (id: string) => {
+    const item = wishlistItems.value.find(w => w.id === id)
+    if (!item) return
+    const newCompleted = !item.is_completed
+    const completedAt = newCompleted ? new Date().toISOString() : null
+    item.is_completed = newCompleted
+    item.completed_at = completedAt
+    syncToStorage()
+
+    if (supabase && isOnlineWithSupabase.value && partnership.value?.id) {
+      safeDb(supabase.from('wishlist_items').update({
+        is_completed: newCompleted,
+        completed_at: completedAt
+      }).eq('id', id))
+    }
+
+    if (item.is_visible_to_partner) {
+      broadcastToPartner('WISHLIST_TOGGLE_COMPLETED', {
+        id,
+        is_completed: newCompleted,
+        completed_at: completedAt
+      })
+    }
+
+    triggerToast(newCompleted ? `Marzenie "${item.title}" zostało spełnione! 🎉` : `Oznaczono marzenie jako niespełnione.`)
+  }
+
   return {
     authUser,
     authSession,
@@ -2296,6 +2541,11 @@ export const useDuoState = () => {
     eventsList,
     nudgesList,
     milestonesList,
+    wishlistItems,
+    addWishlistItem,
+    updateWishlistItem,
+    deleteWishlistItem,
+    toggleWishlistCompleted,
     isPaired,
     isOnlineWithSupabase,
     dbSchemaStatus,

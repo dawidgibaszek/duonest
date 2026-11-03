@@ -121,6 +121,25 @@ create table if not exists public.milestones (
   created_at timestamptz default now()
 );
 
+-- 9. WISHLIST ITEMS (Wishlista & Pomysły na prezenty)
+create table if not exists public.wishlist_items (
+  id text primary key,
+  partnership_id text not null,
+  created_by text not null,
+  for_user_id text,
+  title text not null,
+  url text,
+  image_url text,
+  price text,
+  currency text default 'PLN',
+  site_name text,
+  note text,
+  is_visible_to_partner boolean not null default true,
+  is_completed boolean not null default false,
+  completed_at timestamptz,
+  created_at timestamptz default now()
+);
+
 -- ==========================================================
 -- INDEXES FOR FAST REALTIME QUERIES
 -- ==========================================================
@@ -132,6 +151,7 @@ create index if not exists idx_events_partnership on public.events(partnership_i
 create index if not exists idx_moods_partnership on public.mood_logs(partnership_id);
 create index if not exists idx_nudges_partnership on public.nudges(partnership_id);
 create index if not exists idx_milestones_partnership on public.milestones(partnership_id);
+create index if not exists idx_wishlist_partnership on public.wishlist_items(partnership_id);
 
 -- ==========================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -144,6 +164,7 @@ alter table public.events enable row level security;
 alter table public.mood_logs enable row level security;
 alter table public.nudges enable row level security;
 alter table public.milestones enable row level security;
+alter table public.wishlist_items enable row level security;
 
 -- Open policies for anon & authenticated couple access
 drop policy if exists "Allow all on profiles" on public.profiles;
@@ -169,6 +190,9 @@ create policy "Allow all on nudges" on public.nudges for all using (true) with c
 
 drop policy if exists "Allow all on milestones" on public.milestones;
 create policy "Allow all on milestones" on public.milestones for all using (true) with check (true);
+
+drop policy if exists "Allow all on wishlist_items" on public.wishlist_items;
+create policy "Allow all on wishlist_items" on public.wishlist_items for all using (true) with check (true);
 
 -- ==========================================================
 -- ENABLE REALTIME REPLICATION ON ALL TABLES
@@ -218,6 +242,12 @@ end $$;
 do $$
 begin
   alter publication supabase_realtime add table public.milestones;
+exception when others then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.wishlist_items;
 exception when others then null;
 end $$;
 

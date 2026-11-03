@@ -507,7 +507,7 @@
 
           <h4>Powiadomienia w telefonie</h4>
           <p class="section-desc">
-            Bądźcie zawsze blisko – otrzymuj natychmiastowe alerty o gestach, nastroju, planach i zakupach od partnera.
+            Bądźcie zawsze blisko – otrzymuj natychmiastowe alerty o gestach, nastroju, planach, zakupach i marzeniach od partnera.
           </p>
 
           <!-- Master Toggle Box -->
@@ -645,7 +645,25 @@
                 />
               </div>
 
-              <!-- 6. PARTNER ONLINE -->
+              <!-- 6. WISHLIST & GIFTS -->
+              <div class="push-toggle-item">
+                <div class="toggle-item-left">
+                  <div class="toggle-icon-wrap wishlist-icon-bg">
+                    <ion-icon :icon="ioniconsGiftOutline" />
+                  </div>
+                  <div class="toggle-item-info">
+                    <span class="toggle-name">Wishlista i marzenia</span>
+                    <span class="toggle-desc">Nowe marzenia partnera oraz spełnione prezenty (niespodzianki pozostają tajne)</span>
+                  </div>
+                </div>
+                <ion-toggle
+                  :checked="pushSettings.wishlist"
+                  @ionChange="togglePushCategory('wishlist')"
+                  class="dn-push-toggle"
+                />
+              </div>
+
+              <!-- 7. PARTNER ONLINE -->
               <div class="push-toggle-item">
                 <div class="toggle-item-left">
                   <div class="toggle-icon-wrap online-icon-bg">
@@ -709,7 +727,7 @@
             <button
               type="button"
               class="push-test-btn"
-              @click="sendTestNotification"
+              @click="sendTestNotification()"
             >
               <ion-icon :icon="ioniconsSendOutline" />
               <span>Wyślij testowe powiadomienie push</span>
@@ -3098,6 +3116,7 @@ ion-modal.dn-edit-profile-modal {
 .calendar-icon-bg { background: #eef2ff; color: #6366f1; }
 .shopping-icon-bg { background: #ccfbf1; color: #0d9488; }
 .tasks-icon-bg { background: #e0f2fe; color: #0284c7; }
+.wishlist-icon-bg { background: #fdf2f8; color: #db2777; }
 .online-icon-bg { background: #dcfce7; color: #16a34a; }
 .sound-icon-bg { background: #fef3c7; color: #d97706; }
 .vibrate-icon-bg { background: #f1f5f9; color: #475569; }
