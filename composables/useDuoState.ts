@@ -1381,23 +1381,6 @@ export const useDuoState = () => {
       }
     }
 
-    // Seed starter items if empty
-    if (shoppingItems.value.length === 0) {
-      shoppingItems.value = [
-        { id: 'shop_1', partnership_id: newPartnershipId, title: 'Ulubione owoce i pieczywo', category: 'Spożywcze', quantity: '1 op.', is_completed: false, added_by: currentUser.value.id, created_at: new Date().toISOString() }
-      ]
-    }
-    if (tasksList.value.length === 0) {
-      tasksList.value = [
-        { id: 'task_1', partnership_id: newPartnershipId, title: 'Wspólna kolacja i rozmowa', description: 'Świętowanie połączenia w DuoNest', assigned_to: null, due_date: new Date().toISOString(), is_recurring: false, is_completed: false, points: 25, created_at: new Date().toISOString() }
-      ]
-    }
-    if (eventsList.value.length === 0) {
-      eventsList.value = [
-        { id: 'ev_1', partnership_id: newPartnershipId, title: 'Nasz pierwszy dzień w DuoNest', description: 'Połączenie kont partnerskich', start_time: new Date().toISOString(), category: 'anniversary', is_completed: false, created_by: currentUser.value.id, created_at: new Date().toISOString() }
-      ]
-    }
-
     syncToStorage()
 
     // Try storing in Supabase DB if tables exist
