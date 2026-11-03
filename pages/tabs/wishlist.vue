@@ -875,8 +875,9 @@ const handleSaveFormData = async () => {
     } else if (activeFilter.value !== 'all' && activeFilter.value !== savedTarget) {
       activeFilter.value = 'all'
     }
-
-    refreshWishlist()
+    // Note: refreshWishlist is called internally by addWishlistItem with a delay
+    // after the DB insert completes. Calling it here immediately would race with
+    // the insert and could wipe the locally-added item before DB confirms it.
   }
 
   closeModal()

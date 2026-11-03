@@ -1510,7 +1510,8 @@ export const useDuoState = () => {
             }
             triggerToast(`${senderName} dodał(a) ${label}: "${data.title}" 🎁`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
           }
-          refreshWishlist()
+          // Delayed refresh so DB has time to commit before we query
+          setTimeout(() => refreshWishlist(), 800)
           break
         }
         case 'WISHLIST_UPDATE': {
@@ -1526,7 +1527,7 @@ export const useDuoState = () => {
               syncToStorage()
             }
           }
-          refreshWishlist()
+          setTimeout(() => refreshWishlist(), 800)
           break
         }
         case 'WISHLIST_DELETE': {
@@ -1536,7 +1537,7 @@ export const useDuoState = () => {
             syncToStorage()
             if (deleted) triggerToast(`${senderName} usunął(a) marzenie: "${deleted.title}"`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
           }
-          refreshWishlist()
+          setTimeout(() => refreshWishlist(), 800)
           break
         }
         case 'WISHLIST_TOGGLE_COMPLETED': {
@@ -2891,6 +2892,11 @@ export const useDuoState = () => {
       } catch (_) {
         safeDb(supabase.from('wishlist_items').insert(newItem))
       }
+      // Refresh after a short delay to let the DB commit propagate — but don't
+      // call it immediately because the local state is already correct and an
+      // instant refresh risks returning a response BEFORE the insert is visible,
+      // which would wipe the item we just added locally.
+      setTimeout(() => refreshWishlist(), 800)
     }
 
     // Only broadcast to partner if visible to partner
@@ -2981,11 +2987,21 @@ export const useDuoState = () => {
     triggerToast(newCompleted ? `Marzenie "${item.title}" zostało spełnione! 🎉` : `Oznaczono marzenie jako niespełnione.`)
   }
 
+  let _refreshWishlistInFlight = false
+  let _refreshWishlistQueued = false
+
   const refreshWishlist = async () => {
+    // If a request is already in-flight, just queue one more run for after it finishes
+    if (_refreshWishlistInFlight) {
+      _refreshWishlistQueued = true
+      return
+    }
+
     const client = getSupabaseClient()
     const pId = partnership.value?.id || currentUser.value?.partnership_id
     if (!client || !pId) return
 
+    _refreshWishlistInFlight = true
     try {
       const { data, error } = await client
         .from('wishlist_items')
@@ -2996,11 +3012,21 @@ export const useDuoState = () => {
       if (!error && data) {
         const currentUserId = currentUser.value?.id || authUser.value?.id
         const filtered = data.filter((item: WishlistItem) => item.is_visible_to_partner || (currentUserId && item.created_by === currentUserId))
-        wishlistItems.value = filtered
+        // Merge: never drop items that are locally present but not yet in DB response
+        const remoteIds = new Set(filtered.map((i: WishlistItem) => i.id))
+        const localOnly = wishlistItems.value.filter(w => !remoteIds.has(w.id))
+        wishlistItems.value = [...filtered, ...localOnly]
         syncToStorage()
       }
     } catch (e) {
       console.warn('refreshWishlist error:', e)
+    } finally {
+      _refreshWishlistInFlight = false
+      if (_refreshWishlistQueued) {
+        _refreshWishlistQueued = false
+        // Run one more time to pick up any changes that arrived during the in-flight request
+        setTimeout(() => refreshWishlist(), 300)
+      }
     }
   }
 
