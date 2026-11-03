@@ -1636,12 +1636,13 @@ export const useDuoState = () => {
   // --- SHOPPING LIST ACTIONS ---
   const addShoppingItem = async (title: string, category: string, quantity: string = '') => {
     if (!title.trim() || !partnership.value) return
+    const cleanQty = quantity ? String(quantity).replace(/\D/g, '').trim() : ''
     const newItem: ShoppingItem = {
       id: 'shop_' + Math.random().toString(36).substring(2, 9),
       partnership_id: partnership.value.id,
       title: title.trim(),
       category: category || 'Spożywcze',
-      quantity: quantity.trim() || undefined,
+      quantity: cleanQty || undefined,
       is_completed: false,
       added_by: currentUser.value.id,
       created_at: new Date().toISOString()

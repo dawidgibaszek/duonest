@@ -266,10 +266,26 @@ export const usePushNotifications = () => {
     persistSettings()
   }
 
+  // Check if user is currently looking at the app in the foreground
+  const isAppInForeground = (): boolean => {
+    if (typeof document === 'undefined') return false
+    return document.visibilityState === 'visible'
+  }
+
   // Send real notification via Service Worker / Notification API
-  const sendDirectNotification = async (title: string, body: string, url: string = '/tabs/nest') => {
+  const sendDirectNotification = async (
+    title: string,
+    body: string,
+    url: string = '/tabs/nest',
+    force: boolean = false
+  ) => {
     if (typeof window === 'undefined') return
     if (!isSupported.value || permission.value !== 'granted') return
+
+    // Do NOT show system push notifications when the user is currently inside the active app!
+    if (!force && isAppInForeground()) {
+      return
+    }
 
     const vibratePattern = pushSettings.vibrate ? [120, 60, 120, 60, 180] : undefined
 
@@ -329,7 +345,8 @@ export const usePushNotifications = () => {
     sendDirectNotification(
       `DuoNest – Test Powiadomień 💌`,
       `Wszystko działa idealnie! Gdy ${partnerName} wyśle Ci buziaka lub doda zadanie, dowiesz się od razu.`,
-      '/tabs/nest'
+      '/tabs/nest',
+      true
     )
     triggerToast('Wysłano testowe powiadomienie na Twoje urządzenie!', { type: 'success', title: 'Powiadomienie Push' })
   }

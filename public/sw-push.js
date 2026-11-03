@@ -41,7 +41,27 @@ self.addEventListener('push', (event) => {
   }
 
   event.waitUntil(
-    self.registration.showNotification(payload.title, notificationOptions)
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Check if user is currently inside the app (any window/tab is visible or focused)
+      const isAppInForeground = windowClients.some((client) => {
+        return client.visibilityState === 'visible' || client.focused
+      })
+
+      // If user is currently in the active app, do NOT show system push notification
+      if (isAppInForeground) {
+        // Forward message to active window so in-app UI can react
+        windowClients.forEach((client) => {
+          client.postMessage({
+            type: 'DUONEST_IN_APP_PUSH',
+            payload
+          })
+        })
+        return
+      }
+
+      // User is outside the app (browser minimized, screen locked, or other tab) -> show system push
+      return self.registration.showNotification(payload.title, notificationOptions)
+    })
   )
 })
 

@@ -29,7 +29,13 @@
               :clear-input="true"
             />
             <ion-input
-              v-model="newItemQty"
+              :value="newItemQty"
+              @ionInput="handleQtyInput"
+              @keydown="filterQtyKeydown"
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              maxlength="5"
               placeholder="Ilość"
               class="qty-input"
             />
@@ -98,7 +104,7 @@
             <ion-label>
               <div class="item-title-row">
                 <span class="item-title">{{ item.title }}</span>
-                <span class="item-qty-tag" v-if="item.quantity">{{ item.quantity }}</span>
+                <span class="item-qty-tag" v-if="item.quantity">{{ /^\d+$/.test(item.quantity) ? `×${item.quantity}` : item.quantity }}</span>
               </div>
               <div class="item-meta">
                 <span class="item-category-tag">{{ item.category }}</span>
@@ -162,7 +168,7 @@
               <ion-label>
                 <div class="item-title-row">
                   <span class="item-title strike">{{ item.title }}</span>
-                  <span class="item-qty-tag strike" v-if="item.quantity">{{ item.quantity }}</span>
+                  <span class="item-qty-tag strike" v-if="item.quantity">{{ /^\d+$/.test(item.quantity) ? `×${item.quantity}` : item.quantity }}</span>
                 </div>
               </ion-label>
             </ion-item>
@@ -241,9 +247,48 @@ const getCategoryCount = (categoryName: string) => {
   return shoppingItems.value.filter(i => !i.is_completed && i.category === categoryName).length
 }
 
+const handleQtyInput = (event: any) => {
+  const inputEl = event?.target
+  const raw = event?.detail?.value ?? inputEl?.value ?? ''
+  const sanitized = String(raw).replace(/\D/g, '')
+  newItemQty.value = sanitized
+  if (inputEl && inputEl.value !== sanitized) {
+    inputEl.value = sanitized
+  }
+}
+
+const filterQtyKeydown = (event: KeyboardEvent) => {
+  // Allow navigation and editing control keys
+  const allowedKeys = [
+    'Backspace',
+    'Delete',
+    'Tab',
+    'Escape',
+    'Enter',
+    'ArrowLeft',
+    'ArrowRight',
+    'ArrowUp',
+    'ArrowDown',
+    'Home',
+    'End'
+  ]
+  if (allowedKeys.includes(event.key)) {
+    return
+  }
+  // Allow standard Ctrl/Cmd keyboard shortcuts (copy, paste, cut, select all, undo)
+  if ((event.ctrlKey || event.metaKey) && ['a', 'c', 'v', 'x', 'z', 'A', 'C', 'V', 'X', 'Z'].includes(event.key)) {
+    return
+  }
+  // Prevent any non-numeric key from being entered
+  if (!/^[0-9]$/.test(event.key)) {
+    event.preventDefault()
+  }
+}
+
 const handleAddItem = async () => {
   if (!newItemTitle.value.trim()) return
-  await addShoppingItem(newItemTitle.value, selectedCategory.value, newItemQty.value)
+  const cleanQty = newItemQty.value ? String(newItemQty.value).replace(/\D/g, '').trim() : ''
+  await addShoppingItem(newItemTitle.value, selectedCategory.value, cleanQty)
   newItemTitle.value = ''
   newItemQty.value = ''
 }

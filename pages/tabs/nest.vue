@@ -561,15 +561,34 @@
             <div class="form-group">
               <div class="label-with-pts-val">
                 <label class="form-label">Wymagane punkty *</label>
-                <span class="pts-target-badge">{{ milestoneForm.target_points }} pkt</span>
+                <span class="pts-target-badge">{{ milestoneForm.target_points || 0 }} pkt</span>
               </div>
+
+              <!-- Custom points input -->
+              <div class="custom-pts-input-wrap">
+                <ion-input
+                  :value="milestoneForm.target_points"
+                  @ionInput="handleMilestonePtsInput"
+                  @keydown="filterDigitsKeydown"
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  maxlength="5"
+                  placeholder="Wpisz liczbę punktów..."
+                  class="modal-styled-input custom-pts-input"
+                />
+                <span class="pts-suffix-label">pkt</span>
+              </div>
+
+              <!-- Quick selection presets -->
+              <div class="quick-pts-label">Szybki wybór:</div>
               <div class="quick-pts-row">
                 <button
                   type="button"
                   v-for="pts in quickPointOptions"
                   :key="pts"
                   class="pts-option-pill"
-                  :class="{ active: milestoneForm.target_points === pts }"
+                  :class="{ active: Number(milestoneForm.target_points) === pts }"
                   @click="milestoneForm.target_points = pts"
                 >
                   {{ pts }} pkt
@@ -603,7 +622,7 @@
                 type="button"
                 class="save-milestone-btn dn-button-sea"
                 @click="saveMilestone"
-                :disabled="!milestoneForm.title.trim()"
+                :disabled="!milestoneForm.title.trim() || !milestoneForm.target_points || Number(milestoneForm.target_points) <= 0"
               >
                 <ion-icon :icon="ioniconsCheckmarkDoneOutline" />
                 <span>{{ editingMilestoneId ? 'Zapisz zmiany' : 'Utwórz cel' }}</span>
@@ -842,7 +861,7 @@ const isMilestoneModalOpen = ref(false)
 const editingMilestoneId = ref<string | null>(null)
 const milestoneForm = ref({
   title: '',
-  target_points: 80,
+  target_points: 80 as number | string,
   assigned_to: null as string | null,
   description: ''
 })
@@ -859,6 +878,41 @@ const textRewardSuggestions = [
 ]
 
 const quickPointOptions = [40, 60, 80, 100, 150, 200, 300, 500]
+
+const handleMilestonePtsInput = (event: any) => {
+  const inputEl = event?.target
+  const raw = event?.detail?.value ?? inputEl?.value ?? ''
+  const sanitized = String(raw).replace(/\D/g, '')
+  milestoneForm.value.target_points = sanitized ? parseInt(sanitized, 10) : ''
+  if (inputEl && inputEl.value !== String(milestoneForm.value.target_points)) {
+    inputEl.value = milestoneForm.value.target_points
+  }
+}
+
+const filterDigitsKeydown = (event: KeyboardEvent) => {
+  const allowedKeys = [
+    'Backspace',
+    'Delete',
+    'Tab',
+    'Escape',
+    'Enter',
+    'ArrowLeft',
+    'ArrowRight',
+    'ArrowUp',
+    'ArrowDown',
+    'Home',
+    'End'
+  ]
+  if (allowedKeys.includes(event.key)) {
+    return
+  }
+  if ((event.ctrlKey || event.metaKey) && ['a', 'c', 'v', 'x', 'z', 'A', 'C', 'V', 'X', 'Z'].includes(event.key)) {
+    return
+  }
+  if (!/^[0-9]$/.test(event.key)) {
+    event.preventDefault()
+  }
+}
 
 const openCreateMilestoneModal = () => {
   editingMilestoneId.value = null
@@ -896,17 +950,18 @@ const applyTextSuggestion = (sugg: { title: string; pts: number }) => {
 
 const saveMilestone = () => {
   if (!milestoneForm.value.title.trim()) return
+  const finalPts = Math.max(1, Number(milestoneForm.value.target_points) || 50)
   if (editingMilestoneId.value) {
     updateMilestone(editingMilestoneId.value, {
       title: milestoneForm.value.title.trim(),
-      target_points: Number(milestoneForm.value.target_points) || 50,
+      target_points: finalPts,
       assigned_to: milestoneForm.value.assigned_to,
       description: milestoneForm.value.description.trim()
     })
   } else {
     addMilestone(
       milestoneForm.value.title.trim(),
-      Number(milestoneForm.value.target_points) || 50,
+      finalPts,
       milestoneForm.value.assigned_to,
       milestoneForm.value.description.trim()
     )
@@ -2324,6 +2379,35 @@ const handleRefresh = (event: any) => {
   background: #e0f2fe;
   padding: 2px 8px;
   border-radius: 999px;
+}
+
+.custom-pts-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.custom-pts-input {
+  --padding-end: 46px;
+}
+
+.pts-suffix-label {
+  position: absolute;
+  right: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.quick-pts-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 4px;
 }
 
 .quick-pts-row {
