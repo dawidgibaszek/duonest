@@ -1805,27 +1805,41 @@ export const useDuoState = () => {
           console.log('Supabase PostgreSQL database tables connected!')
         }
 
-        // Sync partnership & tables
-        if (partnership.value?.id) {
-          await loadSupabaseData(partnership.value.id)
+        // Sync partnership & tables from DB with latest profile check
+        if (currentUser.value?.id) {
+          const { data: dbProfile } = await client
+            .from('profiles')
+            .select('*')
+            .eq('id', currentUser.value.id)
+            .maybeSingle()
+
+          const effectivePartnershipId = dbProfile?.partnership_id || partnership.value?.id
+          if (effectivePartnershipId) {
+            if (dbProfile?.partnership_id && dbProfile.partnership_id !== partnership.value?.id) {
+              await loadPartnershipAndPartner(dbProfile.partnership_id, currentUser.value.id)
+            } else {
+              await loadSupabaseData(effectivePartnershipId)
+            }
+          }
 
           // Sync our profile to Supabase profiles table
-          if (currentUser.value?.id) {
-            try {
-              await client.from('profiles').upsert({
-                id: currentUser.value.id,
-                name: currentUser.value.name,
-                avatar_color: currentUser.value.avatar_color,
-                pairing_code: currentUser.value.pairing_code,
-                partnership_id: currentUser.value.partnership_id,
-                current_mood: currentUser.value.current_mood,
-                mood_note: currentUser.value.mood_note,
-                love_note: currentUser.value.love_note,
-                favorite_drink: currentUser.value.favorite_drink,
-                favorite_treat: currentUser.value.favorite_treat
-              })
-            } catch (_) {}
-          }
+          try {
+            await client.from('profiles').upsert({
+              id: currentUser.value.id,
+              name: currentUser.value.name,
+              avatar_color: currentUser.value.avatar_color,
+              pairing_code: currentUser.value.pairing_code,
+              partnership_id: partnership.value?.id || currentUser.value.partnership_id || null,
+              current_mood: currentUser.value.current_mood,
+              mood_note: currentUser.value.mood_note,
+              love_note: currentUser.value.love_note,
+              favorite_drink: currentUser.value.favorite_drink,
+              favorite_treat: currentUser.value.favorite_treat
+            })
+          } catch (_) {}
+        } else if (partnership.value?.id) {
+          await loadSupabaseData(partnership.value.id)
+        }
 
           // Sync partner profile if available
           if (partnerUser.value?.id) {
@@ -1858,7 +1872,6 @@ export const useDuoState = () => {
             })
           } catch (_) {}
         }
-      }
     } catch (err) {
       console.warn('initSupabaseSync attempt:', err)
     }
@@ -2904,6 +2917,29 @@ export const useDuoState = () => {
     triggerToast(newCompleted ? `Marzenie "${item.title}" zostało spełnione! 🎉` : `Oznaczono marzenie jako niespełnione.`)
   }
 
+  const refreshWishlist = async () => {
+    const client = getSupabaseClient()
+    const pId = partnership.value?.id || currentUser.value?.partnership_id
+    if (!client || !pId) return
+
+    try {
+      const { data, error } = await client
+        .from('wishlist_items')
+        .select('*')
+        .eq('partnership_id', pId)
+        .order('created_at', { ascending: false })
+
+      if (!error && data) {
+        const currentUserId = currentUser.value?.id
+        const filtered = data.filter((item: WishlistItem) => item.is_visible_to_partner || (currentUserId && item.created_by === currentUserId))
+        wishlistItems.value = filtered
+        syncToStorage()
+      }
+    } catch (e) {
+      console.warn('refreshWishlist error:', e)
+    }
+  }
+
   return {
     authUser,
     authSession,
@@ -2926,6 +2962,7 @@ export const useDuoState = () => {
     updateWishlistItem,
     deleteWishlistItem,
     toggleWishlistCompleted,
+    refreshWishlist,
     updatePet,
     isPaired,
     isOnlineWithSupabase,

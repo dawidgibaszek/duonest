@@ -468,7 +468,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useDuoState, type WishlistItem } from '~/composables/useDuoState'
 import { formatSiteName, extractTitleFromUrl } from '~/utils/wishlistParser'
 
@@ -480,6 +480,7 @@ const {
   updateWishlistItem,
   deleteWishlistItem,
   toggleWishlistCompleted,
+  refreshWishlist,
   getUserAccentColor,
   hexToRgba,
   triggerToast
@@ -506,6 +507,16 @@ const filters = [
 const isModalOpen = ref(false)
 const editingItemId = ref<string | null>(null)
 const formTarget = ref<'me' | 'partner' | 'together'>('me')
+
+const resolveDefaultTarget = (): 'me' | 'partner' | 'together' => {
+  if (activeFilter.value === 'partner') return 'partner'
+  if (activeFilter.value === 'together') return 'together'
+  return 'me'
+}
+
+onMounted(async () => {
+  await refreshWishlist()
+})
 
 const formData = ref({
   title: '',
@@ -680,7 +691,7 @@ const handleScrapeUrl = async () => {
       is_visible_to_partner: true
     }
     editingItemId.value = null
-    formTarget.value = 'me'
+    formTarget.value = resolveDefaultTarget()
     isModalOpen.value = true
     urlInput.value = ''
     triggerToast(resNotice || 'Pobrano dane ze sklepu! Sprawdź i dostosuj szczegóły ✨')
@@ -702,7 +713,7 @@ const handleScrapeUrl = async () => {
       is_visible_to_partner: true
     }
     editingItemId.value = null
-    formTarget.value = 'me'
+    formTarget.value = resolveDefaultTarget()
     isModalOpen.value = true
     urlInput.value = ''
     scrapeError.value = 'Wpisz szczegóły przedmiotu ręcznie.'
@@ -715,7 +726,7 @@ const handleScrapeUrl = async () => {
 // Open manual add modal (backup when no link)
 const openManualAddModal = () => {
   editingItemId.value = null
-  formTarget.value = 'me'
+  formTarget.value = resolveDefaultTarget()
   formData.value = {
     title: '',
     price: '',
@@ -859,10 +870,12 @@ const onPreviewImageError = (e: Event) => {
 }
 
 // Pull to refresh handler
-const handleRefresh = (event: any) => {
-  setTimeout(() => {
-    event.target.complete()
-  }, 600)
+const handleRefresh = async (event: any) => {
+  try {
+    await refreshWishlist()
+  } finally {
+    event?.target?.complete()
+  }
 }
 
 // Target badge helpers
