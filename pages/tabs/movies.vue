@@ -541,7 +541,7 @@
 
                   <!-- Action Buttons -->
                   <div class="res-actions-bar">
-                    <template v-if="!isAlreadyInList(res.tmdb_id)">
+                    <template v-if="!isAlreadyInList(res)">
                       <button
                         type="button"
                         class="action-pill-btn btn-plan"
@@ -621,11 +621,11 @@
                     <!-- Add Quick Action Button Overlay -->
                     <div
                       class="tr-add-hover-btn"
-                      :class="{ 'is-added': isAlreadyInList(tr.tmdb_id) }"
-                      @click.stop="!isAlreadyInList(tr.tmdb_id) && addFromTmdb(tr, 'planned')"
+                      :class="{ 'is-added': isAlreadyInList(tr) }"
+                      @click.stop="!isAlreadyInList(tr) && addFromTmdb(tr, 'planned')"
                     >
                       <ion-icon
-                        :icon="isAlreadyInList(tr.tmdb_id) ? ioniconsCheckmarkOutline : ioniconsAddOutline"
+                        :icon="isAlreadyInList(tr) ? ioniconsCheckmarkOutline : ioniconsAddOutline"
                       />
                     </div>
                   </div>
@@ -635,7 +635,7 @@
                     <span class="tr-title-text">{{ tr.title }}</span>
                     <span class="tr-meta-text">
                       {{ tr.release_year || 'Nowość' }}
-                      <span v-if="isAlreadyInList(tr.tmdb_id)" class="tr-on-list-tag">✓ Na liście</span>
+                      <span v-if="isAlreadyInList(tr)" class="tr-on-list-tag">✓ Na liście</span>
                     </span>
                   </div>
                 </div>
@@ -980,7 +980,7 @@
                     {{ selectedRandomMovie.overview }}
                   </p>
 
-                  <div v-if="isAlreadyInList(selectedRandomMovie.tmdb_id)" class="winner-already-note">
+                  <div v-if="isAlreadyInList(selectedRandomMovie)" class="winner-already-note">
                     <ion-icon :icon="ioniconsCheckmarkCircle" />
                     <span>Znajduje się już na Waszej liście</span>
                   </div>
@@ -1036,7 +1036,7 @@
 
                 <!-- Action 2: Jeśli z TMDB i brak na liście -> Chcę obejrzeć / Zapisz -->
                 <button
-                  v-if="!isAlreadyInList(selectedRandomMovie.tmdb_id)"
+                  v-if="!isAlreadyInList(selectedRandomMovie)"
                   type="button"
                   class="winner-btn btn-save-list"
                   @click="addRandomToPlanned(selectedRandomMovie)"
@@ -1750,13 +1750,65 @@ const openApiKeyPrompt = () => {
   }
 }
 
-const isAlreadyInList = (tmdbId?: number | null): boolean => {
-  if (!tmdbId) return false
-  return moviesList.value.some(m => m.tmdb_id === tmdbId)
+const normalizeMovieTitle = (str?: string | null): string => {
+  if (!str) return ''
+  return str.trim().toLowerCase().replace(/[\s\-_:,'"]+/g, ' ')
 }
 
-const addFromTmdb = async (item: any, status: 'planned' | 'watched') => {
-  await addMovie({
+const findMovieInList = (itemOrTmdbId?: any, optionalTitle?: string | null): MovieItem | undefined => {
+  if (!itemOrTmdbId && !optionalTitle) return undefined
+
+  let tmdbId: number | null = null
+  let title: string | null = null
+  let originalTitle: string | null = null
+
+  if (typeof itemOrTmdbId === 'object' && itemOrTmdbId !== null) {
+    tmdbId = itemOrTmdbId.tmdb_id || null
+    title = itemOrTmdbId.title || null
+    originalTitle = itemOrTmdbId.original_title || null
+  } else if (typeof itemOrTmdbId === 'number') {
+    tmdbId = itemOrTmdbId
+    title = optionalTitle || null
+  } else if (typeof itemOrTmdbId === 'string') {
+    title = itemOrTmdbId
+  }
+
+  const targetTitleNorm = normalizeMovieTitle(title)
+  const targetOrigNorm = normalizeMovieTitle(originalTitle)
+
+  return moviesList.value.find(m => {
+    // 1. Check TMDB ID if present in both
+    if (tmdbId && m.tmdb_id && Number(m.tmdb_id) === Number(tmdbId)) {
+      return true
+    }
+    // 2. Check normalized title
+    const mTitleNorm = normalizeMovieTitle(m.title)
+    const mOrigNorm = normalizeMovieTitle(m.original_title)
+
+    if (targetTitleNorm && mTitleNorm && targetTitleNorm === mTitleNorm) return true
+    if (targetTitleNorm && mOrigNorm && targetTitleNorm === mOrigNorm) return true
+    if (targetOrigNorm && mTitleNorm && targetOrigNorm === mTitleNorm) return true
+    if (targetOrigNorm && mOrigNorm && targetOrigNorm === mOrigNorm) return true
+
+    return false
+  })
+}
+
+const isAlreadyInList = (itemOrTmdbId?: any, optionalTitle?: string | null): boolean => {
+  return !!findMovieInList(itemOrTmdbId, optionalTitle)
+}
+
+const addFromTmdb = async (item: any, status: 'planned' | 'watched' | 'watching' = 'planned') => {
+  if (!item) return
+  if (isAlreadyInList(item)) {
+    triggerToast(`"${item.title}" znajduje się już na Waszej liście seansów! 🍿`, {
+      type: 'movies',
+      title: 'Już na liście'
+    })
+    return
+  }
+
+  const added = await addMovie({
     title: item.title,
     original_title: item.original_title,
     tmdb_id: item.tmdb_id,
@@ -1769,6 +1821,8 @@ const addFromTmdb = async (item: any, status: 'planned' | 'watched') => {
     vote_average: item.vote_average,
     status
   })
+
+  if (!added) return
 
   // Celebrate with confetti
   try {
@@ -1993,8 +2047,13 @@ const spinRandomMovie = async () => {
 }
 
 const acceptRandomMovie = async (movie: any) => {
-  if (movie.id) {
-    await toggleMovieStatus(movie, 'watching')
+  const existing = movie.id ? moviesList.value.find(m => m.id === movie.id) : findMovieInList(movie)
+  if (existing) {
+    await toggleMovieStatus(existing, 'watching')
+    triggerToast(`Rozpoczęto seans "${existing.title}"! 🍿`, {
+      type: 'movies',
+      title: 'Kino we dwoje'
+    })
   } else {
     await addMovie({
       title: movie.title,
@@ -2027,7 +2086,7 @@ const acceptRandomMovie = async (movie: any) => {
 }
 
 const addRandomToPlanned = async (movie: any) => {
-  if (isAlreadyInList(movie.tmdb_id)) {
+  if (isAlreadyInList(movie)) {
     triggerToast(`Film "${movie.title}" jest już na Waszej liście!`, {
       type: 'movies',
       title: 'Kino we dwoje'
@@ -2089,6 +2148,13 @@ const openManualAddModal = () => {
 }
 
 const openManualAddWithTitle = (title: string) => {
+  if (isAlreadyInList(title)) {
+    triggerToast(`"${title}" znajduje się już na Waszej liście seansów! 🍿`, {
+      type: 'movies',
+      title: 'Już na liście'
+    })
+    return
+  }
   closeSearchModal()
   openManualAddModal()
   manualForm.value.title = title
@@ -2099,14 +2165,23 @@ const closeManualModal = () => {
 }
 
 const submitManualAdd = async () => {
-  if (!manualForm.value.title.trim()) return
+  const title = manualForm.value.title.trim()
+  if (!title) return
+
+  if (isAlreadyInList(title)) {
+    triggerToast(`"${title}" znajduje się już na Waszej liście seansów! 🍿`, {
+      type: 'movies',
+      title: 'Już na liście'
+    })
+    return
+  }
 
   const genres = manualForm.value.genreInput
     ? manualForm.value.genreInput.split(',').map(s => s.trim()).filter(Boolean)
     : []
 
   await addMovie({
-    title: manualForm.value.title.trim(),
+    title,
     media_type: manualForm.value.media_type,
     status: manualForm.value.status,
     release_year: manualForm.value.release_year.trim() || null,
@@ -2125,12 +2200,10 @@ const selectedMovieForDetails = ref<any | null>(null)
 const savedMovieInList = computed<MovieItem | null>(() => {
   if (!selectedMovieForDetails.value) return null
   if (selectedMovieForDetails.value.id) {
-    return moviesList.value.find(m => m.id === selectedMovieForDetails.value?.id) || selectedMovieForDetails.value
+    const fromList = moviesList.value.find(m => m.id === selectedMovieForDetails.value?.id)
+    if (fromList) return fromList
   }
-  if (selectedMovieForDetails.value.tmdb_id) {
-    return moviesList.value.find(m => m.tmdb_id === selectedMovieForDetails.value?.tmdb_id) || null
-  }
-  return null
+  return findMovieInList(selectedMovieForDetails.value) || null
 })
 
 const openMovieDetailsModal = (movie: any) => {
@@ -2169,7 +2242,7 @@ const confirmDeleteMovie = (movie: MovieItem) => {
 
 const scheduleMovieDate = async (movie: any) => {
   // If drawn from TMDB and not yet saved in list, save it first as planned
-  if (!movie.id && movie.tmdb_id && !isAlreadyInList(movie.tmdb_id)) {
+  if (!movie.id && !isAlreadyInList(movie)) {
     await addMovie({
       title: movie.title,
       original_title: movie.original_title,

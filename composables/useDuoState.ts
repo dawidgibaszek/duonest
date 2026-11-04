@@ -231,6 +231,42 @@ const milestonesList = ref<NestMilestone[]>([])
 const wishlistItems = ref<WishlistItem[]>([])
 const moviesList = ref<MovieItem[]>([])
 
+export const normalizeMovieTitle = (str?: string | null): string => {
+  if (!str) return ''
+  return str.trim().toLowerCase().replace(/[\s\-_:,'"]+/g, ' ')
+}
+
+export const deduplicateMoviesList = (list: MovieItem[]): MovieItem[] => {
+  const seenMap = new Map<string, MovieItem>()
+
+  for (const item of list) {
+    if (!item || !item.title) continue
+    // Primary key: tmdb_id if present, else normalized title + media_type
+    const key = (item.tmdb_id && Number(item.tmdb_id))
+      ? `tmdb_${Number(item.tmdb_id)}`
+      : `title_${normalizeMovieTitle(item.title)}_${item.media_type || 'movie'}`
+
+    if (!seenMap.has(key)) {
+      seenMap.set(key, item)
+    } else {
+      // If we already saw this movie, keep the one with reviews or watched status
+      const existing = seenMap.get(key)!
+      const itemHasReviews = item.reviews && Object.keys(item.reviews).length > 0
+      const existingHasReviews = existing.reviews && Object.keys(existing.reviews).length > 0
+
+      if (!existingHasReviews && itemHasReviews) {
+        seenMap.set(key, item)
+      } else if (existing.status !== 'watched' && item.status === 'watched') {
+        seenMap.set(key, item)
+      } else if (existing.status === 'planned' && item.status === 'watching') {
+        seenMap.set(key, item)
+      }
+    }
+  }
+
+  return Array.from(seenMap.values())
+}
+
 const isOnlineWithSupabase = ref(true)
 const realtimeStatus = ref<'connected' | 'connecting' | 'disconnected'>('disconnected')
 const dbSchemaStatus = ref<'checking' | 'connected' | 'missing_tables'>('checking')
@@ -506,7 +542,10 @@ export const useDuoState = () => {
 
     const savedMovies = loadFromStorage<MovieItem[]>('duonest_movies', [])
     if (savedMovies && savedMovies.length > 0) {
-      moviesList.value = savedMovies
+      moviesList.value = deduplicateMoviesList(savedMovies)
+      if (moviesList.value.length !== savedMovies.length) {
+        saveToStorage('duonest_movies', moviesList.value)
+      }
     } else {
       moviesList.value = []
     }
@@ -1659,10 +1698,18 @@ export const useDuoState = () => {
 
         // --- MOVIES / FILMY & SERIALE ---
         case 'MOVIE_ADD': {
-          if (data?.id && !moviesList.value.some(m => m.id === data.id)) {
-            moviesList.value = [data, ...moviesList.value]
-            syncToStorage()
-            triggerToast(`${senderName} dodał(a) "${data.title}" do Waszej listy filmów! 🍿`, { type: 'movies', title: 'Filmy & Seriale' })
+          if (data?.id) {
+            const cleanTitle = normalizeMovieTitle(data.title)
+            const isDup = moviesList.value.some(m =>
+              m.id === data.id ||
+              (data.tmdb_id && m.tmdb_id && Number(m.tmdb_id) === Number(data.tmdb_id)) ||
+              (cleanTitle && normalizeMovieTitle(m.title) === cleanTitle)
+            )
+            if (!isDup) {
+              moviesList.value = [data, ...moviesList.value]
+              syncToStorage()
+              triggerToast(`${senderName} dodał(a) "${data.title}" do Waszej listy filmów! 🍿`, { type: 'movies', title: 'Filmy & Seriale' })
+            }
           }
           break
         }
@@ -2128,7 +2175,7 @@ export const useDuoState = () => {
       }
 
       if (movs?.data && movs.data.length > 0) {
-        moviesList.value = movs.data
+        moviesList.value = deduplicateMoviesList(movs.data)
       } else if (moviesList.value.length > 0) {
         try { await client.from('movies').upsert(moviesList.value) } catch (_) {}
       }
@@ -3254,6 +3301,30 @@ export const useDuoState = () => {
     if (!movie.title.trim()) return null
     if (!await verifyUserAndPartnershipAccess()) return null
 
+    // Prevent duplicate entries
+    const cleanTitle = normalizeMovieTitle(movie.title)
+    const cleanOrig = normalizeMovieTitle(movie.original_title)
+    const existing = moviesList.value.find(m => {
+      if (movie.tmdb_id && m.tmdb_id && Number(m.tmdb_id) === Number(movie.tmdb_id)) {
+        return true
+      }
+      const mTitle = normalizeMovieTitle(m.title)
+      const mOrig = normalizeMovieTitle(m.original_title)
+      if (cleanTitle && mTitle && cleanTitle === mTitle) return true
+      if (cleanTitle && mOrig && cleanTitle === mOrig) return true
+      if (cleanOrig && mTitle && cleanOrig === mTitle) return true
+      if (cleanOrig && mOrig && cleanOrig === mOrig) return true
+      return false
+    })
+
+    if (existing) {
+      triggerToast(`"${existing.title}" znajduje się już na Waszej liście seansów! 🍿`, {
+        type: 'movies',
+        title: 'Już na liście'
+      })
+      return existing
+    }
+
     const pId = partnership.value?.id || currentUser.value?.partnership_id || ''
     const newDoc: MovieItem = {
       id: 'mov_' + Math.random().toString(36).substring(2, 9),
@@ -3415,7 +3486,7 @@ export const useDuoState = () => {
       if (!error && data) {
         const remoteIds = new Set(data.map((i: MovieItem) => i.id))
         const localOnly = moviesList.value.filter(m => !remoteIds.has(m.id))
-        moviesList.value = [...data, ...localOnly]
+        moviesList.value = deduplicateMoviesList([...data, ...localOnly])
         syncToStorage()
       }
     } catch (e) {
