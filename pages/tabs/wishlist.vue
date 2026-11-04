@@ -1027,7 +1027,9 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   background: #ffffff;
   border-radius: 18px;
   border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--dn-card-shadow);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .scraper-header {
@@ -1087,8 +1089,8 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 }
 
 .scraper-ion-input:focus-within {
-  border-color: #0284c7;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
 }
 
 .scrape-action-btn {
@@ -1102,11 +1104,11 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   font-size: 13.5px;
   font-weight: 700;
   white-space: nowrap;
-  background: #0284c7;
+  background: #0f172a;
   color: #ffffff;
   border: none;
   cursor: pointer;
-  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.25);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
   transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
@@ -1197,10 +1199,10 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 }
 
 .filter-pill.active {
-  background: #0284c7;
+  background: #0f172a;
   color: #ffffff;
-  border-color: #0284c7;
-  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+  border-color: #0f172a;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .filter-badge {
@@ -1274,10 +1276,11 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   border-radius: 12px;
   font-size: 13.5px;
   font-weight: 700;
-  background: #0284c7;
+  background: #0f172a;
   color: #ffffff;
   border: none;
   cursor: pointer;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
 }
 
 /* WISHLIST GRID & CARDS */
@@ -1293,9 +1296,11 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   border-radius: 18px;
   padding: 14px 16px;
   border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.03);
+  box-shadow: var(--dn-card-shadow);
   transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
   position: relative;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .wishlist-card.is-completed {
@@ -1430,10 +1435,14 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   padding: 4px 8px;
   border-radius: 8px;
   margin: 4px 0 0;
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 5px;
   word-break: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .surprise-explainer-note {

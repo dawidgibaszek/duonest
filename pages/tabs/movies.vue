@@ -256,7 +256,6 @@
                   @click.stop="incrementEpisode(movie)"
                 >
                   <ion-icon :icon="ioniconsAdd" />
-                  <span>+1</span>
                 </button>
               </div>
             </div>
@@ -367,7 +366,7 @@
                 @click="toggleMovieStatus(movie, 'planned')"
               >
                 <ion-icon :icon="ioniconsTimeOutline" />
-                <span>Do planowanych</span>
+                <span>Planowane</span>
               </button>
 
               <!-- Schedule Movie Date to Calendar -->
@@ -377,7 +376,7 @@
                 @click="scheduleMovieDate(movie)"
               >
                 <ion-icon :icon="ioniconsCalendarOutline" />
-                <span>Zaplanuj seans</span>
+                <span>Zaplanuj</span>
               </button>
             </div>
           </div>
@@ -2747,9 +2746,11 @@ onMounted(() => {
 .quick-actions-card {
   padding: 14px;
   background: #ffffff;
-  border-radius: 20px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  border-radius: 18px;
+  box-shadow: var(--dn-card-shadow);
   border: 1px solid rgba(226, 232, 240, 0.8);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .actions-header-row {
@@ -2985,14 +2986,16 @@ onMounted(() => {
 
 .movie-card {
   background: #ffffff;
-  border-radius: 20px;
+  border-radius: 18px;
   padding: 14px;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--dn-card-shadow);
   display: flex;
   flex-direction: column;
   gap: 12px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .movie-card.is-watched {
@@ -3404,7 +3407,7 @@ onMounted(() => {
   flex: 1;
   padding: 8px 10px;
   border-radius: 10px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -5034,7 +5037,7 @@ ion-modal.dn-movies-random-modal {
 
 /* Shuffler / Winner Card */
 .random-display-card {
-  width: 100%;
+  width: auto;
   min-height: 160px;
   padding: 16px;
   background: #ffffff;
@@ -6020,8 +6023,8 @@ ion-modal.dn-movies-details-modal {
 }
 
 .series-tracker-icon {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 9px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -6041,7 +6044,7 @@ ion-modal.dn-movies-details-modal {
 }
 
 .series-tracker-label {
-  font-size: 10.5px;
+  font-size: 8px;
   font-weight: 600;
   color: #64748b;
   text-transform: uppercase;
@@ -6052,7 +6055,7 @@ ion-modal.dn-movies-details-modal {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 13px;
+  font-size: 10px;
   font-weight: 700;
   color: #0f172a;
   white-space: nowrap;
@@ -6078,7 +6081,7 @@ ion-modal.dn-movies-details-modal {
   border: 1px solid #e2e8f0;
   background: #ffffff;
   color: #334155;
-  font-size: 14px;
+  font-size: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;

@@ -1177,19 +1177,22 @@ const handleRefresh = (event: any) => {
 }
 
 .new-event-btn {
-  background: var(--dn-sea-gradient);
+  height: 34px;
+  background: #0f172a;
   color: #ffffff;
   border: none;
-  border-radius: 999px;
-  padding: 9px 16px;
+  border-radius: 10px;
+  padding: 0 14px;
   font-size: 13px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 5px;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
-  transition: transform 0.15s ease;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .new-event-btn:active {
@@ -1200,14 +1203,15 @@ const handleRefresh = (event: any) => {
 .featured-hero-card {
   margin: 12px 16px;
   padding: 16px;
-  border-radius: 20px;
+  border-radius: 18px;
   background: linear-gradient(135deg, #0284c7 0%, #0d9488 100%);
   color: #ffffff;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.28);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
   cursor: pointer;
   transition: transform 0.2s ease;
+  min-width: 0;
 }
 
 .featured-hero-card:active {
@@ -1260,6 +1264,9 @@ const handleRefresh = (event: any) => {
   margin: 0 0 10px 0;
   line-height: 1.3;
   color: #fff;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .featured-meta-row {
@@ -1297,7 +1304,7 @@ const handleRefresh = (event: any) => {
 
 .mode-pills-container {
   display: flex;
-  background: #e2e8f0;
+  background: #f1f5f9;
   padding: 4px;
   border-radius: 14px;
   gap: 4px;
@@ -1322,8 +1329,8 @@ const handleRefresh = (event: any) => {
 
 .mode-pill-btn.active {
   background: #ffffff;
-  color: #0284c7;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  color: #0f172a;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 /* CATEGORY FILTER SCROLL */
@@ -1357,10 +1364,10 @@ const handleRefresh = (event: any) => {
 }
 
 .cat-filter-chip.active {
-  background: #0284c7;
-  border-color: #0284c7;
+  background: #0f172a;
+  border-color: #0f172a;
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .chip-count {
@@ -1653,17 +1660,22 @@ const handleRefresh = (event: any) => {
 }
 
 .day-quick-add-btn {
-  background: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
+  background: #f8fafc;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: 10px;
   font-size: 12px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 4px;
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.day-quick-add-btn:active {
+  background: #f1f5f9;
 }
 
 /* DAY EVENTS LIST */
@@ -1698,6 +1710,14 @@ const handleRefresh = (event: any) => {
   display: flex;
   gap: 10px;
   align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.calendar-event-item ion-label {
+  white-space: normal !important;
+  min-width: 0;
+  width: 100%;
 }
 
 .calendar-event-item.is-event-done {
@@ -1752,6 +1772,8 @@ const handleRefresh = (event: any) => {
 
 .event-body {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .event-title-line {
@@ -1759,6 +1781,8 @@ const handleRefresh = (event: any) => {
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+  min-width: 0;
+  width: 100%;
 }
 
 .category-tag-mini {
@@ -1769,6 +1793,7 @@ const handleRefresh = (event: any) => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .cat-date { background: #ffe4e6; color: #e11d48; }
@@ -1789,12 +1814,17 @@ const handleRefresh = (event: any) => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .item-event-title {
   font-size: 14px;
   font-weight: 700;
   color: #0f172a;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
+  line-height: 1.35;
 }
 
 .item-event-title.strike {
@@ -1804,6 +1834,7 @@ const handleRefresh = (event: any) => {
 
 .event-extra-details {
   margin-top: 4px;
+  min-width: 0;
 }
 
 .detail-location-link {
@@ -1814,6 +1845,8 @@ const handleRefresh = (event: any) => {
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  word-break: break-all;
+  max-width: 100%;
 }
 
 .open-icon {
@@ -1826,6 +1859,9 @@ const handleRefresh = (event: any) => {
   color: #64748b;
   margin: 3px 0 0 0;
   line-height: 1.3;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .event-creator-row {
@@ -1984,6 +2020,10 @@ const handleRefresh = (event: any) => {
   padding: 14px;
   border-left-width: 4px;
   cursor: pointer;
+  border-radius: 18px;
+  box-shadow: var(--dn-card-shadow);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .agenda-card.completed-agenda-card {
@@ -2034,6 +2074,10 @@ const handleRefresh = (event: any) => {
   font-weight: 700;
   color: #0f172a;
   margin: 0 0 6px 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
+  line-height: 1.35;
 }
 
 .agenda-title.strike {
@@ -2060,8 +2104,11 @@ const handleRefresh = (event: any) => {
 .agenda-desc {
   font-size: 12px;
   color: #64748b;
-  margin: 4px 0 8px 0;
+  margin: 0;
   line-height: 1.3;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .agenda-footer-row {

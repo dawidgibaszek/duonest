@@ -419,9 +419,9 @@ const handleRefresh = (event: any) => {
 }
 
 .cat-chip.active {
-  background: #e0f2fe;
-  border-color: #0284c7;
-  color: #0284c7;
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
 }
 
 .add-btn {
@@ -455,12 +455,18 @@ const handleRefresh = (event: any) => {
   cursor: pointer;
   white-space: nowrap;
   box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  transition: all 0.15s ease;
+}
+
+.filter-pill:active {
+  transform: scale(0.96);
 }
 
 .filter-pill.active {
-  background: #0284c7;
+  background: #0f172a;
   color: #ffffff;
-  border-color: #0284c7;
+  border-color: #0f172a;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .filter-badge {
@@ -471,7 +477,8 @@ const handleRefresh = (event: any) => {
 }
 
 .filter-pill.active .filter-badge {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
 }
 
 /* LIST & ITEMS */
@@ -486,27 +493,45 @@ const handleRefresh = (event: any) => {
 .shopping-ion-list {
   background: transparent;
   margin: 4px 16px 16px 16px;
-  border-radius: 16px;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
   overflow: hidden;
-  box-shadow: var(--dn-card-shadow);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(15, 23, 42, 0.04);
 }
 
 .shopping-item {
   --padding-start: 12px;
   --inner-padding-end: 12px;
   --min-height: 56px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.shopping-item ion-label {
+  white-space: normal !important;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
 }
 
 .item-title-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 8px;
+  min-width: 0;
+  width: 100%;
 }
 
 .item-title {
   font-size: 15px;
   font-weight: 600;
   color: #0f172a;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .item-title.strike {
@@ -518,9 +543,12 @@ const handleRefresh = (event: any) => {
   font-size: 11px;
   font-weight: 700;
   background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   padding: 2px 7px;
   border-radius: 6px;
   color: #475569;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .item-meta {

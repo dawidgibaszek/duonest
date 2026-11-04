@@ -1227,31 +1227,38 @@ const handleRefresh = (event: any) => {
 }
 
 .count-chip {
-  background: #f0fdfa;
-  color: #0d9488;
-  font-size: 13px;
-  font-weight: 800;
-  padding: 2px 9px;
-  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  flex-shrink: 0;
 }
 
 .new-chore-btn {
-  background: var(--dn-sea-gradient);
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: #0f172a;
   color: #ffffff;
-  border: none;
-  border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  border: none;
   cursor: pointer;
-  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.3);
+  flex-shrink: 0;
+  touch-action: manipulation;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+  transition: transform 0.15s ease, background 0.15s ease;
 }
 
 .new-chore-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
+  background: #1e293b;
 }
 
 .segment-toolbar {
@@ -1271,28 +1278,45 @@ const handleRefresh = (event: any) => {
 .tasks-ion-list {
   background: transparent;
   margin: 4px 16px 16px 16px;
-  border-radius: 16px;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
   overflow: hidden;
-  box-shadow: var(--dn-card-shadow);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(15, 23, 42, 0.04);
 }
 
 .task-item {
   --padding-start: 12px;
   --inner-padding-end: 12px;
   --min-height: 64px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.task-item ion-label {
+  white-space: normal !important;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
 }
 
 .task-title-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
+  min-width: 0;
+  width: 100%;
 }
 
 .task-title {
   font-size: 15px;
   font-weight: 700;
   color: #0f172a;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .task-title.strike {
@@ -1308,6 +1332,8 @@ const handleRefresh = (event: any) => {
   border: 1px solid #bbf7d0;
   padding: 2px 7px;
   border-radius: 999px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .points-badge.completed-badge {
@@ -1317,10 +1343,13 @@ const handleRefresh = (event: any) => {
 }
 
 .task-desc {
-  font-size: 12px;
+  font-size: 12.5px;
   color: #64748b;
-  margin: 3px 0 6px 0;
-  line-height: 1.3;
+  margin: 4px 0 6px 0;
+  line-height: 1.35;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .task-tags-row {

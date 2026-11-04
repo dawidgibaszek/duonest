@@ -2038,6 +2038,7 @@ const handleRefresh = (event: any) => {
   gap: 8px;
   margin-bottom: 12px;
   border: 1px solid #f1f5f9;
+  min-width: 0;
 }
 
 .partner-note-box {
@@ -2059,6 +2060,9 @@ const handleRefresh = (event: any) => {
   font-style: italic;
   color: #334155;
   line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .profile-prefs-grid {
@@ -2666,10 +2670,10 @@ ion-modal.dn-edit-profile-modal {
 
 .category-toggle-pill {
   display: flex;
-  background: #e2e8f0;
-  padding: 3px;
-  border-radius: 999px;
-  gap: 2px;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 14px;
+  gap: 4px;
   width: 100%;
   max-width: 380px;
 }
@@ -2686,15 +2690,15 @@ ion-modal.dn-edit-profile-modal {
   color: #64748b;
   font-size: 13px;
   font-weight: 700;
-  border-radius: 999px;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .cat-toggle-btn.active {
   background: #ffffff;
-  color: #0284c7;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  color: #0f172a;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .category-content-wrap {

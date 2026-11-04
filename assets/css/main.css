@@ -39,8 +39,8 @@
   --dn-sea-gradient: linear-gradient(135deg, #0284c7 0%, #0d9488 100%);
   --dn-sea-light: #f0f9ff;
   --dn-sea-border: #e0f2fe;
-  --dn-card-shadow: 0 4px 20px -2px rgba(2, 132, 199, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
-  --dn-card-shadow-hover: 0 8px 30px -4px rgba(2, 132, 199, 0.14);
+  --dn-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(15, 23, 42, 0.04);
+  --dn-card-shadow-hover: 0 2px 6px rgba(0, 0, 0, 0.04), 0 8px 20px rgba(15, 23, 42, 0.07);
 }
 
 /* Global resets & typography */
@@ -58,6 +58,30 @@ body {
   user-select: none;
   -webkit-user-select: none;
   overscroll-behavior-y: none;
+}
+
+/* Universal text boundary & overflow protection */
+p, span, h1, h2, h3, h4, h5, h6, a, label, li, ion-label {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Prevent flex / grid containers from breaking past card borders */
+.dn-card,
+ion-card,
+ion-item,
+.dn-modal-container,
+.header-action-row,
+.card-title-row,
+.task-title-row,
+.item-title-row,
+.title-row,
+.event-title-line,
+.card-main-content,
+.movie-card-main,
+.card-info-col,
+.movie-meta-col {
+  min-width: 0;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -110,32 +134,86 @@ ion-toolbar {
 }
 
 .dn-page-header {
-  padding: 12px 16px 4px 16px;
+  padding: 12px 16px 6px 16px;
+  min-width: 0;
+}
+
+.header-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
 }
 
 .dn-header-title {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 800;
   color: #0f172a;
   display: flex;
   align-items: center;
   gap: 8px;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
 }
 
 .dn-header-subtitle {
   font-size: 13px;
+  font-weight: 500;
   color: #64748b;
   margin-top: 2px;
+  line-height: 1.35;
+}
+
+.count-chip {
+  font-size: 11px;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+
+.dn-header-btn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  touch-action: manipulation;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.dn-header-btn:active {
+  transform: scale(0.96);
+  background: #1e293b;
+}
+
+.dn-header-btn ion-icon {
+  font-size: 16px;
 }
 
 /* DuoNest Card Container */
 .dn-card {
   background: #ffffff;
-  border-radius: 20px;
-  border: 1px solid rgba(226, 232, 240, 0.7);
+  border-radius: 18px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
   box-shadow: var(--dn-card-shadow);
   padding: 16px;
-  margin: 12px 16px;
+  margin: 10px 16px;
+  min-width: 0;
+  overflow: hidden;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -148,18 +226,133 @@ ion-toolbar {
   border-radius: 9999px;
   font-size: 12px;
   font-weight: 600;
-  background: var(--dn-sea-light);
-  color: #0284c7;
-  border: 1px solid var(--dn-sea-border);
+  background: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+}
+
+/* Segmented Control & Filter Pills (Native iOS aesthetic) */
+.dn-segmented-control {
+  background: #f1f5f9;
+  border-radius: 12px;
+  padding: 4px;
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+}
+
+.dn-segmented-btn {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.dn-segmented-btn.active,
+.dn-segmented-btn.is-active {
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.dn-filter-chip {
+  padding: 6px 13px;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #475569;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.dn-filter-chip:active {
+  transform: scale(0.96);
+}
+
+.dn-filter-chip.active,
+.dn-filter-chip.is-active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Primary iOS Dark Slate Action Button */
+.dn-button-primary {
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  touch-action: manipulation;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.dn-button-primary:active {
+  transform: scale(0.97);
+  background: #1e293b;
+}
+
+/* Secondary Button */
+.dn-button-secondary {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.dn-button-secondary:active {
+  transform: scale(0.97);
+  background: #f1f5f9;
 }
 
 /* Modern Sea Gradient Button */
 .dn-button-sea {
-  background: var(--dn-sea-gradient);
+  background: #0f172a;
   color: #ffffff;
   font-weight: 700;
   border-radius: 14px;
-  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
   border: none;
   cursor: pointer;
   display: inline-flex;
@@ -167,13 +360,13 @@ ion-toolbar {
   justify-content: center;
   gap: 8px;
   padding: 12px 20px;
-  font-size: 15px;
+  font-size: 14.5px;
   transition: all 0.2s ease;
 }
 
 .dn-button-sea:active {
   transform: scale(0.97);
-  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+  background: #1e293b;
 }
 
 /* Animations */

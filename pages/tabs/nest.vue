@@ -1078,10 +1078,21 @@ const handleRefresh = (event: any) => {
   color: #16a34a;
   cursor: pointer;
   transition: transform 0.15s ease;
+  max-width: 170px;
 }
 
 .couple-indicator-badge:active {
   transform: scale(0.96);
+}
+
+.partner-name-tag {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-block;
 }
 
 .online-indicator-dot {
@@ -1090,6 +1101,7 @@ const handleRefresh = (event: any) => {
   border-radius: 50%;
   background: #94a3b8;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .online-indicator-dot.is-live {
@@ -1111,17 +1123,19 @@ const handleRefresh = (event: any) => {
   color: #ffffff;
   padding: 1px 5px;
   border-radius: 999px;
+  flex-shrink: 0;
 }
 
 /* HERO CARD */
 .hero-card {
   background: linear-gradient(135deg, #0284c7 0%, #0369a1 60%, #0d9488 100%);
   color: #ffffff;
-  border-radius: 24px;
-  padding: 22px;
+  border-radius: 20px;
+  padding: 20px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 12px 30px -5px rgba(2, 132, 199, 0.4);
+  box-shadow: 0 8px 24px -4px rgba(2, 132, 199, 0.25);
+  min-width: 0;
 }
 
 .hero-top {
@@ -1205,6 +1219,9 @@ const handleRefresh = (event: any) => {
   font-size: 21px;
   font-weight: 800;
   color: #ffffff;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .nest-level-tag {
@@ -1317,11 +1334,11 @@ const handleRefresh = (event: any) => {
 }
 
 .celebrate-btn {
-  background: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
+  background: #f8fafc;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
   padding: 8px 16px;
-  border-radius: 999px;
+  border-radius: 10px;
   font-size: 13px;
   font-weight: 700;
   display: inline-flex;
@@ -1333,7 +1350,7 @@ const handleRefresh = (event: any) => {
 
 .celebrate-btn:active {
   transform: scale(0.96);
-  background: #dcfce7;
+  background: #f1f5f9;
 }
 
 /* SECTION BADGES */
@@ -1592,6 +1609,7 @@ const handleRefresh = (event: any) => {
 
 .mini-task-details {
   flex: 1;
+  min-width: 0;
 }
 
 .mini-task-title {
@@ -1599,6 +1617,10 @@ const handleRefresh = (event: any) => {
   font-weight: 600;
   color: #0f172a;
   display: block;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
+  line-height: 1.35;
 }
 
 .mini-task-assignee {
@@ -1610,6 +1632,8 @@ const handleRefresh = (event: any) => {
   font-size: 11px;
   font-weight: 700;
   color: #0284c7;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .empty-mini-card {
@@ -1635,6 +1659,9 @@ const handleRefresh = (event: any) => {
   font-size: 13px;
   color: #475569;
   margin: 0 0 10px 0;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .event-date-pill {
@@ -1667,19 +1694,20 @@ const handleRefresh = (event: any) => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
-  color: #0284c7;
+  background: #0f172a;
+  border: 1px solid #0f172a;
+  color: #ffffff;
   font-size: 12px;
   font-weight: 700;
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: 10px;
   cursor: pointer;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
   transition: all 0.2s ease;
 }
 
 .add-goal-btn:hover {
-  background: #e0f2fe;
+  background: #1e293b;
 }
 
 .add-goal-btn:active {
@@ -1896,10 +1924,10 @@ const handleRefresh = (event: any) => {
 }
 
 .filter-chip.active {
-  background: #0284c7;
-  border-color: #0284c7;
+  background: #0f172a;
+  border-color: #0f172a;
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .chip-count {
@@ -1928,12 +1956,14 @@ const handleRefresh = (event: any) => {
   border-radius: 16px;
   padding: 14px;
   transition: all 0.2s ease;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .milestone-card-item.is-ready {
-  border-color: #0284c7;
-  background: linear-gradient(180deg, #ffffff 0%, #f0f9ff 100%);
-  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.12);
+  border-color: #0f172a;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: var(--dn-card-shadow);
 }
 
 .milestone-card-item.is-claimed {
@@ -1957,12 +1987,14 @@ const handleRefresh = (event: any) => {
   border-width: 1px;
   border-style: solid;
   letter-spacing: -0.01em;
+  flex-shrink: 0;
 }
 
 .milestone-top-right {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .goal-pts-tag {
@@ -1999,6 +2031,7 @@ const handleRefresh = (event: any) => {
 
 .milestone-text-block {
   margin-bottom: 10px;
+  min-width: 0;
 }
 
 .milestone-title {
@@ -2007,6 +2040,9 @@ const handleRefresh = (event: any) => {
   color: #0f172a;
   margin: 0;
   line-height: 1.35;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .milestone-desc {
@@ -2014,6 +2050,9 @@ const handleRefresh = (event: any) => {
   color: #64748b;
   margin: 4px 0 0 0;
   line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 /* Progress Wrap */
