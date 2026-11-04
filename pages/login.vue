@@ -196,6 +196,19 @@
               <span>{{ errorMessage }}</span>
             </div>
 
+            <!-- RESEND VERIFICATION BUTTON (IF UNVERIFIED) -->
+            <div class="resend-verification-container" v-if="errorMessage && errorMessage.includes('nie został jeszcze zweryfikowany')">
+              <button
+                type="button"
+                class="resend-verification-btn"
+                @click="handleResendVerification"
+                :disabled="isLoading"
+              >
+                <ion-icon :icon="ioniconsSendOutline" />
+                <span>Wyślij link aktywacyjny ponownie</span>
+              </button>
+            </div>
+
             <!-- SUCCESS BANNER -->
             <div class="friendly-success" v-if="successMessage">
               <ion-icon :icon="ioniconsCheckmarkCircleOutline" class="succ-icon" />
@@ -276,6 +289,7 @@ const {
   signUpWithEmail,
   requestPasswordReset,
   completePasswordReset,
+  resendVerificationEmail,
   isPaired,
   initializeClientState
 } = useDuoState()
@@ -449,13 +463,19 @@ const handleSubmit = async () => {
         window.location.href = '/pairing'
       }
     } else if (mode.value === 'register') {
-      const { error } = await signUpWithEmail(
+      const { data, error } = await signUpWithEmail(
         emailInput.value,
         passwordInput.value,
         nameInput.value
       )
       if (error) {
         errorMessage.value = translateAuthError(error)
+        isLoading.value = false
+        return
+      }
+
+      if (data?.needsEmailVerification) {
+        successMessage.value = `Konto zostało pomyślnie utworzone! Wysłaliśmy e-mail z linkiem aktywacyjnym na adres ${emailInput.value}. Otwórz wiadomość i kliknij w link, aby aktywować konto (sprawdź też folder SPAM).`
         isLoading.value = false
         return
       }
@@ -473,7 +493,7 @@ const handleSubmit = async () => {
         return
       }
 
-      successMessage.value = 'Wiadomość z linkiem do resetu hasła została wysłana na Twój adres e-mail! Sprawdź skrzynkę odbiorczą (w tym folder SPAM).'
+      successMessage.value = 'Jeśli podany adres e-mail istnieje w bazie, przesłana została na niego wiadomość z linkiem do zmiany hasła. Sprawdź swoją skrzynkę (w tym folder SPAM).'
     } else if (mode.value === 'recovery') {
       if (newPasswordInput.value !== confirmPasswordInput.value) {
         errorMessage.value = 'Podane hasła nie są identyczne.'
@@ -496,6 +516,29 @@ const handleSubmit = async () => {
           window.location.href = '/pairing'
         }
       }, 1000)
+    }
+  } catch (err: any) {
+    errorMessage.value = translateAuthError(err)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const handleResendVerification = async () => {
+  if (!emailInput.value) {
+    errorMessage.value = 'Wprowadź adres e-mail powyżej, aby wysłać link aktywacyjny.'
+    return
+  }
+  isLoading.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+
+  try {
+    const { error } = await resendVerificationEmail(emailInput.value)
+    if (error) {
+      errorMessage.value = translateAuthError(error)
+    } else {
+      successMessage.value = `Nowy link aktywacyjny został wysłany na adres ${emailInput.value}! Sprawdź swoją skrzynkę (w tym folder SPAM).`
     }
   } catch (err: any) {
     errorMessage.value = translateAuthError(err)
@@ -938,4 +981,32 @@ const handleSubmit = async () => {
   text-decoration: underline;
 }
 
+.resend-verification-container {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+.resend-verification-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f0f9ff;
+  color: #0284c7;
+  border: 1.5px solid #bae6fd;
+  border-radius: 12px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.resend-verification-btn:hover {
+  background: #e0f2fe;
+}
+
+.resend-verification-btn:active {
+  transform: scale(0.98);
+}
 </style>

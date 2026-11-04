@@ -837,14 +837,17 @@ export const useDuoState = () => {
         }
       }
 
-      // Validate password
+      // Validate password & email verification status
       const rawColor = dbProfile.avatar_color || '#0284c7'
       let storedHash = ''
       let displayColor = '#0284c7'
+      let isUnverified = false
+
       if (rawColor.includes('|')) {
         const parts = rawColor.split('|')
         displayColor = parts[0] || '#0284c7'
         storedHash = parts[1] || ''
+        isUnverified = parts[2] === 'unverified'
       } else {
         displayColor = rawColor
       }
@@ -854,6 +857,27 @@ export const useDuoState = () => {
         return {
           data: null,
           error: new Error('Nieprawidłowe hasło. Sprawdź hasło i spróbuj ponownie.')
+        }
+      }
+
+      // Check email verification for newly registered accounts
+      if (isUnverified) {
+        let hasConfirmedInSupabase = false
+        try {
+          const { data: userData } = await supabase.auth.getUser()
+          if (userData?.user?.email_confirmed_at && userData.user.email?.toLowerCase() === cleanEmail) {
+            hasConfirmedInSupabase = true
+          }
+        } catch (_) {}
+
+        if (hasConfirmedInSupabase) {
+          isUnverified = false
+          safeDb(supabase.from('profiles').update({ avatar_color: `${displayColor}|${storedHash}` }).eq('id', dbProfile.id))
+        } else {
+          return {
+            data: null,
+            error: new Error('Twój adres e-mail nie został jeszcze zweryfikowany. Sprawdź swoją skrzynkę (w tym folder SPAM) i kliknij w link aktywacyjny.')
+          }
         }
       }
 
@@ -938,7 +962,7 @@ export const useDuoState = () => {
         }
       }
 
-      // 2. Hash password & prepare unique profile
+      // 2. Hash password & prepare unique profile with unverified flag for new signups
       const passHash = await hashPassword(password)
       const newUserId = 'usr_' + Math.random().toString(36).substring(2, 11)
       const newPairingCode = generateUniqueCode()
@@ -949,7 +973,7 @@ export const useDuoState = () => {
         email: cleanEmail,
         name: cleanName,
         avatar_url: null,
-        avatar_color: `#0284c7|${passHash}`,
+        avatar_color: `#0284c7|${passHash}|unverified`,
         pairing_code: newPairingCode,
         partnership_id: null,
         current_mood: 'happy',
@@ -969,48 +993,31 @@ export const useDuoState = () => {
         throw new Error('Nie udało się utworzyć profilu: ' + (insertErr.message || insertErr))
       }
 
-      currentUserPasswordHash.value = passHash
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('duonest_user_pwd_hash', passHash)
-      }
+      // 4. Trigger email verification link via Supabase Auth + Resend SMTP
+      const verifyRedirectUrl = typeof window !== 'undefined'
+        ? `${window.location.origin}/verified`
+        : 'https://duonestapp.pl/verified'
 
-      // Also register in Supabase Auth in background to enable password recovery features
       try {
         await supabase.auth.signUp({
           email: cleanEmail,
           password: password,
           options: {
-            data: { name: cleanName }
+            data: { name: cleanName },
+            emailRedirectTo: verifyRedirectUrl
           }
         })
-      } catch (_) {}
-
-      // 4. Authenticate user immediately with no email verification needed
-      const authUserObj = {
-        id: newUserId,
-        email: cleanEmail,
-        user_metadata: { name: cleanName }
-      }
-      const authSessionObj = {
-        user: authUserObj,
-        access_token: 'duonest_direct_' + newUserId
+      } catch (authErr) {
+        console.warn('Supabase auth signUp warning:', authErr)
       }
 
-      authUser.value = authUserObj
-      authSession.value = authSessionObj
-      saveToStorage('duonest_auth_user', authUserObj)
-      saveToStorage('duonest_auth_session', authSessionObj)
-
-      currentUser.value = {
-        ...newProfile,
-        avatar_color: '#0284c7'
+      return {
+        data: {
+          needsEmailVerification: true,
+          email: cleanEmail
+        },
+        error: null
       }
-      syncToStorage()
-
-      subscribeToPairingChannel(newPairingCode)
-      subscribeToSecurityChannel(newProfile.id, null)
-
-      return { data: { user: authUserObj, session: authSessionObj }, error: null }
     } catch (err: any) {
       return { data: null, error: err }
     }
@@ -1036,10 +1043,8 @@ export const useDuoState = () => {
         .maybeSingle()
 
       if (!dbProfile) {
-        return {
-          data: null,
-          error: new Error('Nie znaleziono konta z tym adresem e-mail. Sprawdź e-mail lub zarejestruj się.')
-        }
+        // Anti-enumeration: return success without revealing whether email is registered
+        return { data: true, error: null }
       }
 
       // Ensure user account exists in Supabase auth.users so Supabase Auth can send the email
@@ -1183,6 +1188,77 @@ export const useDuoState = () => {
     } catch (err: any) {
       console.error('Password reset exception:', err)
       return { data: null, error: err }
+    }
+  }
+
+  const verifyEmailForProfile = async (targetEmail: string) => {
+    if (!supabase) return { success: false, error: 'Brak połączenia z systemem' }
+    const clean = (targetEmail || '').trim().toLowerCase()
+    if (!clean || !clean.includes('@')) {
+      return { success: false, error: 'Nieprawidłowy adres e-mail' }
+    }
+
+    try {
+      const { data: dbProfile, error: fetchErr } = await supabase
+        .from('profiles')
+        .select('id, email, avatar_color')
+        .ilike('email', clean)
+        .maybeSingle()
+
+      if (fetchErr || !dbProfile) {
+        return { success: false, error: 'Nie znaleziono profilu dla tego adresu e-mail' }
+      }
+
+      const rawColor = dbProfile.avatar_color || '#0284c7'
+      if (rawColor.includes('|unverified')) {
+        const parts = rawColor.split('|')
+        const displayColor = parts[0] || '#0284c7'
+        const hash = parts[1] || ''
+        const updatedColor = `${displayColor}|${hash}`
+
+        const { error: updateErr } = await supabase
+          .from('profiles')
+          .update({ avatar_color: updatedColor })
+          .eq('id', dbProfile.id)
+
+        if (updateErr) {
+          console.error('Failed to update verified status in profiles:', updateErr)
+          return { success: false, error: updateErr.message }
+        }
+      }
+
+      return { success: true, email: clean }
+    } catch (err: any) {
+      return { success: false, error: err?.message || String(err) }
+    }
+  }
+
+  const resendVerificationEmail = async (email: string) => {
+    if (!supabase) return { success: false, error: new Error('Brak połączenia z systemem') }
+    const cleanEmail = email.trim().toLowerCase()
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return { success: false, error: new Error('Wprowadź poprawny adres e-mail.') }
+    }
+
+    const verifyRedirectUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}/verified`
+      : 'https://duonestapp.pl/verified'
+
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: cleanEmail,
+        options: {
+          emailRedirectTo: verifyRedirectUrl
+        }
+      })
+
+      if (error) {
+        return { success: false, error }
+      }
+      return { success: true, error: null }
+    } catch (err: any) {
+      return { success: false, error: err }
     }
   }
 
@@ -3980,6 +4056,8 @@ export const useDuoState = () => {
     normalizePairingCode,
     verifyUserAndPartnershipAccess,
     requestPasswordReset,
-    completePasswordReset
+    completePasswordReset,
+    verifyEmailForProfile,
+    resendVerificationEmail
   }
 }
