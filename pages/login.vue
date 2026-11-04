@@ -44,14 +44,6 @@
             </p>
           </div>
 
-          <!-- RECOVERY SUBHEADER (FROM EMAIL LINK) -->
-          <div class="auth-subview-header" v-else-if="mode === 'recovery'">
-            <h2 class="subview-title">Ustaw nowe hasło</h2>
-            <p class="subview-desc">
-              Wprowadź nowe hasło (min. 6 znaków) dla swojego konta w DuoNest.
-            </p>
-          </div>
-
           <!-- FORM -->
           <form @submit.prevent="handleSubmit" class="auth-form">
             <!-- NAME FIELD (ONLY REGISTER) -->
@@ -70,15 +62,15 @@
               </div>
             </div>
 
-            <!-- EMAIL FIELD (LOGIN, REGISTER, FORGOT - NEVER IN RECOVERY) -->
-            <div class="form-field" v-if="mode !== 'recovery'">
+            <!-- EMAIL FIELD -->
+            <div class="form-field">
               <div class="field-label-row">
                 <label class="field-label">Adres e-mail</label>
               </div>
               <div class="input-container">
                 <ion-icon :icon="ioniconsMailOutline" class="field-icon" />
                 <input
-                  v-model="emailInput"
+                  v-model.trim="emailInput"
                   type="email"
                   placeholder="twoj@email.pl"
                   class="styled-native-input"
@@ -86,17 +78,6 @@
                   inputmode="email"
                   required
                 />
-              </div>
-            </div>
-
-            <!-- DETECTED CRYPTOGRAPHICALLY VERIFIED EMAIL (RECOVERY MODE ONLY - IMMUTABLE) -->
-            <div class="recovery-email-box" v-else-if="mode === 'recovery'">
-              <div class="recovery-email-left">
-                <ion-icon :icon="ioniconsMailOutline" class="recovery-email-icon" />
-                <div class="recovery-email-texts">
-                  <span class="recovery-email-label">Konto do zmiany hasła</span>
-                  <span class="recovery-email-val">{{ recoveryVerifiedEmail }}</span>
-                </div>
               </div>
             </div>
 
@@ -139,49 +120,6 @@
               </button>
             </div>
 
-            <!-- RECOVERY FIELDS (NEW PASSWORD & CONFIRM) -->
-            <template v-if="mode === 'recovery'">
-              <div class="form-field">
-                <label class="field-label">Nowe hasło</label>
-                <div class="input-container">
-                  <ion-icon :icon="ioniconsLockClosedOutline" class="field-icon" />
-                  <input
-                    v-model="newPasswordInput"
-                    :type="showNewPassword ? 'text' : 'password'"
-                    placeholder="••••••••"
-                    class="styled-native-input password-input"
-                    autocomplete="new-password"
-                    minlength="6"
-                    required
-                  />
-                  <button
-                    type="button"
-                    class="eye-toggle-btn"
-                    @click="showNewPassword = !showNewPassword"
-                    tabindex="-1"
-                  >
-                    <ion-icon :icon="showNewPassword ? ioniconsEyeOffOutline : ioniconsEyeOutline" />
-                  </button>
-                </div>
-              </div>
-
-              <div class="form-field">
-                <label class="field-label">Powtórz nowe hasło</label>
-                <div class="input-container">
-                  <ion-icon :icon="ioniconsLockClosedOutline" class="field-icon" />
-                  <input
-                    v-model="confirmPasswordInput"
-                    :type="showNewPassword ? 'text' : 'password'"
-                    placeholder="••••••••"
-                    class="styled-native-input password-input"
-                    autocomplete="new-password"
-                    minlength="6"
-                    required
-                  />
-                </div>
-              </div>
-            </template>
-
             <!-- FRIENDLY ERROR BANNER -->
             <div class="friendly-error" v-if="errorMessage">
               <ion-icon :icon="ioniconsAlertCircleOutline" class="err-icon" />
@@ -218,8 +156,7 @@
                 {{
                   mode === 'login' ? 'Zaloguj się' :
                   mode === 'register' ? 'Utwórz konto' :
-                  mode === 'forgot' ? 'Wyślij link resetujący' :
-                  'Zapisz hasło i zaloguj się'
+                  'Wyślij link resetujący'
                 }}
               </span>
             </button>
@@ -273,7 +210,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { useDuoState, getSupabaseClient, clearStaleSupabaseCookies } from '~/composables/useDuoState'
+import { useDuoState, getSupabaseClient, clearStaleSupabaseCookies, sanitizeEmail } from '~/composables/useDuoState'
 
 const route = useRoute()
 const {
@@ -290,25 +227,16 @@ const {
 
 initializeClientState()
 
-const mode = ref<'login' | 'register' | 'forgot' | 'recovery'>('login')
-const recoveryVerifiedEmail = ref('')
+const mode = ref<'login' | 'register' | 'forgot'>(route.query.forgot === '1' ? 'forgot' : 'login')
 const emailInput = ref('')
 const passwordInput = ref('')
 const nameInput = ref('')
-const newPasswordInput = ref('')
-const confirmPasswordInput = ref('')
 const showPassword = ref(false)
-const showNewPassword = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
 const isFormValid = computed(() => {
-  if (mode.value === 'recovery') {
-    return Boolean(recoveryVerifiedEmail.value) &&
-      newPasswordInput.value.length >= 6 &&
-      newPasswordInput.value === confirmPasswordInput.value
-  }
   const hasEmail = emailInput.value.includes('@') && emailInput.value.length > 4
   if (mode.value === 'forgot') {
     return hasEmail
@@ -320,7 +248,7 @@ const isFormValid = computed(() => {
   return hasEmail && hasPass
 })
 
-const switchMode = (newMode: 'login' | 'register' | 'forgot' | 'recovery') => {
+const switchMode = (newMode: 'login' | 'register' | 'forgot') => {
   mode.value = newMode
   errorMessage.value = ''
   successMessage.value = ''
@@ -357,109 +285,31 @@ onMounted(async () => {
   const hash = window.location.hash || ''
   const search = window.location.search || ''
   const urlParams = new URLSearchParams(search)
-  const hashParams = new URLSearchParams(hash.replace(/^#/, ''))
 
-  // 1. Detect any error returned by Supabase Auth (e.g. expired link, invalid OTP)
-  const authError = hashParams.get('error') || urlParams.get('error')
-  const authErrorCode = hashParams.get('error_code') || urlParams.get('error_code')
-  const authErrorDesc = hashParams.get('error_description') || urlParams.get('error_description')
+  // 1. If recovery intent or tokens detected, immediately delegate to dedicated /reset-password
+  const isRecoveryIntent =
+    urlParams.get('type') === 'recovery' ||
+    hash.includes('type=recovery') ||
+    hash.includes('access_token') ||
+    urlParams.has('code') ||
+    hash.includes('error=') ||
+    urlParams.has('error')
 
-  if (authError || authErrorCode || authErrorDesc) {
-    clearStaleSupabaseCookies()
-    mode.value = 'login'
-    if (window.history?.replaceState) {
-      window.history.replaceState(null, '', window.location.pathname)
-    }
-    if (authErrorCode === 'otp_expired' || authErrorDesc?.includes('expired') || authErrorDesc?.includes('invalid')) {
-      errorMessage.value = 'Link do zmiany hasła wygasł lub został już wykorzystany. Ze względów bezpieczeństwa linki są jednorazowe. Skorzystaj z opcji "Nie pamiętasz hasła?", aby otrzymać nowy link.'
-    } else {
-      errorMessage.value = authErrorDesc ? decodeURIComponent(authErrorDesc.replace(/\+/g, ' ')) : 'Link do zmiany hasła jest nieprawidłowy lub wygasł.'
-    }
+  if (isRecoveryIntent) {
+    window.location.href = '/reset-password' + search + hash
     return
   }
 
-  // 2. Extract potential cryptographic tokens
-  const accessToken = hashParams.get('access_token')
-  const refreshToken = hashParams.get('refresh_token')
-  const code = urlParams.get('code')
-  const type = hashParams.get('type') || urlParams.get('type')
-  const isRecoveryIntent = type === 'recovery' || hash.includes('type=recovery') || Boolean(accessToken && (hash.includes('type=recovery') || type === 'recovery')) || Boolean(code && type === 'recovery')
-
-  const supabase = getSupabaseClient()
-  let verifiedEmail = ''
-
-  // 3. Handle implicit recovery token in hash
-  if (accessToken && (type === 'recovery' || hash.includes('type=recovery'))) {
-    if (supabase && refreshToken) {
-      try {
-        const { data: sData, error: sErr } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken
-        })
-        if (!sErr && sData?.session?.user?.email) {
-          verifiedEmail = sData.session.user.email.trim().toLowerCase()
-        }
-      } catch (_) {}
-    }
-
-    if (!verifiedEmail) {
-      try {
-        const payloadBase64 = accessToken.split('.')[1]
-        if (payloadBase64) {
-          const decoded = JSON.parse(atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/')))
-          const nowSec = Math.floor(Date.now() / 1000)
-          if (decoded?.exp && decoded.exp < nowSec) {
-            // Token expired!
-            verifiedEmail = ''
-          } else if (decoded?.email) {
-            verifiedEmail = String(decoded.email).trim().toLowerCase()
-          }
-        }
-      } catch (_) {}
-    }
+  // 2. Check if user came from 'forgot=1'
+  if (route.query.forgot === '1') {
+    mode.value = 'forgot'
   }
 
-  // 4. Handle PKCE code in query
-  if (code && supabase && isRecoveryIntent) {
-    try {
-      const { data: codeData, error: codeErr } = await supabase.auth.exchangeCodeForSession(code)
-      if (!codeErr && codeData?.session?.user?.email) {
-        verifiedEmail = codeData.session.user.email.trim().toLowerCase()
-      }
-    } catch (_) {}
-  }
-
-  // 5. Try validating with getUser() if recovery intent was detected
-  if (isRecoveryIntent && !verifiedEmail && supabase) {
-    try {
-      const { data: userData, error: uErr } = await supabase.auth.getUser()
-      if (!uErr && userData?.user?.email) {
-        verifiedEmail = userData.user.email.trim().toLowerCase()
-      }
-    } catch (_) {}
-  }
-
-  // 6. Security Decision: ONLY show recovery form if email is cryptographically verified from token!
-  if (isRecoveryIntent) {
-    if (verifiedEmail) {
-      recoveryVerifiedEmail.value = verifiedEmail
-      mode.value = 'recovery'
-      return
-    } else {
-      clearStaleSupabaseCookies()
-      mode.value = 'login'
-      if (window.history?.replaceState) {
-        window.history.replaceState(null, '', window.location.pathname)
-      }
-      errorMessage.value = 'Link do zmiany hasła wygasł lub jest nieprawidłowy. Poproś o nowy link klikając "Nie pamiętasz hasła?".'
-      return
-    }
-  }
-
-  // Normal login view
+  // 3. Clear any leftover stale recovery cookies
   clearStaleSupabaseCookies()
+
   if (urlParams.get('email')) {
-    emailInput.value = urlParams.get('email')!.trim().toLowerCase()
+    emailInput.value = sanitizeEmail(urlParams.get('email'))
   }
 })
 
@@ -510,34 +360,6 @@ const handleSubmit = async () => {
       }
 
       successMessage.value = 'Jeśli podany adres e-mail istnieje w bazie, przesłana została na niego wiadomość z linkiem do zmiany hasła. Sprawdź swoją skrzynkę (w tym folder SPAM).'
-    } else if (mode.value === 'recovery') {
-      if (newPasswordInput.value !== confirmPasswordInput.value) {
-        errorMessage.value = 'Podane hasła nie są identyczne.'
-        isLoading.value = false
-        return
-      }
-
-      if (!recoveryVerifiedEmail.value) {
-        errorMessage.value = 'Brak autoryzacji do zmiany hasła. Link wygasł.'
-        isLoading.value = false
-        return
-      }
-
-      const { error } = await completePasswordReset(newPasswordInput.value)
-      if (error) {
-        errorMessage.value = translateAuthError(error)
-        isLoading.value = false
-        return
-      }
-
-      successMessage.value = 'Hasło zostało pomyślnie zmienione! Logowanie...'
-      setTimeout(() => {
-        if (typeof window !== 'undefined' && window.history?.replaceState) {
-          window.history.replaceState(null, '', window.location.pathname)
-        }
-        const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id) ? '/tabs/nest' : '/pairing'
-        window.location.href = destination
-      }, 1000)
     }
   } catch (err: any) {
     errorMessage.value = translateAuthError(err)

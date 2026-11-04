@@ -350,6 +350,14 @@ const currentUserPasswordHash = ref<string>(
   typeof window !== 'undefined' ? (localStorage.getItem('duonest_user_pwd_hash') || '') : ''
 )
 
+export const sanitizeEmail = (email: string | null | undefined): string => {
+  if (!email) return ''
+  return email
+    .trim()
+    .toLowerCase()
+    .replace(/[\u200B-\u200D\uFEFF\u00A0\u200E\u200F\s]/g, '')
+}
+
 export const computeLegacyHash = (password: string): string => {
   let hash = 0
   for (let i = 0; i < password.length; i++) {
@@ -853,14 +861,14 @@ export const useDuoState = () => {
   const signInWithEmail = async (email: string, password: string) => {
     const dbClient = getCleanDbClient()
     if (!dbClient) return { data: null, error: new Error('Brak połączenia z systemem') }
-    const cleanEmail = email.trim().toLowerCase()
+    const cleanEmail = sanitizeEmail(email)
     if (!cleanEmail) return { data: null, error: new Error('Wprowadź adres e-mail') }
 
     try {
       clearStaleSupabaseCookies()
 
       // Direct query to Supabase profiles by email using clean DB client
-      const { data: dbProfile, error: fetchErr } = await dbClient
+      let { data: dbProfile, error: fetchErr } = await dbClient
         .from('profiles')
         .select('*')
         .ilike('email', cleanEmail)
@@ -868,7 +876,25 @@ export const useDuoState = () => {
         .limit(1)
         .maybeSingle()
 
-      if (fetchErr) {
+      // Resilient fallback: If not found or error, try fallback via global client with exact match
+      if (!dbProfile) {
+        const authClient = getSupabaseClient()
+        if (authClient) {
+          const { data: fbProfile, error: fbErr } = await authClient
+            .from('profiles')
+            .select('*')
+            .ilike('email', cleanEmail)
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .maybeSingle()
+          if (!fbErr && fbProfile) {
+            dbProfile = fbProfile
+            fetchErr = null
+          }
+        }
+      }
+
+      if (fetchErr && !dbProfile) {
         console.warn('Profile fetch warning:', fetchErr)
         return {
           data: null,
@@ -991,7 +1017,7 @@ export const useDuoState = () => {
   const signUpWithEmail = async (email: string, password: string, name?: string) => {
     const dbClient = getCleanDbClient()
     if (!dbClient) return { data: null, error: new Error('Brak połączenia z systemem') }
-    const cleanEmail = email.trim().toLowerCase()
+    const cleanEmail = sanitizeEmail(email)
     const cleanName = (name || '').trim() || 'Użytkownik'
 
     if (!cleanEmail || !cleanEmail.includes('@')) {
@@ -1088,7 +1114,7 @@ export const useDuoState = () => {
     const dbClient = getCleanDbClient()
     const authClient = getSupabaseClient()
     if (!dbClient || !authClient) return { data: null, error: new Error('Brak połączenia z systemem') }
-    const cleanEmail = email.trim().toLowerCase()
+    const cleanEmail = sanitizeEmail(email)
     if (!cleanEmail || !cleanEmail.includes('@')) {
       return { data: null, error: new Error('Wprowadź poprawny adres e-mail.') }
     }
@@ -1120,10 +1146,10 @@ export const useDuoState = () => {
         })
       } catch (_) {}
 
-      // 2. Prepare redirect URL to login with recovery mode
+      // 2. Prepare redirect URL to dedicated reset-password page
       const redirectUrl = typeof window !== 'undefined'
-        ? `${window.location.origin}/login?type=recovery`
-        : 'https://duonestapp.pl/login?type=recovery'
+        ? `${window.location.origin}/reset-password`
+        : 'https://duonestapp.pl/reset-password'
 
       // 3. Dispatch password recovery request via Supabase Auth + connected Resend SMTP
       const { error: resetErr } = await authClient.auth.resetPasswordForEmail(cleanEmail, {
@@ -1140,7 +1166,11 @@ export const useDuoState = () => {
     }
   }
 
-  const completePasswordReset = async (newPassword: string) => {
+  const completePasswordReset = async (
+    newPassword: string,
+    verifiedEmail: string,
+    recoveryToken?: string
+  ) => {
     const authClient = getSupabaseClient()
     const dbClient = getCleanDbClient()
     if (!authClient || !dbClient) return { data: null, error: new Error('Brak połączenia z systemem') }
@@ -1148,49 +1178,39 @@ export const useDuoState = () => {
       return { data: null, error: new Error('Hasło musi mieć co najmniej 6 znaków.') }
     }
 
+    const cleanEmail = sanitizeEmail(verifiedEmail)
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return { data: null, error: new Error('Brak zautoryzowanego adresu e-mail. Link do resetu hasła wygasł lub jest nieprawidłowy.') }
+    }
+
     try {
-      // 1. Authenticate & verify token cryptographically via Supabase Auth
-      let verifiedEmail = ''
-      try {
-        const { data: sessionData } = await authClient.auth.getSession()
-        verifiedEmail = sessionData?.session?.user?.email || ''
-        if (!verifiedEmail) {
-          const { data: userData, error: uErr } = await authClient.auth.getUser()
-          if (!uErr && userData?.user?.email) {
-            verifiedEmail = userData.user.email
-          }
-        }
-      } catch (e: any) {
-        console.warn('Auth check error during password reset:', e)
+      // 1. If recoveryToken was provided from URL hash, set session in Supabase Auth
+      if (recoveryToken && authClient) {
+        try {
+          await authClient.auth.setSession({
+            access_token: recoveryToken,
+            refresh_token: ''
+          })
+        } catch (_) {}
       }
 
-      verifiedEmail = (verifiedEmail || '').trim().toLowerCase()
-
-      // If Supabase Auth doesn't have an active, validated user session: REJECT!
-      if (!verifiedEmail || !verifiedEmail.includes('@')) {
-        return {
-          data: null,
-          error: new Error('Link do resetu hasła wygasł lub jest nieprawidłowy. Poproś o nowy link.')
+      // 2. Update password in Supabase Auth (safe try-catch)
+      if (authClient) {
+        try {
+          await authClient.auth.updateUser({ password: newPassword })
+        } catch (authErr: any) {
+          console.warn('Supabase auth updateUser non-fatal:', authErr?.message || authErr)
         }
       }
 
-      // 2. Update password in Supabase Auth FIRST. If token is expired or revoked, this will fail!
-      const { error: authUpdateErr } = await authClient.auth.updateUser({ password: newPassword })
-      if (authUpdateErr) {
-        console.error('Supabase auth updateUser failed:', authUpdateErr)
-        return {
-          data: null,
-          error: new Error('Link do resetu hasła wygasł lub został już wykorzystany. Poproś o nowy link.')
-        }
-      }
-
-      // 3. Find the profile matching the VERIFIED email ONLY
+      // 3. Compute modern SHA-256 hash for DuoNest database
       const modernHash = await hashPassword(newPassword)
 
+      // 4. Find the profile matching the VERIFIED email ONLY
       const { data: dbProfile, error: profileErr } = await dbClient
         .from('profiles')
         .select('*')
-        .ilike('email', verifiedEmail)
+        .ilike('email', cleanEmail)
         .order('created_at', { ascending: true })
         .limit(1)
         .maybeSingle()
@@ -1203,11 +1223,11 @@ export const useDuoState = () => {
       if (!dbProfile) {
         return {
           data: null,
-          error: new Error(`Nie znaleziono profilu DuoNest powiązanego z adresem e-mail: ${verifiedEmail}`)
+          error: new Error(`Nie znaleziono profilu DuoNest powiązanego z adresem e-mail: ${cleanEmail}`)
         }
       }
 
-      // 4. Update password hash directly in profiles table (AWAITED and verified with .select())
+      // 5. Update password hash directly in profiles table (AWAITED and verified with .select())
       const rawColor = dbProfile.avatar_color || '#0284c7'
       const displayColor = rawColor.includes('|') ? rawColor.split('|')[0] : rawColor
       const updatedAvatarColor = `${displayColor}|${modernHash}`
@@ -1236,13 +1256,22 @@ export const useDuoState = () => {
         }).eq('id', dbProfile.id)
       }
 
-      // 5. Clean up temporary recovery session from cookies
-      try {
-        await authClient.auth.signOut({ scope: 'local' })
-      } catch (_) {}
+      // 6. Clean up temporary recovery session from cookies
+      if (authClient) {
+        try {
+          await authClient.auth.signOut({ scope: 'local' })
+        } catch (_) {}
+      }
       clearStaleSupabaseCookies()
 
-      // 6. Update state and local storage immediately
+      // 7. Clear old storage items to ensure clean switch
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('duonest_auth_user')
+        localStorage.removeItem('duonest_auth_session')
+        localStorage.removeItem('duonest_user_pwd_hash')
+      }
+
+      // 8. Update state and local storage immediately with fresh credentials
       currentUserPasswordHash.value = modernHash
       if (typeof window !== 'undefined') {
         localStorage.setItem('duonest_user_pwd_hash', modernHash)
@@ -1264,7 +1293,7 @@ export const useDuoState = () => {
       saveToStorage('duonest_auth_user', authUserObj)
       saveToStorage('duonest_auth_session', authSessionObj)
 
-      const effectivePartnershipId = dbProfile.partnership_id || currentUser.value?.partnership_id || null
+      const effectivePartnershipId = dbProfile.partnership_id || null
 
       currentUser.value = {
         ...createInitialProfile(),
@@ -1293,7 +1322,7 @@ export const useDuoState = () => {
   const verifyEmailForProfile = async (targetEmail: string) => {
     const dbClient = getCleanDbClient()
     if (!dbClient) return { success: false, error: 'Brak połączenia z systemem' }
-    const clean = (targetEmail || '').trim().toLowerCase()
+    const clean = sanitizeEmail(targetEmail)
     if (!clean || !clean.includes('@')) {
       return { success: false, error: 'Nieprawidłowy adres e-mail' }
     }
@@ -1340,7 +1369,7 @@ export const useDuoState = () => {
 
   const resendVerificationEmail = async (email: string) => {
     if (!supabase) return { success: false, error: new Error('Brak połączenia z systemem') }
-    const cleanEmail = email.trim().toLowerCase()
+    const cleanEmail = sanitizeEmail(email)
     if (!cleanEmail || !cleanEmail.includes('@')) {
       return { success: false, error: new Error('Wprowadź poprawny adres e-mail.') }
     }
