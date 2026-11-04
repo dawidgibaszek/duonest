@@ -34,11 +34,13 @@ export default defineNuxtConfig({
     // Server-only keys (not exposed to client browser)
     vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || '',
     vapidSubject: process.env.VAPID_SUBJECT || 'mailto:kontakt@duonest.app',
+    tmdbApiKey: process.env.TMDB_API_KEY || '',
 
     public: {
       supabaseUrl: process.env.SUPABASE_URL || process.env.NUXT_PUBLIC_SUPABASE_URL || ('https://' + 'hfvgobhxiuchchblaajq.supabase.co'),
       supabaseKey: process.env.SUPABASE_KEY || process.env.NUXT_PUBLIC_SUPABASE_KEY || ['sb_publishable_', 'kQsFx4GuieBdbGJaEl3eDg_', 'RE0FD9lR'].join(''),
-      vapidPublicKey: process.env.VAPID_PUBLIC_KEY || process.env.NUXT_PUBLIC_VAPID_PUBLIC_KEY || ''
+      vapidPublicKey: process.env.VAPID_PUBLIC_KEY || process.env.NUXT_PUBLIC_VAPID_PUBLIC_KEY || '',
+      tmdbApiKey: process.env.NUXT_PUBLIC_TMDB_API_KEY || process.env.TMDB_API_KEY || ''
     }
   },
 

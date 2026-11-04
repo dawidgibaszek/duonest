@@ -143,6 +143,29 @@ create table if not exists public.wishlist_items (
   created_at timestamptz default now()
 );
 
+-- 10. MOVIES & SERIES (Wspólna lista filmów, seriali i anime z recenzjami)
+create table if not exists public.movies (
+  id text primary key,
+  partnership_id text not null,
+  tmdb_id integer,
+  title text not null,
+  original_title text,
+  media_type text not null default 'movie', -- 'movie' | 'tv' | 'anime'
+  poster_path text,
+  backdrop_path text,
+  release_year text,
+  genres text[],
+  overview text,
+  vote_average numeric,
+  status text not null default 'planned', -- 'planned' | 'watching' | 'watched'
+  target_date text,
+  added_by text,
+  watched_at timestamptz,
+  reviews jsonb default '{}'::jsonb,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
 -- ==========================================================
 -- INDEXES FOR FAST REALTIME QUERIES
 -- ==========================================================
@@ -155,6 +178,7 @@ create index if not exists idx_moods_partnership on public.mood_logs(partnership
 create index if not exists idx_nudges_partnership on public.nudges(partnership_id);
 create index if not exists idx_milestones_partnership on public.milestones(partnership_id);
 create index if not exists idx_wishlist_partnership on public.wishlist_items(partnership_id);
+create index if not exists idx_movies_partnership on public.movies(partnership_id);
 
 -- ==========================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -168,6 +192,7 @@ alter table public.mood_logs enable row level security;
 alter table public.nudges enable row level security;
 alter table public.milestones enable row level security;
 alter table public.wishlist_items enable row level security;
+alter table public.movies enable row level security;
 
 -- Open policies for anon & authenticated couple access
 drop policy if exists "Allow all on profiles" on public.profiles;
@@ -196,6 +221,9 @@ create policy "Allow all on milestones" on public.milestones for all using (true
 
 drop policy if exists "Allow all on wishlist_items" on public.wishlist_items;
 create policy "Allow all on wishlist_items" on public.wishlist_items for all using (true) with check (true);
+
+drop policy if exists "Allow all on movies" on public.movies;
+create policy "Allow all on movies" on public.movies for all using (true) with check (true);
 
 -- ==========================================================
 -- ENABLE REALTIME REPLICATION ON ALL TABLES
@@ -251,6 +279,12 @@ end $$;
 do $$
 begin
   alter publication supabase_realtime add table public.wishlist_items;
+exception when others then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.movies;
 exception when others then null;
 end $$;
 

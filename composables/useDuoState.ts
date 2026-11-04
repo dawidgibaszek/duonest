@@ -116,6 +116,36 @@ export interface WishlistItem {
   created_at: string
 }
 
+export interface MovieReview {
+  user_id: string
+  author_name: string
+  rating: number // 1 - 10
+  comment: string
+  updated_at: string
+}
+
+export interface MovieItem {
+  id: string
+  partnership_id: string
+  tmdb_id?: number | null
+  title: string
+  original_title?: string | null
+  media_type: 'movie' | 'tv' | 'anime'
+  poster_path?: string | null
+  backdrop_path?: string | null
+  release_year?: string | null
+  genres?: string[] | null
+  overview?: string | null
+  vote_average?: number | null
+  status: 'planned' | 'watching' | 'watched'
+  target_date?: string | null
+  added_by?: string | null
+  watched_at?: string | null
+  reviews?: Record<string, MovieReview>
+  created_at: string
+  updated_at?: string
+}
+
 // Helpers for unique code generation
 const generateUniqueCode = () => {
   const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'
@@ -199,6 +229,7 @@ const eventsList = ref<EventItem[]>([])
 const nudgesList = ref<NudgeItem[]>([])
 const milestonesList = ref<NestMilestone[]>([])
 const wishlistItems = ref<WishlistItem[]>([])
+const moviesList = ref<MovieItem[]>([])
 
 const isOnlineWithSupabase = ref(true)
 const realtimeStatus = ref<'connected' | 'connecting' | 'disconnected'>('disconnected')
@@ -473,6 +504,13 @@ export const useDuoState = () => {
       wishlistItems.value = []
     }
 
+    const savedMovies = loadFromStorage<MovieItem[]>('duonest_movies', [])
+    if (savedMovies && savedMovies.length > 0) {
+      moviesList.value = savedMovies
+    } else {
+      moviesList.value = []
+    }
+
     if (typeof window !== 'undefined' && currentUser.value?.id) {
       try {
         const savedTs = localStorage.getItem(`duonest_last_nudge_ts_${currentUser.value.id}`)
@@ -673,6 +711,7 @@ export const useDuoState = () => {
     eventsList.value = []
     nudgesList.value = []
     wishlistItems.value = []
+    moviesList.value = []
     lastNudgeSentAt.value = null
     if (typeof window !== 'undefined') {
       localStorage.removeItem('duonest_auth_user')
@@ -686,6 +725,7 @@ export const useDuoState = () => {
       localStorage.removeItem('duonest_events')
       localStorage.removeItem('duonest_nudges')
       localStorage.removeItem('duonest_wishlist')
+      localStorage.removeItem('duonest_movies')
     }
   }
 
@@ -928,6 +968,7 @@ export const useDuoState = () => {
     saveToStorage('duonest_nudges', nudgesList.value)
     saveToStorage('duonest_milestones', milestonesList.value)
     saveToStorage('duonest_wishlist', wishlistItems.value)
+    saveToStorage('duonest_movies', moviesList.value)
   }
 
   // Broadcast an action to the partner via Supabase Realtime WebSocket
@@ -1616,6 +1657,60 @@ export const useDuoState = () => {
           break
         }
 
+        // --- MOVIES / FILMY & SERIALE ---
+        case 'MOVIE_ADD': {
+          if (data?.id && !moviesList.value.some(m => m.id === data.id)) {
+            moviesList.value = [data, ...moviesList.value]
+            syncToStorage()
+            triggerToast(`${senderName} dodał(a) "${data.title}" do Waszej listy filmów! 🍿`, { type: 'movies', title: 'Filmy & Seriale' })
+          }
+          break
+        }
+        case 'MOVIE_UPDATE': {
+          if (data?.id) {
+            const idx = moviesList.value.findIndex(m => m.id === data.id)
+            if (idx !== -1) {
+              const prev = moviesList.value[idx]
+              const updated = { ...prev, ...data }
+              moviesList.value = moviesList.value.map(m => m.id === data.id ? updated : m)
+              syncToStorage()
+              if (data.last_reviewer_id && data.last_reviewer_id !== currentUser.value?.id) {
+                triggerToast(`${senderName} ocenił(a) film: "${prev.title}"! ⭐ Sprawdź recenzję.`, { type: 'movies', title: 'Nowa recenzja' })
+              }
+            } else {
+              moviesList.value = [data, ...moviesList.value]
+              syncToStorage()
+            }
+          }
+          break
+        }
+        case 'MOVIE_DELETE': {
+          if (data?.id) {
+            const deleted = moviesList.value.find(m => m.id === data.id)
+            moviesList.value = moviesList.value.filter(m => m.id !== data.id)
+            syncToStorage()
+            if (deleted) {
+              triggerToast(`${senderName} usunął(a) "${deleted.title}" z listy filmów.`, { type: 'movies', title: 'Filmy & Seriale' })
+            }
+          }
+          break
+        }
+        case 'MOVIE_TOGGLE_WATCHED': {
+          if (data?.id) {
+            const item = moviesList.value.find(m => m.id === data.id)
+            if (item) {
+              item.status = data.status
+              item.watched_at = data.watched_at
+              moviesList.value = [...moviesList.value]
+              syncToStorage()
+              if (data.status === 'watched') {
+                triggerToast(`${senderName} oznaczył(a) "${item.title}" jako obejrzane! 🎉 Czas na recenzję.`, { type: 'movies', title: 'Filmy & Seriale' })
+              }
+            }
+          }
+          break
+        }
+
         // --- PARTNERSHIP UPDATES ---
         case 'PARTNERSHIP_UPDATE': {
           if (data && partnership.value) {
@@ -1993,12 +2088,13 @@ export const useDuoState = () => {
     const client = getSupabaseClient()
     if (!client) return
     try {
-      const [shops, tasks, evts, ndgs, wshs] = await Promise.all([
+      const [shops, tasks, evts, ndgs, wshs, movs] = await Promise.all([
         client.from('shopping_items').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         client.from('tasks').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         client.from('events').select('*').eq('partnership_id', partnershipId).order('start_time', { ascending: true }),
         client.from('nudges').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }).limit(20),
-        client.from('wishlist_items').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false })
+        client.from('wishlist_items').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
+        client.from('movies').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false })
       ])
 
       if (shops.data && shops.data.length > 0) {
@@ -2029,6 +2125,12 @@ export const useDuoState = () => {
         wishlistItems.value = filtered
       } else if (wishlistItems.value.length > 0) {
         try { await client.from('wishlist_items').upsert(wishlistItems.value) } catch (_) {}
+      }
+
+      if (movs?.data && movs.data.length > 0) {
+        moviesList.value = movs.data
+      } else if (moviesList.value.length > 0) {
+        try { await client.from('movies').upsert(moviesList.value) } catch (_) {}
       }
 
       if (partnership.value) {
@@ -3134,6 +3236,193 @@ export const useDuoState = () => {
     }
   }
 
+  // --- MOVIES / FILMY & SERIALE CRUD ACTIONS ---
+  const addMovie = async (movie: {
+    title: string
+    original_title?: string | null
+    tmdb_id?: number | null
+    media_type: 'movie' | 'tv' | 'anime'
+    poster_path?: string | null
+    backdrop_path?: string | null
+    release_year?: string | null
+    genres?: string[] | null
+    overview?: string | null
+    vote_average?: number | null
+    status?: 'planned' | 'watching' | 'watched'
+    target_date?: string | null
+  }): Promise<MovieItem | null> => {
+    if (!movie.title.trim()) return null
+    if (!await verifyUserAndPartnershipAccess()) return null
+
+    const pId = partnership.value?.id || currentUser.value?.partnership_id || ''
+    const newDoc: MovieItem = {
+      id: 'mov_' + Math.random().toString(36).substring(2, 9),
+      partnership_id: pId,
+      tmdb_id: movie.tmdb_id || null,
+      title: movie.title.trim(),
+      original_title: movie.original_title || null,
+      media_type: movie.media_type || 'movie',
+      poster_path: movie.poster_path || null,
+      backdrop_path: movie.backdrop_path || null,
+      release_year: movie.release_year || null,
+      genres: movie.genres || [],
+      overview: movie.overview || null,
+      vote_average: movie.vote_average || null,
+      status: movie.status || 'planned',
+      target_date: movie.target_date || null,
+      added_by: currentUser.value?.id || null,
+      watched_at: movie.status === 'watched' ? new Date().toISOString() : null,
+      reviews: {},
+      created_at: new Date().toISOString()
+    }
+
+    moviesList.value = [newDoc, ...moviesList.value.filter(m => m.id !== newDoc.id)]
+    syncToStorage()
+
+    broadcastToPartner('MOVIE_ADD', newDoc)
+
+    const client = getSupabaseClient()
+    if (client && pId) {
+      safeDb(client.from('movies').insert(newDoc))
+    }
+
+    triggerToast(`Dodano "${newDoc.title}" do Waszej listy! 🍿`, { type: 'movies', title: 'Filmy & Seriale' })
+    return newDoc
+  }
+
+  const updateMovie = async (id: string, updates: Partial<MovieItem>) => {
+    if (!await verifyUserAndPartnershipAccess()) return
+    const idx = moviesList.value.findIndex(m => m.id === id)
+    if (idx === -1) return
+    const current = moviesList.value[idx]
+    const updated: MovieItem = {
+      ...current,
+      ...updates,
+      updated_at: new Date().toISOString()
+    }
+    moviesList.value = moviesList.value.map(m => m.id === id ? updated : m)
+    syncToStorage()
+
+    broadcastToPartner('MOVIE_UPDATE', updated)
+
+    const client = getSupabaseClient()
+    const pId = partnership.value?.id || currentUser.value?.partnership_id
+    if (client && pId) {
+      safeDb(client.from('movies').update(updates).eq('id', id))
+    }
+  }
+
+  const deleteMovie = async (id: string) => {
+    if (!await verifyUserAndPartnershipAccess()) return
+    const item = moviesList.value.find(m => m.id === id)
+    if (!item) return
+    moviesList.value = moviesList.value.filter(m => m.id !== id)
+    syncToStorage()
+
+    broadcastToPartner('MOVIE_DELETE', { id })
+
+    const client = getSupabaseClient()
+    const pId = partnership.value?.id || currentUser.value?.partnership_id
+    if (client && pId) {
+      safeDb(client.from('movies').delete().eq('id', id))
+    }
+
+    triggerToast(`Usunięto "${item.title}" z listy filmów.`)
+  }
+
+  const toggleMovieWatched = async (id: string, targetStatus?: 'planned' | 'watching' | 'watched') => {
+    if (!await verifyUserAndPartnershipAccess()) return
+    const item = moviesList.value.find(m => m.id === id)
+    if (!item) return
+
+    const newStatus = targetStatus || (item.status === 'watched' ? 'planned' : 'watched')
+    const watchedAt = newStatus === 'watched' ? new Date().toISOString() : null
+
+    const updated: MovieItem = {
+      ...item,
+      status: newStatus,
+      watched_at: watchedAt,
+      updated_at: new Date().toISOString()
+    }
+
+    moviesList.value = moviesList.value.map(m => m.id === id ? updated : m)
+    syncToStorage()
+
+    broadcastToPartner('MOVIE_TOGGLE_WATCHED', { id, status: newStatus, watched_at: watchedAt })
+
+    const client = getSupabaseClient()
+    const pId = partnership.value?.id || currentUser.value?.partnership_id
+    if (client && pId) {
+      safeDb(client.from('movies').update({ status: newStatus, watched_at: watchedAt }).eq('id', id))
+    }
+
+    if (newStatus === 'watched') {
+      triggerToast(`"${item.title}" oznaczono jako obejrzane! 🎉 Czas na recenzję.`, { type: 'movies', title: 'Filmy & Seriale' })
+    } else if (newStatus === 'watching') {
+      triggerToast(`Zaczęliście seans "${item.title}"! 🍿`, { type: 'movies', title: 'Filmy & Seriale' })
+    } else {
+      triggerToast(`Przeniesiono "${item.title}" do planowanych.`)
+    }
+  }
+
+  const saveMovieReview = async (movieId: string, rating: number, comment: string) => {
+    if (!await verifyUserAndPartnershipAccess()) return
+    const item = moviesList.value.find(m => m.id === movieId)
+    if (!item) return
+    const myId = currentUser.value?.id
+    if (!myId) return
+
+    const reviews = { ...(item.reviews || {}) }
+    reviews[myId] = {
+      user_id: myId,
+      author_name: currentUser.value?.name || 'Ja',
+      rating: Math.max(1, Math.min(10, Math.round(rating))),
+      comment: comment.trim(),
+      updated_at: new Date().toISOString()
+    }
+
+    const updated: MovieItem = {
+      ...item,
+      reviews,
+      updated_at: new Date().toISOString()
+    }
+
+    moviesList.value = moviesList.value.map(m => m.id === movieId ? updated : m)
+    syncToStorage()
+
+    broadcastToPartner('MOVIE_UPDATE', { id: movieId, reviews, last_reviewer_id: myId })
+
+    const client = getSupabaseClient()
+    const pId = partnership.value?.id || currentUser.value?.partnership_id
+    if (client && pId) {
+      safeDb(client.from('movies').update({ reviews }).eq('id', movieId))
+    }
+
+    triggerToast(`Zapisano Twoją recenzję dla "${item.title}" (${rating}/10 ⭐)!`, { type: 'movies', title: 'Recenzje Filmowe' })
+  }
+
+  const refreshMovies = async () => {
+    const client = getSupabaseClient()
+    const pId = partnership.value?.id || currentUser.value?.partnership_id
+    if (!client || !pId) return
+    try {
+      const { data, error } = await client
+        .from('movies')
+        .select('*')
+        .eq('partnership_id', pId)
+        .order('created_at', { ascending: false })
+
+      if (!error && data) {
+        const remoteIds = new Set(data.map((i: MovieItem) => i.id))
+        const localOnly = moviesList.value.filter(m => !remoteIds.has(m.id))
+        moviesList.value = [...data, ...localOnly]
+        syncToStorage()
+      }
+    } catch (e) {
+      console.warn('refreshMovies error:', e)
+    }
+  }
+
   return {
     authUser,
     authSession,
@@ -3152,11 +3441,18 @@ export const useDuoState = () => {
     nudgesList,
     milestonesList,
     wishlistItems,
+    moviesList,
     addWishlistItem,
     updateWishlistItem,
     deleteWishlistItem,
     toggleWishlistCompleted,
     refreshWishlist,
+    addMovie,
+    updateMovie,
+    deleteMovie,
+    toggleMovieWatched,
+    saveMovieReview,
+    refreshMovies,
     updatePet,
     isPaired,
     isOnlineWithSupabase,

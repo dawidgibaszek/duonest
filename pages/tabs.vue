@@ -28,6 +28,9 @@
           <TabWishlist />
         </div>
         <div class="tab-slide" :class="{ 'is-active': activeTabIndex === 5 }">
+          <TabMovies />
+        </div>
+        <div class="tab-slide" :class="{ 'is-active': activeTabIndex === 6 }">
           <TabRelationship />
         </div>
       </div>
@@ -114,13 +117,29 @@
 
       <button
         type="button"
-        id="tab-btn-relationship"
+        id="tab-btn-movies"
         class="duo-tab-btn"
         :class="{ 'is-active': activeTabIndex === 5 }"
         @click="goToTab(5)"
       >
         <div class="tab-icon-wrap">
-          <ion-icon :icon="activeTabIndex === 5 ? ioniconsSparkles : ioniconsSparklesOutline" />
+          <ion-icon :icon="activeTabIndex === 5 ? ioniconsFilm : ioniconsFilmOutline" />
+          <span v-if="pendingMoviesCount > 0" class="tab-badge purple-badge">
+            {{ pendingMoviesCount }}
+          </span>
+        </div>
+        <span class="tab-title">Filmy</span>
+      </button>
+
+      <button
+        type="button"
+        id="tab-btn-relationship"
+        class="duo-tab-btn"
+        :class="{ 'is-active': activeTabIndex === 6 }"
+        @click="goToTab(6)"
+      >
+        <div class="tab-icon-wrap">
+          <ion-icon :icon="activeTabIndex === 6 ? ioniconsSparkles : ioniconsSparklesOutline" />
         </div>
         <span class="tab-title">Relacja</span>
       </button>
@@ -138,10 +157,11 @@ import TabShopping from '~/pages/tabs/shopping.vue'
 import TabTasks from '~/pages/tabs/tasks.vue'
 import TabCalendar from '~/pages/tabs/calendar.vue'
 import TabWishlist from '~/pages/tabs/wishlist.vue'
+import TabMovies from '~/pages/tabs/movies.vue'
 import TabRelationship from '~/pages/tabs/relationship.vue'
 
 const route = useRoute()
-const { shoppingItems, tasksList, eventsList, wishlistItems } = useDuoState()
+const { shoppingItems, tasksList, eventsList, wishlistItems, moviesList } = useDuoState()
 
 const pendingShoppingCount = computed(() => {
   return shoppingItems.value.filter(i => !i.is_completed).length
@@ -160,7 +180,11 @@ const pendingWishlistCount = computed(() => {
   return wishlistItems.value.filter(w => !w.is_completed).length
 })
 
-const TABS = ['nest', 'shopping', 'tasks', 'calendar', 'wishlist', 'relationship']
+const pendingMoviesCount = computed(() => {
+  return moviesList.value.filter(m => m.status === 'planned').length
+})
+
+const TABS = ['nest', 'shopping', 'tasks', 'calendar', 'wishlist', 'movies', 'relationship']
 const activeTabIndex = ref(0)
 const dragOffset = ref(0)
 const isDragging = ref(false)
@@ -392,12 +416,12 @@ watch(() => route.path, () => {
   position: absolute;
   top: 0;
   left: 0;
-  width: 600%; /* 6 slides * 100% */
+  width: 700%; /* 7 slides * 100% */
   will-change: transform;
 }
 
 .tab-slide {
-  width: 16.666667%; /* 1/6th of 600% = 100% of container viewport */
+  width: 14.285714%; /* 1/7th of 700% = 100% of container viewport */
   height: 100%;
   position: relative;
   overflow: hidden;
@@ -466,7 +490,7 @@ watch(() => route.path, () => {
 
 .tab-icon-wrap {
   position: relative;
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1;
   display: flex;
   align-items: center;
@@ -474,9 +498,9 @@ watch(() => route.path, () => {
 }
 
 .tab-title {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 600;
-  letter-spacing: -0.2px;
+  letter-spacing: -0.3px;
   line-height: 1.2;
 }
 
@@ -497,4 +521,5 @@ watch(() => route.path, () => {
 .secondary-badge { background: #0d9488; }
 .tertiary-badge { background: #6366f1; }
 .pink-badge { background: #f43f5e; }
+.purple-badge { background: #8b5cf6; }
 </style>
