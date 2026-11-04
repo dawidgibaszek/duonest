@@ -317,6 +317,11 @@
                   </a>
                 </div>
 
+                <!-- Event Description if provided -->
+                <div v-if="evt.description" class="event-desc-box">
+                  <p class="event-description-text">{{ evt.description }}</p>
+                </div>
+
                 <!-- Creator tag at the bottom -->
                 <div class="event-creator-row">
                   <span
@@ -1949,6 +1954,31 @@ const handleRefresh = (event: any) => {
   color: #94a3b8;
   flex-shrink: 0;
   margin-left: 2px;
+}
+
+.event-desc-box {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  background: #f8fafc;
+  border-left: 2.5px solid #cbd5e1;
+  border-radius: 4px 6px 6px 4px;
+  padding: 6px 10px;
+  box-sizing: border-box;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.event-description-text {
+  margin: 0;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.45;
+  white-space: pre-line;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  width: 100%;
 }
 
 .event-creator-row {
