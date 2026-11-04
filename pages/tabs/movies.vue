@@ -5486,6 +5486,7 @@ ion-modal.dn-movies-random-modal {
   font-size: 13.5px;
   color: #0f172a;
   outline: none;
+  background: #fff;
 }
 
 .form-input:focus {
@@ -5502,6 +5503,7 @@ ion-modal.dn-movies-random-modal {
   outline: none;
   font-family: inherit;
   resize: vertical;
+  background: #fff;
 }
 
 .form-textarea:focus {

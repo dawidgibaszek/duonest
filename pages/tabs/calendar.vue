@@ -246,106 +246,86 @@
         </div>
 
 
-        <!-- Events List on Selected Day with Swipe Options -->
-        <ion-list class="day-events-sliding-list" :inset="true" v-if="filteredSelectedDayEvents.length > 0">
-          <ion-item-sliding v-for="evt in filteredSelectedDayEvents" :key="evt.id">
-            <!-- Swipe RIGHT (side="start"): Mark Done -->
-            <ion-item-options side="start" @ionSwipe="handleSwipeCompleteEvent(evt)">
-              <ion-item-option color="success" :expandable="true" @click="handleSwipeCompleteEvent(evt)">
-                <ion-icon slot="icon-only" :icon="ioniconsCheckmarkDoneOutline" />
-              </ion-item-option>
-            </ion-item-options>
-
-            <ion-item class="calendar-event-item" :class="['border-' + evt.category, { 'is-event-done': evt.is_completed }]" lines="none">
-              <!-- Checkbox to toggle completed -->
-              <button
-                class="event-done-toggle"
-                :class="{ done: evt.is_completed }"
-                @click.stop="toggleEventCompleted(evt.id)"
-                title="Oznacz jako zrealizowane"
-              >
-                <ion-icon :icon="evt.is_completed ? ioniconsCheckmarkCircle : ioniconsEllipseOutline" />
-              </button>
-
-              <!-- Event Body (Full Width) -->
-              <div class="event-body">
-                <!-- Top Row: Tags + Time on left, Actions on right -->
-                <div class="event-top-row">
-                  <div class="event-tags-wrap">
-                    <span class="category-tag-mini" :class="'cat-' + evt.category">
-                      <DuoIcon :name="'cat-' + evt.category" :size="12" />
-                      <span>{{ getCategoryLabel(evt.category) }}</span>
-                    </span>
-                    <div class="event-time-chip">
-                      <ion-icon :icon="ioniconsTimeOutline" />
-                      <span>{{ formatTimeOnly(evt.start_time) }}</span>
-                      <span v-if="evt.end_time" class="time-chip-end">- {{ formatTimeOnly(evt.end_time) }}</span>
-                    </div>
-                    <span v-if="evt.is_surprise" class="surprise-tag">
-                      <DuoIcon name="gift" :size="11" />
-                      <span>Niespodzianka!</span>
-                    </span>
-                  </div>
-
-                  <!-- Action buttons in top right -->
-                  <div class="event-actions-row">
-                    <button class="event-action-btn edit-btn" @click.stop="openEditModal(evt)" title="Edytuj plan">
-                      <ion-icon :icon="ioniconsPencilOutline" />
-                    </button>
-                    <button class="event-action-btn delete-btn" @click.stop="confirmDeleteEvent(evt.id, evt.title)" title="Usuń plan">
-                      <ion-icon :icon="ioniconsTrashOutline" />
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Title: Full Width, bold, clean -->
-                <div class="event-title-wrap">
-                  <h4 class="item-event-title" :class="{ strike: evt.is_completed }">{{ evt.title }}</h4>
-                </div>
-
-                <!-- Location details -->
-                <div v-if="evt.location" class="event-extra-details">
-                  <a
-                    :href="getMapsUrl(evt.location)"
-                    target="_blank"
-                    class="detail-location-link"
-                    @click.stop
-                  >
-                    <ion-icon :icon="ioniconsLocationOutline" class="location-icon" />
-                    <span class="location-name">{{ evt.location }}</span>
-                    <ion-icon :icon="ioniconsOpenOutline" class="open-icon" />
-                  </a>
-                </div>
-
-                <!-- Event Description if provided -->
-                <div v-if="evt.description" class="event-desc-box">
-                  <p class="event-description-text">{{ evt.description }}</p>
-                </div>
-
-                <!-- Creator tag at the bottom -->
-                <div class="event-creator-row">
-                  <span
-                    class="creator-tag"
-                    :style="{
-                      color: getUserAccentColor(evt.created_by),
-                      backgroundColor: hexToRgba(getUserAccentColor(evt.created_by), 0.1),
-                      borderColor: hexToRgba(getUserAccentColor(evt.created_by), 0.25)
-                    }"
-                  >
-                    Inicjatywa: {{ evt.planner_name || (evt.created_by === currentUser.id ? 'Ty' : (partnerUser?.name || 'Partner')) }}
-                  </span>
-                </div>
+        <!-- Events List on Selected Day (Unified Agenda Card Design) -->
+        <div class="agenda-cards-list day-events-cards-list" v-if="filteredSelectedDayEvents.length > 0">
+          <div
+            v-for="evt in filteredSelectedDayEvents"
+            :key="evt.id"
+            class="dn-card agenda-card"
+            :class="[
+              'border-' + evt.category,
+              { 'is-event-done': evt.is_completed }
+            ]"
+            @click="openEditModal(evt)"
+          >
+            <div class="agenda-card-top">
+              <div class="top-left-badges">
+                <span class="upcoming-cat-badge" :class="'cat-' + evt.category">
+                  <DuoIcon :name="'cat-' + evt.category" :size="12" />
+                  <span>{{ getCategoryLabel(evt.category) }}</span>
+                </span>
+                <span v-if="evt.is_surprise" class="surprise-tag">
+                  <DuoIcon name="gift" :size="11" />
+                  <span>Niespodzianka</span>
+                </span>
               </div>
-            </ion-item>
+              <span class="countdown-badge">{{ getCountdownLabel(evt.start_time) }}</span>
+            </div>
 
-            <!-- Swipe LEFT (side="end"): Delete -->
-            <ion-item-options side="end" @ionSwipe="confirmDeleteEvent(evt.id, evt.title)">
-              <ion-item-option color="danger" :expandable="true" @click="confirmDeleteEvent(evt.id, evt.title)">
-                <ion-icon slot="icon-only" :icon="ioniconsTrashOutline" />
-              </ion-item-option>
-            </ion-item-options>
-          </ion-item-sliding>
-        </ion-list>
+            <h4 class="agenda-title" :class="{ strike: evt.is_completed }">{{ evt.title }}</h4>
+
+            <div class="agenda-meta-row" v-if="evt.start_time || evt.location">
+              <span class="meta-date" v-if="evt.start_time">
+                <ion-icon :icon="ioniconsTimeOutline" />
+                {{ formatTimeOnly(evt.start_time) }}<template v-if="evt.end_time"> - {{ formatTimeOnly(evt.end_time) }}</template>
+              </span>
+              <a
+                v-if="evt.location"
+                :href="getMapsUrl(evt.location)"
+                target="_blank"
+                class="meta-loc"
+                @click.stop
+              >
+                <ion-icon :icon="ioniconsLocationOutline" />
+                <span>{{ evt.location }}</span>
+                <ion-icon :icon="ioniconsOpenOutline" class="open-icon-mini" />
+              </a>
+            </div>
+
+            <div class="agenda-desc" v-if="evt.description">
+              {{ evt.description }}
+            </div>
+
+            <div class="agenda-footer-row">
+              <span
+                class="planner-text"
+                :style="{
+                  color: getUserAccentColor(evt.created_by),
+                  backgroundColor: hexToRgba(getUserAccentColor(evt.created_by), 0.1),
+                  borderColor: hexToRgba(getUserAccentColor(evt.created_by), 0.25)
+                }"
+              >
+                Inicjatywa: {{ evt.planner_name || (evt.created_by === currentUser.id ? 'Ty' : (partnerUser?.name || 'Partner')) }}
+              </span>
+              <div class="agenda-card-actions" @click.stop>
+                <button
+                  class="icon-action-btn"
+                  :class="{ 'done-btn': evt.is_completed }"
+                  @click="toggleEventCompleted(evt.id)"
+                  :title="evt.is_completed ? 'Oznacz jako niezrealizowane' : 'Oznacz jako zrealizowane'"
+                >
+                  <ion-icon :icon="evt.is_completed ? ioniconsCheckmarkCircle : ioniconsCheckmarkCircleOutline" />
+                </button>
+                <button class="icon-action-btn" @click="openEditModal(evt)" title="Edytuj">
+                  <ion-icon :icon="ioniconsPencilOutline" />
+                </button>
+                <button class="icon-action-btn delete" @click="confirmDeleteEvent(evt.id, evt.title)" title="Usuń">
+                  <ion-icon :icon="ioniconsTrashOutline" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <!-- Empty Day State with Quick Ideas -->
         <div class="empty-day-state" v-else>
@@ -428,13 +408,22 @@
                   <ion-icon :icon="ioniconsTimeOutline" />
                   do {{ formatTimeOnly(evt.end_time) }}
                 </span>
-                <span class="meta-loc" v-if="evt.location">
+                <a
+                  v-if="evt.location"
+                  :href="getMapsUrl(evt.location)"
+                  target="_blank"
+                  class="meta-loc"
+                  @click.stop
+                >
                   <ion-icon :icon="ioniconsLocationOutline" />
-                  {{ evt.location }}
-                </span>
+                  <span>{{ evt.location }}</span>
+                  <ion-icon :icon="ioniconsOpenOutline" class="open-icon-mini" />
+                </a>
               </div>
 
-              <p class="agenda-desc" v-if="evt.description">{{ evt.description }}</p>
+              <div class="agenda-desc" v-if="evt.description">
+                {{ evt.description }}
+              </div>
 
               <div class="agenda-footer-row">
                 <span
@@ -448,13 +437,18 @@
                   Inicjatywa: {{ evt.planner_name || (evt.created_by === currentUser.id ? 'Ty' : (partnerUser?.name || 'Partner')) }}
                 </span>
                 <div class="agenda-card-actions" @click.stop>
-                  <button class="icon-action-btn" @click="toggleEventCompleted(evt.id)">
+                  <button
+                    class="icon-action-btn"
+                    :class="{ 'done-btn': evt.is_completed }"
+                    @click="toggleEventCompleted(evt.id)"
+                    :title="evt.is_completed ? 'Oznacz jako niezrealizowane' : 'Oznacz jako zrealizowane'"
+                  >
                     <ion-icon :icon="evt.is_completed ? ioniconsCheckmarkCircle : ioniconsCheckmarkCircleOutline" />
                   </button>
-                  <button class="icon-action-btn" @click="openEditModal(evt)">
+                  <button class="icon-action-btn" @click="openEditModal(evt)" title="Edytuj">
                     <ion-icon :icon="ioniconsPencilOutline" />
                   </button>
-                  <button class="icon-action-btn delete" @click="confirmDeleteEvent(evt.id, evt.title)">
+                  <button class="icon-action-btn delete" @click="confirmDeleteEvent(evt.id, evt.title)" title="Usuń">
                     <ion-icon :icon="ioniconsTrashOutline" />
                   </button>
                 </div>
@@ -1041,12 +1035,18 @@ const formatFullDate = (dateStr: string) => {
 
 const getCountdownLabel = (dateStr: string) => {
   try {
-    const diffMs = new Date(dateStr).getTime() - Date.now()
-    if (diffMs <= 0) return 'Dzisiaj'
-    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-    if (days === 0) return 'Jutro'
-    if (days === 1) return 'Za 1 dzień'
-    return `Za ${days} dni`
+    const target = new Date(dateStr)
+    const now = new Date()
+    const targetDate = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime()
+    const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+    const diffDays = Math.round((targetDate - nowDate) / (1000 * 60 * 60 * 24))
+
+    if (diffDays === 0) return 'Dzisiaj'
+    if (diffDays === 1) return 'Jutro'
+    if (diffDays === 2) return 'Pojutrze'
+    if (diffDays > 2) return `Za ${diffDays} dni`
+    if (diffDays === -1) return 'Wczoraj'
+    return `${Math.abs(diffDays)} dni temu`
   } catch {
     return ''
   }
@@ -2109,14 +2109,30 @@ const handleRefresh = (event: any) => {
   gap: 10px;
 }
 
+.day-events-cards-list {
+  margin-top: 4px;
+}
+
 .agenda-card {
   padding: 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-left-width: 4px;
   cursor: pointer;
   border-radius: 18px;
   box-shadow: var(--dn-card-shadow);
   min-width: 0;
   overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.agenda-card:active {
+  transform: scale(0.99);
+}
+
+.agenda-card.is-event-done {
+  opacity: 0.72;
+  background: #f8fafc;
 }
 
 .agenda-card.completed-agenda-card {
@@ -2129,12 +2145,14 @@ const handleRefresh = (event: any) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
+  gap: 8px;
 }
 
 .top-left-badges {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .upcoming-cat-badge {
@@ -2160,6 +2178,10 @@ const handleRefresh = (event: any) => {
   border: 1px solid #e2e8f0;
   padding: 2px 8px;
   border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .agenda-title {
@@ -2168,7 +2190,7 @@ const handleRefresh = (event: any) => {
   color: #0f172a;
   margin: 0 0 6px 0;
   word-break: break-word;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   min-width: 0;
   line-height: 1.35;
 }
@@ -2183,62 +2205,117 @@ const handleRefresh = (event: any) => {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  font-size: 11px;
+  font-size: 11.5px;
   color: #64748b;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  min-width: 0;
 }
 
 .meta-date, .meta-time, .meta-loc {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
+}
+
+.meta-loc {
+  color: #0284c7;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.15s ease;
+}
+
+.meta-loc:hover {
+  text-decoration: underline;
+  color: #0369a1;
+}
+
+.open-icon-mini {
+  font-size: 11px;
+  opacity: 0.75;
+  margin-left: 1px;
 }
 
 .agenda-desc {
   font-size: 12px;
-  color: #64748b;
-  margin: 0;
-  line-height: 1.3;
+  color: #475569;
+  margin: 2px 0 10px 0;
+  line-height: 1.45;
+  white-space: pre-line;
   word-break: break-word;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
   min-width: 0;
+  max-width: 100%;
+  max-height: 180px;
+  overflow-y: auto;
+  background: #f8fafc;
+  border-left: 2.5px solid #cbd5e1;
+  border-radius: 4px 8px 8px 4px;
+  padding: 7px 10px;
+  box-sizing: border-box;
 }
 
 .agenda-footer-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 6px;
+  padding-top: 8px;
   border-top: 1px solid #f1f5f9;
+  gap: 8px;
 }
 
 .planner-text {
-  font-size: 10px;
-  color: #94a3b8;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2.5px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .agenda-card-actions {
   display: flex;
+  align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .icon-action-btn {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 15px;
   color: #475569;
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.icon-action-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.icon-action-btn.done-btn {
+  color: #16a34a;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
 }
 
 .icon-action-btn.delete:hover {
   color: #ef4444;
   border-color: #fecaca;
+  background: #fef2f2;
 }
 
 .empty-agenda-card {
