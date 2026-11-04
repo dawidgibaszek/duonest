@@ -35,7 +35,7 @@ create table if not exists public.partnerships (
   partner2_id text not null,
   nest_name text not null default 'Nasze Ciepłe Gniazdko',
   nest_level integer not null default 1,
-  nest_points integer not null default 0,
+  nest_points integer default 0, -- Legacy/optional: DuoNest dynamically computes common points as (partner1.points + partner2.points)
   anniversary_date text,
   pet_id text default null,
   pet_name text default null,

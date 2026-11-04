@@ -24,7 +24,7 @@ export interface Partnership {
   partner2_id: string
   nest_name: string
   nest_level: number
-  nest_points: number
+  nest_points?: number
   anniversary_date?: string | null
   pet_id?: string
   pet_name?: string
@@ -700,8 +700,8 @@ export const useDuoState = () => {
         partnership.value = {
           ...partnership.value,
           ...pData,
-          nest_points: Number(pData.nest_points) || 0,
-          nest_level: Number(pData.nest_level) || Math.max(1, 1 + Math.floor((Number(pData.nest_points) || 0) / 50))
+          nest_points: nestPoints.value,
+          nest_level: nestLevel.value
         }
         saveToStorage('duonest_partnership', partnership.value)
 
@@ -1467,9 +1467,7 @@ export const useDuoState = () => {
             profile: currentUser.value,
             partnership: partnership.value ? {
               nest_name: partnership.value.nest_name,
-              anniversary_date: partnership.value.anniversary_date,
-              nest_points: partnership.value.nest_points,
-              nest_level: partnership.value.nest_level
+              anniversary_date: partnership.value.anniversary_date
             } : undefined
           })
         }
@@ -1536,17 +1534,9 @@ export const useDuoState = () => {
           if (data?.id) {
             const ev = eventsList.value.find(e => e.id === data.id)
             if (ev) {
-              const wasCompleted = ev.is_completed
               ev.is_completed = data.is_completed
-              if (partnership.value) {
-                if (data.nest_points !== undefined) {
-                  partnership.value.nest_points = Math.max(0, Number(data.nest_points) || 0)
-                } else if (!wasCompleted && data.is_completed) {
-                  partnership.value.nest_points = (Number(partnership.value.nest_points) || 0) + 10
-                } else if (wasCompleted && !data.is_completed) {
-                  partnership.value.nest_points = Math.max(0, (Number(partnership.value.nest_points) || 0) - 10)
-                }
-                partnership.value.nest_level = 1 + Math.floor(partnership.value.nest_points / 50)
+              if (partnerUser.value && data.user_points !== undefined) {
+                partnerUser.value.points = Math.max(0, Number(data.user_points) || 0)
               }
               syncToStorage()
               if (data.is_completed) {
@@ -1634,15 +1624,6 @@ export const useDuoState = () => {
                 } else {
                   partnership.value.pet_xp = Math.max(0, (partnership.value.pet_xp || 0) + delta)
                 }
-
-                if (data.nest_points !== undefined) {
-                  partnership.value.nest_points = Math.max(0, Number(data.nest_points) || 0)
-                } else if (!wasCompleted && data.is_completed) {
-                  partnership.value.nest_points = (Number(partnership.value.nest_points) || 0) + taskPts
-                } else if (wasCompleted && !data.is_completed) {
-                  partnership.value.nest_points = Math.max(0, (Number(partnership.value.nest_points) || 0) - taskPts)
-                }
-                partnership.value.nest_level = 1 + Math.floor(partnership.value.nest_points / 50)
               }
               syncToStorage()
               if (data.is_completed) {
@@ -1688,18 +1669,10 @@ export const useDuoState = () => {
             nudgesList.value.unshift(data)
             if (partnerUser.value) {
               if (data.sender_points !== undefined) {
-                partnerUser.value.points = Math.max(partnerUser.value.points || 0, data.sender_points)
+                partnerUser.value.points = Math.max(0, Number(data.sender_points) || 0)
               } else {
                 partnerUser.value.points = (Number(partnerUser.value.points) || 0) + 5
               }
-            }
-            if (partnership.value) {
-              if (data.nest_points !== undefined) {
-                partnership.value.nest_points = Math.max(partnership.value.nest_points || 0, data.nest_points)
-              } else {
-                partnership.value.nest_points = (Number(partnership.value.nest_points) || 0) + 5
-              }
-              partnership.value.nest_level = 1 + Math.floor(partnership.value.nest_points / 50)
             }
             syncToStorage()
             triggerToast(`${senderName} przesłał(a) Ci gest: ${data.message || data.nudge_type}!`)
@@ -1890,15 +1863,11 @@ export const useDuoState = () => {
               ...(partnerUser.value || {}),
               ...data.profile,
               name: data.profile.name || partnerUser.value?.name || 'Partner',
-              points: Math.max(Number(data.profile.points) || 0, Number(partnerUser.value?.points) || 0)
+              points: Number(data.profile.points) || 0
             }
             if (data.partnership && partnership.value) {
               if (data.partnership.nest_name) partnership.value.nest_name = data.partnership.nest_name
               if (data.partnership.anniversary_date) partnership.value.anniversary_date = data.partnership.anniversary_date
-              if (data.partnership.nest_points !== undefined) {
-                partnership.value.nest_points = Math.max(partnership.value.nest_points || 0, data.partnership.nest_points)
-                partnership.value.nest_level = Math.max(1, 1 + Math.floor(partnership.value.nest_points / 50))
-              }
             }
             syncToStorage()
           }
@@ -1912,15 +1881,11 @@ export const useDuoState = () => {
               ...(partnerUser.value || {}),
               ...data.profile,
               name: data.profile.name || partnerUser.value?.name || 'Partner',
-              points: Math.max(Number(data.profile.points) || 0, Number(partnerUser.value?.points) || 0)
+              points: Number(data.profile.points) || 0
             }
             if (data.partnership && partnership.value) {
               if (data.partnership.nest_name) partnership.value.nest_name = data.partnership.nest_name
               if (data.partnership.anniversary_date) partnership.value.anniversary_date = data.partnership.anniversary_date
-              if (data.partnership.nest_points !== undefined) {
-                partnership.value.nest_points = Math.max(partnership.value.nest_points || 0, data.partnership.nest_points)
-                partnership.value.nest_level = Math.max(1, 1 + Math.floor(partnership.value.nest_points / 50))
-              }
             }
             syncToStorage()
             if (data.is_manual_edit) {
@@ -1957,7 +1922,7 @@ export const useDuoState = () => {
                 ...(partnerUser.value || {}),
                 ...data.profile,
                 name: data.profile.name || partnerUser.value?.name || 'Partner',
-                points: Math.max(Number(partnerUser.value?.points) || 0, Number(data.profile.points) || 0)
+                points: Number(data.profile.points) || 0
               }
             }
             if (Array.isArray(data.shopping) && data.shopping.length > 0) shoppingItems.value = data.shopping
@@ -1980,10 +1945,6 @@ export const useDuoState = () => {
               wishlistItems.value = Array.from(existingMap.values())
             }
             if (data.partnership && partnership.value) {
-              if (typeof data.partnership.nest_points === 'number') {
-                partnership.value.nest_points = Math.max(0, data.partnership.nest_points)
-                partnership.value.nest_level = Math.max(1, data.partnership.nest_level || 1 + Math.floor(partnership.value.nest_points / 50))
-              }
               if (data.partnership.nest_name) partnership.value.nest_name = data.partnership.nest_name
               if (data.partnership.anniversary_date) partnership.value.anniversary_date = data.partnership.anniversary_date
             }
@@ -2094,10 +2055,6 @@ export const useDuoState = () => {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'partnerships', filter: `id=eq.${partnershipId}` }, (payload: any) => {
         if (payload.new && partnership.value) {
-          if (typeof payload.new.nest_points === 'number') {
-            partnership.value.nest_points = payload.new.nest_points
-            partnership.value.nest_level = payload.new.nest_level || Math.max(1, 1 + Math.floor(payload.new.nest_points / 50))
-          }
           if (payload.new.pet_xp !== undefined) partnership.value.pet_xp = payload.new.pet_xp
           if (payload.new.pet_name) partnership.value.pet_name = payload.new.pet_name
           if (payload.new.nest_name) partnership.value.nest_name = payload.new.nest_name
@@ -2140,9 +2097,7 @@ export const useDuoState = () => {
           profile: currentUser.value,
           partnership: partnership.value ? {
             nest_name: partnership.value.nest_name,
-            anniversary_date: partnership.value.anniversary_date,
-            nest_points: partnership.value.nest_points,
-            nest_level: partnership.value.nest_level
+            anniversary_date: partnership.value.anniversary_date
           } : undefined
         })
 
@@ -2696,14 +2651,7 @@ export const useDuoState = () => {
       }
     }
 
-    // Award / deduct points in local partnership state permanently
     if (partnership.value) {
-      if (nowCompleted) {
-        partnership.value.nest_points = (Number(partnership.value.nest_points) || 0) + taskPts
-      } else {
-        partnership.value.nest_points = Math.max(0, (Number(partnership.value.nest_points) || 0) - taskPts)
-      }
-      partnership.value.nest_level = Math.max(1, 1 + Math.floor(partnership.value.nest_points / 50))
       partnership.value.pet_xp = Math.max(0, (partnership.value.pet_xp || 0) + delta)
     }
     syncToStorage()
@@ -2717,7 +2665,6 @@ export const useDuoState = () => {
       completed_by: task.completed_by,
       completed_at: task.completed_at,
       pet_xp: partnership.value?.pet_xp,
-      nest_points: partnership.value?.nest_points,
       user_points: currentUser.value?.points,
       partner_points: partnerUser.value?.points
     })
@@ -2731,8 +2678,6 @@ export const useDuoState = () => {
 
       if (partnership.value?.id) {
         safeDb(supabase.from('partnerships').update({
-          nest_points: partnership.value.nest_points,
-          nest_level: partnership.value.nest_level,
           pet_xp: partnership.value.pet_xp
         }).eq('id', partnership.value.id))
       }
@@ -2846,21 +2791,15 @@ export const useDuoState = () => {
     const wasCompleted = ev.is_completed
     ev.is_completed = !ev.is_completed
 
-    // Award 10 points to partnership for fulfilling a plan!
-    if (partnership.value) {
+    // Award 10 points to the user who fulfilled the plan
+    if (currentUser.value) {
       if (!wasCompleted && ev.is_completed) {
-        partnership.value.nest_points = (Number(partnership.value.nest_points) || 0) + 10
+        currentUser.value.points = (Number(currentUser.value.points) || 0) + 10
       } else if (wasCompleted && !ev.is_completed) {
-        partnership.value.nest_points = Math.max(0, (Number(partnership.value.nest_points) || 0) - 10)
+        currentUser.value.points = Math.max(0, (Number(currentUser.value.points) || 0) - 10)
       }
-      partnership.value.nest_level = 1 + Math.floor(partnership.value.nest_points / 50)
-      saveToStorage('duonest_partnership', partnership.value)
-
-      if (supabase && partnership.value.id) {
-        safeDb(supabase.from('partnerships').update({
-          nest_points: partnership.value.nest_points,
-          nest_level: partnership.value.nest_level
-        }).eq('id', partnership.value.id))
+      if (supabase && currentUser.value.id) {
+        safeDb(supabase.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
       }
     }
     syncToStorage()
@@ -2870,13 +2809,13 @@ export const useDuoState = () => {
       id,
       title: ev.title,
       is_completed: ev.is_completed,
-      nest_points: partnership.value?.nest_points
+      user_points: currentUser.value?.points
     })
 
     if (supabase) {
       safeDb(supabase.from('events').update({ is_completed: ev.is_completed }).eq('id', id))
     }
-    triggerToast(ev.is_completed ? 'Wydarzenie zrealizowane! +10 pkt do Gniazdka' : 'Oznaczono jako nadchodzące.')
+    triggerToast(ev.is_completed ? 'Wydarzenie zrealizowane! +10 pkt dla Ciebie' : 'Oznaczono jako nadchodzące.')
   }
 
   const deleteEvent = async (id: string) => {
@@ -2989,19 +2928,14 @@ export const useDuoState = () => {
     }
     nudgesList.value.unshift(newNudge)
 
-    // Reward 5 points for sender and 5 nest points for gesture
+    // Reward 5 points for sender
     currentUser.value.points = (Number(currentUser.value.points) || 0) + 5
-    if (partnership.value) {
-      partnership.value.nest_points = (Number(partnership.value.nest_points) || 0) + 5
-      partnership.value.nest_level = 1 + Math.floor(partnership.value.nest_points / 50)
-    }
     syncToStorage()
 
     // Broadcast live to partner
     broadcastToPartner('NUDGE_SEND', {
       ...newNudge,
-      sender_points: currentUser.value.points,
-      nest_points: partnership.value?.nest_points
+      sender_points: currentUser.value.points
     })
 
     if (supabase) {
@@ -3009,15 +2943,9 @@ export const useDuoState = () => {
       if (currentUser.value?.id) {
         safeDb(supabase.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
       }
-      if (partnership.value?.id) {
-        safeDb(supabase.from('partnerships').update({
-          nest_points: partnership.value.nest_points,
-          nest_level: partnership.value.nest_level
-        }).eq('id', partnership.value.id))
-      }
     }
 
-    triggerToast(`Wysłano dzisiejsze puknięcie do ${partnerUser.value.name}! (+5 pkt do Gniazdka)`)
+    triggerToast(`Wysłano dzisiejsze puknięcie do ${partnerUser.value.name}! (+5 pkt)`)
     return true
   }
 
@@ -3220,8 +3148,8 @@ export const useDuoState = () => {
   const userPoints = computed(() => Number(currentUser.value?.points) || 0)
   const partnerPoints = computed(() => Number(partnerUser.value?.points) || 0)
 
-  // Total Duet score read exclusively from Supabase partnerships.nest_points
-  const nestPoints = computed(() => Number(partnership.value?.nest_points) || 0)
+  // Total Duet score is ALWAYS the exact sum of both users' points in the pair
+  const nestPoints = computed(() => userPoints.value + partnerPoints.value)
 
   const nestLevel = computed(() => {
     return Math.max(1, 1 + Math.floor(nestPoints.value / 50))
@@ -3240,13 +3168,13 @@ export const useDuoState = () => {
 
   // Balanced percentage bar based on individual contributions
   const userPointsPct = computed(() => {
-    const totalPersonal = userPoints.value + partnerPoints.value
+    const totalPersonal = nestPoints.value
     if (totalPersonal <= 0) return 0
     return Math.min(100, Math.max(0, Math.round((userPoints.value / totalPersonal) * 100)))
   })
 
   const partnerPointsPct = computed(() => {
-    const totalPersonal = userPoints.value + partnerPoints.value
+    const totalPersonal = nestPoints.value
     if (totalPersonal <= 0) return 0
     return Math.max(0, 100 - userPointsPct.value)
   })
