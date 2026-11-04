@@ -267,40 +267,57 @@
                 <ion-icon :icon="evt.is_completed ? ioniconsCheckmarkCircle : ioniconsEllipseOutline" />
               </button>
 
-              <!-- Time Badge -->
-              <div class="event-time-badge">
-                <span class="time-main">{{ formatTimeOnly(evt.start_time) }}</span>
-                <span class="time-end" v-if="evt.end_time">- {{ formatTimeOnly(evt.end_time) }}</span>
-              </div>
-
-              <!-- Event Body -->
+              <!-- Event Body (Full Width) -->
               <div class="event-body">
-                <div class="event-title-line">
-                  <span class="category-tag-mini" :class="'cat-' + evt.category">
-                    <DuoIcon :name="'cat-' + evt.category" :size="12" />
-                    <span>{{ getCategoryLabel(evt.category) }}</span>
-                  </span>
-                  <span v-if="evt.is_surprise" class="surprise-tag">
-                    <DuoIcon name="gift" :size="11" />
-                    <span>Niespodzianka!</span>
-                  </span>
-                  <span class="item-event-title" :class="{ strike: evt.is_completed }">{{ evt.title }}</span>
+                <!-- Top Row: Tags + Time on left, Actions on right -->
+                <div class="event-top-row">
+                  <div class="event-tags-wrap">
+                    <span class="category-tag-mini" :class="'cat-' + evt.category">
+                      <DuoIcon :name="'cat-' + evt.category" :size="12" />
+                      <span>{{ getCategoryLabel(evt.category) }}</span>
+                    </span>
+                    <div class="event-time-chip">
+                      <ion-icon :icon="ioniconsTimeOutline" />
+                      <span>{{ formatTimeOnly(evt.start_time) }}</span>
+                      <span v-if="evt.end_time" class="time-chip-end">- {{ formatTimeOnly(evt.end_time) }}</span>
+                    </div>
+                    <span v-if="evt.is_surprise" class="surprise-tag">
+                      <DuoIcon name="gift" :size="11" />
+                      <span>Niespodzianka!</span>
+                    </span>
+                  </div>
+
+                  <!-- Action buttons in top right -->
+                  <div class="event-actions-row">
+                    <button class="event-action-btn edit-btn" @click.stop="openEditModal(evt)" title="Edytuj plan">
+                      <ion-icon :icon="ioniconsPencilOutline" />
+                    </button>
+                    <button class="event-action-btn delete-btn" @click.stop="confirmDeleteEvent(evt.id, evt.title)" title="Usuń plan">
+                      <ion-icon :icon="ioniconsTrashOutline" />
+                    </button>
+                  </div>
                 </div>
 
-                <div class="event-extra-details">
+                <!-- Title: Full Width, bold, clean -->
+                <div class="event-title-wrap">
+                  <h4 class="item-event-title" :class="{ strike: evt.is_completed }">{{ evt.title }}</h4>
+                </div>
+
+                <!-- Location details -->
+                <div v-if="evt.location" class="event-extra-details">
                   <a
-                    v-if="evt.location"
                     :href="getMapsUrl(evt.location)"
                     target="_blank"
                     class="detail-location-link"
+                    @click.stop
                   >
-                    <ion-icon :icon="ioniconsLocationOutline" />
-                    <span>{{ evt.location }}</span>
+                    <ion-icon :icon="ioniconsLocationOutline" class="location-icon" />
+                    <span class="location-name">{{ evt.location }}</span>
                     <ion-icon :icon="ioniconsOpenOutline" class="open-icon" />
                   </a>
-                  <!--<p class="detail-desc" v-if="evt.description">{{ evt.description }}</p>-->
                 </div>
 
+                <!-- Creator tag at the bottom -->
                 <div class="event-creator-row">
                   <span
                     class="creator-tag"
@@ -313,16 +330,6 @@
                     Inicjatywa: {{ evt.planner_name || (evt.created_by === currentUser.id ? 'Ty' : (partnerUser?.name || 'Partner')) }}
                   </span>
                 </div>
-              </div>
-
-              <!-- Action buttons (Edit & Delete) -->
-              <div class="event-actions-col">
-                <button class="edit-btn" @click.stop="openEditModal(evt)" title="Edytuj plan">
-                  <ion-icon :icon="ioniconsPencilOutline" />
-                </button>
-                <button class="delete-btn" @click.stop="confirmDeleteEvent(evt.id, evt.title)" title="Usuń plan">
-                  <ion-icon :icon="ioniconsTrashOutline" />
-                </button>
               </div>
             </ion-item>
 
@@ -1702,19 +1709,21 @@ const handleRefresh = (event: any) => {
 }
 
 .calendar-event-item {
-  --background: #f8fafc;
-  --padding-start: 12px;
-  --inner-padding-end: 12px;
+  --background: #ffffff;
+  --padding-start: 14px;
+  --inner-padding-end: 14px;
+  --padding-top: 12px;
+  --padding-bottom: 12px;
   border-radius: 16px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   border: 1px solid #e2e8f0;
   border-left-width: 4px;
   display: flex;
-  gap: 10px;
-  align-items: center;
+  align-items: flex-start;
+  gap: 12px;
   min-width: 0;
   overflow: hidden;
-  padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 
 .calendar-event-item ion-label {
@@ -1725,7 +1734,7 @@ const handleRefresh = (event: any) => {
 
 .calendar-event-item.is-event-done {
   opacity: 0.65;
-  --background: #f1f5f9;
+  --background: #f8fafc;
 }
 
 .border-date { border-left-color: #e11d48; }
@@ -1738,60 +1747,54 @@ const handleRefresh = (event: any) => {
 .event-done-toggle {
   background: none;
   border: none;
-  font-size: 22px;
+  font-size: 24px;
   color: #94a3b8;
   cursor: pointer;
-  padding: 2px;
+  padding: 0;
+  margin-top: 2px;
   display: flex;
   align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.event-done-toggle:active {
+  transform: scale(0.88);
 }
 
 .event-done-toggle.done {
   color: #16a34a;
 }
 
-.event-time-badge {
-  display: flex;
-  flex-direction: column;
-  background: #ffffff;
-  padding: 4px 5px;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  text-align: center;
-  min-width: 58px;
-}
-
-.time-main {
-  font-size: 12px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.time-end {
-  font-size: 10px;
-  color: #64748b;
-  font-weight: 600;
-}
-
 .event-body {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
 }
 
-.event-title-line {
+.event-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.event-tags-wrap {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
   min-width: 0;
-  width: 100%;
 }
 
 .category-tag-mini {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 2px 7px;
+  padding: 3px 8px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -1806,8 +1809,32 @@ const handleRefresh = (event: any) => {
 .cat-work { background: #f1f5f9; color: #475569; }
 .cat-other { background: #f5f3ff; color: #7c3aed; }
 
+.event-time-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 8px;
+  letter-spacing: -0.2px;
+  flex-shrink: 0;
+}
+
+.event-time-chip ion-icon {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.time-chip-end {
+  color: #64748b;
+  font-weight: 600;
+}
+
 .surprise-tag {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   background: #fdf2f8;
   color: #db2777;
@@ -1820,14 +1847,55 @@ const handleRefresh = (event: any) => {
   flex-shrink: 0;
 }
 
-.item-event-title {
+.event-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.edit-btn, .delete-btn {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 14px;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.edit-btn:hover {
+  color: #0f172a;
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.delete-btn:hover {
+  color: #ef4444;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.event-title-wrap {
+  min-width: 0;
+  width: 100%;
+}
+
+.item-event-title {
+  margin: 0;
+  font-size: 15px;
   font-weight: 700;
   color: #0f172a;
+  line-height: 1.35;
   word-break: break-word;
   overflow-wrap: break-word;
-  min-width: 0;
-  line-height: 1.35;
 }
 
 .item-event-title.strike {
@@ -1836,75 +1904,67 @@ const handleRefresh = (event: any) => {
 }
 
 .event-extra-details {
-  margin-top: 4px;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .detail-location-link {
-  font-size: 11px;
-  color: #0f172a;
+  font-size: 12px;
+  color: #475569;
   font-weight: 600;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  word-break: break-all;
-  max-width: 100%;
-}
-
-.open-icon {
-  font-size: 11px;
-  opacity: 0.7;
-}
-
-.detail-desc {
-  font-size: 12px;
-  color: #64748b;
-  margin: 3px 0 0 0;
-  line-height: 1.3;
+  gap: 5px;
   word-break: break-word;
-  overflow-wrap: break-word;
-  min-width: 0;
-}
-
-.event-creator-row {
-  margin-top: 6px;
-}
-
-.creator-tag {
-  font-size: 10px;
-  color: #94a3b8;
-}
-
-.event-actions-col {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.edit-btn, .delete-btn {
-  background: #ffffff;
+  max-width: 100%;
+  padding: 3px 8px;
+  background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  color: #64748b;
-  cursor: pointer;
+  border-radius: 6px;
   transition: all 0.15s ease;
 }
 
-.edit-btn:hover {
+.detail-location-link:hover {
+  background: #f1f5f9;
   color: #0f172a;
   border-color: #cbd5e1;
 }
 
-.delete-btn:hover {
-  color: #ef4444;
-  border-color: #fecaca;
+.location-icon {
+  font-size: 13px;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.location-name {
+  min-width: 0;
+  word-break: break-word;
+}
+
+.open-icon {
+  font-size: 11px;
+  color: #94a3b8;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
+.event-creator-row {
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+}
+
+.creator-tag {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
 }
 
 /* EMPTY DAY STATE */
