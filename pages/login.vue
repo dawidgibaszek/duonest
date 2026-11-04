@@ -281,7 +281,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { useDuoState, getSupabaseClient } from '~/composables/useDuoState'
+import { useDuoState, getSupabaseClient, clearStaleSupabaseCookies } from '~/composables/useDuoState'
 
 const route = useRoute()
 const {
@@ -291,6 +291,8 @@ const {
   completePasswordReset,
   resendVerificationEmail,
   isPaired,
+  currentUser,
+  partnership,
   initializeClientState
 } = useDuoState()
 
@@ -376,6 +378,9 @@ onMounted(async () => {
   const isRecovery = urlParams.get('type') === 'recovery' || hash.includes('type=recovery') || hash.includes('access_token') || urlParams.has('code')
   if (isRecovery) {
     mode.value = 'recovery'
+  } else {
+    // If opening login normally, ensure any leftover expired Supabase auth cookies are cleared
+    clearStaleSupabaseCookies()
   }
 
   // 2. Extract email from query param if provided
@@ -467,11 +472,8 @@ const handleSubmit = async () => {
         return
       }
 
-      if (isPaired.value) {
-        window.location.href = '/tabs/nest'
-      } else {
-        window.location.href = '/pairing'
-      }
+      const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id) ? '/tabs/nest' : '/pairing'
+      window.location.href = destination
     } else if (mode.value === 'register') {
       const { data, error } = await signUpWithEmail(
         emailInput.value,
@@ -490,11 +492,8 @@ const handleSubmit = async () => {
         return
       }
 
-      if (isPaired.value) {
-        window.location.href = '/tabs/nest'
-      } else {
-        window.location.href = '/pairing'
-      }
+      const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id) ? '/tabs/nest' : '/pairing'
+      window.location.href = destination
     } else if (mode.value === 'forgot') {
       const { error } = await requestPasswordReset(emailInput.value)
       if (error) {
@@ -520,11 +519,11 @@ const handleSubmit = async () => {
 
       successMessage.value = 'Hasło zostało pomyślnie zmienione! Logowanie...'
       setTimeout(() => {
-        if (isPaired.value) {
-          window.location.href = '/tabs/nest'
-        } else {
-          window.location.href = '/pairing'
+        if (typeof window !== 'undefined' && window.history?.replaceState) {
+          window.history.replaceState(null, '', window.location.pathname)
         }
+        const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id) ? '/tabs/nest' : '/pairing'
+        window.location.href = destination
       }, 1000)
     }
   } catch (err: any) {

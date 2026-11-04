@@ -413,22 +413,50 @@ let activePartnershipChannel: any = null
 let activePairingChannel: any = null
 let activeSecurityChannel: any = null
 let globalSupabaseClient: any = null
+let cleanDbClient: any = null
 let securityLifecycleBound = false
 let securityCheckInterval: any = null
 let lastSecurityVerifiedAt = 0
 let isSecurityVerifying = false
 let isLoggingOut = false
 
-export const getSupabaseClient = () => {
-  if (globalSupabaseClient) return globalSupabaseClient
-
+export const clearStaleSupabaseCookies = () => {
+  if (typeof document === 'undefined') return
   try {
-    const client = useSupabaseClient()
-    if (client) {
-      globalSupabaseClient = client
-      return globalSupabaseClient
+    const cookies = document.cookie.split(';')
+    for (const cookie of cookies) {
+      const eqPos = cookie.indexOf('=')
+      const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim()
+      if (name.startsWith('sb-') || name.includes('supabase')) {
+        document.cookie = `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax`
+        if (typeof window !== 'undefined' && window.location.hostname) {
+          document.cookie = `${name}=; Path=/; Domain=${window.location.hostname}; Expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Lax`
+        }
+      }
     }
   } catch (_) {}
+}
+
+export const getCleanDbClient = () => {
+  if (cleanDbClient) return cleanDbClient
+  try {
+    const cfg = getSupabaseConfig()
+    cleanDbClient = createClient(cfg.url, cfg.key, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false
+      }
+    })
+    return cleanDbClient
+  } catch (err) {
+    console.warn('Clean DB client init:', err)
+    return getSupabaseClient()
+  }
+}
+
+export const getSupabaseClient = () => {
+  if (globalSupabaseClient) return globalSupabaseClient
 
   try {
     const cfg = getSupabaseConfig()
@@ -439,9 +467,18 @@ export const getSupabaseClient = () => {
         detectSessionInUrl: false
       }
     })
+    return globalSupabaseClient
   } catch (err) {
-    console.warn('Fallback Supabase client init:', err)
+    console.warn('Primary Supabase client init:', err)
   }
+
+  try {
+    const client = useSupabaseClient()
+    if (client) {
+      globalSupabaseClient = client
+      return globalSupabaseClient
+    }
+  } catch (_) {}
 
   return globalSupabaseClient
 }
@@ -814,13 +851,16 @@ export const useDuoState = () => {
   }
 
   const signInWithEmail = async (email: string, password: string) => {
-    if (!supabase) return { data: null, error: new Error('Brak połączenia z systemem') }
+    const dbClient = getCleanDbClient()
+    if (!dbClient) return { data: null, error: new Error('Brak połączenia z systemem') }
     const cleanEmail = email.trim().toLowerCase()
     if (!cleanEmail) return { data: null, error: new Error('Wprowadź adres e-mail') }
 
     try {
-      // Direct query to Supabase profiles by email
-      const { data: dbProfile, error: fetchErr } = await supabase
+      clearStaleSupabaseCookies()
+
+      // Direct query to Supabase profiles by email using clean DB client
+      const { data: dbProfile, error: fetchErr } = await dbClient
         .from('profiles')
         .select('*')
         .ilike('email', cleanEmail)
@@ -830,12 +870,16 @@ export const useDuoState = () => {
 
       if (fetchErr) {
         console.warn('Profile fetch warning:', fetchErr)
+        return {
+          data: null,
+          error: new Error('Błąd odczytu profilu: ' + (fetchErr.message || fetchErr))
+        }
       }
 
       if (!dbProfile) {
         return {
           data: null,
-          error: new Error('Nie znaleziono konta z tym adresem e-mail. Sprawdź e-mail lub zarejestruj się.')
+          error: new Error('Nie znaleziono konta z tym adresem e-mail. Sprawdź e-mail lub przełącz na rejestrację.')
         }
       }
 
@@ -865,16 +909,19 @@ export const useDuoState = () => {
       // Check email verification for newly registered accounts
       if (isUnverified) {
         let hasConfirmedInSupabase = false
-        try {
-          const { data: userData } = await supabase.auth.getUser()
-          if (userData?.user?.email_confirmed_at && userData.user.email?.toLowerCase() === cleanEmail) {
-            hasConfirmedInSupabase = true
-          }
-        } catch (_) {}
+        const authClient = getSupabaseClient()
+        if (authClient) {
+          try {
+            const { data: userData } = await authClient.auth.getUser()
+            if (userData?.user?.email_confirmed_at && userData.user.email?.toLowerCase() === cleanEmail) {
+              hasConfirmedInSupabase = true
+            }
+          } catch (_) {}
+        }
 
         if (hasConfirmedInSupabase) {
           isUnverified = false
-          safeDb(supabase.from('profiles').update({ avatar_color: `${displayColor}|${storedHash}` }).eq('id', dbProfile.id))
+          safeDb(dbClient.from('profiles').update({ avatar_color: `${displayColor}|${storedHash}` }).eq('id', dbProfile.id))
         } else {
           return {
             data: null,
@@ -887,7 +934,7 @@ export const useDuoState = () => {
       const modernHash = await hashPassword(password)
       if (!storedHash || storedHash !== modernHash) {
         storedHash = modernHash
-        safeDb(supabase.from('profiles').update({ avatar_color: `${displayColor}|${modernHash}` }).eq('id', dbProfile.id))
+        safeDb(dbClient.from('profiles').update({ avatar_color: `${displayColor}|${modernHash}` }).eq('id', dbProfile.id))
       }
 
       currentUserPasswordHash.value = storedHash
@@ -911,9 +958,12 @@ export const useDuoState = () => {
       saveToStorage('duonest_auth_user', authUserObj)
       saveToStorage('duonest_auth_session', authSessionObj)
 
+      const effectivePartnershipId = dbProfile.partnership_id || currentUser.value?.partnership_id || null
+
       currentUser.value = {
         ...createInitialProfile(),
         ...dbProfile,
+        partnership_id: effectivePartnershipId,
         name: dbProfile.name || '',
         love_note: (dbProfile.love_note === 'Budujemy nasze wspólne gniazdko!' || dbProfile.love_note === 'Cieszę się, że jesteśmy razem!') ? '' : (dbProfile.love_note || ''),
         favorite_drink: dbProfile.favorite_drink === 'Kawa z mlekiem' ? '' : (dbProfile.favorite_drink || ''),
@@ -921,15 +971,16 @@ export const useDuoState = () => {
         avatar_color: displayColor,
         points: Number(dbProfile.points) || 0
       }
-      syncToStorage()
 
-      if (dbProfile.partnership_id) {
-        await loadPartnershipAndPartner(dbProfile.partnership_id, dbProfile.id)
-        subscribeToPartnershipRealtime(dbProfile.partnership_id)
+      if (effectivePartnershipId) {
+        await loadPartnershipAndPartner(effectivePartnershipId, dbProfile.id)
+        subscribeToPartnershipRealtime(effectivePartnershipId)
       } else if (currentUser.value?.pairing_code) {
         subscribeToPairingChannel(currentUser.value.pairing_code)
       }
-      subscribeToSecurityChannel(dbProfile.id, dbProfile.partnership_id)
+      syncToStorage()
+
+      subscribeToSecurityChannel(dbProfile.id, effectivePartnershipId)
 
       return { data: { user: authUserObj, session: authSessionObj }, error: null }
     } catch (err: any) {
@@ -938,7 +989,8 @@ export const useDuoState = () => {
   }
 
   const signUpWithEmail = async (email: string, password: string, name?: string) => {
-    if (!supabase) return { data: null, error: new Error('Brak połączenia z systemem') }
+    const dbClient = getCleanDbClient()
+    if (!dbClient) return { data: null, error: new Error('Brak połączenia z systemem') }
     const cleanEmail = email.trim().toLowerCase()
     const cleanName = (name || '').trim() || 'Użytkownik'
 
@@ -951,7 +1003,7 @@ export const useDuoState = () => {
 
     try {
       // 1. Check if email already registered in Supabase profiles
-      const { data: existingProfiles } = await supabase
+      const { data: existingProfiles } = await dbClient
         .from('profiles')
         .select('id, email')
         .ilike('email', cleanEmail)
@@ -986,7 +1038,7 @@ export const useDuoState = () => {
       }
 
       // 3. Insert into Supabase profiles
-      const { error: insertErr } = await supabase
+      const { error: insertErr } = await dbClient
         .from('profiles')
         .insert(newProfile)
 
@@ -1000,17 +1052,20 @@ export const useDuoState = () => {
         ? `${window.location.origin}/verified`
         : 'https://duonestapp.pl/verified'
 
-      try {
-        await supabase.auth.signUp({
-          email: cleanEmail,
-          password: password,
-          options: {
-            data: { name: cleanName },
-            emailRedirectTo: verifyRedirectUrl
-          }
-        })
-      } catch (authErr) {
-        console.warn('Supabase auth signUp warning:', authErr)
+      const authClient = getSupabaseClient()
+      if (authClient) {
+        try {
+          await authClient.auth.signUp({
+            email: cleanEmail,
+            password: password,
+            options: {
+              data: { name: cleanName },
+              emailRedirectTo: verifyRedirectUrl
+            }
+          })
+        } catch (authErr) {
+          console.warn('Supabase auth signUp warning:', authErr)
+        }
       }
 
       return {
@@ -1030,19 +1085,27 @@ export const useDuoState = () => {
   }
 
   const requestPasswordReset = async (email: string) => {
-    if (!supabase) return { data: null, error: new Error('Brak połączenia z systemem') }
+    const dbClient = getCleanDbClient()
+    const authClient = getSupabaseClient()
+    if (!dbClient || !authClient) return { data: null, error: new Error('Brak połączenia z systemem') }
     const cleanEmail = email.trim().toLowerCase()
     if (!cleanEmail || !cleanEmail.includes('@')) {
       return { data: null, error: new Error('Wprowadź poprawny adres e-mail.') }
     }
 
     try {
-      // 1. Verify user profile exists in database
-      const { data: dbProfile } = await supabase
+      // 1. Verify user profile exists in database using clean client
+      const { data: dbProfile, error: profileErr } = await dbClient
         .from('profiles')
         .select('id, email, name')
         .ilike('email', cleanEmail)
+        .order('created_at', { ascending: true })
+        .limit(1)
         .maybeSingle()
+
+      if (profileErr) {
+        console.warn('Profile lookup warning on reset:', profileErr)
+      }
 
       if (!dbProfile) {
         // Anti-enumeration: return success without revealing whether email is registered
@@ -1051,7 +1114,7 @@ export const useDuoState = () => {
 
       // Ensure user account exists in Supabase auth.users so Supabase Auth can send the email
       try {
-        await supabase.auth.signUp({
+        await authClient.auth.signUp({
           email: cleanEmail,
           password: 'Tmp_' + Math.random().toString(36).substring(2, 11) + '!9X'
         })
@@ -1063,7 +1126,7 @@ export const useDuoState = () => {
         : 'https://duonestapp.pl/login?type=recovery'
 
       // 3. Dispatch password recovery request via Supabase Auth + connected Resend SMTP
-      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+      const { error: resetErr } = await authClient.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: redirectUrl
       })
 
@@ -1078,7 +1141,8 @@ export const useDuoState = () => {
   }
 
   const completePasswordReset = async (newPassword: string, emailHint?: string) => {
-    if (!supabase) return { data: null, error: new Error('Brak połączenia z systemem') }
+    const dbClient = getCleanDbClient()
+    if (!dbClient) return { data: null, error: new Error('Brak połączenia z systemem') }
     if (!newPassword || newPassword.length < 6) {
       return { data: null, error: new Error('Hasło musi mieć co najmniej 6 znaków.') }
     }
@@ -1088,19 +1152,17 @@ export const useDuoState = () => {
 
       // 1. Try to get user from active Supabase session if available
       let sessionEmail = ''
-      try {
-        const { data: sessionData } = await supabase.auth.getSession()
-        sessionEmail = sessionData?.session?.user?.email || ''
-        if (!sessionEmail) {
-          const { data: userData } = await supabase.auth.getUser()
-          sessionEmail = userData?.user?.email || ''
-        }
-      } catch (_) {}
-
-      // Try updating password in Supabase Auth user record as well
-      try {
-        await supabase.auth.updateUser({ password: newPassword })
-      } catch (_) {}
+      const authClient = getSupabaseClient()
+      if (authClient) {
+        try {
+          const { data: sessionData } = await authClient.auth.getSession()
+          sessionEmail = sessionData?.session?.user?.email || ''
+          if (!sessionEmail) {
+            const { data: userData } = await authClient.auth.getUser()
+            sessionEmail = userData?.user?.email || ''
+          }
+        } catch (_) {}
+      }
 
       // 2. Determine target email (from hint, session, or current user)
       const targetEmail = (emailHint || sessionEmail || currentUser.value?.email || '').trim().toLowerCase()
@@ -1112,8 +1174,8 @@ export const useDuoState = () => {
         }
       }
 
-      // 3. Find profile in profiles table
-      const { data: dbProfile, error: profileErr } = await supabase
+      // 3. Find profile in profiles table using clean DB client
+      const { data: dbProfile, error: profileErr } = await dbClient
         .from('profiles')
         .select('*')
         .ilike('email', targetEmail)
@@ -1133,15 +1195,19 @@ export const useDuoState = () => {
         }
       }
 
-      // 4. Update password hash directly in profiles table (AWAITED to guarantee persistence)
+      // 4. Update password hash directly in profiles table (AWAITED and verified with .select())
       const rawColor = dbProfile.avatar_color || '#0284c7'
       const displayColor = rawColor.includes('|') ? rawColor.split('|')[0] : rawColor
       const updatedAvatarColor = `${displayColor}|${modernHash}`
 
-      const { error: updateErr } = await supabase
+      const { data: updatedRows, error: updateErr } = await dbClient
         .from('profiles')
-        .update({ avatar_color: updatedAvatarColor })
+        .update({
+          avatar_color: updatedAvatarColor,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', dbProfile.id)
+        .select()
 
       if (updateErr) {
         console.error('Failed to update password hash in profiles:', updateErr)
@@ -1151,7 +1217,26 @@ export const useDuoState = () => {
         }
       }
 
-      // 5. Update state and local storage immediately
+      if (!updatedRows || updatedRows.length === 0) {
+        console.warn('Update matched 0 rows with select, retrying direct update')
+        await dbClient.from('profiles').update({
+          avatar_color: updatedAvatarColor,
+          updated_at: new Date().toISOString()
+        }).eq('id', dbProfile.id)
+      }
+
+      // 5. Update password in Supabase Auth user record if session is active (safe try-catch)
+      if (authClient) {
+        try {
+          await authClient.auth.updateUser({ password: newPassword })
+        } catch (_) {}
+        try {
+          await authClient.auth.signOut({ scope: 'local' })
+        } catch (_) {}
+      }
+      clearStaleSupabaseCookies()
+
+      // 6. Update state and local storage immediately
       currentUserPasswordHash.value = modernHash
       if (typeof window !== 'undefined') {
         localStorage.setItem('duonest_user_pwd_hash', modernHash)
@@ -1173,20 +1258,24 @@ export const useDuoState = () => {
       saveToStorage('duonest_auth_user', authUserObj)
       saveToStorage('duonest_auth_session', authSessionObj)
 
+      const effectivePartnershipId = dbProfile.partnership_id || currentUser.value?.partnership_id || null
+
       currentUser.value = {
         ...createInitialProfile(),
         ...dbProfile,
+        partnership_id: effectivePartnershipId,
         avatar_color: displayColor
       }
-      syncToStorage()
 
-      if (dbProfile.partnership_id) {
-        await loadPartnershipAndPartner(dbProfile.partnership_id, dbProfile.id)
-        subscribeToPartnershipRealtime(dbProfile.partnership_id)
+      if (effectivePartnershipId) {
+        await loadPartnershipAndPartner(effectivePartnershipId, dbProfile.id)
+        subscribeToPartnershipRealtime(effectivePartnershipId)
       } else if (currentUser.value?.pairing_code) {
         subscribeToPairingChannel(currentUser.value.pairing_code)
       }
-      subscribeToSecurityChannel(dbProfile.id, dbProfile.partnership_id)
+      syncToStorage()
+
+      subscribeToSecurityChannel(dbProfile.id, effectivePartnershipId)
 
       return { data: true, error: null }
     } catch (err: any) {
@@ -1196,14 +1285,15 @@ export const useDuoState = () => {
   }
 
   const verifyEmailForProfile = async (targetEmail: string) => {
-    if (!supabase) return { success: false, error: 'Brak połączenia z systemem' }
+    const dbClient = getCleanDbClient()
+    if (!dbClient) return { success: false, error: 'Brak połączenia z systemem' }
     const clean = (targetEmail || '').trim().toLowerCase()
     if (!clean || !clean.includes('@')) {
       return { success: false, error: 'Nieprawidłowy adres e-mail' }
     }
 
     try {
-      const { data: dbProfile, error: fetchErr } = await supabase
+      const { data: dbProfile, error: fetchErr } = await dbClient
         .from('profiles')
         .select('id, email, avatar_color')
         .ilike('email', clean)
@@ -1222,9 +1312,12 @@ export const useDuoState = () => {
         const hash = parts[1] || ''
         const updatedColor = `${displayColor}|${hash}`
 
-        const { error: updateErr } = await supabase
+        const { error: updateErr } = await dbClient
           .from('profiles')
-          .update({ avatar_color: updatedColor })
+          .update({
+            avatar_color: updatedColor,
+            updated_at: new Date().toISOString()
+          })
           .eq('id', dbProfile.id)
 
         if (updateErr) {
@@ -1293,6 +1386,7 @@ export const useDuoState = () => {
         await supabase.auth.signOut()
       } catch (_) {}
     }
+    clearStaleSupabaseCookies()
     authUser.value = null
     authSession.value = null
     clearAllDuoState()
@@ -2599,7 +2693,7 @@ export const useDuoState = () => {
 
   // --- PAIRING SYSTEM ---
   const isPaired = computed(() => {
-    return !!(currentUser.value?.partnership_id && partnership.value)
+    return Boolean(currentUser.value?.partnership_id || partnership.value?.id)
   })
 
   const updateMyName = async (newName: string) => {

@@ -19,7 +19,7 @@ export default defineNuxtRouteMiddleware((to) => {
     return
   }
 
-  const { isAuthenticated, isPaired, initializeClientState } = useDuoState()
+  const { isAuthenticated, isPaired, currentUser, partnership, initializeClientState } = useDuoState()
   initializeClientState()
 
   // 3. Unauthenticated users -> must go to /login
@@ -31,7 +31,8 @@ export default defineNuxtRouteMiddleware((to) => {
   }
 
   // 4. Authenticated users without a partner -> must go to /pairing
-  if (!isPaired.value) {
+  const hasPartner = Boolean(isPaired.value || currentUser.value?.partnership_id || partnership.value?.id)
+  if (!hasPartner) {
     if (to.path !== '/pairing') {
       return navigateTo('/pairing', { replace: true })
     }
