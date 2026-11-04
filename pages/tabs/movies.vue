@@ -354,187 +354,309 @@
         :breakpoints="[0, 0.92, 1]"
         :initial-breakpoint="0.92"
         handle-behavior="cycle"
+        class="dn-movies-search-modal"
         @didDismiss="closeSearchModal"
       >
-        <div class="dn-modal-container">
-          <div class="dn-modal-header">
-            <div class="modal-title-col">
-              <h3>Wyszukaj film, serial lub anime</h3>
-              <p>Oficjalna baza The Movie Database (TMDB)</p>
+        <div class="dn-modal-container search-modal-layout">
+          <!-- Premium Header -->
+          <div class="search-modal-header">
+            <div class="search-header-branding">
+              <div class="header-glyph-box">
+                <ion-icon :icon="ioniconsVideocamOutline" />
+              </div>
+              <div class="header-text-block">
+                <div class="branding-tag-row">
+                  <span class="tmdb-pill">TMDB</span>
+                  <span class="catalog-live-pill">
+                    <span class="live-dot"></span>
+                    Katalog online
+                  </span>
+                </div>
+                <h3 class="search-modal-heading">Wyszukaj seans</h3>
+              </div>
             </div>
-            <button type="button" class="modal-close-btn" @click="closeSearchModal">
+            <button
+              type="button"
+              class="modal-circle-close-btn"
+              @click="closeSearchModal"
+              aria-label="Zamknij"
+            >
               <ion-icon :icon="ioniconsCloseOutline" />
             </button>
           </div>
 
-          <!-- Search Input Bar -->
-          <div class="tmdb-search-input-box">
-            <ion-icon :icon="ioniconsSearchOutline" class="input-search-icon" />
-            <input
-              ref="searchInputRef"
-              v-model="tmdbSearchQuery"
-              type="text"
-              placeholder="Wpisz np. Incepcja, Spirited Away, Sukcesja..."
-              class="tmdb-input"
-              @input="onSearchInput"
-              @keydown.enter.prevent="executeSearch"
-            />
-            <button
-              v-if="tmdbSearchQuery"
-              type="button"
-              class="clear-btn"
-              @click="clearSearch"
+          <!-- Sticky Search Bar & Segment Controls -->
+          <div class="search-controls-wrapper">
+            <!-- Modern iOS Search Bar -->
+            <div
+              class="tmdb-search-input-box"
+              :class="{ 'is-active': isSearchFocused || !!tmdbSearchQuery }"
             >
-              <ion-icon :icon="ioniconsCloseCircleOutline" />
-            </button>
-          </div>
-
-          <!-- Category filter inside search -->
-          <div class="search-category-tabs" data-no-swipe="true">
-            <button
-              v-for="cat in searchCategoryTabs"
-              :key="cat.id"
-              type="button"
-              class="search-tab-pill"
-              :class="{ active: searchCategory === cat.id }"
-              @click="selectSearchCategory(cat.id)"
-            >
-              {{ cat.label }}
-            </button>
-          </div>
-
-          <!-- TMDB API Key notice banner if missing -->
-          <div v-if="apiKeyWarning" class="api-key-warning-card">
-            <ion-icon :icon="ioniconsAlertCircleOutline" />
-            <div class="warning-text">
-              <span class="warning-title">Klucz TMDB API</span>
-              <span class="warning-desc">{{ apiKeyWarning }}</span>
+              <div class="search-icon-orb">
+                <ion-icon :icon="ioniconsSearchOutline" />
+              </div>
+              <input
+                ref="searchInputRef"
+                v-model="tmdbSearchQuery"
+                type="text"
+                placeholder="Wpisz np. Incepcja, The Last of Us, Spirited Away..."
+                class="tmdb-input"
+                @focus="isSearchFocused = true"
+                @blur="isSearchFocused = false"
+                @input="onSearchInput"
+                @keydown.enter.prevent="executeSearch"
+              />
+              <button
+                v-if="tmdbSearchQuery"
+                type="button"
+                class="clear-btn"
+                @click="clearSearch"
+                aria-label="Wyczyść wyszukiwanie"
+              >
+                <ion-icon :icon="ioniconsCloseCircleOutline" />
+              </button>
             </div>
-            <button type="button" class="warning-action-btn" @click="openApiKeyPrompt">
-              Wpisz klucz
-            </button>
+
+            <!-- Segmented Category Pill Tabs -->
+            <div class="search-category-tabs" data-no-swipe="true">
+              <button
+                v-for="cat in searchCategoryTabs"
+                :key="cat.id"
+                type="button"
+                class="search-tab-pill"
+                :class="{ active: searchCategory === cat.id }"
+                @click="selectSearchCategory(cat.id)"
+              >
+                <span class="pill-emoji">{{ cat.emoji }}</span>
+                <span class="pill-label">{{ cat.label }}</span>
+              </button>
+            </div>
+
+            <!-- Sleek API Key Alert Banner (if needed) -->
+            <div v-if="apiKeyWarning" class="api-key-warning-card">
+              <div class="warning-icon-pill">
+                <ion-icon :icon="ioniconsAlertCircleOutline" />
+              </div>
+              <div class="warning-text">
+                <span class="warning-title">Klucz TMDB API</span>
+                <span class="warning-desc">{{ apiKeyWarning }}</span>
+              </div>
+              <button type="button" class="warning-action-btn" @click="openApiKeyPrompt">
+                Ustaw klucz
+              </button>
+            </div>
           </div>
 
-          <!-- Content: Loading or Results or Trending -->
-          <div class="modal-scrollable-content">
-            <!-- Spinner -->
+          <!-- Modal Scrollable Content -->
+          <div class="modal-scrollable-content search-results-scroll">
+            <!-- Loading State with Pulsing Ring / Spinner -->
             <div v-if="isSearching" class="search-loading-state">
-              <ion-spinner name="crescent" />
-              <span>Przeszukuję bazę TMDB...</span>
+              <div class="spinner-pulse-ring">
+                <ion-spinner name="crescent" class="loading-crescent" />
+              </div>
+              <span class="loading-title">Przeszukuję bazę TMDB...</span>
+              <span class="loading-subtitle">Pobieram oceny, gatunki i oficjalne plakaty</span>
             </div>
 
-            <!-- Error notice -->
+            <!-- Error State -->
             <div v-else-if="searchError" class="search-error-state">
-              <ion-icon :icon="ioniconsAlertCircleOutline" />
-              <p>{{ searchError }}</p>
-              <button type="button" class="retry-btn" @click="executeSearch">Spróbuj ponownie</button>
+              <div class="error-icon-box">
+                <ion-icon :icon="ioniconsAlertCircleOutline" />
+              </div>
+              <h4 class="error-title">Coś poszło nie tak</h4>
+              <p class="error-desc">{{ searchError }}</p>
+              <button type="button" class="retry-search-btn" @click="executeSearch">
+                Spróbuj ponownie
+              </button>
             </div>
 
-            <!-- Results List -->
+            <!-- Live Search Results -->
             <div v-else-if="searchResults.length > 0" class="search-results-list">
-              <span class="results-heading">Wyniki wyszukiwania ({{ searchResults.length }})</span>
+              <div class="results-header-bar">
+                <span class="results-count-title">
+                  Wyniki wyszukiwania
+                  <span class="count-bubble">{{ searchResults.length }}</span>
+                </span>
+                <button
+                  type="button"
+                  class="results-manual-link"
+                  @click="openManualAddWithTitle(tmdbSearchQuery)"
+                >
+                  Nie ma na liście? Dodaj ręcznie &rarr;
+                </button>
+              </div>
+
+              <!-- Card for each TMDB result -->
               <div
                 v-for="res in searchResults"
                 :key="res.tmdb_id"
                 class="search-result-card"
               >
-                <!-- Thumbnail -->
-                <div class="res-thumb">
+                <!-- High-Res Poster Thumbnail with Type Badge -->
+                <div class="res-thumb-container">
                   <img
                     v-if="res.poster_path"
                     :src="res.poster_path"
                     :alt="res.title"
+                    class="res-thumb-img"
                     loading="lazy"
                   />
-                  <div v-else class="res-thumb-empty">
+                  <div v-else class="res-thumb-fallback">
                     <ion-icon :icon="ioniconsFilmOutline" />
                   </div>
+                  <span class="res-type-pill" :class="'type-' + res.media_type">
+                    {{ getMediaTypeLabel(res.media_type) }}
+                  </span>
                 </div>
 
-                <!-- Info -->
-                <div class="res-meta">
-                  <div class="res-title-row">
-                    <h4 class="res-title">{{ res.title }}</h4>
-                    <span class="type-tag-small" :class="'type-' + res.media_type">
-                      {{ getMediaTypeLabel(res.media_type) }}
+                <!-- Media Details -->
+                <div class="res-meta-col">
+                  <!-- Title Row -->
+                  <div class="res-header-row">
+                    <h4 class="res-main-title">{{ res.title }}</h4>
+                    <span v-if="res.original_title && res.original_title !== res.title" class="res-orig-title">
+                      {{ res.original_title }}
                     </span>
                   </div>
-                  <div class="res-sub-row">
-                    <span v-if="res.release_year">{{ res.release_year }}</span>
-                    <span v-if="res.vote_average" class="res-star">
-                      <ion-icon :icon="ioniconsStar" />
+
+                  <!-- Badges & Ratings -->
+                  <div class="res-badges-line">
+                    <span v-if="res.release_year" class="meta-year-badge">
+                      {{ res.release_year }}
+                    </span>
+                    <span v-if="res.vote_average" class="meta-rating-badge">
+                      <ion-icon :icon="ioniconsStar" class="star-icon" />
                       {{ res.vote_average }}
                     </span>
-                    <span v-if="res.genres.length > 0" class="res-genres">
-                      {{ res.genres.slice(0, 2).join(', ') }}
+                    <span v-if="res.genres && res.genres.length > 0" class="meta-genre-badge">
+                      {{ res.genres.slice(0, 2).join(' • ') }}
                     </span>
                   </div>
-                  <p v-if="res.overview" class="res-overview">{{ res.overview }}</p>
 
-                  <!-- Add Buttons -->
-                  <div class="res-actions-row">
-                    <button
-                      v-if="!isAlreadyInList(res.tmdb_id)"
-                      type="button"
-                      class="add-planned-btn"
-                      @click="addFromTmdb(res, 'planned')"
-                    >
-                      <ion-icon :icon="ioniconsAddCircleOutline" />
-                      <span>Do obejrzenia</span>
-                    </button>
-                    <button
-                      v-if="!isAlreadyInList(res.tmdb_id)"
-                      type="button"
-                      class="add-watched-btn"
-                      @click="addFromTmdb(res, 'watched')"
-                    >
-                      <ion-icon :icon="ioniconsCheckmarkCircleOutline" />
-                      <span>Obejrzane</span>
-                    </button>
-                    <span v-else class="already-added-pill">
-                      <ion-icon :icon="ioniconsCheckmarkOutline" />
-                      <span>Na Waszej liście</span>
-                    </span>
+                  <!-- Brief Synopsis Overview -->
+                  <p v-if="res.overview" class="res-synopsis">
+                    {{ res.overview }}
+                  </p>
+
+                  <!-- Action Buttons -->
+                  <div class="res-actions-bar">
+                    <template v-if="!isAlreadyInList(res.tmdb_id)">
+                      <button
+                        type="button"
+                        class="action-pill-btn btn-plan"
+                        @click="addFromTmdb(res, 'planned')"
+                      >
+                        <ion-icon :icon="ioniconsBookmarkOutline" />
+                        <span>Chcę obejrzeć</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="action-pill-btn btn-watched"
+                        @click="addFromTmdb(res, 'watched')"
+                      >
+                        <ion-icon :icon="ioniconsCheckmarkCircleOutline" />
+                        <span>Obejrzane</span>
+                      </button>
+                    </template>
+                    <div v-else class="already-added-indicator">
+                      <ion-icon :icon="ioniconsCheckmarkCircle" />
+                      <span>Na Waszej liście seansów</span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- Trending / Recommendations (When query is empty) -->
+            <!-- Zero Query / Trending Section -->
             <div v-else-if="!tmdbSearchQuery" class="trending-section">
-              <span class="results-heading">🔥 Popularne i polecane w tym tygodniu</span>
-              <div v-if="trendingList.length > 0" class="trending-grid">
+              <div class="trending-header-bar">
+                <div class="trending-title-group">
+                  <div class="flame-badge">
+                    <ion-icon :icon="ioniconsFlame" />
+                  </div>
+                  <div>
+                    <h4 class="trending-heading">Popularne w tym tygodniu</h4>
+                    <p class="trending-subheading">Hity i nowości według bazy The Movie Database</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Trending Grid Cards -->
+              <div v-if="trendingList.length > 0" class="trending-posters-grid">
                 <div
                   v-for="tr in trendingList"
                   :key="tr.tmdb_id"
-                  class="trending-card"
+                  class="trending-item-card"
                   @click="addFromTmdb(tr, 'planned')"
                 >
-                  <div class="tr-poster-box">
-                    <img v-if="tr.poster_path" :src="tr.poster_path" :alt="tr.title" loading="lazy" />
-                    <span class="tr-type-pill" :class="'type-' + tr.media_type">
-                      {{ getMediaTypeLabel(tr.media_type) }}
-                    </span>
-                    <div class="tr-add-overlay">
-                      <ion-icon :icon="ioniconsAddCircle" />
+                  <div class="tr-poster-wrapper">
+                    <img
+                      v-if="tr.poster_path"
+                      :src="tr.poster_path"
+                      :alt="tr.title"
+                      class="tr-poster-img"
+                      loading="lazy"
+                    />
+                    <div v-else class="tr-poster-empty">
+                      <ion-icon :icon="ioniconsFilmOutline" />
+                    </div>
+
+                    <!-- Top Glass Tags -->
+                    <div class="tr-top-glass-tags">
+                      <span v-if="tr.vote_average" class="tr-glass-score">
+                        ⭐ {{ tr.vote_average }}
+                      </span>
+                      <span class="tr-glass-type" :class="'type-' + tr.media_type">
+                        {{ getMediaTypeLabel(tr.media_type) }}
+                      </span>
+                    </div>
+
+                    <!-- Add Quick Action Button Overlay -->
+                    <div
+                      class="tr-add-hover-btn"
+                      :class="{ 'is-added': isAlreadyInList(tr.tmdb_id) }"
+                    >
+                      <ion-icon
+                        :icon="isAlreadyInList(tr.tmdb_id) ? ioniconsCheckmarkOutline : ioniconsAddOutline"
+                      />
                     </div>
                   </div>
-                  <span class="tr-title">{{ tr.title }}</span>
-                  <span class="tr-meta">{{ tr.release_year }} • ⭐ {{ tr.vote_average }}</span>
+
+                  <!-- Text details -->
+                  <div class="tr-caption-box">
+                    <span class="tr-title-text">{{ tr.title }}</span>
+                    <span class="tr-meta-text">
+                      {{ tr.release_year || 'Nowość' }}
+                      <span v-if="isAlreadyInList(tr.tmdb_id)" class="tr-on-list-tag">✓ Na liście</span>
+                    </span>
+                  </div>
                 </div>
               </div>
-              <div v-else class="trending-empty-note">
-                <p>Wpisz tytuł powyżej, aby znaleźć dowolny film, serial lub anime.</p>
+
+              <!-- Trending Fallback Note if empty -->
+              <div v-else class="trending-placeholder-note">
+                <div class="note-icon-wrap">
+                  <ion-icon :icon="ioniconsSearchOutline" />
+                </div>
+                <p>Wpisz powyżej tytuł dowolnego filmu, anime lub serialu, aby rozpocząć wyszukiwanie!</p>
               </div>
             </div>
 
-            <!-- No results found for query -->
+            <!-- Query typed, but 0 results found -->
             <div v-else class="no-results-state">
-              <ion-icon :icon="ioniconsSearchOutline" />
-              <h4>Brak wyników dla "{{ tmdbSearchQuery }}"</h4>
-              <p>Sprawdź pisownię lub dodaj pozycję ręcznie wpisując tytuł.</p>
-              <button type="button" class="dn-button-primary" @click="openManualAddWithTitle(tmdbSearchQuery)">
-                <ion-icon :icon="ioniconsAddOutline" />
+              <div class="no-results-icon-orb">
+                <ion-icon :icon="ioniconsFilmOutline" />
+              </div>
+              <h4 class="no-results-title">Brak wyników dla "{{ tmdbSearchQuery }}"</h4>
+              <p class="no-results-desc">
+                Nie znaleziono takiego tytułu w bazie TMDB. Możesz wpisać inną frazę lub dodać go ręcznie do Waszej listy.
+              </p>
+              <button
+                type="button"
+                class="dn-button-primary add-manual-from-search-btn"
+                @click="openManualAddWithTitle(tmdbSearchQuery)"
+              >
+                <ion-icon :icon="ioniconsAddCircleOutline" />
                 <span>Dodaj "{{ tmdbSearchQuery }}" ręcznie</span>
               </button>
             </div>
@@ -1132,16 +1254,17 @@ const searchInputRef = ref<HTMLInputElement | null>(null)
 const tmdbSearchQuery = ref('')
 const searchCategory = ref<'all' | 'movie' | 'tv' | 'anime'>('all')
 const isSearching = ref(false)
+const isSearchFocused = ref(false)
 const searchError = ref('')
 const searchResults = ref<any[]>([])
 const trendingList = ref<any[]>([])
 const apiKeyWarning = ref('')
 
 const searchCategoryTabs = [
-  { id: 'all', label: 'Wszystko' },
-  { id: 'movie', label: 'Filmy' },
-  { id: 'tv', label: 'Seriale' },
-  { id: 'anime', label: 'Anime' }
+  { id: 'all', label: 'Wszystko', emoji: '🍿' },
+  { id: 'movie', label: 'Filmy', emoji: '🎬' },
+  { id: 'tv', label: 'Seriale', emoji: '📺' },
+  { id: 'anime', label: 'Anime', emoji: '⛩️' }
 ] as const
 
 let searchDebounceTimeout: any = null
@@ -2455,17 +2578,162 @@ onMounted(() => {
   gap: 14px;
 }
 
-/* TMDB SEARCH MODAL SPECIFICS */
+/* ========================================================== */
+/* TMDB SEARCH MODAL (PREMIUM IOS BOTTOM SHEET) */
+/* ========================================================== */
+ion-modal.dn-movies-search-modal {
+  --border-radius: 28px 28px 0 0;
+  --background: #ffffff;
+  --box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.16);
+}
+
+.search-modal-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.search-modal-header {
+  padding: 16px 18px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #ffffff;
+  border-bottom: 1px solid rgba(241, 245, 249, 0.9);
+}
+
+.search-header-branding {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-glyph-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 22px;
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.28);
+  flex-shrink: 0;
+}
+
+.header-text-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.branding-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tmdb-pill {
+  background: #01b4e4;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  line-height: 1.3;
+}
+
+.catalog-live-pill {
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.search-modal-heading {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.2px;
+}
+
+.modal-circle-close-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+}
+
+.modal-circle-close-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.modal-circle-close-btn:active {
+  transform: scale(0.92);
+}
+
+/* Sticky Search Bar & Segment Controls */
+.search-controls-wrapper {
+  padding: 12px 18px 10px;
+  background: #ffffff;
+  border-bottom: 1px solid #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 10;
+}
+
 .tmdb-search-input-box {
-  margin: 12px 18px 6px;
   position: relative;
   display: flex;
   align-items: center;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
-.input-search-icon {
+.tmdb-search-input-box.is-active {
+  border-color: #8b5cf6;
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.12), 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.search-icon-orb {
   position: absolute;
   left: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 20px;
   color: #8b5cf6;
   pointer-events: none;
@@ -2473,21 +2741,18 @@ onMounted(() => {
 
 .tmdb-input {
   width: 100%;
-  padding: 12px 38px 12px 42px;
-  border-radius: 14px;
-  border: 1.5px solid #e2e8f0;
-  background: #f8fafc;
-  font-size: 14px;
-  font-weight: 500;
+  padding: 13px 40px 13px 44px;
+  border: none;
+  background: transparent;
+  font-size: 14.5px;
+  font-weight: 600;
   color: #0f172a;
   outline: none;
-  transition: all 0.2s ease;
 }
 
-.tmdb-input:focus {
-  border-color: #8b5cf6;
-  background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
+.tmdb-input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
 }
 
 .clear-btn {
@@ -2496,18 +2761,30 @@ onMounted(() => {
   background: none;
   border: none;
   color: #94a3b8;
-  font-size: 20px;
+  font-size: 21px;
   cursor: pointer;
   display: flex;
   align-items: center;
+  justify-content: center;
+  padding: 4px;
+  touch-action: manipulation;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.clear-btn:hover {
+  color: #64748b;
+}
+
+.clear-btn:active {
+  transform: scale(0.9);
 }
 
 .search-category-tabs {
   display: flex;
-  gap: 6px;
-  padding: 0 18px 8px;
+  gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
+  padding-bottom: 2px;
 }
 
 .search-category-tabs::-webkit-scrollbar {
@@ -2515,37 +2792,65 @@ onMounted(() => {
 }
 
 .search-tab-pill {
-  padding: 6px 12px;
-  border-radius: 8px;
-  background: #f1f5f9;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: #f8fafc;
   border: 1px solid #e2e8f0;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   color: #475569;
   cursor: pointer;
   white-space: nowrap;
+  touch-action: manipulation;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.search-tab-pill .pill-emoji {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.search-tab-pill:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.search-tab-pill:active {
+  transform: scale(0.95);
 }
 
 .search-tab-pill.active {
-  background: #8b5cf6;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
   color: #ffffff;
-  border-color: #8b5cf6;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.32);
 }
 
+/* API Key Warning */
 .api-key-warning-card {
-  margin: 0 18px;
-  padding: 10px 12px;
+  padding: 10px 14px;
   background: #fffbeb;
   border: 1px solid #fde68a;
-  border-radius: 12px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  color: #b45309;
+  gap: 10px;
+  color: #92400e;
 }
 
-.api-key-warning-card ion-icon {
-  font-size: 20px;
+.warning-icon-pill {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #fef3c7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #d97706;
   flex-shrink: 0;
 }
 
@@ -2558,27 +2863,569 @@ onMounted(() => {
 .warning-title {
   font-size: 12px;
   font-weight: 700;
+  color: #92400e;
 }
 
 .warning-desc {
   font-size: 11px;
+  color: #b45309;
 }
 
 .warning-action-btn {
-  padding: 4px 10px;
+  padding: 6px 12px;
   background: #f59e0b;
   color: #ffffff;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.15s ease, background 0.15s ease;
 }
 
-.search-loading-state,
-.search-error-state,
-.no-results-state {
-  padding: 30px 16px;
+.warning-action-btn:active {
+  transform: scale(0.94);
+}
+
+/* Scrollable Content Container */
+.search-results-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 18px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Loading State */
+.search-loading-state {
+  padding: 48px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.spinner-pulse-ring {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #f5f3ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 6px rgba(139, 92, 246, 0.08);
+}
+
+.loading-crescent {
+  color: #8b5cf6;
+  width: 28px;
+  height: 28px;
+}
+
+.loading-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.loading-subtitle {
+  font-size: 12px;
+  color: #64748b;
+  max-width: 240px;
+}
+
+/* Error State */
+.search-error-state {
+  padding: 40px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+}
+
+.error-icon-box {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #fef2f2;
+  color: #ef4444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+}
+
+.error-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.error-desc {
+  margin: 0;
+  font-size: 12.5px;
+  color: #64748b;
+  max-width: 280px;
+}
+
+.retry-search-btn {
+  margin-top: 6px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.retry-search-btn:active {
+  transform: scale(0.95);
+}
+
+/* Results List */
+.search-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.results-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 2px;
+  margin-bottom: 2px;
+}
+
+.results-count-title {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.count-bubble {
+  background: #8b5cf6;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+
+.results-manual-link {
+  background: none;
+  border: none;
+  color: #8b5cf6;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.results-manual-link:hover {
+  text-decoration: underline;
+}
+
+/* SEARCH RESULT CARD */
+.search-result-card {
+  display: flex;
+  gap: 14px;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+  border-radius: 18px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.search-result-card:active {
+  transform: scale(0.99);
+}
+
+.res-thumb-container {
+  width: 82px;
+  min-width: 82px;
+  aspect-ratio: 2 / 3;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  background: #0f172a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+}
+
+.res-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.res-thumb-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 28px;
+  background: #1e293b;
+}
+
+.res-type-pill {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 5px;
+  color: #ffffff;
+  letter-spacing: 0.4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.res-meta-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.res-header-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.res-main-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.res-orig-title {
+  font-size: 11px;
+  color: #94a3b8;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.res-badges-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+}
+
+.meta-year-badge {
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+.meta-rating-badge {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fef3c7;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.meta-rating-badge .star-icon {
+  color: #f59e0b;
+  font-size: 12px;
+}
+
+.meta-genre-badge {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.res-synopsis {
+  margin: 2px 0 6px;
+  font-size: 11.5px;
+  color: #475569;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.res-actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.action-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+}
+
+.action-pill-btn:active {
+  transform: scale(0.94);
+}
+
+.action-pill-btn.btn-plan {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.28);
+}
+
+.action-pill-btn.btn-watched {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1.5px solid #a7f3d0;
+}
+
+.already-added-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #bbf7d0;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.already-added-indicator ion-icon {
+  font-size: 15px;
+}
+
+/* Trending Section */
+.trending-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.trending-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.trending-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.flame-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.28);
+  flex-shrink: 0;
+}
+
+.trending-heading {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.trending-subheading {
+  margin: 1px 0 0;
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+.trending-posters-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.trending-item-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.15s ease;
+}
+
+.trending-item-card:active {
+  transform: scale(0.96);
+}
+
+.tr-poster-wrapper {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  background: #0f172a;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+.tr-poster-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.tr-poster-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 24px;
+  background: #1e293b;
+}
+
+.tr-top-glass-tags {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+
+.tr-glass-score {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 6px;
+  color: #fbbf24;
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 2px 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.tr-glass-type {
+  font-size: 8px;
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.tr-add-hover-btn {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  transition: all 0.15s ease;
+}
+
+.tr-add-hover-btn.is-added {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.tr-caption-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tr-title-text {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.tr-meta-text {
+  font-size: 10.5px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tr-on-list-tag {
+  color: #10b981;
+  font-weight: 700;
+}
+
+.trending-placeholder-note {
+  padding: 36px 16px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2587,240 +3434,90 @@ onMounted(() => {
   color: #64748b;
 }
 
-.search-error-state ion-icon,
-.no-results-state ion-icon {
-  font-size: 40px;
-  color: #94a3b8;
-}
-
-.search-results-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.results-heading {
-  font-size: 12px;
-  font-weight: 700;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-}
-
-.search-result-card {
-  display: flex;
-  gap: 12px;
-  padding: 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-}
-
-.res-thumb {
-  width: 64px;
-  min-width: 64px;
-  height: 94px;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #0f172a;
-}
-
-.res-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.res-thumb-empty {
-  width: 100%;
-  height: 100%;
+.note-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
-  font-size: 24px;
+  font-size: 20px;
+  color: #8b5cf6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.res-meta {
-  flex: 1;
+/* No Results State */
+.no-results-state {
+  padding: 44px 16px;
   display: flex;
   flex-direction: column;
-  min-width: 0;
-  gap: 3px;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
 }
 
-.res-title-row {
+.no-results-icon-orb {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+  color: #8b5cf6;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.15);
 }
 
-.res-title {
+.no-results-title {
   margin: 0;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
   color: #0f172a;
-  line-height: 1.25;
 }
 
-.type-tag-small {
-  font-size: 8.5px;
-  font-weight: 700;
-  padding: 2px 5px;
-  border-radius: 4px;
-  color: #ffffff;
-  text-transform: uppercase;
-}
-
-.res-sub-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
+.no-results-desc {
+  margin: 0;
+  font-size: 12.5px;
   color: #64748b;
+  max-width: 290px;
+  line-height: 1.4;
 }
 
-.res-star {
-  color: #f59e0b;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.res-genres {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.res-overview {
-  margin: 3px 0 0;
-  font-size: 11px;
-  color: #475569;
-  line-height: 1.35;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.res-actions-row {
-  display: flex;
-  gap: 6px;
-  margin-top: 6px;
-}
-
-.add-planned-btn {
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: #8b5cf6;
-  color: #ffffff;
-  border: none;
-  font-size: 11px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-}
-
-.add-watched-btn {
-  padding: 4px 8px;
-  border-radius: 6px;
-  background: #10b981;
-  color: #ffffff;
-  border: none;
-  font-size: 11px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-}
-
-.already-added-pill {
-  font-size: 11px;
-  font-weight: 700;
-  color: #10b981;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* Trending Grid */
-.trending-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-
-.trending-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  cursor: pointer;
-}
-
-.tr-poster-box {
-  width: 100%;
-  aspect-ratio: 2 / 3;
+.add-manual-from-search-btn {
+  margin-top: 4px;
+  padding: 10px 18px;
   border-radius: 12px;
-  overflow: hidden;
-  position: relative;
-  background: #1e293b;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.tr-poster-box img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.tr-type-pill {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  font-size: 8px;
+  font-size: 13px;
   font-weight: 700;
-  padding: 2px 4px;
-  border-radius: 4px;
-  color: #ffffff;
-  text-transform: uppercase;
-}
-
-.tr-add-overlay {
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  background: rgba(15, 23, 42, 0.7);
-  border-radius: 50%;
-  color: #ffffff;
-  width: 26px;
-  height: 26px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  font-size: 18px;
+  gap: 6px;
 }
 
-.tr-title {
-  font-size: 11px;
-  font-weight: 700;
-  color: #0f172a;
-  line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+@media (max-width: 380px) {
+  .search-result-card {
+    gap: 10px;
+    padding: 10px;
+  }
+  .res-thumb-container {
+    width: 72px;
+    min-width: 72px;
+  }
+  .action-pill-btn {
+    padding: 6px 9px;
+    font-size: 10.5px;
+  }
+  .trending-posters-grid {
+    gap: 8px;
+  }
 }
 
-.tr-meta {
-  font-size: 10px;
-  color: #64748b;
+@media (max-width: 340px) {
+  .trending-posters-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 /* REVIEW MODAL SPECIFICS */
