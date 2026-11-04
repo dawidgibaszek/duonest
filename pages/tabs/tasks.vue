@@ -800,7 +800,8 @@
         </ion-content>
       </ion-modal>
 
-      <div style="height: 30px;"></div>
+      <!-- Floating bottom tab bar spacer so content never gets obscured -->
+      <div class="tab-bottom-spacer" style="height: 105px;" aria-hidden="true"></div>
     </ion-content>
   </ion-page>
 </template>

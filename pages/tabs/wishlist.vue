@@ -240,7 +240,8 @@
         </button>
       </div>
 
-      <div style="height: 40px;"></div>
+      <!-- Floating bottom tab bar spacer so content never gets obscured -->
+      <div class="tab-bottom-spacer" style="height: 105px;" aria-hidden="true"></div>
     </ion-content>
 
     <!-- 3. ADD / EDIT MODAL (BOTTOM SHEET WITH DRAG HANDLE & BREAKPOINTS) -->

@@ -80,7 +80,7 @@
           <div class="tab-icon-wrap">
             <div class="tab-icon-pill"></div>
             <ion-icon :icon="activeTabIndex === 2 ? ioniconsCheckbox : ioniconsCheckboxOutline" />
-            <span v-if="pendingTasksCount > 0" class="tab-badge secondary-badge">
+            <span v-if="pendingTasksCount > 0" class="tab-badge primary-badge">
               {{ pendingTasksCount }}
             </span>
           </div>
@@ -97,7 +97,7 @@
           <div class="tab-icon-wrap">
             <div class="tab-icon-pill"></div>
             <ion-icon :icon="activeTabIndex === 3 ? ioniconsCalendar : ioniconsCalendarOutline" />
-            <span v-if="todayEventsCount > 0" class="tab-badge tertiary-badge">
+            <span v-if="todayEventsCount > 0" class="tab-badge primary-badge">
               {{ todayEventsCount }}
             </span>
           </div>
@@ -114,7 +114,7 @@
           <div class="tab-icon-wrap">
             <div class="tab-icon-pill"></div>
             <ion-icon :icon="activeTabIndex === 4 ? ioniconsGift : ioniconsGiftOutline" />
-            <span v-if="pendingWishlistCount > 0" class="tab-badge pink-badge">
+            <span v-if="pendingWishlistCount > 0" class="tab-badge primary-badge">
               {{ pendingWishlistCount }}
             </span>
           </div>
@@ -131,7 +131,7 @@
           <div class="tab-icon-wrap">
             <div class="tab-icon-pill"></div>
             <ion-icon :icon="activeTabIndex === 5 ? ioniconsFilm : ioniconsFilmOutline" />
-            <span v-if="pendingMoviesCount > 0" class="tab-badge purple-badge">
+            <span v-if="pendingMoviesCount > 0" class="tab-badge primary-badge">
               {{ pendingMoviesCount }}
             </span>
           </div>
@@ -412,10 +412,13 @@ watch(() => route.path, () => {
 }
 
 .tabs-touch-container {
-  flex: 1;
   width: 100%;
-  height: calc(100% - 72px - env(safe-area-inset-bottom, 0px));
-  position: relative;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   overflow: hidden;
 }
 
@@ -446,27 +449,45 @@ watch(() => route.path, () => {
   height: 100%;
 }
 
+.tab-slide :deep(ion-page > ion-content) {
+  --padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+}
+
 /* ── TELEGRAM-STYLE FLOATING BOTTOM TAB BAR ── */
 
 .duo-tab-bar-wrapper {
-  position: relative;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
   z-index: 1000;
-  padding: 8px 12px;
-  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-  background: transparent;
+  padding: 0 14px;
+  /* Lowered on iOS so it sits sleek and low right over the home indicator */
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 0px) - 12px);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
 }
 
 .duo-native-tab-bar {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 520px;
   display: flex;
   align-items: center;
   justify-content: space-around;
-  height: 56px;
-  background: #ffffff;
-  border-radius: 20px;
+  height: 60px;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 30px;
   box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.10),
-    0 1px 4px rgba(0, 0, 0, 0.06);
+    0 10px 32px rgba(15, 23, 42, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.04);
   overflow: hidden;
+  padding: 0 4px;
 }
 
 .duo-tab-btn {
@@ -478,9 +499,9 @@ watch(() => route.path, () => {
   gap: 2px;
   background: none;
   border: none;
-  padding: 6px 0;
+  padding: 6px 0 5px 0;
   cursor: pointer;
-  color: #94a3b8;
+  color: #64748b;
   transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s ease;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -500,10 +521,10 @@ watch(() => route.path, () => {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -60%);
+  transform: translate(-50%, -50%);
   width: 0;
-  height: 28px;
-  background: #f1f5f9;
+  height: 30px;
+  background: rgba(15, 23, 42, 0.07);
   border-radius: 999px;
   transition: width 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   z-index: 0;
