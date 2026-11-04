@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const payload = {
-    title: body.title || 'DuoNest – Test Powiadomień 💌',
+    title: body.title || 'DuoNest - Test Powiadomień 💌',
     body: body.body || 'Powiadomienia Web Push działają w 100%! Będziesz na bieżąco, nawet gdy aplikacja jest zamknięta.',
     data: {
       url: body.url || '/tabs/nest',

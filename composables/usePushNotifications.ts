@@ -276,7 +276,7 @@ export const usePushNotifications = () => {
       // Send pleasant welcome notification
       setTimeout(() => {
         sendDirectNotification(
-          'DuoNest – Witajcie w Gniazdku! 🕊️',
+          'DuoNest - Witajcie w Gniazdku! 🕊️',
           `Powiadomienia od ${postPairingPartnerName.value || 'Partnera'} są aktywne. Bądźcie zawsze na bieżąco!`,
           '/tabs/nest'
         )
@@ -423,7 +423,7 @@ export const usePushNotifications = () => {
     const partnerName = partnerUser.value?.name || 'Partner'
     const title = (typeof customTitle === 'string' && customTitle.trim())
       ? customTitle
-      : 'DuoNest – Test Powiadomień 💌'
+      : 'DuoNest - Test Powiadomień 💌'
     const body = (typeof customBody === 'string' && customBody.trim())
       ? customBody
       : `Wszystko działa idealnie! Gdy ${partnerName} wyśle Ci buziaka, marzenie lub doda zadanie, dowiesz się od razu.`

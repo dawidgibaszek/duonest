@@ -33,7 +33,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // Server-only keys (never exposed to client browser)
     vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || '',
-    vapidSubject: process.env.VAPID_SUBJECT || 'mailto:kontakt@duonest.app',
+    vapidSubject: process.env.VAPID_SUBJECT || 'mailto:kontakt@duonestapp.pl',
     tmdbApiKey: process.env.TMDB_API_KEY || '',
 
     public: {
@@ -84,7 +84,7 @@ export default defineNuxtConfig({
       importScripts: ['/sw-push.js'],
       clientsClaim: true,
       skipWaiting: true,
-      // Supabase REST API and Realtime must always go to network — never serve from cache.
+      // Supabase REST API and Realtime must always go to network - never serve from cache.
       // Without this, iOS PWA returns stale Supabase responses from cache, causing
       // wishlist items (and other data) not to appear until the app is restarted.
       runtimeCaching: [
@@ -105,19 +105,35 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'DuoNest – Wspólny Dom & Relacja',
+      title: 'DuoNest - Wspólny Dom & Relacja',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover' },
-        { name: 'description', content: 'Minimalistyczna aplikacja dla par – wspólne zakupy, domowe obowiązki, kalendarz i budowanie relacji.' },
+        { name: 'description', content: 'Minimalistyczna aplikacja dla par - wspólne zakupy, domowe obowiązki, kalendarz i budowanie relacji.' },
         { name: 'theme-color', content: '#0284c7' },
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
         { name: 'apple-mobile-web-app-title', content: 'DuoNest' },
         { name: 'apple-touch-fullscreen', content: 'yes' },
-        { name: 'format-detection', content: 'telephone=no' }
+        { name: 'format-detection', content: 'telephone=no' },
+
+        // Open Graph
+        { property: 'og:site_name', content: 'DuoNest' },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:url', content: 'https://duonestapp.pl' },
+        { property: 'og:title', content: 'DuoNest - Wspólny Dom & Relacja' },
+        { property: 'og:description', content: 'Minimalistyczna aplikacja dla par - wspólne zakupy, domowe obowiązki, kalendarz i budowanie relacji.' },
+        { property: 'og:image', content: 'https://duonestapp.pl/icon.png' },
+        { property: 'og:locale', content: 'pl_PL' },
+
+        // Twitter Card
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:title', content: 'DuoNest - Wspólny Dom & Relacja' },
+        { name: 'twitter:description', content: 'Minimalistyczna aplikacja dla par - wspólne zakupy, domowe obowiązki, kalendarz i budowanie relacji.' },
+        { name: 'twitter:image', content: 'https://duonestapp.pl/icon.png' }
       ],
       link: [
+        { rel: 'canonical', href: 'https://duonestapp.pl' },
         { rel: 'manifest', href: '/manifest.json' },
         { rel: 'icon', type: 'image/png', href: '/favicon.png' },
         { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
@@ -130,9 +146,5 @@ export default defineNuxtConfig({
 
   css: [
     '~/assets/css/main.css'
-  ],
-
-  nitro: {
-    preset: 'netlify'
-  }
+  ]
 })

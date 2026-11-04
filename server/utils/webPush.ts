@@ -22,7 +22,7 @@ let isVapidConfigured = false
 export function configureWebPush(config: any) {
   if (isVapidConfigured) return webpush
 
-  const subject = config.vapidSubject || process.env.VAPID_SUBJECT || 'mailto:kontakt@duonest.app'
+  const subject = config.vapidSubject || process.env.VAPID_SUBJECT || 'mailto:kontakt@duonestapp.pl'
   const publicKey = config.public?.vapidPublicKey || process.env.VAPID_PUBLIC_KEY || process.env.NUXT_PUBLIC_VAPID_PUBLIC_KEY
   const privateKey = config.vapidPrivateKey || process.env.VAPID_PRIVATE_KEY
 

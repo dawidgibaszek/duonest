@@ -165,7 +165,7 @@
 
               <!-- Secret surprise note reminder -->
               <p v-if="!item.is_visible_to_partner" class="surprise-explainer-note">
-                🔒 Partner nie widzi tej propozycji — idealna na prezent!
+                🔒 Partner nie widzi tej propozycji - idealna na prezent!
               </p>
             </div>
           </div>

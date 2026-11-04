@@ -1034,7 +1034,7 @@ export const useDuoState = () => {
       // 2. Prepare redirect URL to login with recovery mode
       const redirectUrl = typeof window !== 'undefined'
         ? `${window.location.origin}/login?type=recovery`
-        : 'https://duonest.app/login?type=recovery'
+        : 'https://duonestapp.pl/login?type=recovery'
 
       // 3. Dispatch password recovery request via Supabase Auth + connected Resend SMTP
       const { error: resetErr } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
@@ -1380,7 +1380,7 @@ export const useDuoState = () => {
       }, 20000)
     }
 
-    // Use document for visibilitychange — more reliable cross-platform
+    // Use document for visibilitychange - more reliable cross-platform
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         if (currentUser.value?.id && authUser.value) {

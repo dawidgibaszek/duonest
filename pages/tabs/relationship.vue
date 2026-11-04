@@ -507,7 +507,7 @@
 
           <h4>Powiadomienia w telefonie</h4>
           <p class="section-desc">
-            Bądźcie zawsze blisko – otrzymuj natychmiastowe alerty o gestach, nastroju, planach, zakupach i marzeniach od partnera.
+            Bądźcie zawsze blisko - otrzymuj natychmiastowe alerty o gestach, nastroju, planach, zakupach i marzeniach od partnera.
           </p>
 
           <!-- Master Toggle Box -->
