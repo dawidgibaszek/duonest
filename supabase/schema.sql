@@ -35,7 +35,6 @@ create table if not exists public.partnerships (
   partner2_id text not null,
   nest_name text not null default 'Nasze Ciepłe Gniazdko',
   nest_level integer not null default 1,
-  nest_points integer default 0, -- Legacy/optional: DuoNest dynamically computes common points as (partner1.points + partner2.points)
   anniversary_date text,
   pet_id text default null,
   pet_name text default null,
@@ -43,6 +42,9 @@ create table if not exists public.partnerships (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+-- Migration safety: Drop unused nest_points column (common points are dynamically computed from profiles.points)
+alter table if exists public.partnerships drop column if exists nest_points;
 
 -- 3. SHOPPING ITEMS (Realtime Shared Shopping List)
 create table if not exists public.shopping_items (

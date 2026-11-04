@@ -24,7 +24,6 @@ export interface Partnership {
   partner2_id: string
   nest_name: string
   nest_level: number
-  nest_points?: number
   anniversary_date?: string | null
   pet_id?: string
   pet_name?: string
@@ -516,7 +515,6 @@ export const useDuoState = () => {
     if (savedPartnership) {
       partnership.value = {
         ...savedPartnership,
-        nest_points: 0, // Points are ALWAYS loaded exclusively from Supabase, never from localStorage
         nest_level: 1   // Will be recalculated when Supabase data loads
       }
       if (partnership.value.pet_xp === undefined) partnership.value.pet_xp = 0
@@ -700,7 +698,6 @@ export const useDuoState = () => {
         partnership.value = {
           ...partnership.value,
           ...pData,
-          nest_points: nestPoints.value,
           nest_level: nestLevel.value
         }
         saveToStorage('duonest_partnership', partnership.value)
@@ -2370,7 +2367,6 @@ export const useDuoState = () => {
       partner2_id: newPartnerId,
       nest_name: 'Nasze Ciepłe Gniazdko',
       nest_level: 1,
-      nest_points: 0,
       anniversary_date: new Date().toISOString().split('T')[0],
       created_at: new Date().toISOString()
     }
