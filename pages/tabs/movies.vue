@@ -942,14 +942,14 @@
                 </div>
               </div>
 
-              <!-- Winner State -->
-              <div v-else-if="selectedRandomMovie" class="winner-state">
+              <!-- Winner State (Clean Horizontal iOS Card) -->
+              <div v-else-if="selectedRandomMovie" class="winner-card-layout">
                 <div class="winner-poster-box">
                   <img
                     v-if="selectedRandomMovie.poster_path"
                     :src="selectedRandomMovie.poster_path"
                     :alt="selectedRandomMovie.title"
-                    class="winner-poster"
+                    class="winner-poster-img"
                   />
                   <div v-else class="winner-poster-empty">
                     <ion-icon :icon="ioniconsFilmOutline" />
@@ -962,7 +962,7 @@
                 <div class="winner-meta">
                   <div class="winner-badge-pill">
                     <ion-icon :icon="ioniconsSparkles" />
-                    <span>Dziś wieczorem oglądacie:</span>
+                    <span>Wylosowany seans</span>
                   </div>
                   <h3 class="winner-title">{{ selectedRandomMovie.title }}</h3>
                   <div class="winner-tags-row">
@@ -970,10 +970,10 @@
                       {{ selectedRandomMovie.release_year }}
                     </span>
                     <span v-if="selectedRandomMovie.vote_average" class="winner-score">
-                      ⭐ {{ selectedRandomMovie.vote_average }} (TMDB)
+                      ⭐ {{ selectedRandomMovie.vote_average }}
                     </span>
                     <span v-if="selectedRandomMovie.genres && selectedRandomMovie.genres.length > 0" class="winner-genre">
-                      {{ selectedRandomMovie.genres.slice(0, 2).join(' • ') }}
+                      {{ selectedRandomMovie.genres[0] }}
                     </span>
                   </div>
                   <p v-if="selectedRandomMovie.overview" class="winner-desc">
@@ -982,7 +982,7 @@
 
                   <div v-if="isAlreadyInList(selectedRandomMovie)" class="winner-already-note">
                     <ion-icon :icon="ioniconsCheckmarkCircle" />
-                    <span>Znajduje się już na Waszej liście</span>
+                    <span>✓ Znajduje się już na Waszej liście</span>
                   </div>
                 </div>
               </div>
@@ -996,8 +996,8 @@
 
               <!-- Initial Prompt State -->
               <div v-else class="random-prompt-state">
-                <div class="prompt-orb-glow">
-                  <ion-icon :icon="ioniconsSparkles" class="prompt-icon" />
+                <div class="prompt-orb-icon">
+                  <ion-icon :icon="ioniconsSparkles" />
                 </div>
                 <h4>Nie możecie się zdecydować?</h4>
                 <p v-if="randomSource === 'list'">
@@ -1011,50 +1011,63 @@
 
             <!-- 5. Spin and Action Buttons Footer -->
             <div class="random-actions-footer">
-              <!-- Spin Trigger Button -->
-              <button
-                type="button"
-                class="dn-button-primary spin-main-btn"
-                :disabled="isSpinning || (randomSource === 'list' && plannedCandidates.length === 0)"
-                @click="spinRandomMovie"
-              >
-                <ion-icon :icon="ioniconsDice" />
-                <span>{{ selectedRandomMovie ? 'Wylosuj inny seans' : 'Wylosuj seans!' }}</span>
-              </button>
-
-              <!-- Winner Actions Bar -->
-              <div v-if="selectedRandomMovie && !isSpinning" class="winner-actions-grid">
-                <!-- Action 1: Oglądamy ten! -->
+              <!-- When a movie has been drawn -->
+              <template v-if="selectedRandomMovie && !isSpinning">
+                <!-- Action 1: Oglądamy ten! (Full width primary button) -->
                 <button
                   type="button"
-                  class="winner-btn btn-watch-now"
+                  class="winner-primary-btn"
                   @click="acceptRandomMovie(selectedRandomMovie)"
                 >
                   <ion-icon :icon="ioniconsPlayCircle" />
-                  <span>Oglądamy ten!</span>
+                  <span>Oglądamy ten seans!</span>
                 </button>
 
-                <!-- Action 2: Jeśli z TMDB i brak na liście -> Chcę obejrzeć / Zapisz -->
-                <button
-                  v-if="!isAlreadyInList(selectedRandomMovie)"
-                  type="button"
-                  class="winner-btn btn-save-list"
-                  @click="addRandomToPlanned(selectedRandomMovie)"
-                >
-                  <ion-icon :icon="ioniconsBookmarkOutline" />
-                  <span>Zapisz na listę</span>
-                </button>
+                <!-- Action 2 & 3: Save to list + Schedule Date (2-column secondary row) -->
+                <div class="winner-secondary-row" :class="{ 'single-col': isAlreadyInList(selectedRandomMovie) }">
+                  <button
+                    v-if="!isAlreadyInList(selectedRandomMovie)"
+                    type="button"
+                    class="winner-secondary-btn"
+                    @click="addRandomToPlanned(selectedRandomMovie)"
+                  >
+                    <ion-icon :icon="ioniconsBookmarkOutline" />
+                    <span>Zapisz na listę</span>
+                  </button>
 
-                <!-- Action 3: Zaplanuj w Terminarzu -->
+                  <button
+                    type="button"
+                    class="winner-secondary-btn"
+                    @click="scheduleMovieDate(selectedRandomMovie)"
+                  >
+                    <ion-icon :icon="ioniconsCalendarOutline" />
+                    <span>Randka w Terminarzu</span>
+                  </button>
+                </div>
+
+                <!-- Respin button -->
                 <button
                   type="button"
-                  class="winner-btn btn-plan-date"
-                  @click="scheduleMovieDate(selectedRandomMovie)"
+                  class="spin-again-btn"
+                  @click="spinRandomMovie"
                 >
-                  <ion-icon :icon="ioniconsCalendar" />
-                  <span>Randka w Terminarzu</span>
+                  <ion-icon :icon="ioniconsDiceOutline" />
+                  <span>Wylosuj inny seans</span>
                 </button>
-              </div>
+              </template>
+
+              <!-- When no movie drawn yet -->
+              <template v-else>
+                <button
+                  type="button"
+                  class="spin-main-btn"
+                  :disabled="isSpinning || (randomSource === 'list' && plannedCandidates.length === 0)"
+                  @click="spinRandomMovie"
+                >
+                  <ion-icon :icon="ioniconsDice" />
+                  <span>{{ isSpinning ? 'Losowanie w toku...' : 'Wylosuj seans!' }}</span>
+                </button>
+              </template>
 
               <!-- Warning if list empty -->
               <div v-if="randomSource === 'list' && plannedCandidates.length === 0" class="empty-list-switch-box">
@@ -1326,93 +1339,98 @@
                 <!-- IF NOT IN LIST YET: Add options -->
                 <template v-if="!savedMovieInList">
                   <div class="details-add-options-label">
-                    <span>Dodaj ten seans do Waszej kolekcji:</span>
+                    <span>Dodaj seans do kolekcji:</span>
                   </div>
-                  <div class="details-add-btns-row">
+                  <div class="details-add-grid">
                     <button
                       type="button"
-                      class="details-action-btn add-plan-btn"
+                      class="details-btn-primary add-plan-btn"
                       @click="addFromTmdb(selectedMovieForDetails, 'planned')"
                     >
-                      <ion-icon :icon="ioniconsBookmarkOutline" />
+                      <ion-icon :icon="ioniconsBookmark" />
                       <span>Chcę obejrzeć</span>
                     </button>
 
-                    <button
-                      type="button"
-                      class="details-action-btn add-now-btn"
-                      @click="addFromTmdb(selectedMovieForDetails, 'watching')"
-                    >
-                      <ion-icon :icon="ioniconsPlayCircle" />
-                      <span>Oglądamy teraz</span>
-                    </button>
+                    <div class="details-secondary-row">
+                      <button
+                        type="button"
+                        class="details-btn-secondary"
+                        @click="addFromTmdb(selectedMovieForDetails, 'watching')"
+                      >
+                        <ion-icon :icon="ioniconsPlayCircleOutline" />
+                        <span>Oglądamy teraz</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        class="details-btn-secondary"
+                        @click="addFromTmdb(selectedMovieForDetails, 'watched')"
+                      >
+                        <ion-icon :icon="ioniconsCheckmarkCircleOutline" />
+                        <span>Już obejrzane</span>
+                      </button>
+                    </div>
 
                     <button
                       type="button"
-                      class="details-action-btn add-watched-btn-lg"
-                      @click="addFromTmdb(selectedMovieForDetails, 'watched')"
+                      class="details-btn-secondary date-btn"
+                      @click="scheduleMovieDate(selectedMovieForDetails)"
                     >
-                      <ion-icon :icon="ioniconsCheckmarkCircleOutline" />
-                      <span>Już obejrzane</span>
+                      <ion-icon :icon="ioniconsCalendarOutline" />
+                      <span>Zaplanuj seans w Terminarzu</span>
                     </button>
                   </div>
-
-                  <button
-                    type="button"
-                    class="details-action-btn date-btn"
-                    @click="scheduleMovieDate(selectedMovieForDetails)"
-                  >
-                    <ion-icon :icon="ioniconsCalendar" />
-                    <span>Zaplanuj randkę w Terminarzu (+10 pkt)</span>
-                  </button>
                 </template>
 
                 <!-- IF ALREADY IN LIST: Status toggle, review, schedule date, delete -->
                 <template v-else>
-                  <div class="details-status-change-row">
-                    <button
-                      type="button"
-                      class="status-toggle-pill"
-                      :class="{ active: savedMovieInList.status === 'planned' }"
-                      @click="toggleMovieStatus(savedMovieInList, 'planned')"
-                    >
-                      Do obejrzenia
-                    </button>
-                    <button
-                      type="button"
-                      class="status-toggle-pill"
-                      :class="{ active: savedMovieInList.status === 'watching' }"
-                      @click="toggleMovieStatus(savedMovieInList, 'watching')"
-                    >
-                      W trakcie
-                    </button>
-                    <button
-                      type="button"
-                      class="status-toggle-pill"
-                      :class="{ active: savedMovieInList.status === 'watched' }"
-                      @click="toggleMovieStatus(savedMovieInList, 'watched')"
-                    >
-                      Obejrzane
-                    </button>
+                  <div class="details-status-control-box">
+                    <span class="details-status-label">Status na Waszej liście:</span>
+                    <div class="details-status-change-row">
+                      <button
+                        type="button"
+                        class="status-toggle-pill"
+                        :class="{ active: savedMovieInList.status === 'planned' }"
+                        @click="toggleMovieStatus(savedMovieInList, 'planned')"
+                      >
+                        Do obejrzenia
+                      </button>
+                      <button
+                        type="button"
+                        class="status-toggle-pill"
+                        :class="{ active: savedMovieInList.status === 'watching' }"
+                        @click="toggleMovieStatus(savedMovieInList, 'watching')"
+                      >
+                        W trakcie
+                      </button>
+                      <button
+                        type="button"
+                        class="status-toggle-pill"
+                        :class="{ active: savedMovieInList.status === 'watched' }"
+                        @click="toggleMovieStatus(savedMovieInList, 'watched')"
+                      >
+                        Obejrzane
+                      </button>
+                    </div>
                   </div>
-
-                  <button
-                    type="button"
-                    class="details-action-btn date-btn"
-                    @click="scheduleMovieDate(savedMovieInList)"
-                  >
-                    <ion-icon :icon="ioniconsCalendar" />
-                    <span>Zaplanuj seans w Terminarzu</span>
-                  </button>
 
                   <button
                     v-if="savedMovieInList.status === 'watched'"
                     type="button"
-                    class="details-action-btn review-btn"
+                    class="details-btn-primary review-btn"
                     @click="openReviewFromDetails"
                   >
                     <ion-icon :icon="ioniconsStar" />
                     <span>{{ hasUserReviewed(savedMovieInList) ? 'Edytuj Twoją ocenę' : 'Oceń / napisz recenzję' }}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="details-btn-secondary date-btn"
+                    @click="scheduleMovieDate(savedMovieInList)"
+                  >
+                    <ion-icon :icon="ioniconsCalendarOutline" />
+                    <span>Zaplanuj seans w Terminarzu</span>
                   </button>
 
                   <button
@@ -2382,7 +2400,7 @@ onMounted(() => {
   width: 38px;
   height: 38px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  background: #0f172a;
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -2501,10 +2519,10 @@ onMounted(() => {
 }
 
 .filter-pill.active {
-  background: #8b5cf6;
+  background: #0f172a;
   color: #ffffff;
-  border-color: #8b5cf6;
-  box-shadow: 0 3px 10px rgba(139, 92, 246, 0.25);
+  border-color: #0f172a;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .filter-badge {
@@ -3254,13 +3272,13 @@ ion-modal.dn-movies-search-modal {
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  background: #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  font-size: 22px;
-  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.28);
+  font-size: 20px;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
   flex-shrink: 0;
 }
 
@@ -3304,7 +3322,6 @@ ion-modal.dn-movies-search-modal {
   height: 6px;
   border-radius: 50%;
   background: #10b981;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
 }
 
 .search-modal-heading {
@@ -3363,9 +3380,9 @@ ion-modal.dn-movies-search-modal {
 }
 
 .tmdb-search-input-box.is-active {
-  border-color: #8b5cf6;
+  border-color: #0f172a;
   background: #ffffff;
-  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.12), 0 0 0 3px rgba(139, 92, 246, 0.1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
 .search-icon-orb {
@@ -3375,7 +3392,7 @@ ion-modal.dn-movies-search-modal {
   align-items: center;
   justify-content: center;
   font-size: 20px;
-  color: #8b5cf6;
+  color: #64748b;
   pointer-events: none;
 }
 
@@ -3463,10 +3480,10 @@ ion-modal.dn-movies-search-modal {
 }
 
 .search-tab-pill.active {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  background: #0f172a;
   color: #ffffff;
-  border-color: transparent;
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.32);
+  border-color: #0f172a;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 /* API Key Warning */
@@ -3553,15 +3570,15 @@ ion-modal.dn-movies-search-modal {
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: #f5f3ff;
+  background: #f1f5f9;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 0 6px rgba(139, 92, 246, 0.08);
+  box-shadow: 0 0 0 6px rgba(15, 23, 42, 0.04);
 }
 
 .loading-crescent {
-  color: #8b5cf6;
+  color: #0f172a;
   width: 28px;
   height: 28px;
 }
@@ -3851,10 +3868,10 @@ ion-modal.dn-movies-search-modal {
 }
 
 .action-pill-btn.btn-plan {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  background: #0f172a;
   color: #ffffff;
   border: none;
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.28);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .action-pill-btn.btn-watched {
@@ -3903,13 +3920,14 @@ ion-modal.dn-movies-search-modal {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
-  color: #ffffff;
+  background: #fef2f2;
+  color: #ef4444;
+  border: 1px solid #fee2e2;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 18px;
-  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.28);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   flex-shrink: 0;
 }
 
@@ -4119,13 +4137,13 @@ ion-modal.dn-movies-search-modal {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
-  color: #8b5cf6;
+  background: #f1f5f9;
+  color: #64748b;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 32px;
-  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.15);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
 .no-results-title {
@@ -4412,15 +4430,17 @@ ion-modal.dn-movies-random-modal {
 }
 
 .glyph-amber {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
-  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.28) !important;
+  background: #fef3c7 !important;
+  color: #d97706 !important;
+  border: 1px solid #fde68a !important;
+  box-shadow: none !important;
 }
 
 .random-brand-badge {
-  background: #fef3c7;
-  color: #b45309;
+  background: #f1f5f9;
+  color: #475569;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 2px 7px;
   border-radius: 999px;
   text-transform: uppercase;
@@ -4440,10 +4460,10 @@ ion-modal.dn-movies-random-modal {
 .random-picker-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 14px 18px 32px;
+  padding: 14px 18px 24px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -4451,7 +4471,7 @@ ion-modal.dn-movies-random-modal {
 .random-source-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  gap: 4px;
   padding: 4px;
   background: #f1f5f9;
   border-radius: 14px;
@@ -4462,16 +4482,16 @@ ion-modal.dn-movies-random-modal {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 9px 12px;
+  padding: 8px 12px;
   border-radius: 10px;
   border: none;
   background: transparent;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   color: #64748b;
   cursor: pointer;
   touch-action: manipulation;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.15s ease;
 }
 
 .source-tab-pill ion-icon {
@@ -4481,8 +4501,8 @@ ion-modal.dn-movies-random-modal {
 .source-tab-pill.active {
   background: #ffffff;
   color: #0f172a;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  font-weight: 800;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  font-weight: 700;
 }
 
 .source-count-tag {
@@ -4495,23 +4515,23 @@ ion-modal.dn-movies-random-modal {
 }
 
 .source-tab-pill.active .source-count-tag {
-  background: #fef3c7;
-  color: #b45309;
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 /* Filters Containers */
 .source-filters-box {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 12px 14px;
+  border-radius: 14px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .filters-sub-label {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
   color: #64748b;
   text-transform: uppercase;
@@ -4532,12 +4552,12 @@ ion-modal.dn-movies-random-modal {
 }
 
 .random-filter-pill {
-  padding: 6px 12px;
+  padding: 5px 11px;
   border-radius: 999px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #e2e8f0;
   background: #ffffff;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: #475569;
   cursor: pointer;
   white-space: nowrap;
@@ -4546,20 +4566,20 @@ ion-modal.dn-movies-random-modal {
 }
 
 .random-filter-pill:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
 }
 
 .random-filter-pill.active {
-  background: #f59e0b;
+  background: #0f172a;
   color: #ffffff;
-  border-color: #f59e0b;
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+  border-color: #0f172a;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .available-counter-bar {
-  font-size: 11.5px;
+  font-size: 11px;
   color: #64748b;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .available-counter-bar strong {
@@ -4588,12 +4608,12 @@ ion-modal.dn-movies-random-modal {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 12px;
-  border-radius: 10px;
+  padding: 5px 11px;
+  border-radius: 9px;
   background: #ffffff;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #e2e8f0;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: #475569;
   cursor: pointer;
   white-space: nowrap;
@@ -4602,14 +4622,14 @@ ion-modal.dn-movies-random-modal {
 }
 
 .genre-chip-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
 }
 
 .genre-chip-btn.active {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  background: #0f172a;
   color: #ffffff;
-  border-color: transparent;
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+  border-color: #0f172a;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .random-ratings-row {
@@ -4628,9 +4648,9 @@ ion-modal.dn-movies-random-modal {
   padding: 5px 10px;
   border-radius: 8px;
   background: #ffffff;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #e2e8f0;
   font-size: 11.5px;
-  font-weight: 700;
+  font-weight: 600;
   color: #475569;
   cursor: pointer;
   white-space: nowrap;
@@ -4639,30 +4659,31 @@ ion-modal.dn-movies-random-modal {
 }
 
 .rating-filter-pill:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
 }
 
 .rating-filter-pill.active {
-  background: #fffbeb;
-  color: #b45309;
-  border-color: #f59e0b;
-  font-weight: 800;
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 /* Shuffler / Winner Card */
 .random-display-card {
   width: 100%;
-  min-height: 250px;
-  padding: 20px 16px;
+  min-height: 160px;
+  padding: 16px;
   background: #ffffff;
-  border-radius: 20px;
-  border: 1.5px solid #e2e8f0;
-  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.03);
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
   position: relative;
+  overflow: hidden;
 }
 
 /* Spinning State */
@@ -4670,20 +4691,21 @@ ion-modal.dn-movies-random-modal {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  padding: 10px;
 }
 
 .spinning-dice-orb {
-  width: 64px;
-  height: 64px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 38px;
-  color: #d97706;
-  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.25);
+  font-size: 28px;
+  color: #0f172a;
 }
 
 .dice-spin-anim {
@@ -4692,56 +4714,57 @@ ion-modal.dn-movies-random-modal {
 
 @keyframes diceSpin {
   0% { transform: rotate(0deg) scale(1); }
-  50% { transform: rotate(180deg) scale(1.15); }
+  50% { transform: rotate(180deg) scale(1.1); }
   100% { transform: rotate(360deg) scale(1); }
 }
 
 .spinning-header {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
   color: #0f172a;
 }
 
 .shuffle-title-badge {
-  padding: 6px 14px;
+  padding: 5px 12px;
   border-radius: 999px;
   background: #f1f5f9;
   color: #0f172a;
-  font-size: 13.5px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 700;
   max-width: 280px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Winner State */
-.winner-state {
+/* Winner State - Horizontal Compact iOS Style */
+.winner-card-layout {
   display: flex;
-  flex-direction: column;
-  align-items: center;
   gap: 12px;
-  animation: winnerPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   width: 100%;
+  align-items: stretch;
+  animation: winnerPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes winnerPop {
-  0% { transform: scale(0.85); opacity: 0; }
+  0% { transform: scale(0.92); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
 }
 
 .winner-poster-box {
-  width: 120px;
-  height: 175px;
-  border-radius: 14px;
+  width: 90px;
+  min-width: 90px;
+  height: 135px;
+  border-radius: 12px;
   overflow: hidden;
   position: relative;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
   background: #0f172a;
+  border: 1px solid #e2e8f0;
+  flex-shrink: 0;
 }
 
-.winner-poster {
+.winner-poster-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -4752,100 +4775,103 @@ ion-modal.dn-movies-random-modal {
   width: 100%;
   height: 100%;
   background: #1e293b;
-  color: #ffffff;
+  color: #94a3b8;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 36px;
+  font-size: 30px;
 }
 
 .winner-type-pill {
   position: absolute;
-  top: 6px;
-  left: 6px;
+  top: 5px;
+  left: 5px;
   font-size: 9px;
   font-weight: 800;
-  padding: 2px 6px;
-  border-radius: 5px;
+  padding: 2px 5px;
+  border-radius: 4px;
   color: #ffffff;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.3px;
 }
 
 .winner-meta {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  width: 100%;
+  justify-content: center;
+  text-align: left;
+  gap: 3px;
 }
 
 .winner-badge-pill {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
-  color: #d97706;
+  color: #0284c7;
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
 
 .winner-title {
-  margin: 2px 0 0;
-  font-size: 19px;
-  font-weight: 900;
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 800;
   color: #0f172a;
   line-height: 1.25;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .winner-tags-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin: 4px 0 2px;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin: 2px 0 1px;
 }
 
 .winner-year {
   background: #f1f5f9;
   color: #475569;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 1px 6px;
-  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 5px;
 }
 
 .winner-score {
   background: #fffbeb;
   color: #b45309;
   border: 1px solid #fef3c7;
-  font-size: 11px;
-  font-weight: 800;
-  padding: 1px 6px;
-  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 5px;
 }
 
 .winner-genre {
   color: #64748b;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
 }
 
 .winner-desc {
-  margin: 6px 0 0;
-  font-size: 12px;
-  color: #475569;
-  line-height: 1.4;
-  max-width: 320px;
+  margin: 1px 0 0;
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.35;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
 .winner-already-note {
-  margin-top: 6px;
+  margin-top: 3px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -4859,34 +4885,34 @@ ion-modal.dn-movies-random-modal {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   color: #64748b;
-  padding: 16px;
+  padding: 12px;
 }
 
-.prompt-orb-glow {
-  width: 60px;
-  height: 60px;
+.prompt-orb-icon {
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #fef3c7, #fde68a);
-  color: #d97706;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
-  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.2);
+  font-size: 24px;
 }
 
 .random-prompt-state h4 {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
   color: #0f172a;
 }
 
 .random-prompt-state p {
   margin: 0;
-  font-size: 12.5px;
+  font-size: 12px;
   max-width: 290px;
   line-height: 1.4;
 }
@@ -4898,24 +4924,24 @@ ion-modal.dn-movies-random-modal {
   align-items: center;
   gap: 8px;
   color: #64748b;
-  padding: 20px;
+  padding: 16px;
 }
 
 .error-glyph {
-  font-size: 40px;
+  font-size: 32px;
   color: #ef4444;
 }
 
 .random-error-state h4 {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
   color: #0f172a;
 }
 
 .random-error-state p {
   margin: 0;
-  font-size: 12.5px;
+  font-size: 12px;
   max-width: 280px;
 }
 
@@ -4924,74 +4950,118 @@ ion-modal.dn-movies-random-modal {
   width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
+  gap: 8px;
+  margin-top: 2px;
 }
 
-.spin-main-btn {
+.winner-primary-btn {
   width: 100%;
-  max-width: 320px;
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  padding: 14px;
-  font-size: 15px;
-  font-weight: 800;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
   border-radius: 14px;
-  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.32);
+  padding: 13px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+  touch-action: manipulation;
 }
 
-.winner-actions-grid {
-  display: flex;
-  flex-wrap: wrap;
+.winner-primary-btn:active {
+  transform: scale(0.97);
+  background: #1e293b;
+}
+
+.winner-secondary-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
   width: 100%;
-  max-width: 380px;
-  justify-content: center;
 }
 
-.winner-btn {
-  padding: 10px 14px;
+.winner-secondary-row.single-col {
+  grid-template-columns: 1fr;
+}
+
+.winner-secondary-btn {
+  padding: 10px 12px;
   border-radius: 12px;
+  background: #f8fafc;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   cursor: pointer;
-  border: none;
-  touch-action: manipulation;
   transition: all 0.15s ease;
+  touch-action: manipulation;
 }
 
-.winner-btn:active {
-  transform: scale(0.95);
+.winner-secondary-btn:active {
+  transform: scale(0.97);
+  background: #f1f5f9;
 }
 
-.btn-watch-now {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+.spin-main-btn {
+  width: 100%;
+  background: #0f172a;
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.28);
-  flex: 1 1 130px;
+  border: none;
+  border-radius: 14px;
+  padding: 13px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+  touch-action: manipulation;
 }
 
-.btn-save-list {
-  background: #f5f3ff;
-  color: #7c3aed;
-  border: 1.5px solid #ddd6fe;
-  flex: 1 1 120px;
+.spin-main-btn:active {
+  transform: scale(0.97);
+  background: #1e293b;
 }
 
-.btn-plan-date {
-  background: #e0e7ff;
-  color: #4338ca;
-  border: 1.5px solid #c7d2fe;
-  flex: 1 1 140px;
+.spin-again-btn {
+  width: 100%;
+  padding: 10px;
+  border-radius: 12px;
+  background: transparent;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+}
+
+.spin-again-btn:active {
+  transform: scale(0.97);
+  background: #f8fafc;
 }
 
 .empty-list-switch-box {
   padding: 12px;
-  background: #fffbeb;
-  border: 1px dashed #fde68a;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
   border-radius: 12px;
   text-align: center;
   display: flex;
@@ -5003,15 +5073,15 @@ ion-modal.dn-movies-random-modal {
 .empty-list-switch-box p {
   margin: 0;
   font-size: 12px;
-  color: #92400e;
+  color: #64748b;
 }
 
 .switch-to-tmdb-btn {
   background: none;
   border: none;
-  color: #d97706;
+  color: #0284c7;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
   padding: 2px 4px;
 }
@@ -5358,128 +5428,166 @@ ion-modal.dn-movies-details-modal {
 .details-modal-actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   margin-top: 10px;
-  padding-top: 12px;
+  padding-top: 14px;
   border-top: 1px solid #f1f5f9;
 }
 
-.details-add-options-label {
-  font-size: 11.5px;
+.details-add-options-label,
+.details-status-label {
+  font-size: 11px;
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+  display: block;
 }
 
-.details-add-btns-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+.details-add-grid {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
-.details-action-btn {
+.details-btn-primary {
+  width: 100%;
+  padding: 13px 18px;
+  border-radius: 13px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  touch-action: manipulation;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.details-btn-primary:active {
+  transform: scale(0.98);
+  background: #1e293b;
+}
+
+.details-btn-primary ion-icon {
+  font-size: 18px;
+}
+
+.details-btn-primary.review-btn {
+  background: #0f172a;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+}
+
+.details-secondary-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.details-btn-secondary {
   padding: 11px 12px;
   border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   cursor: pointer;
-  border: none;
   touch-action: manipulation;
-  transition: all 0.15s ease;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-.details-action-btn:active {
-  transform: scale(0.96);
+.details-btn-secondary:active {
+  transform: scale(0.97);
+  background: #f1f5f9;
 }
 
-.add-plan-btn {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.28);
+.details-btn-secondary ion-icon {
+  font-size: 16px;
+  color: #64748b;
 }
 
-.add-now-btn {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.28);
-}
-
-.add-watched-btn-lg {
-  background: #ecfdf5;
-  color: #059669;
-  border: 1.5px solid #a7f3d0;
-}
-
-.date-btn {
+.details-btn-secondary.date-btn {
   width: 100%;
-  background: #e0e7ff;
-  color: #4338ca;
-  border: 1.5px solid #c7d2fe;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  color: #334155;
 }
 
-.review-btn {
-  width: 100%;
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-  color: #ffffff;
+.details-status-control-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .details-status-change-row {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 6px;
+  gap: 4px;
   padding: 4px;
   background: #f1f5f9;
   border-radius: 12px;
 }
 
 .status-toggle-pill {
-  padding: 8px;
-  border-radius: 8px;
+  padding: 8px 4px;
+  border-radius: 9px;
   border: none;
   background: transparent;
-  font-size: 11.5px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
   color: #64748b;
   cursor: pointer;
   text-align: center;
+  touch-action: manipulation;
   transition: all 0.15s ease;
 }
 
 .status-toggle-pill.active {
   background: #ffffff;
   color: #0f172a;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .details-delete-btn {
   background: none;
   border: none;
-  color: #ef4444;
+  color: #94a3b8;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 8px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  margin-top: 4px;
+  gap: 5px;
+  margin-top: 2px;
+  transition: color 0.15s ease;
+  touch-action: manipulation;
 }
 
-@media (max-width: 380px) {
-  .details-add-btns-row {
-    grid-template-columns: 1fr;
-  }
+.details-delete-btn:active {
+  color: #ef4444;
+}
+
+.details-delete-btn ion-icon {
+  font-size: 14px;
 }
 
 /* BUTTONS */
 .dn-button-primary {
-  background: #8b5cf6;
+  background: #0f172a;
   color: #ffffff;
   border: none;
   border-radius: 14px;
@@ -5492,11 +5600,12 @@ ion-modal.dn-movies-details-modal {
   gap: 8px;
   cursor: pointer;
   transition: transform 0.15s ease, background-color 0.15s ease;
-  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.3);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
 }
 
 .dn-button-primary:active {
   transform: scale(0.97);
+  background: #1e293b;
 }
 </style>
 
