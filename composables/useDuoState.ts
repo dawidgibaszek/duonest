@@ -1140,45 +1140,57 @@ export const useDuoState = () => {
     }
   }
 
-  const completePasswordReset = async (newPassword: string, emailHint?: string) => {
+  const completePasswordReset = async (newPassword: string) => {
+    const authClient = getSupabaseClient()
     const dbClient = getCleanDbClient()
-    if (!dbClient) return { data: null, error: new Error('Brak połączenia z systemem') }
+    if (!authClient || !dbClient) return { data: null, error: new Error('Brak połączenia z systemem') }
     if (!newPassword || newPassword.length < 6) {
       return { data: null, error: new Error('Hasło musi mieć co najmniej 6 znaków.') }
     }
 
     try {
-      const modernHash = await hashPassword(newPassword)
-
-      // 1. Try to get user from active Supabase session if available
-      let sessionEmail = ''
-      const authClient = getSupabaseClient()
-      if (authClient) {
-        try {
-          const { data: sessionData } = await authClient.auth.getSession()
-          sessionEmail = sessionData?.session?.user?.email || ''
-          if (!sessionEmail) {
-            const { data: userData } = await authClient.auth.getUser()
-            sessionEmail = userData?.user?.email || ''
+      // 1. Authenticate & verify token cryptographically via Supabase Auth
+      let verifiedEmail = ''
+      try {
+        const { data: sessionData } = await authClient.auth.getSession()
+        verifiedEmail = sessionData?.session?.user?.email || ''
+        if (!verifiedEmail) {
+          const { data: userData, error: uErr } = await authClient.auth.getUser()
+          if (!uErr && userData?.user?.email) {
+            verifiedEmail = userData.user.email
           }
-        } catch (_) {}
+        }
+      } catch (e: any) {
+        console.warn('Auth check error during password reset:', e)
       }
 
-      // 2. Determine target email (from hint, session, or current user)
-      const targetEmail = (emailHint || sessionEmail || currentUser.value?.email || '').trim().toLowerCase()
+      verifiedEmail = (verifiedEmail || '').trim().toLowerCase()
 
-      if (!targetEmail || !targetEmail.includes('@')) {
+      // If Supabase Auth doesn't have an active, validated user session: REJECT!
+      if (!verifiedEmail || !verifiedEmail.includes('@')) {
         return {
           data: null,
-          error: new Error('Nie udało się zidentyfikować adresu e-mail. Wprowadź swój e-mail i spróbuj ponownie.')
+          error: new Error('Link do resetu hasła wygasł lub jest nieprawidłowy. Poproś o nowy link.')
         }
       }
 
-      // 3. Find profile in profiles table using clean DB client
+      // 2. Update password in Supabase Auth FIRST. If token is expired or revoked, this will fail!
+      const { error: authUpdateErr } = await authClient.auth.updateUser({ password: newPassword })
+      if (authUpdateErr) {
+        console.error('Supabase auth updateUser failed:', authUpdateErr)
+        return {
+          data: null,
+          error: new Error('Link do resetu hasła wygasł lub został już wykorzystany. Poproś o nowy link.')
+        }
+      }
+
+      // 3. Find the profile matching the VERIFIED email ONLY
+      const modernHash = await hashPassword(newPassword)
+
       const { data: dbProfile, error: profileErr } = await dbClient
         .from('profiles')
         .select('*')
-        .ilike('email', targetEmail)
+        .ilike('email', verifiedEmail)
         .order('created_at', { ascending: true })
         .limit(1)
         .maybeSingle()
@@ -1191,7 +1203,7 @@ export const useDuoState = () => {
       if (!dbProfile) {
         return {
           data: null,
-          error: new Error(`Nie znaleziono konta dla adresu e-mail: ${targetEmail}. Upewnij się, że podajesz poprawny adres e-mail.`)
+          error: new Error(`Nie znaleziono profilu DuoNest powiązanego z adresem e-mail: ${verifiedEmail}`)
         }
       }
 
@@ -1218,22 +1230,16 @@ export const useDuoState = () => {
       }
 
       if (!updatedRows || updatedRows.length === 0) {
-        console.warn('Update matched 0 rows with select, retrying direct update')
         await dbClient.from('profiles').update({
           avatar_color: updatedAvatarColor,
           updated_at: new Date().toISOString()
         }).eq('id', dbProfile.id)
       }
 
-      // 5. Update password in Supabase Auth user record if session is active (safe try-catch)
-      if (authClient) {
-        try {
-          await authClient.auth.updateUser({ password: newPassword })
-        } catch (_) {}
-        try {
-          await authClient.auth.signOut({ scope: 'local' })
-        } catch (_) {}
-      }
+      // 5. Clean up temporary recovery session from cookies
+      try {
+        await authClient.auth.signOut({ scope: 'local' })
+      } catch (_) {}
       clearStaleSupabaseCookies()
 
       // 6. Update state and local storage immediately

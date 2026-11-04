@@ -6,13 +6,13 @@ export default defineNuxtRouteMiddleware((to) => {
 
   // 2. Whitelist password recovery flow on /login so user is NEVER redirected to /tabs/nest
   // even if an existing session or token exists in localStorage / Supabase
-  const isRecoveryQuery = to.query.type === 'recovery' || Boolean(to.query.code)
-  const isRecoveryPath = to.fullPath.includes('recovery') || to.fullPath.includes('access_token')
+  const isRecoveryQuery = to.query.type === 'recovery' || Boolean(to.query.code) || Boolean(to.query.error)
+  const isRecoveryPath = to.fullPath.includes('recovery') || to.fullPath.includes('access_token') || to.fullPath.includes('error=')
   let isRecoveryHash = false
   if (typeof window !== 'undefined') {
     const hash = window.location.hash || ''
     const search = window.location.search || ''
-    isRecoveryHash = hash.includes('type=recovery') || hash.includes('access_token') || search.includes('type=recovery') || search.includes('code=')
+    isRecoveryHash = hash.includes('type=recovery') || hash.includes('access_token') || hash.includes('error=') || search.includes('type=recovery') || search.includes('code=') || search.includes('error=')
   }
 
   if (to.path === '/login' && (isRecoveryQuery || isRecoveryPath || isRecoveryHash)) {

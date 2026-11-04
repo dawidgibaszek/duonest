@@ -70,11 +70,10 @@
               </div>
             </div>
 
-            <!-- EMAIL FIELD (LOGIN, REGISTER, FORGOT, OR RECOVERY WHEN NOT LOCKED) -->
-            <div class="form-field" v-if="mode !== 'recovery' || !isEmailLocked">
+            <!-- EMAIL FIELD (LOGIN, REGISTER, FORGOT - NEVER IN RECOVERY) -->
+            <div class="form-field" v-if="mode !== 'recovery'">
               <div class="field-label-row">
                 <label class="field-label">Adres e-mail</label>
-                <span class="password-hint" v-if="mode === 'recovery'">Konto w DuoNest</span>
               </div>
               <div class="input-container">
                 <ion-icon :icon="ioniconsMailOutline" class="field-icon" />
@@ -90,22 +89,15 @@
               </div>
             </div>
 
-            <!-- DETECTED EMAIL BOX (IN RECOVERY MODE IF AUTO-DETECTED FROM LINK) -->
-            <div class="recovery-email-box" v-else-if="mode === 'recovery' && isEmailLocked">
+            <!-- DETECTED CRYPTOGRAPHICALLY VERIFIED EMAIL (RECOVERY MODE ONLY - IMMUTABLE) -->
+            <div class="recovery-email-box" v-else-if="mode === 'recovery'">
               <div class="recovery-email-left">
                 <ion-icon :icon="ioniconsMailOutline" class="recovery-email-icon" />
                 <div class="recovery-email-texts">
                   <span class="recovery-email-label">Konto do zmiany hasła</span>
-                  <span class="recovery-email-val">{{ emailInput }}</span>
+                  <span class="recovery-email-val">{{ recoveryVerifiedEmail }}</span>
                 </div>
               </div>
-              <button
-                type="button"
-                class="recovery-email-change-btn"
-                @click="isEmailLocked = false"
-              >
-                Zmień
-              </button>
             </div>
 
             <!-- PASSWORD FIELD (LOGIN & REGISTER) -->
@@ -298,18 +290,8 @@ const {
 
 initializeClientState()
 
-const checkIsRecoveryInitial = () => {
-  if (route.query.type === 'recovery' || Boolean(route.query.code)) return true
-  if (typeof window !== 'undefined') {
-    const search = window.location.search || ''
-    const hash = window.location.hash || ''
-    return search.includes('type=recovery') || hash.includes('type=recovery') || hash.includes('access_token') || search.includes('code=')
-  }
-  return false
-}
-
-const mode = ref<'login' | 'register' | 'forgot' | 'recovery'>(checkIsRecoveryInitial() ? 'recovery' : 'login')
-const isEmailLocked = ref(false)
+const mode = ref<'login' | 'register' | 'forgot' | 'recovery'>('login')
+const recoveryVerifiedEmail = ref('')
 const emailInput = ref('')
 const passwordInput = ref('')
 const nameInput = ref('')
@@ -322,12 +304,14 @@ const errorMessage = ref('')
 const successMessage = ref('')
 
 const isFormValid = computed(() => {
+  if (mode.value === 'recovery') {
+    return Boolean(recoveryVerifiedEmail.value) &&
+      newPasswordInput.value.length >= 6 &&
+      newPasswordInput.value === confirmPasswordInput.value
+  }
   const hasEmail = emailInput.value.includes('@') && emailInput.value.length > 4
   if (mode.value === 'forgot') {
     return hasEmail
-  }
-  if (mode.value === 'recovery') {
-    return hasEmail && newPasswordInput.value.length >= 6 && newPasswordInput.value === confirmPasswordInput.value
   }
   const hasPass = passwordInput.value.length >= 6
   if (mode.value === 'register') {
@@ -373,86 +357,109 @@ onMounted(async () => {
   const hash = window.location.hash || ''
   const search = window.location.search || ''
   const urlParams = new URLSearchParams(search)
+  const hashParams = new URLSearchParams(hash.replace(/^#/, ''))
 
-  // 1. Detect recovery mode
-  const isRecovery = urlParams.get('type') === 'recovery' || hash.includes('type=recovery') || hash.includes('access_token') || urlParams.has('code')
-  if (isRecovery) {
-    mode.value = 'recovery'
-  } else {
-    // If opening login normally, ensure any leftover expired Supabase auth cookies are cleared
+  // 1. Detect any error returned by Supabase Auth (e.g. expired link, invalid OTP)
+  const authError = hashParams.get('error') || urlParams.get('error')
+  const authErrorCode = hashParams.get('error_code') || urlParams.get('error_code')
+  const authErrorDesc = hashParams.get('error_description') || urlParams.get('error_description')
+
+  if (authError || authErrorCode || authErrorDesc) {
     clearStaleSupabaseCookies()
+    mode.value = 'login'
+    if (window.history?.replaceState) {
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+    if (authErrorCode === 'otp_expired' || authErrorDesc?.includes('expired') || authErrorDesc?.includes('invalid')) {
+      errorMessage.value = 'Link do zmiany hasła wygasł lub został już wykorzystany. Ze względów bezpieczeństwa linki są jednorazowe. Skorzystaj z opcji "Nie pamiętasz hasła?", aby otrzymać nowy link.'
+    } else {
+      errorMessage.value = authErrorDesc ? decodeURIComponent(authErrorDesc.replace(/\+/g, ' ')) : 'Link do zmiany hasła jest nieprawidłowy lub wygasł.'
+    }
+    return
   }
 
-  // 2. Extract email from query param if provided
-  if (urlParams.get('email')) {
-    emailInput.value = urlParams.get('email')!.trim().toLowerCase()
-    isEmailLocked.value = true
-  }
+  // 2. Extract potential cryptographic tokens
+  const accessToken = hashParams.get('access_token')
+  const refreshToken = hashParams.get('refresh_token')
+  const code = urlParams.get('code')
+  const type = hashParams.get('type') || urlParams.get('type')
+  const isRecoveryIntent = type === 'recovery' || hash.includes('type=recovery') || Boolean(accessToken && (hash.includes('type=recovery') || type === 'recovery')) || Boolean(code && type === 'recovery')
 
-  // 3. Extract email and tokens from URL hash if provided
-  if (hash) {
-    const hashParams = new URLSearchParams(hash.replace(/^#/, ''))
-    const accessToken = hashParams.get('access_token')
-    const refreshToken = hashParams.get('refresh_token')
+  const supabase = getSupabaseClient()
+  let verifiedEmail = ''
 
-    if (accessToken) {
+  // 3. Handle implicit recovery token in hash
+  if (accessToken && (type === 'recovery' || hash.includes('type=recovery'))) {
+    if (supabase && refreshToken) {
+      try {
+        const { data: sData, error: sErr } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        })
+        if (!sErr && sData?.session?.user?.email) {
+          verifiedEmail = sData.session.user.email.trim().toLowerCase()
+        }
+      } catch (_) {}
+    }
+
+    if (!verifiedEmail) {
       try {
         const payloadBase64 = accessToken.split('.')[1]
         if (payloadBase64) {
           const decoded = JSON.parse(atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/')))
-          if (decoded?.email && !emailInput.value) {
-            emailInput.value = String(decoded.email).trim().toLowerCase()
-            isEmailLocked.value = true
+          const nowSec = Math.floor(Date.now() / 1000)
+          if (decoded?.exp && decoded.exp < nowSec) {
+            // Token expired!
+            verifiedEmail = ''
+          } else if (decoded?.email) {
+            verifiedEmail = String(decoded.email).trim().toLowerCase()
           }
         }
       } catch (_) {}
     }
+  }
 
-    const supabase = getSupabaseClient()
-    if (supabase && accessToken && refreshToken) {
-      try {
-        await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-      } catch (_) {}
+  // 4. Handle PKCE code in query
+  if (code && supabase && isRecoveryIntent) {
+    try {
+      const { data: codeData, error: codeErr } = await supabase.auth.exchangeCodeForSession(code)
+      if (!codeErr && codeData?.session?.user?.email) {
+        verifiedEmail = codeData.session.user.email.trim().toLowerCase()
+      }
+    } catch (_) {}
+  }
+
+  // 5. Try validating with getUser() if recovery intent was detected
+  if (isRecoveryIntent && !verifiedEmail && supabase) {
+    try {
+      const { data: userData, error: uErr } = await supabase.auth.getUser()
+      if (!uErr && userData?.user?.email) {
+        verifiedEmail = userData.user.email.trim().toLowerCase()
+      }
+    } catch (_) {}
+  }
+
+  // 6. Security Decision: ONLY show recovery form if email is cryptographically verified from token!
+  if (isRecoveryIntent) {
+    if (verifiedEmail) {
+      recoveryVerifiedEmail.value = verifiedEmail
+      mode.value = 'recovery'
+      return
+    } else {
+      clearStaleSupabaseCookies()
+      mode.value = 'login'
+      if (window.history?.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname)
+      }
+      errorMessage.value = 'Link do zmiany hasła wygasł lub jest nieprawidłowy. Poproś o nowy link klikając "Nie pamiętasz hasła?".'
+      return
     }
   }
 
-  // 4. Handle PKCE code in query if present
-  const code = urlParams.get('code')
-  const supabase = getSupabaseClient()
-  if (supabase && code) {
-    try {
-      const { data: codeData } = await supabase.auth.exchangeCodeForSession(code)
-      if (codeData?.session?.user?.email && !emailInput.value) {
-        emailInput.value = codeData.session.user.email.trim().toLowerCase()
-        isEmailLocked.value = true
-      }
-    } catch (_) {}
-  }
-
-  // 5. Try getting email from active session
-  if (supabase && !emailInput.value) {
-    try {
-      const { data: sData } = await supabase.auth.getSession()
-      if (sData?.session?.user?.email) {
-        emailInput.value = sData.session.user.email.trim().toLowerCase()
-        isEmailLocked.value = true
-      }
-    } catch (_) {}
-  }
-
-  // 6. Listen for Supabase PASSWORD_RECOVERY event
-  if (supabase) {
-    try {
-      supabase.auth.onAuthStateChange((event: string, session: any) => {
-        if (event === 'PASSWORD_RECOVERY' || (isRecovery && (event === 'SIGNED_IN' || event === 'USER_UPDATED'))) {
-          mode.value = 'recovery'
-          if (session?.user?.email && !emailInput.value) {
-            emailInput.value = session.user.email.trim().toLowerCase()
-            isEmailLocked.value = true
-          }
-        }
-      })
-    } catch (_) {}
+  // Normal login view
+  clearStaleSupabaseCookies()
+  if (urlParams.get('email')) {
+    emailInput.value = urlParams.get('email')!.trim().toLowerCase()
   }
 })
 
@@ -510,7 +517,13 @@ const handleSubmit = async () => {
         return
       }
 
-      const { error } = await completePasswordReset(newPasswordInput.value, emailInput.value)
+      if (!recoveryVerifiedEmail.value) {
+        errorMessage.value = 'Brak autoryzacji do zmiany hasła. Link wygasł.'
+        isLoading.value = false
+        return
+      }
+
+      const { error } = await completePasswordReset(newPasswordInput.value)
       if (error) {
         errorMessage.value = translateAuthError(error)
         isLoading.value = false
