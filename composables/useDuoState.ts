@@ -1009,6 +1009,127 @@ export const useDuoState = () => {
     return signUpWithEmail(email, 'duonest_pass', name)
   }
 
+  const requestPasswordReset = async (email: string) => {
+    if (!supabase) return { data: null, error: new Error('Brak połączenia z systemem') }
+    const cleanEmail = email.trim().toLowerCase()
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return { data: null, error: new Error('Wprowadź poprawny adres e-mail.') }
+    }
+
+    try {
+      // 1. Verify user profile exists in database
+      const { data: dbProfile } = await supabase
+        .from('profiles')
+        .select('id, email, name')
+        .ilike('email', cleanEmail)
+        .maybeSingle()
+
+      if (!dbProfile) {
+        return {
+          data: null,
+          error: new Error('Nie znaleziono konta z tym adresem e-mail. Sprawdź e-mail lub zarejestruj się.')
+        }
+      }
+
+      // 2. Prepare redirect URL to login with recovery mode
+      const redirectUrl = typeof window !== 'undefined'
+        ? `${window.location.origin}/login?type=recovery`
+        : 'https://duonest.app/login?type=recovery'
+
+      // 3. Dispatch password recovery request via Supabase Auth + connected Resend SMTP
+      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: redirectUrl
+      })
+
+      if (resetErr) {
+        return { data: null, error: resetErr }
+      }
+
+      return { data: true, error: null }
+    } catch (err: any) {
+      return { data: null, error: err }
+    }
+  }
+
+  const completePasswordReset = async (newPassword: string, emailHint?: string) => {
+    if (!supabase) return { data: null, error: new Error('Brak połączenia z systemem') }
+    if (newPassword.length < 6) {
+      return { data: null, error: new Error('Hasło musi mieć co najmniej 6 znaków.') }
+    }
+
+    try {
+      const modernHash = await hashPassword(newPassword)
+
+      // 1. If active Supabase recovery session exists
+      const { data: sessionData } = await supabase.auth.getSession()
+      const authSessionUser = sessionData?.session?.user
+
+      try {
+        await supabase.auth.updateUser({ password: newPassword })
+      } catch (_) {}
+
+      // 2. Determine target email
+      const targetEmail = authSessionUser?.email || emailHint || currentUser.value?.email
+
+      if (targetEmail) {
+        const { data: dbProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .ilike('email', targetEmail.trim().toLowerCase())
+          .maybeSingle()
+
+        if (dbProfile) {
+          const rawColor = dbProfile.avatar_color || '#0284c7'
+          const displayColor = rawColor.includes('|') ? rawColor.split('|')[0] : rawColor
+          const updatedAvatarColor = `${displayColor}|${modernHash}`
+
+          safeDb(supabase.from('profiles').update({ avatar_color: updatedAvatarColor }).eq('id', dbProfile.id))
+
+          // Create active session
+          const authUserObj = {
+            id: dbProfile.id,
+            email: dbProfile.email,
+            user_metadata: { name: dbProfile.name }
+          }
+          const authSessionObj = {
+            user: authUserObj,
+            access_token: 'duonest_direct_' + dbProfile.id
+          }
+
+          authUser.value = authUserObj
+          authSession.value = authSessionObj
+          saveToStorage('duonest_auth_user', authUserObj)
+          saveToStorage('duonest_auth_session', authSessionObj)
+          currentUserPasswordHash.value = modernHash
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('duonest_user_pwd_hash', modernHash)
+          }
+
+          currentUser.value = {
+            ...createInitialProfile(),
+            ...dbProfile,
+            avatar_color: displayColor
+          }
+          syncToStorage()
+
+          if (dbProfile.partnership_id) {
+            await loadPartnershipAndPartner(dbProfile.partnership_id, dbProfile.id)
+            subscribeToPartnershipRealtime(dbProfile.partnership_id)
+          } else if (currentUser.value?.pairing_code) {
+            subscribeToPairingChannel(currentUser.value.pairing_code)
+          }
+          subscribeToSecurityChannel(dbProfile.id, dbProfile.partnership_id)
+
+          return { data: true, error: null }
+        }
+      }
+
+      return { data: true, error: null }
+    } catch (err: any) {
+      return { data: null, error: err }
+    }
+  }
+
   const signOutUser = async () => {
     if (isLoggingOut) return
     isLoggingOut = true
@@ -3801,6 +3922,8 @@ export const useDuoState = () => {
     updatePartnershipSettings,
     subscribeToPairingChannel,
     normalizePairingCode,
-    verifyUserAndPartnershipAccess
+    verifyUserAndPartnershipAccess,
+    requestPasswordReset,
+    completePasswordReset
   }
 }

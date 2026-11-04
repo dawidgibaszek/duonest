@@ -12,8 +12,8 @@
 
         <!-- AUTH CARD -->
         <div class="dn-card auth-card">
-          <!-- MODE SWITCHER -->
-          <div class="mode-switcher">
+          <!-- MODE SWITCHER (LOGIN / REGISTER) -->
+          <div class="mode-switcher" v-if="mode === 'login' || mode === 'register'">
             <button
               type="button"
               class="mode-btn"
@@ -30,6 +30,26 @@
             >
               Rejestracja
             </button>
+          </div>
+
+          <!-- FORGOT PASSWORD SUBHEADER -->
+          <div class="auth-subview-header" v-else-if="mode === 'forgot'">
+            <button type="button" class="back-link-btn" @click="switchMode('login')">
+              <ion-icon :icon="ioniconsArrowBackOutline" />
+              <span>Wróć do logowania</span>
+            </button>
+            <h2 class="subview-title">Reset hasła</h2>
+            <p class="subview-desc">
+              Podaj e-mail przypisany do Twojego konta. Wyślemy Ci wiadomość z bezpiecznym linkiem do utworzenia nowego hasła.
+            </p>
+          </div>
+
+          <!-- RECOVERY SUBHEADER (FROM EMAIL LINK) -->
+          <div class="auth-subview-header" v-else-if="mode === 'recovery'">
+            <h2 class="subview-title">Ustaw nowe hasło</h2>
+            <p class="subview-desc">
+              Wprowadź nowe hasło (min. 6 znaków) dla swojego konta w DuoNest.
+            </p>
           </div>
 
           <!-- FORM -->
@@ -50,8 +70,8 @@
               </div>
             </div>
 
-            <!-- EMAIL FIELD -->
-            <div class="form-field">
+            <!-- EMAIL FIELD (LOGIN, REGISTER, FORGOT) -->
+            <div class="form-field" v-if="mode !== 'recovery'">
               <label class="field-label">Adres e-mail</label>
               <div class="input-container">
                 <ion-icon :icon="ioniconsMailOutline" class="field-icon" />
@@ -67,8 +87,8 @@
               </div>
             </div>
 
-            <!-- PASSWORD FIELD -->
-            <div class="form-field">
+            <!-- PASSWORD FIELD (LOGIN & REGISTER) -->
+            <div class="form-field" v-if="mode === 'login' || mode === 'register'">
               <div class="field-label-row">
                 <label class="field-label">Hasło</label>
                 <span class="password-hint" v-if="mode === 'register'">min. 6 znaków</span>
@@ -95,6 +115,60 @@
               </div>
             </div>
 
+            <!-- FORGOT PASSWORD LINK (ONLY LOGIN) -->
+            <div class="field-aux-row" v-if="mode === 'login'">
+              <button
+                type="button"
+                class="forgot-link-btn"
+                @click="switchMode('forgot')"
+              >
+                Nie pamiętasz hasła?
+              </button>
+            </div>
+
+            <!-- RECOVERY FIELDS (NEW PASSWORD & CONFIRM) -->
+            <template v-if="mode === 'recovery'">
+              <div class="form-field">
+                <label class="field-label">Nowe hasło</label>
+                <div class="input-container">
+                  <ion-icon :icon="ioniconsLockClosedOutline" class="field-icon" />
+                  <input
+                    v-model="newPasswordInput"
+                    :type="showNewPassword ? 'text' : 'password'"
+                    placeholder="••••••••"
+                    class="styled-native-input password-input"
+                    autocomplete="new-password"
+                    minlength="6"
+                    required
+                  />
+                  <button
+                    type="button"
+                    class="eye-toggle-btn"
+                    @click="showNewPassword = !showNewPassword"
+                    tabindex="-1"
+                  >
+                    <ion-icon :icon="showNewPassword ? ioniconsEyeOffOutline : ioniconsEyeOutline" />
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label class="field-label">Powtórz nowe hasło</label>
+                <div class="input-container">
+                  <ion-icon :icon="ioniconsLockClosedOutline" class="field-icon" />
+                  <input
+                    v-model="confirmPasswordInput"
+                    :type="showNewPassword ? 'text' : 'password'"
+                    placeholder="••••••••"
+                    class="styled-native-input password-input"
+                    autocomplete="new-password"
+                    minlength="6"
+                    required
+                  />
+                </div>
+              </div>
+            </template>
+
             <!-- FRIENDLY ERROR BANNER -->
             <div class="friendly-error" v-if="errorMessage">
               <ion-icon :icon="ioniconsAlertCircleOutline" class="err-icon" />
@@ -107,7 +181,6 @@
               <span>{{ successMessage }}</span>
             </div>
 
-
             <!-- SUBMIT BUTTON -->
             <button
               type="submit"
@@ -116,51 +189,55 @@
             >
               <ion-spinner v-if="isLoading" name="crescent" class="btn-spinner"></ion-spinner>
               <span v-else>
-                {{ mode === 'login' ? 'Zaloguj się' : 'Utwórz konto' }}
+                {{
+                  mode === 'login' ? 'Zaloguj się' :
+                  mode === 'register' ? 'Utwórz konto' :
+                  mode === 'forgot' ? 'Wyślij link resetujący' :
+                  'Zapisz hasło i zaloguj się'
+                }}
               </span>
             </button>
           </form>
 
-          <!-- DIVIDER -->
-          <div class="social-divider">
-            <span class="divider-line"></span>
-            <span class="divider-text">LUB ZALOGUJ SIĘ PRZEZ</span>
-            <span class="divider-line"></span>
-          </div>
+          <!-- DIVIDER & SOCIAL BUTTONS (ONLY ON LOGIN/REGISTER) -->
+          <template v-if="mode === 'login' || mode === 'register'">
+            <div class="social-divider">
+              <span class="divider-line"></span>
+              <span class="divider-text">LUB ZALOGUJ SIĘ PRZEZ</span>
+              <span class="divider-line"></span>
+            </div>
 
-          <!-- SOCIAL LOGIN BUTTONS (DISABLED) -->
-          <div class="social-buttons-stack">
-            <!-- GOOGLE (DISABLED) -->
-            <button
-              type="button"
-              class="social-btn social-google disabled-btn"
-              disabled
-              title="Logowanie przez Google będzie dostępne wkrótce"
-            >
-              <svg class="social-icon" viewBox="0 0 24 24" width="20" height="20">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-              </svg>
-              <span class="social-text">Kontynuuj z Google</span>
-              <span class="soon-badge">Wkrótce</span>
-            </button>
+            <div class="social-buttons-stack">
+              <button
+                type="button"
+                class="social-btn social-google disabled-btn"
+                disabled
+                title="Logowanie przez Google będzie dostępne wkrótce"
+              >
+                <svg class="social-icon" viewBox="0 0 24 24" width="20" height="20">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                <span class="social-text">Kontynuuj z Google</span>
+                <span class="soon-badge">Wkrótce</span>
+              </button>
 
-            <!-- APPLE (DISABLED) -->
-            <button
-              type="button"
-              class="social-btn social-apple disabled-btn"
-              disabled
-              title="Logowanie przez Apple będzie dostępne wkrótce"
-            >
-              <svg class="social-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                <path fill="#000" d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.38c.62-.77 1.04-1.85.93-2.92-.9.04-1.99.6-2.63 1.36-.57.65-1.07 1.74-.93 2.8.99.08 2.02-.48 2.63-1.24z"/>
-              </svg>
-              <span class="social-text">Kontynuuj z Apple</span>
-              <span class="soon-badge">Wkrótce</span>
-            </button>
-          </div>
+              <button
+                type="button"
+                class="social-btn social-apple disabled-btn"
+                disabled
+                title="Logowanie przez Apple będzie dostępne wkrótce"
+              >
+                <svg class="social-icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                  <path fill="#000" d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.38c.62-.77 1.04-1.85.93-2.92-.9.04-1.99.6-2.63 1.36-.57.65-1.07 1.74-.93 2.8.99.08 2.02-.48 2.63-1.24z"/>
+                </svg>
+                <span class="social-text">Kontynuuj z Apple</span>
+                <span class="soon-badge">Wkrótce</span>
+              </button>
+            </div>
+          </template>
         </div>
       </div>
     </ion-content>
@@ -168,31 +245,42 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { useDuoState } from '~/composables/useDuoState'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { useDuoState, getSupabaseClient } from '~/composables/useDuoState'
 
-const router = useRouter()
+const route = useRoute()
 const {
   signInWithEmail,
   signUpWithEmail,
+  requestPasswordReset,
+  completePasswordReset,
   isPaired,
   initializeClientState
 } = useDuoState()
 
 initializeClientState()
 
-const mode = ref<'login' | 'register'>('login')
+const mode = ref<'login' | 'register' | 'forgot' | 'recovery'>('login')
 const emailInput = ref('')
 const passwordInput = ref('')
 const nameInput = ref('')
+const newPasswordInput = ref('')
+const confirmPasswordInput = ref('')
 const showPassword = ref(false)
+const showNewPassword = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
 const isFormValid = computed(() => {
   const hasEmail = emailInput.value.includes('@') && emailInput.value.length > 4
+  if (mode.value === 'forgot') {
+    return hasEmail
+  }
+  if (mode.value === 'recovery') {
+    return newPasswordInput.value.length >= 6 && newPasswordInput.value === confirmPasswordInput.value
+  }
   const hasPass = passwordInput.value.length >= 6
   if (mode.value === 'register') {
     return hasEmail && hasPass && nameInput.value.trim().length > 0
@@ -200,7 +288,7 @@ const isFormValid = computed(() => {
   return hasEmail && hasPass
 })
 
-const switchMode = (newMode: 'login' | 'register') => {
+const switchMode = (newMode: 'login' | 'register' | 'forgot' | 'recovery') => {
   mode.value = newMode
   errorMessage.value = ''
   successMessage.value = ''
@@ -220,11 +308,39 @@ const translateAuthError = (err: any): string => {
   if (msg.includes('Nie znaleziono konta')) {
     return 'Nie znaleziono konta z tym adresem e-mail. Sprawdź e-mail lub przełącz na rejestrację.'
   }
+  if (msg.includes('For security purposes, you can only request this once every')) {
+    return 'Zbyt wiele prób. Odczekaj chwilę przed kolejną prośbą o reset hasła.'
+  }
+  if (msg.includes('Error sending') || msg.includes('email provider')) {
+    return 'Problem z wysyłką wiadomości e-mail. Sprawdź konfigurację SMTP w Supabase lub spróbuj ponownie za chwilę.'
+  }
   if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
     return 'Brak połączenia z siecią. Sprawdź swoje połączenie internetowe.'
   }
   return msg || 'Wystąpił problem. Sprawdź wprowadzone dane.'
 }
+
+onMounted(() => {
+  if (typeof window === 'undefined') return
+  const hash = window.location.hash || ''
+  const search = window.location.search || ''
+  const urlParams = new URLSearchParams(search)
+
+  if (urlParams.get('type') === 'recovery' || hash.includes('type=recovery') || hash.includes('access_token')) {
+    mode.value = 'recovery'
+  }
+
+  const supabase = getSupabaseClient()
+  if (supabase) {
+    try {
+      supabase.auth.onAuthStateChange((event: string) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          mode.value = 'recovery'
+        }
+      })
+    } catch (_) {}
+  }
+})
 
 const handleSubmit = async () => {
   if (!isFormValid.value || isLoading.value) return
@@ -247,7 +363,7 @@ const handleSubmit = async () => {
       } else {
         window.location.href = '/pairing'
       }
-    } else {
+    } else if (mode.value === 'register') {
       const { error } = await signUpWithEmail(
         emailInput.value,
         passwordInput.value,
@@ -259,12 +375,42 @@ const handleSubmit = async () => {
         return
       }
 
-      // Instant creation & login! Direct route to pairing without any email verification
       if (isPaired.value) {
         window.location.href = '/tabs/nest'
       } else {
         window.location.href = '/pairing'
       }
+    } else if (mode.value === 'forgot') {
+      const { error } = await requestPasswordReset(emailInput.value)
+      if (error) {
+        errorMessage.value = translateAuthError(error)
+        isLoading.value = false
+        return
+      }
+
+      successMessage.value = 'Wiadomość z linkiem do resetu hasła została wysłana na Twój adres e-mail! Sprawdź skrzynkę odbiorczą (w tym folder SPAM).'
+    } else if (mode.value === 'recovery') {
+      if (newPasswordInput.value !== confirmPasswordInput.value) {
+        errorMessage.value = 'Podane hasła nie są identyczne.'
+        isLoading.value = false
+        return
+      }
+
+      const { error } = await completePasswordReset(newPasswordInput.value, emailInput.value)
+      if (error) {
+        errorMessage.value = translateAuthError(error)
+        isLoading.value = false
+        return
+      }
+
+      successMessage.value = 'Hasło zostało pomyślnie zmienione! Logowanie...'
+      setTimeout(() => {
+        if (isPaired.value) {
+          window.location.href = '/tabs/nest'
+        } else {
+          window.location.href = '/pairing'
+        }
+      }, 1000)
     }
   } catch (err: any) {
     errorMessage.value = translateAuthError(err)
@@ -356,6 +502,43 @@ const handleSubmit = async () => {
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
 }
 
+.auth-subview-header {
+  margin-bottom: 22px;
+}
+
+.back-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 0 0 12px 0;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.back-link-btn:hover {
+  color: #0f172a;
+}
+
+.subview-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.3px;
+}
+
+.subview-desc {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #64748b;
+  margin: 0;
+}
+
 .auth-form {
   display: flex;
   flex-direction: column;
@@ -441,6 +624,29 @@ const handleSubmit = async () => {
 
 .eye-toggle-btn:hover {
   color: #0f172a;
+}
+
+.field-aux-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -6px;
+  margin-bottom: 2px;
+}
+
+.forgot-link-btn {
+  background: transparent;
+  border: none;
+  color: #0284c7;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+.forgot-link-btn:hover {
+  color: #0369a1;
+  text-decoration: underline;
 }
 
 .friendly-error {
