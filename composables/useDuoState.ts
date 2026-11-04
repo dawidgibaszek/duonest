@@ -441,9 +441,13 @@ export const useDuoState = () => {
 
     const savedPartnership = loadFromStorage<Partnership | null>('duonest_partnership', null)
     if (savedPartnership) {
-      // Clear legacy initial 20 points if no tasks or nudges exist yet
-      const hasEarnedPoints = (savedTasks && savedTasks.some(t => t.is_completed)) || (savedNudges && savedNudges.length > 0)
-      if (savedPartnership.nest_points === 20 && !hasEarnedPoints) {
+      const savedEarned = (savedTasks ? savedTasks.filter(t => t.is_completed).reduce((s, t) => s + (Number(t.points) || 15), 0) : 0)
+        + (savedNudges ? savedNudges.length * 5 : 0)
+      if (savedEarned > 0) {
+        savedPartnership.nest_points = savedEarned
+        savedPartnership.nest_level = 1 + Math.floor(savedEarned / 50)
+        saveToStorage('duonest_partnership', savedPartnership)
+      } else if (savedPartnership.nest_points === 20) {
         savedPartnership.nest_points = 0
         savedPartnership.nest_level = 1
         saveToStorage('duonest_partnership', savedPartnership)
@@ -1432,17 +1436,26 @@ export const useDuoState = () => {
             const task = tasksList.value.find(t => t.id === data.id)
             if (task) {
               task.is_completed = data.is_completed
+              task.completed_by = data.completed_by !== undefined
+                ? data.completed_by
+                : (data.is_completed ? (senderId || partnerUser.value?.id || null) : null)
+              task.completed_at = data.completed_at !== undefined
+                ? data.completed_at
+                : (data.is_completed ? new Date().toISOString() : null)
               if (partnership.value) {
-                const delta = data.is_completed ? task.points : -task.points
-                partnership.value.nest_points = Math.max(0, partnership.value.nest_points + delta)
-                partnership.value.nest_level = 1 + Math.floor(partnership.value.nest_points / 50)
+                const currentEarned = (tasksList.value.filter(t => t.is_completed).reduce((s, t) => s + (Number(t.points) || 15), 0))
+                  + (nudgesList.value.length * 5)
+                  + (eventsList.value.filter(e => e.is_completed).length * 10)
+                partnership.value.nest_points = currentEarned
+                partnership.value.nest_level = 1 + Math.floor(currentEarned / 50)
+                const delta = data.is_completed ? (task.points || 15) : -(task.points || 15)
                 if (data.pet_xp !== undefined) {
                   partnership.value.pet_xp = Math.max(0, data.pet_xp)
                 } else {
                   partnership.value.pet_xp = Math.max(0, (partnership.value.pet_xp || 0) + delta)
                 }
                 if (data.nest_points !== undefined) {
-                  partnership.value.nest_points = Math.max(0, data.nest_points)
+                  partnership.value.nest_points = Math.max(currentEarned, data.nest_points)
                   partnership.value.nest_level = 1 + Math.floor(partnership.value.nest_points / 50)
                 }
               }
@@ -2017,6 +2030,20 @@ export const useDuoState = () => {
       } else if (wishlistItems.value.length > 0) {
         try { await client.from('wishlist_items').upsert(wishlistItems.value) } catch (_) {}
       }
+
+      if (partnership.value) {
+        const totalEarned = (tasksList.value.filter(t => t.is_completed).reduce((s, t) => s + (Number(t.points) || 15), 0))
+          + (nudgesList.value.length * 5)
+          + (eventsList.value.filter(e => e.is_completed).length * 10)
+        if (totalEarned > 0 && partnership.value.nest_points !== totalEarned) {
+          partnership.value.nest_points = totalEarned
+          partnership.value.nest_level = 1 + Math.floor(totalEarned / 50)
+          safeDb(client.from('partnerships').update({
+            nest_points: totalEarned,
+            nest_level: partnership.value.nest_level
+          }).eq('id', partnershipId))
+        }
+      }
       syncToStorage()
     } catch (e) {
       // Table does not exist or network error
@@ -2324,11 +2351,19 @@ export const useDuoState = () => {
     task.is_completed = !task.is_completed
     const nowCompleted = task.is_completed
 
+    // Assign completer and completion timestamp
+    const myId = currentUser.value?.id || null
+    task.completed_by = nowCompleted ? myId : null
+    task.completed_at = nowCompleted ? new Date().toISOString() : null
+
     // Award / deduct points in local partnership state
     if (partnership.value) {
-      const delta = nowCompleted ? task.points : -task.points
-      partnership.value.nest_points = Math.max(0, partnership.value.nest_points + delta)
-      partnership.value.nest_level = 1 + Math.floor(partnership.value.nest_points / 50)
+      const currentEarned = (tasksList.value.filter(t => t.is_completed).reduce((s, t) => s + (Number(t.points) || 15), 0))
+        + (nudgesList.value.length * 5)
+        + (eventsList.value.filter(e => e.is_completed).length * 10)
+      partnership.value.nest_points = currentEarned
+      partnership.value.nest_level = 1 + Math.floor(currentEarned / 50)
+      const delta = nowCompleted ? (task.points || 15) : -(task.points || 15)
       partnership.value.pet_xp = Math.max(0, (partnership.value.pet_xp || 0) + delta)
     }
     syncToStorage()
@@ -2337,6 +2372,8 @@ export const useDuoState = () => {
     broadcastToPartner('TASK_TOGGLE', {
       id,
       is_completed: nowCompleted,
+      completed_by: task.completed_by,
+      completed_at: task.completed_at,
       pet_xp: partnership.value?.pet_xp,
       nest_points: partnership.value?.nest_points
     })
@@ -2344,8 +2381,8 @@ export const useDuoState = () => {
     if (supabase) {
       safeDb(supabase.from('tasks').update({
         is_completed: nowCompleted,
-        completed_at: nowCompleted ? new Date().toISOString() : null,
-        completed_by: nowCompleted ? currentUser.value.id : null
+        completed_at: task.completed_at,
+        completed_by: task.completed_by
       }).eq('id', id))
 
       if (partnership.value?.id) {
@@ -2382,7 +2419,21 @@ export const useDuoState = () => {
 
   const deleteTask = async (id: string) => {
     if (!await verifyUserAndPartnershipAccess()) return
+    const taskToDelete = tasksList.value.find(t => t.id === id)
     tasksList.value = tasksList.value.filter(t => t.id !== id)
+    if (taskToDelete?.is_completed && partnership.value) {
+      const currentEarned = (tasksList.value.filter(t => t.is_completed).reduce((s, t) => s + (Number(t.points) || 15), 0))
+        + (nudgesList.value.length * 5)
+        + (eventsList.value.filter(e => e.is_completed).length * 10)
+      partnership.value.nest_points = currentEarned
+      partnership.value.nest_level = 1 + Math.floor(currentEarned / 50)
+      if (supabase && partnership.value.id) {
+        safeDb(supabase.from('partnerships').update({
+          nest_points: partnership.value.nest_points,
+          nest_level: partnership.value.nest_level
+        }).eq('id', partnership.value.id))
+      }
+    }
     syncToStorage()
 
     // Broadcast live to partner
@@ -2710,19 +2761,6 @@ export const useDuoState = () => {
     triggerToast('Zaktualizowano Twój profil!')
   }
 
-  // Nest calculations
-  const nestLevel = computed(() => partnership.value?.nest_level || 1)
-  const nestPoints = computed(() => partnership.value?.nest_points || 0)
-  const pointsToNextLevel = computed(() => {
-    const currentLvl = nestLevel.value
-    const targetPoints = currentLvl * 50
-    return Math.max(0, targetPoints - nestPoints.value)
-  })
-  const levelProgress = computed(() => {
-    const currentPointsInTier = nestPoints.value % 50
-    return Math.min(100, Math.round((currentPointsInTier / 50) * 100))
-  })
-
   // Days together calculation
   const daysTogether = computed(() => {
     const dateStr = partnership.value?.anniversary_date || partnership.value?.created_at || new Date().toISOString()
@@ -2752,33 +2790,41 @@ export const useDuoState = () => {
     return '#64748b'
   }
 
+  // Helper to determine who completed or was assigned a task
+  const getTaskCompleterId = (task: TaskItem): string | null => {
+    if (task.completed_by) return task.completed_by
+    if (task.assigned_to) return task.assigned_to
+    if (task.created_by) return task.created_by
+    return null
+  }
+
   // --- DUO POINTS BREAKDOWN PER PERSON ---
   const userCompletedTasksCount = computed(() => {
     const myId = currentUser.value?.id
     if (!myId) return 0
-    return tasksList.value.filter(t => t.is_completed && t.completed_by === myId).length
+    return tasksList.value.filter(t => t.is_completed && getTaskCompleterId(t) === myId).length
   })
 
   const partnerCompletedTasksCount = computed(() => {
     const pId = partnerUser.value?.id
     if (!pId) return 0
-    return tasksList.value.filter(t => t.is_completed && t.completed_by === pId).length
+    return tasksList.value.filter(t => t.is_completed && getTaskCompleterId(t) === pId).length
   })
 
   const userRawTaskPoints = computed(() => {
     const myId = currentUser.value?.id
     if (!myId) return 0
     return tasksList.value
-      .filter(t => t.is_completed && t.completed_by === myId)
-      .reduce((sum, t) => sum + (t.points || 15), 0)
+      .filter(t => t.is_completed && getTaskCompleterId(t) === myId)
+      .reduce((sum, t) => sum + (Number(t.points) || 15), 0)
   })
 
   const partnerRawTaskPoints = computed(() => {
     const pId = partnerUser.value?.id
     if (!pId) return 0
     return tasksList.value
-      .filter(t => t.is_completed && t.completed_by === pId)
-      .reduce((sum, t) => sum + (t.points || 15), 0)
+      .filter(t => t.is_completed && getTaskCompleterId(t) === pId)
+      .reduce((sum, t) => sum + (Number(t.points) || 15), 0)
   })
 
   const userNudgePoints = computed(() => {
@@ -2793,43 +2839,58 @@ export const useDuoState = () => {
     return nudgesList.value.filter(n => n.sender_id === pId).length * 5
   })
 
+  const eventsEarnedPoints = computed(() => {
+    return eventsList.value.filter(e => e.is_completed).length * 10
+  })
+
+  const sharedCompletedTasksPoints = computed(() => {
+    const myId = currentUser.value?.id
+    const pId = partnerUser.value?.id
+    return tasksList.value
+      .filter(t => t.is_completed && (!getTaskCompleterId(t) || (getTaskCompleterId(t) !== myId && getTaskCompleterId(t) !== pId)))
+      .reduce((sum, t) => sum + (Number(t.points) || 15), 0)
+  })
+
   const userEarnedPoints = computed(() => userRawTaskPoints.value + userNudgePoints.value)
   const partnerEarnedPoints = computed(() => partnerRawTaskPoints.value + partnerNudgePoints.value)
 
-  // Clean balanced calculation ensuring userPoints + partnerPoints === nestPoints
-  const userPoints = computed(() => {
-    const total = nestPoints.value
-    if (total <= 0) return 0
-    const myEarned = userEarnedPoints.value
-    const theirEarned = partnerEarnedPoints.value
-    const sumEarned = myEarned + theirEarned
+  // Direct, uncorrupted individual scores strictly reflecting real contributions
+  const userPoints = computed(() => userEarnedPoints.value)
+  const partnerPoints = computed(() => partnerEarnedPoints.value)
 
-    if (sumEarned === 0) {
-      return Math.round(total / 2)
-    }
-    if (sumEarned === total) {
-      return myEarned
-    }
-    const extra = total - sumEarned
-    if (extra > 0) {
-      const halfExtra = Math.floor(extra / 2)
-      return Math.min(total, myEarned + halfExtra)
-    }
-    return Math.min(total, Math.max(0, Math.round((myEarned / sumEarned) * total)))
+  // Total Duet score is the true collective sum of partner contributions and shared achievements
+  const nestPoints = computed(() => {
+    const totalEarned = userPoints.value + partnerPoints.value + eventsEarnedPoints.value + sharedCompletedTasksPoints.value
+    const stored = partnership.value?.nest_points || 0
+    if (totalEarned === 0 && stored === 20) return 0
+    return Math.max(totalEarned, stored)
   })
 
-  const partnerPoints = computed(() => {
-    const total = nestPoints.value
-    return Math.max(0, total - userPoints.value)
+  const nestLevel = computed(() => {
+    return Math.max(1, 1 + Math.floor(nestPoints.value / 50))
   })
 
+  const pointsToNextLevel = computed(() => {
+    const currentLvl = nestLevel.value
+    const targetPoints = currentLvl * 50
+    return Math.max(0, targetPoints - nestPoints.value)
+  })
+
+  const levelProgress = computed(() => {
+    const currentPointsInTier = nestPoints.value % 50
+    return Math.min(100, Math.round((currentPointsInTier / 50) * 100))
+  })
+
+  // Balanced percentage bar based on individual contributions
   const userPointsPct = computed(() => {
-    if (nestPoints.value <= 0) return 0
-    return Math.min(100, Math.max(0, Math.round((userPoints.value / nestPoints.value) * 100)))
+    const totalPersonal = userPoints.value + partnerPoints.value
+    if (totalPersonal <= 0) return 0
+    return Math.min(100, Math.max(0, Math.round((userPoints.value / totalPersonal) * 100)))
   })
 
   const partnerPointsPct = computed(() => {
-    if (nestPoints.value <= 0) return 0
+    const totalPersonal = userPoints.value + partnerPoints.value
+    if (totalPersonal <= 0) return 0
     return Math.max(0, 100 - userPointsPct.value)
   })
 
