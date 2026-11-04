@@ -411,18 +411,28 @@ const onTouchEnd = (e: TouchEvent) => {
       }
     }
 
-    // Native spring-like timing calculation
+    // Calculate natural organic settling duration (based on physical spring damping)
     const targetX = -targetIndex * width
-    const remainingDist = Math.abs(targetX - currentTrackX)
-    const baseDuration = Math.round(remainingDist / Math.max(Math.abs(velocityX), 0.8))
-    const animDuration = Math.min(340, Math.max(200, baseDuration))
+    const isSnapBack = targetIndex === activeTabIndex.value
+    const speed = Math.abs(velocityX)
+
+    let animDuration = 400
+    if (isSnapBack) {
+      animDuration = 340
+    } else if (speed > 1.2) {
+      animDuration = 340
+    } else if (speed > 0.6) {
+      animDuration = 380
+    } else {
+      animDuration = 420
+    }
 
     if (trackRef.value) {
       // Synchronize exact position and force style flush to ensure seamless CSS transition interpolation
       trackRef.value.style.transform = `translate3d(${currentTrackX}px, 0, 0)`
       void trackRef.value.offsetWidth
-      // Apple native decelerating spring curve
-      trackRef.value.style.transition = `transform ${animDuration}ms cubic-bezier(0.2, 1, 0.25, 1)`
+      // Fluid, organic iOS easing with a gentle, soft landing (zero abrupt brake)
+      trackRef.value.style.transition = `transform ${animDuration}ms cubic-bezier(0.25, 0.9, 0.3, 1)`
       trackRef.value.style.transform = `translate3d(${targetX}px, 0, 0)`
     }
 
@@ -457,7 +467,7 @@ const onTouchCancel = () => {
     const width = getContainerWidth()
     const targetX = -activeTabIndex.value * width
     if (trackRef.value) {
-      trackRef.value.style.transition = 'transform 260ms cubic-bezier(0.2, 1, 0.25, 1)'
+      trackRef.value.style.transition = 'transform 340ms cubic-bezier(0.25, 0.9, 0.3, 1)'
       trackRef.value.style.transform = `translate3d(${targetX}px, 0, 0)`
     }
   }
@@ -476,10 +486,10 @@ const goToTab = (index: number) => {
   const width = getContainerWidth()
   const targetX = -index * width
   const dist = Math.abs(index - oldIndex)
-  const duration = dist > 1 ? 320 : 280
+  const duration = dist > 1 ? 440 : 380
 
   if (trackRef.value) {
-    trackRef.value.style.transition = `transform ${duration}ms cubic-bezier(0.2, 1, 0.25, 1)`
+    trackRef.value.style.transition = `transform ${duration}ms cubic-bezier(0.25, 0.9, 0.3, 1)`
     trackRef.value.style.transform = `translate3d(${targetX}px, 0, 0)`
   }
 
@@ -698,7 +708,7 @@ watch(() => route.path, () => {
   height: 30px;
   background: rgba(15, 23, 42, 0.07);
   border-radius: 999px;
-  transition: width 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: width 0.32s cubic-bezier(0.25, 0.9, 0.3, 1);
   z-index: 0;
 }
 
@@ -707,12 +717,12 @@ watch(() => route.path, () => {
 }
 
 .duo-tab-btn.is-active .tab-icon-wrap ion-icon {
-  animation: tabIconPop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: tabIconPop 0.32s cubic-bezier(0.25, 0.9, 0.3, 1);
 }
 
 @keyframes tabIconPop {
-  0% { transform: scale(0.80); }
-  60% { transform: scale(1.18); }
+  0% { transform: scale(0.90); }
+  60% { transform: scale(1.08); }
   100% { transform: scale(1); }
 }
 
