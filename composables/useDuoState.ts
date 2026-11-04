@@ -641,14 +641,32 @@ export const useDuoState = () => {
   }
 
   const syncUserProfileWithAuth = async (user: any) => {
-    if (!user || !user.id || !supabase) return
+    if (!user || !supabase) return
 
     try {
-      const { data: dbProfile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle()
+      const cleanEmail = (user.email || '').trim().toLowerCase()
+      let dbProfile: any = null
+
+      if (cleanEmail) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .ilike('email', cleanEmail)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+        dbProfile = data
+      }
+
+      if (!dbProfile && user.id) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .limit(1)
+          .maybeSingle()
+        dbProfile = data
+      }
 
       if (dbProfile) {
         const rawColor = dbProfile.avatar_color || '#0284c7'
@@ -667,37 +685,19 @@ export const useDuoState = () => {
         currentUser.value = {
           ...createInitialProfile(),
           ...dbProfile,
-          id: user.id,
           avatar_color: cleanColor,
-          email: user.email || dbProfile.email,
           points: Number(dbProfile.points) || 0
         }
         syncToStorage()
 
         if (dbProfile.partnership_id) {
-          await loadPartnershipAndPartner(dbProfile.partnership_id, user.id)
+          await loadPartnershipAndPartner(dbProfile.partnership_id, dbProfile.id)
+          subscribeToPartnershipRealtime(dbProfile.partnership_id)
+        } else if (currentUser.value?.pairing_code) {
+          subscribeToPairingChannel(currentUser.value.pairing_code)
         }
-      } else {
-        const initialName = user.user_metadata?.name || user.email?.split('@')[0] || 'Użytkownik'
-        const newProfile: Profile = {
-          ...createInitialProfile(),
-          id: user.id,
-          email: user.email || null,
-          name: initialName,
-          pairing_code: generateUniqueCode(),
-          partnership_id: null
-        }
-        currentUser.value = newProfile
-        syncToStorage()
-        safeDb(supabase.from('profiles').upsert(newProfile))
+        subscribeToSecurityChannel(dbProfile.id, dbProfile.partnership_id)
       }
-
-      if (partnership.value?.id) {
-        subscribeToPartnershipRealtime(partnership.value.id)
-      } else if (currentUser.value?.pairing_code) {
-        subscribeToPairingChannel(currentUser.value.pairing_code)
-      }
-      subscribeToSecurityChannel(user.id, partnership.value?.id)
     } catch (err) {
       if (process.dev) {
         console.warn('syncUserProfileWithAuth error:', err)
@@ -824,6 +824,8 @@ export const useDuoState = () => {
         .from('profiles')
         .select('*')
         .ilike('email', cleanEmail)
+        .order('created_at', { ascending: true })
+        .limit(1)
         .maybeSingle()
 
       if (fetchErr) {
@@ -1115,6 +1117,8 @@ export const useDuoState = () => {
         .from('profiles')
         .select('*')
         .ilike('email', targetEmail)
+        .order('created_at', { ascending: true })
+        .limit(1)
         .maybeSingle()
 
       if (profileErr) {
@@ -1203,6 +1207,8 @@ export const useDuoState = () => {
         .from('profiles')
         .select('id, email, avatar_color')
         .ilike('email', clean)
+        .order('created_at', { ascending: true })
+        .limit(1)
         .maybeSingle()
 
       if (fetchErr || !dbProfile) {
