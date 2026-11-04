@@ -491,6 +491,7 @@
                 v-for="res in searchResults"
                 :key="res.tmdb_id"
                 class="search-result-card"
+                @click="openMovieDetailsModal(res)"
               >
                 <!-- High-Res Poster Thumbnail with Type Badge -->
                 <div class="res-thumb-container">
@@ -544,7 +545,7 @@
                       <button
                         type="button"
                         class="action-pill-btn btn-plan"
-                        @click="addFromTmdb(res, 'planned')"
+                        @click.stop="addFromTmdb(res, 'planned')"
                       >
                         <ion-icon :icon="ioniconsBookmarkOutline" />
                         <span>Chcę obejrzeć</span>
@@ -552,7 +553,7 @@
                       <button
                         type="button"
                         class="action-pill-btn btn-watched"
-                        @click="addFromTmdb(res, 'watched')"
+                        @click.stop="addFromTmdb(res, 'watched')"
                       >
                         <ion-icon :icon="ioniconsCheckmarkCircleOutline" />
                         <span>Obejrzane</span>
@@ -587,7 +588,7 @@
                   v-for="tr in trendingList"
                   :key="tr.tmdb_id"
                   class="trending-item-card"
-                  @click="addFromTmdb(tr, 'planned')"
+                  @click="openMovieDetailsModal(tr)"
                 >
                   <div class="tr-poster-wrapper">
                     <img
@@ -615,6 +616,7 @@
                     <div
                       class="tr-add-hover-btn"
                       :class="{ 'is-added': isAlreadyInList(tr.tmdb_id) }"
+                      @click.stop="!isAlreadyInList(tr.tmdb_id) && addFromTmdb(tr, 'planned')"
                     >
                       <ion-icon
                         :icon="isAlreadyInList(tr.tmdb_id) ? ioniconsCheckmarkOutline : ioniconsAddOutline"
@@ -1202,77 +1204,220 @@
       <!-- ========================================================== -->
       <ion-modal
         :is-open="isDetailsModalOpen"
-        :breakpoints="[0, 0.85, 1]"
-        :initial-breakpoint="0.85"
+        :breakpoints="[0, 0.9, 1]"
+        :initial-breakpoint="0.9"
         handle-behavior="cycle"
+        class="dn-movies-details-modal"
         @didDismiss="closeDetailsModal"
       >
-        <div class="dn-modal-container" v-if="selectedMovieForDetails">
-          <div class="dn-modal-header">
+        <div class="dn-modal-container details-modal-layout" v-if="selectedMovieForDetails">
+          <!-- Header -->
+          <div class="dn-modal-header details-modal-header">
             <div class="modal-title-col">
-              <h3>{{ selectedMovieForDetails.title }}</h3>
-              <p>{{ selectedMovieForDetails.release_year }} • {{ getMediaTypeLabel(selectedMovieForDetails.media_type) }}</p>
+              <span class="details-top-badge badge-saved" v-if="savedMovieInList">
+                ✓ Na liście: {{ getStatusLabel(savedMovieInList.status) }}
+              </span>
+              <span class="details-top-badge badge-tmdb" v-else>
+                Katalog TMDB (Podgląd)
+              </span>
+              <h3 class="details-header-title">{{ selectedMovieForDetails.title }}</h3>
             </div>
-            <button type="button" class="modal-close-btn" @click="closeDetailsModal">
+            <button
+              type="button"
+              class="modal-circle-close-btn"
+              @click="closeDetailsModal"
+              aria-label="Zamknij"
+            >
               <ion-icon :icon="ioniconsCloseOutline" />
             </button>
           </div>
 
           <div class="modal-scrollable-content details-body">
-            <div class="details-poster-backdrop">
-              <img
-                v-if="selectedMovieForDetails.backdrop_path || selectedMovieForDetails.poster_path"
-                :src="selectedMovieForDetails.backdrop_path || selectedMovieForDetails.poster_path"
-                :alt="selectedMovieForDetails.title"
-                class="details-backdrop-img"
-              />
+            <!-- Backdrop Image & Floating Poster -->
+            <div class="details-hero-wrap">
+              <div class="details-poster-backdrop">
+                <img
+                  v-if="selectedMovieForDetails.backdrop_path || selectedMovieForDetails.poster_path"
+                  :src="selectedMovieForDetails.backdrop_path || selectedMovieForDetails.poster_path"
+                  :alt="selectedMovieForDetails.title"
+                  class="details-backdrop-img"
+                />
+                <div class="backdrop-gradient-overlay"></div>
+              </div>
+
+              <!-- Floating Poster & Title Badge -->
+              <div class="details-floating-meta">
+                <div class="details-float-poster">
+                  <img
+                    v-if="selectedMovieForDetails.poster_path"
+                    :src="selectedMovieForDetails.poster_path"
+                    :alt="selectedMovieForDetails.title"
+                  />
+                  <div v-else class="float-poster-empty">
+                    <ion-icon :icon="ioniconsFilmOutline" />
+                  </div>
+                </div>
+
+                <div class="details-float-text">
+                  <h4 class="float-title">{{ selectedMovieForDetails.title }}</h4>
+                  <span
+                    v-if="selectedMovieForDetails.original_title && selectedMovieForDetails.original_title !== selectedMovieForDetails.title"
+                    class="float-orig-title"
+                  >
+                    {{ selectedMovieForDetails.original_title }}
+                  </span>
+                  <div class="details-pills-row">
+                    <span class="type-tag" :class="'type-' + selectedMovieForDetails.media_type">
+                      {{ getMediaTypeLabel(selectedMovieForDetails.media_type) }}
+                    </span>
+                    <span v-if="selectedMovieForDetails.release_year" class="details-year-tag">
+                      {{ selectedMovieForDetails.release_year }}
+                    </span>
+                    <span v-if="selectedMovieForDetails.vote_average" class="tmdb-score-tag">
+                      ⭐ {{ selectedMovieForDetails.vote_average }} (TMDB)
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="details-content-meta">
-              <div class="details-pills-row">
-                <span class="type-tag" :class="'type-' + selectedMovieForDetails.media_type">
-                  {{ getMediaTypeLabel(selectedMovieForDetails.media_type) }}
-                </span>
-                <span v-if="selectedMovieForDetails.vote_average" class="tmdb-score-tag">
-                  ⭐ {{ selectedMovieForDetails.vote_average }} (TMDB)
-                </span>
-                <span class="status-pill" :class="'status-' + selectedMovieForDetails.status">
-                  {{ getStatusLabel(selectedMovieForDetails.status) }}
-                </span>
-              </div>
-
-              <h4 class="details-section-heading">Opis</h4>
+              <!-- Overview / Synopsis -->
+              <h4 class="details-section-heading">Opis fabuły</h4>
               <p class="details-full-desc">
-                {{ selectedMovieForDetails.overview || 'Brak opisu dla tej pozycji.' }}
+                {{ selectedMovieForDetails.overview || 'Brak oficjalnego opisu dla tej pozycji.' }}
               </p>
 
-              <h4 class="details-section-heading">Gatunki</h4>
-              <div class="details-genres-wrap">
-                <span v-for="g in selectedMovieForDetails.genres" :key="g" class="genre-pill">
-                  {{ g }}
-                </span>
+              <!-- Genres -->
+              <div v-if="selectedMovieForDetails.genres && selectedMovieForDetails.genres.length > 0">
+                <h4 class="details-section-heading">Gatunki</h4>
+                <div class="details-genres-wrap">
+                  <span v-for="g in selectedMovieForDetails.genres" :key="g" class="genre-pill">
+                    {{ g }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Reviews Section (if already watched and reviewed) -->
+              <div v-if="savedMovieInList && hasReviews(savedMovieInList)" class="details-reviews-box">
+                <h4 class="details-section-heading">Wasze recenzje</h4>
+                <div class="details-reviews-grid">
+                  <!-- User review -->
+                  <div v-if="getUserReview(savedMovieInList)" class="mini-review-card">
+                    <div class="review-user-name">Ty: ⭐ {{ getUserReview(savedMovieInList)?.rating }}/10</div>
+                    <p class="review-comment-text">{{ getUserReview(savedMovieInList)?.comment || 'Brak opisu wrażeń' }}</p>
+                  </div>
+                  <!-- Partner review -->
+                  <div v-if="getPartnerReview(savedMovieInList)" class="mini-review-card partner">
+                    <div class="review-user-name">{{ partnerUser?.name || 'Partner' }}: ⭐ {{ getPartnerReview(savedMovieInList)?.rating }}/10</div>
+                    <p class="review-comment-text">{{ getPartnerReview(savedMovieInList)?.comment || 'Brak opisu wrażeń' }}</p>
+                  </div>
+                </div>
               </div>
 
               <!-- Quick action buttons -->
               <div class="details-modal-actions">
-                <button
-                  type="button"
-                  class="details-action-btn date-btn"
-                  @click="scheduleMovieDate(selectedMovieForDetails)"
-                >
-                  <ion-icon :icon="ioniconsCalendar" />
-                  <span>Zaplanuj seans w Terminarzu</span>
-                </button>
+                <!-- IF NOT IN LIST YET: Add options -->
+                <template v-if="!savedMovieInList">
+                  <div class="details-add-options-label">
+                    <span>Dodaj ten seans do Waszej kolekcji:</span>
+                  </div>
+                  <div class="details-add-btns-row">
+                    <button
+                      type="button"
+                      class="details-action-btn add-plan-btn"
+                      @click="addFromTmdb(selectedMovieForDetails, 'planned')"
+                    >
+                      <ion-icon :icon="ioniconsBookmarkOutline" />
+                      <span>Chcę obejrzeć</span>
+                    </button>
 
-                <button
-                  v-if="selectedMovieForDetails.status === 'watched'"
-                  type="button"
-                  class="details-action-btn review-btn"
-                  @click="openReviewFromDetails"
-                >
-                  <ion-icon :icon="ioniconsStar" />
-                  <span>Oceń / napisz recenzję</span>
-                </button>
+                    <button
+                      type="button"
+                      class="details-action-btn add-now-btn"
+                      @click="addFromTmdb(selectedMovieForDetails, 'watching')"
+                    >
+                      <ion-icon :icon="ioniconsPlayCircle" />
+                      <span>Oglądamy teraz</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      class="details-action-btn add-watched-btn-lg"
+                      @click="addFromTmdb(selectedMovieForDetails, 'watched')"
+                    >
+                      <ion-icon :icon="ioniconsCheckmarkCircleOutline" />
+                      <span>Już obejrzane</span>
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="details-action-btn date-btn"
+                    @click="scheduleMovieDate(selectedMovieForDetails)"
+                  >
+                    <ion-icon :icon="ioniconsCalendar" />
+                    <span>Zaplanuj randkę w Terminarzu (+10 pkt)</span>
+                  </button>
+                </template>
+
+                <!-- IF ALREADY IN LIST: Status toggle, review, schedule date, delete -->
+                <template v-else>
+                  <div class="details-status-change-row">
+                    <button
+                      type="button"
+                      class="status-toggle-pill"
+                      :class="{ active: savedMovieInList.status === 'planned' }"
+                      @click="toggleMovieStatus(savedMovieInList, 'planned')"
+                    >
+                      Do obejrzenia
+                    </button>
+                    <button
+                      type="button"
+                      class="status-toggle-pill"
+                      :class="{ active: savedMovieInList.status === 'watching' }"
+                      @click="toggleMovieStatus(savedMovieInList, 'watching')"
+                    >
+                      W trakcie
+                    </button>
+                    <button
+                      type="button"
+                      class="status-toggle-pill"
+                      :class="{ active: savedMovieInList.status === 'watched' }"
+                      @click="toggleMovieStatus(savedMovieInList, 'watched')"
+                    >
+                      Obejrzane
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="details-action-btn date-btn"
+                    @click="scheduleMovieDate(savedMovieInList)"
+                  >
+                    <ion-icon :icon="ioniconsCalendar" />
+                    <span>Zaplanuj seans w Terminarzu</span>
+                  </button>
+
+                  <button
+                    v-if="savedMovieInList.status === 'watched'"
+                    type="button"
+                    class="details-action-btn review-btn"
+                    @click="openReviewFromDetails"
+                  >
+                    <ion-icon :icon="ioniconsStar" />
+                    <span>{{ hasUserReviewed(savedMovieInList) ? 'Edytuj Twoją ocenę' : 'Oceń / napisz recenzję' }}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="details-delete-btn"
+                    @click="deleteFromDetails(savedMovieInList)"
+                  >
+                    <ion-icon :icon="ioniconsTrashOutline" />
+                    <span>Usuń z Waszej listy</span>
+                  </button>
+                </template>
               </div>
             </div>
           </div>
@@ -1918,9 +2063,20 @@ const submitManualAdd = async () => {
 
 // --- MODAL 5: DETAILS MODAL ---
 const isDetailsModalOpen = ref(false)
-const selectedMovieForDetails = ref<MovieItem | null>(null)
+const selectedMovieForDetails = ref<any | null>(null)
 
-const openMovieDetailsModal = (movie: MovieItem) => {
+const savedMovieInList = computed<MovieItem | null>(() => {
+  if (!selectedMovieForDetails.value) return null
+  if (selectedMovieForDetails.value.id) {
+    return moviesList.value.find(m => m.id === selectedMovieForDetails.value?.id) || selectedMovieForDetails.value
+  }
+  if (selectedMovieForDetails.value.tmdb_id) {
+    return moviesList.value.find(m => m.tmdb_id === selectedMovieForDetails.value?.tmdb_id) || null
+  }
+  return null
+})
+
+const openMovieDetailsModal = (movie: any) => {
   selectedMovieForDetails.value = movie
   isDetailsModalOpen.value = true
 }
@@ -1931,11 +2087,16 @@ const closeDetailsModal = () => {
 }
 
 const openReviewFromDetails = () => {
-  const m = selectedMovieForDetails.value
+  const m = savedMovieInList.value || selectedMovieForDetails.value
   closeDetailsModal()
-  if (m) {
+  if (m && m.id) {
     openReviewModal(m)
   }
+}
+
+const deleteFromDetails = (movie: MovieItem) => {
+  closeDetailsModal()
+  confirmDeleteMovie(movie)
 }
 
 // --- CARD ACTIONS ---
@@ -4796,54 +4957,198 @@ ion-modal.dn-movies-random-modal {
   margin-top: 8px;
 }
 
-/* DETAILS MODAL SPECIFICS */
+/* ========================================================== */
+/* DETAILS MODAL (PODGLĄD FILMU / SZCZEGÓŁY) */
+/* ========================================================== */
+ion-modal.dn-movies-details-modal {
+  --border-radius: 28px 28px 0 0;
+  --background: #ffffff;
+  --box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.16);
+}
+
+.details-modal-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.details-modal-header {
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid rgba(241, 245, 249, 0.9);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.details-top-badge {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  display: inline-block;
+  margin-bottom: 2px;
+}
+
+.badge-saved {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.badge-tmdb {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.details-header-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 250px;
+}
+
 .details-body {
-  padding: 0 0 20px;
+  padding: 0 0 32px;
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.details-hero-wrap {
+  position: relative;
+  background: #0f172a;
 }
 
 .details-poster-backdrop {
   width: 100%;
-  height: 180px;
-  background: #0f172a;
+  height: 190px;
   position: relative;
   overflow: hidden;
+  background: #0f172a;
 }
 
 .details-backdrop-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.85;
+  opacity: 0.8;
 }
 
-.details-content-meta {
-  padding: 16px 18px;
+.backdrop-gradient-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(15, 23, 42, 0.2) 0%, rgba(15, 23, 42, 0.85) 100%);
+}
+
+.details-floating-meta {
+  display: flex;
+  gap: 14px;
+  padding: 0 18px;
+  margin-top: -65px;
+  position: relative;
+  z-index: 2;
+  align-items: flex-end;
+}
+
+.details-float-poster {
+  width: 94px;
+  min-width: 94px;
+  height: 140px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #1e293b;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  border: 2px solid #ffffff;
+}
+
+.details-float-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.float-poster-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 32px;
+}
+
+.details-float-text {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 4px;
+  padding-bottom: 4px;
+}
+
+.float-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 900;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.float-orig-title {
+  font-size: 11px;
+  color: #94a3b8;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .details-pills-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.details-year-tag {
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+.details-content-meta {
+  padding: 18px 18px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .details-section-heading {
-  margin: 8px 0 2px;
-  font-size: 13px;
-  font-weight: 700;
+  margin: 6px 0 2px;
+  font-size: 12px;
+  font-weight: 800;
   color: #64748b;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
 }
 
 .details-full-desc {
   margin: 0;
   font-size: 13.5px;
-  color: #1e293b;
-  line-height: 1.5;
+  color: #334155;
+  line-height: 1.55;
 }
 
 .details-genres-wrap {
@@ -4861,35 +5166,166 @@ ion-modal.dn-movies-random-modal {
   color: #475569;
 }
 
-.details-modal-actions {
+.details-reviews-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.details-reviews-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mini-review-card {
+  padding: 8px 10px;
+  background: #ffffff;
+  border-radius: 10px;
+  border-left: 3px solid #8b5cf6;
+}
+
+.mini-review-card.partner {
+  border-left-color: #06b6d4;
+}
+
+.review-user-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.review-comment-text {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.35;
+}
+
+.details-modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.details-add-options-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.details-add-btns-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
 }
 
 .details-action-btn {
-  width: 100%;
-  padding: 12px;
+  padding: 11px 12px;
   border-radius: 12px;
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 700;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   cursor: pointer;
   border: none;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+}
+
+.details-action-btn:active {
+  transform: scale(0.96);
+}
+
+.add-plan-btn {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.28);
+}
+
+.add-now-btn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.28);
+}
+
+.add-watched-btn-lg {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1.5px solid #a7f3d0;
 }
 
 .date-btn {
+  width: 100%;
   background: #e0e7ff;
   color: #4338ca;
+  border: 1.5px solid #c7d2fe;
 }
 
 .review-btn {
-  background: #8b5cf6;
+  width: 100%;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
   color: #ffffff;
+}
+
+.details-status-change-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  background: #f1f5f9;
+  border-radius: 12px;
+}
+
+.status-toggle-pill {
+  padding: 8px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #64748b;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.status-toggle-pill.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.details-delete-btn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+@media (max-width: 380px) {
+  .details-add-btns-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* BUTTONS */
