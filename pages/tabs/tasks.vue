@@ -2142,6 +2142,7 @@ const handleRefresh = async (event: any) => {
   display: flex;
   align-items: center;
   gap: 6px;
+  text-wrap: nowrap;
 }
 
 .quests-badge {
@@ -2168,6 +2169,7 @@ const handleRefresh = async (event: any) => {
   font-weight: 800;
   color: #0f172a;
   margin: 0;
+  margin-top: 0.5rem;
   letter-spacing: -0.2px;
 }
 

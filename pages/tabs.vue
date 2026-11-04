@@ -3,14 +3,10 @@
     <div
       ref="containerRef"
       class="tabs-touch-container"
-      @touchstart="onTouchStart"
-      @touchmove="onTouchMove"
-      @touchend="onTouchEnd"
-      @touchcancel="onTouchCancel"
     >
       <div
+        ref="trackRef"
         class="tabs-track"
-        :style="trackStyle"
       >
         <div class="tab-slide" :class="{ 'is-active': activeTabIndex === 0 }">
           <TabNest />
@@ -195,9 +191,8 @@ const pendingMoviesCount = computed(() => {
 
 const TABS = ['nest', 'shopping', 'tasks', 'calendar', 'wishlist', 'movies', 'relationship']
 const activeTabIndex = ref(0)
-const dragOffset = ref(0)
-const isDragging = ref(false)
 const containerRef = ref<HTMLElement | null>(null)
+const trackRef = ref<HTMLElement | null>(null)
 
 // Calculate container width safely
 const getContainerWidth = () => {
@@ -207,25 +202,20 @@ const getContainerWidth = () => {
   return typeof window !== 'undefined' ? window.innerWidth : 375
 }
 
-// Hardware-accelerated real-time translation style with fluid cubic-bezier snap
-const trackStyle = computed(() => {
-  const width = getContainerWidth()
-  const baseOffset = -activeTabIndex.value * width
-  const totalOffset = baseOffset + dragOffset.value
-
-  return {
-    transform: `translate3d(${totalOffset}px, 0, 0)`,
-    transition: isDragging.value ? 'none' : 'transform 0.28s cubic-bezier(0.25, 1, 0.5, 1)',
-    willChange: 'transform'
-  }
-})
-
-// Touch gesture tracking state
+// Direct DOM manipulation & gesture tracking (zero Vue ref updates during gesture -> solid 120 FPS)
 let touchStartX = 0
 let touchStartY = 0
-let touchStartTime = 0
+let isDragging = false
 let gestureDirection: 'horizontal' | 'vertical' | null = null
 let isTouchIgnored = false
+let currentTrackX = 0
+let rAFId: number | null = null
+
+interface TouchSample {
+  x: number
+  time: number
+}
+let touchHistory: TouchSample[] = []
 
 const hasHorizontalScroll = (el: HTMLElement | null): boolean => {
   let cur = el
@@ -239,13 +229,27 @@ const hasHorizontalScroll = (el: HTMLElement | null): boolean => {
   return false
 }
 
+// Logarithmic rubber-band resistance curve for outer edges (iOS standard)
+const applyRubberBand = (distance: number, dimension: number) => {
+  const abs = Math.abs(distance)
+  const resisted = (abs * 0.55 * dimension) / (dimension + 0.55 * abs)
+  return distance < 0 ? -resisted : resisted
+}
+
 const onTouchStart = (e: TouchEvent) => {
   gestureDirection = null
   isTouchIgnored = false
-  dragOffset.value = 0
+  isDragging = false
 
   const touch = e.touches[0]
   if (!touch) return
+
+  // Prevent conflict with iOS Safari native back/forward edge gestures (within 20px of edge)
+  const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 375
+  if (touch.clientX < 20 || touch.clientX > screenWidth - 20) {
+    isTouchIgnored = true
+    return
+  }
 
   const target = e.target as HTMLElement | null
 
@@ -269,6 +273,8 @@ const onTouchStart = (e: TouchEvent) => {
     target?.closest('ion-modal') ||
     target?.closest('ion-alert') ||
     target?.closest('ion-popover') ||
+    target?.closest('ion-action-sheet') ||
+    target?.closest('ion-range') ||
     hasHorizontalScroll(target)
   ) {
     isTouchIgnored = true
@@ -277,7 +283,15 @@ const onTouchStart = (e: TouchEvent) => {
 
   touchStartX = touch.clientX
   touchStartY = touch.clientY
-  touchStartTime = performance.now()
+  const now = performance.now()
+  touchHistory = [{ x: touch.clientX, time: now }]
+
+  const width = getContainerWidth()
+  currentTrackX = -activeTabIndex.value * width
+
+  if (trackRef.value) {
+    trackRef.value.style.transition = 'none'
+  }
 }
 
 const onTouchMove = (e: TouchEvent) => {
@@ -295,7 +309,7 @@ const onTouchMove = (e: TouchEvent) => {
   if (!gestureDirection) {
     if (absDx < 8 && absDy < 8) return
 
-    // If vertical movement dominates -> user is scrolling vertically
+    // If vertical movement dominates -> native vertical scroll takes over
     if (absDy >= absDx) {
       gestureDirection = 'vertical'
       isTouchIgnored = true
@@ -303,9 +317,12 @@ const onTouchMove = (e: TouchEvent) => {
     }
 
     // Lock to horizontal swipe
-    if (absDx > absDy * 1.35) {
+    if (absDx > absDy * 1.25) {
       gestureDirection = 'horizontal'
-      isDragging.value = true
+      isDragging = true
+      if (trackRef.value) {
+        trackRef.value.style.transition = 'none'
+      }
     } else {
       gestureDirection = 'vertical'
       isTouchIgnored = true
@@ -314,36 +331,111 @@ const onTouchMove = (e: TouchEvent) => {
   }
 
   if (gestureDirection === 'horizontal') {
-    // 1:1 real-time drag following the finger with edge damping
-    let effectiveDx = dx
-    if ((activeTabIndex.value === 0 && dx > 0) || (activeTabIndex.value === TABS.length - 1 && dx < 0)) {
-      effectiveDx = dx * 0.28 // Rubber-band effect
+    // Prevent vertical scroll interruption while actively swiping tabs
+    if (e.cancelable) {
+      e.preventDefault()
     }
-    dragOffset.value = effectiveDx
+
+    const now = performance.now()
+    touchHistory.push({ x: touch.clientX, time: now })
+    // Keep only samples from last 100ms for accurate release velocity calculation
+    while (touchHistory.length > 1 && now - touchHistory[0].time > 100) {
+      touchHistory.shift()
+    }
+
+    const width = getContainerWidth()
+    let effectiveDx = dx
+
+    // Damping / rubber band effect at bounds
+    if ((activeTabIndex.value === 0 && dx > 0) || (activeTabIndex.value === TABS.length - 1 && dx < 0)) {
+      effectiveDx = applyRubberBand(dx, width)
+    }
+
+    currentTrackX = -activeTabIndex.value * width + effectiveDx
+
+    // Direct GPU transform update batched with requestAnimationFrame for 120Hz display refresh
+    if (rAFId === null) {
+      rAFId = requestAnimationFrame(() => {
+        if (trackRef.value) {
+          trackRef.value.style.transform = `translate3d(${currentTrackX}px, 0, 0)`
+        }
+        rAFId = null
+      })
+    }
   }
 }
 
 const onTouchEnd = (e: TouchEvent) => {
-  if (isDragging.value) {
-    isDragging.value = false
+  if (rAFId !== null) {
+    cancelAnimationFrame(rAFId)
+    rAFId = null
+  }
+
+  if (isDragging) {
+    isDragging = false
+
     const touch = e.changedTouches[0]
-    const dx = touch ? touch.clientX - touchStartX : dragOffset.value
-    const duration = performance.now() - touchStartTime
-    const velocity = Math.abs(dx) / Math.max(duration, 1)
+    const currentTouchX = touch ? touch.clientX : (touchHistory[touchHistory.length - 1]?.x ?? touchStartX)
+    const totalDx = currentTouchX - touchStartX
     const width = getContainerWidth()
 
-    // Smoothly snap to final position
-    dragOffset.value = 0
+    // Calculate release velocity using recent touch history (last 80ms)
+    const now = performance.now()
+    const recentPoints = touchHistory.filter(p => now - p.time <= 80)
+    let velocityX = 0
+    if (recentPoints.length >= 2) {
+      const first = recentPoints[0]
+      const last = recentPoints[recentPoints.length - 1]
+      const dt = last.time - first.time
+      if (dt > 8) {
+        velocityX = (last.x - first.x) / dt // px/ms (>0 swiping right / <0 swiping left)
+      }
+    }
 
-    const isIntentionalSwipe = (Math.abs(dx) > width * 0.22 || velocity > 0.35) && Math.abs(dx) > 35
+    // Determine target tab
+    let targetIndex = activeTabIndex.value
 
-    if (isIntentionalSwipe) {
-      if (dx < 0 && activeTabIndex.value < TABS.length - 1) {
-        // Dragged left -> next tab
-        goToTab(activeTabIndex.value + 1)
-      } else if (dx > 0 && activeTabIndex.value > 0) {
-        // Dragged right -> previous tab
-        goToTab(activeTabIndex.value - 1)
+    if (Math.abs(velocityX) > 0.28) {
+      // Fast flick gesture
+      if (velocityX < -0.28 && activeTabIndex.value < TABS.length - 1) {
+        targetIndex = activeTabIndex.value + 1
+      } else if (velocityX > 0.28 && activeTabIndex.value > 0) {
+        targetIndex = activeTabIndex.value - 1
+      }
+    } else {
+      // Distance threshold: >22% drag
+      if (totalDx < -width * 0.22 && activeTabIndex.value < TABS.length - 1) {
+        targetIndex = activeTabIndex.value + 1
+      } else if (totalDx > width * 0.22 && activeTabIndex.value > 0) {
+        targetIndex = activeTabIndex.value - 1
+      }
+    }
+
+    // Native spring-like timing calculation
+    const targetX = -targetIndex * width
+    const remainingDist = Math.abs(targetX - currentTrackX)
+    const baseDuration = Math.round(remainingDist / Math.max(Math.abs(velocityX), 0.8))
+    const animDuration = Math.min(340, Math.max(200, baseDuration))
+
+    if (trackRef.value) {
+      // Synchronize exact position and force style flush to ensure seamless CSS transition interpolation
+      trackRef.value.style.transform = `translate3d(${currentTrackX}px, 0, 0)`
+      void trackRef.value.offsetWidth
+      // Apple native decelerating spring curve
+      trackRef.value.style.transition = `transform ${animDuration}ms cubic-bezier(0.2, 1, 0.25, 1)`
+      trackRef.value.style.transform = `translate3d(${targetX}px, 0, 0)`
+    }
+
+    const changed = targetIndex !== activeTabIndex.value
+    activeTabIndex.value = targetIndex
+
+    if (changed) {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try { navigator.vibrate(10) } catch {}
+      }
+      const targetPath = `/tabs/${TABS[targetIndex]}`
+      if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
+        window.history.replaceState({}, '', targetPath)
       }
     }
   }
@@ -352,20 +444,44 @@ const onTouchEnd = (e: TouchEvent) => {
   touchStartY = 0
   gestureDirection = null
   isTouchIgnored = false
+  touchHistory = []
 }
 
 const onTouchCancel = () => {
-  isDragging.value = false
-  dragOffset.value = 0
+  if (rAFId !== null) {
+    cancelAnimationFrame(rAFId)
+    rAFId = null
+  }
+  if (isDragging) {
+    isDragging = false
+    const width = getContainerWidth()
+    const targetX = -activeTabIndex.value * width
+    if (trackRef.value) {
+      trackRef.value.style.transition = 'transform 260ms cubic-bezier(0.2, 1, 0.25, 1)'
+      trackRef.value.style.transform = `translate3d(${targetX}px, 0, 0)`
+    }
+  }
   touchStartX = 0
   touchStartY = 0
   gestureDirection = null
   isTouchIgnored = false
+  touchHistory = []
 }
 
 const goToTab = (index: number) => {
   if (index < 0 || index >= TABS.length) return
+  const oldIndex = activeTabIndex.value
   activeTabIndex.value = index
+
+  const width = getContainerWidth()
+  const targetX = -index * width
+  const dist = Math.abs(index - oldIndex)
+  const duration = dist > 1 ? 320 : 280
+
+  if (trackRef.value) {
+    trackRef.value.style.transition = `transform ${duration}ms cubic-bezier(0.2, 1, 0.25, 1)`
+    trackRef.value.style.transform = `translate3d(${targetX}px, 0, 0)`
+  }
 
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     try { navigator.vibrate(12) } catch {}
@@ -377,26 +493,71 @@ const goToTab = (index: number) => {
   }
 }
 
+const handleResize = () => {
+  const width = getContainerWidth()
+  const targetX = -activeTabIndex.value * width
+  if (trackRef.value) {
+    trackRef.value.style.transition = 'none'
+    trackRef.value.style.transform = `translate3d(${targetX}px, 0, 0)`
+  }
+}
+
 // Synchronize active tab from initial route URL
-const syncTabFromRoute = () => {
+const syncTabFromRoute = (animate: boolean = false) => {
   const path = route.path
   const tabName = TABS.find(t => path.includes(t))
   if (tabName) {
     const idx = TABS.indexOf(tabName)
     if (idx !== -1) {
-      if (idx !== activeTabIndex.value) {
+      if (animate && idx !== activeTabIndex.value) {
+        goToTab(idx)
+      } else {
         activeTabIndex.value = idx
+        const width = getContainerWidth()
+        if (trackRef.value) {
+          trackRef.value.style.transition = 'none'
+          trackRef.value.style.transform = `translate3d(${-idx * width}px, 0, 0)`
+        }
       }
     }
   }
 }
 
 onMounted(() => {
-  syncTabFromRoute()
+  syncTabFromRoute(false)
+
+  const el = containerRef.value
+  if (el) {
+    el.addEventListener('touchstart', onTouchStart, { passive: true })
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    el.addEventListener('touchend', onTouchEnd, { passive: true })
+    el.addEventListener('touchcancel', onTouchCancel, { passive: true })
+  }
+
+  window.addEventListener('resize', handleResize)
+  window.addEventListener('orientationchange', handleResize)
+})
+
+onUnmounted(() => {
+  if (rAFId !== null) {
+    cancelAnimationFrame(rAFId)
+    rAFId = null
+  }
+
+  const el = containerRef.value
+  if (el) {
+    el.removeEventListener('touchstart', onTouchStart)
+    el.removeEventListener('touchmove', onTouchMove)
+    el.removeEventListener('touchend', onTouchEnd)
+    el.removeEventListener('touchcancel', onTouchCancel)
+  }
+
+  window.removeEventListener('resize', handleResize)
+  window.removeEventListener('orientationchange', handleResize)
 })
 
 watch(() => route.path, () => {
-  syncTabFromRoute()
+  syncTabFromRoute(true)
 })
 </script>
 
@@ -420,6 +581,9 @@ watch(() => route.path, () => {
   right: 0;
   bottom: 0;
   overflow: hidden;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .tabs-track {
@@ -430,6 +594,11 @@ watch(() => route.path, () => {
   left: 0;
   width: 700%; /* 7 slides * 100% */
   will-change: transform;
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-perspective: 1000;
+  perspective: 1000;
 }
 
 .tab-slide {
@@ -437,6 +606,9 @@ watch(() => route.path, () => {
   height: 100%;
   position: relative;
   overflow: hidden;
+  contain: layout style;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
 }
 
 .tab-slide :deep(ion-page) {
