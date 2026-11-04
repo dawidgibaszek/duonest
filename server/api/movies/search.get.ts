@@ -8,7 +8,13 @@ export default defineEventHandler(async (event) => {
   const runtimeConfig = useRuntimeConfig()
 
   // Use server runtime config or incoming client apiKey
-  const apiKey = String(query.apiKey || runtimeConfig.tmdbApiKey || runtimeConfig.public.tmdbApiKey || process.env.TMDB_API_KEY || '').trim()
+  const apiKey = String(
+    query.apiKey ||
+    runtimeConfig.tmdbApiKey ||
+    runtimeConfig.public.tmdbApiKey ||
+    process.env.TMDB_API_KEY ||
+    ''
+  ).trim()
 
   if (!searchQuery) {
     return { success: true, results: [] }
@@ -31,8 +37,11 @@ export default defineEventHandler(async (event) => {
     let endpoint = 'https://api.themoviedb.org/3/search/multi'
     if (filterType === 'movie') {
       endpoint = 'https://api.themoviedb.org/3/search/movie'
-    } else if (filterType === 'tv' || filterType === 'anime') {
+    } else if (filterType === 'tv') {
       endpoint = 'https://api.themoviedb.org/3/search/tv'
+    } else if (filterType === 'anime') {
+      // Use multi search to catch both anime movies and anime TV series!
+      endpoint = 'https://api.themoviedb.org/3/search/multi'
     }
 
     const url = new URL(endpoint)
@@ -68,13 +77,24 @@ export default defineEventHandler(async (event) => {
       .filter((r) => r.media_type !== 'person' && (r.title || r.name))
       .map((r) => normalizeTmdbItem(r, filterType === 'anime' ? 'anime' : undefined))
 
-    // If filterType was specifically 'anime', filter to anime only
-    const filteredResults = filterType === 'anime'
-      ? validResults.filter(r => r.media_type === 'anime')
-      : validResults
+    let filteredResults = validResults
+    if (filterType === 'anime') {
+      const animeOnly = validResults.filter(r => r.media_type === 'anime')
+      filteredResults = animeOnly.length > 0
+        ? animeOnly
+        : validResults.filter(r => r.genres.some(g => g.toLowerCase().includes('animacj') || g.toLowerCase().includes('anime')))
+      if (filteredResults.length === 0) {
+        filteredResults = validResults
+      }
+    } else if (filterType === 'movie') {
+      filteredResults = validResults.filter(r => r.media_type === 'movie')
+    } else if (filterType === 'tv') {
+      filteredResults = validResults.filter(r => r.media_type === 'tv')
+    }
 
     return {
       success: true,
+      filterType,
       results: filteredResults
     }
   } catch (err: any) {
@@ -86,4 +106,3 @@ export default defineEventHandler(async (event) => {
     }
   }
 })
-

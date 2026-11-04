@@ -576,14 +576,20 @@
                     <ion-icon :icon="ioniconsFlame" />
                   </div>
                   <div>
-                    <h4 class="trending-heading">Popularne w tym tygodniu</h4>
-                    <p class="trending-subheading">Hity i nowości według bazy The Movie Database</p>
+                    <h4 class="trending-heading">{{ getTrendingHeading() }}</h4>
+                    <p class="trending-subheading">{{ getTrendingSubheading() }}</p>
                   </div>
                 </div>
               </div>
 
+              <!-- Trending Category Loading State -->
+              <div v-if="isTrendingLoading" class="trending-loading-box">
+                <ion-spinner name="crescent" />
+                <span>Ładowanie propozycji...</span>
+              </div>
+
               <!-- Trending Grid Cards -->
-              <div v-if="trendingList.length > 0" class="trending-posters-grid">
+              <div v-else-if="trendingList.length > 0" class="trending-posters-grid">
                 <div
                   v-for="tr in trendingList"
                   :key="tr.tmdb_id"
@@ -1537,15 +1543,15 @@ const getDuoAverageRating = (movie: MovieItem): string | null => {
 }
 
 const getRatingDescriptor = (score: number): string => {
-  if (score >= 10) return 'Arcydzieło! 🔥'
-  if (score >= 9) return 'Świetny seans! ⭐'
-  if (score >= 8) return 'Bardzo dobry seans 👍'
-  if (score >= 7) return 'Dobry, podobał mi się 🙂'
-  if (score >= 6) return 'Całkiem niezły 👌'
-  if (score >= 5) return 'Przeciętny / średni 😐'
-  if (score >= 4) return 'Rozczarowujący 😕'
-  if (score >= 3) return 'Słaby 👎'
-  return 'Szkoda czasu ❌'
+  if (score >= 10) return 'Arcydzieło!'
+  if (score >= 9) return 'Świetny seans!'
+  if (score >= 8) return 'Bardzo dobry seans'
+  if (score >= 7) return 'Dobry, podobał mi się'
+  if (score >= 6) return 'Całkiem niezły'
+  if (score >= 5) return 'Przeciętny / średni'
+  if (score >= 4) return 'Rozczarowujący'
+  if (score >= 3) return 'Słaby'
+  return 'Szkoda czasu'
 }
 
 const formatWatchedDate = (isoStr?: string | null): string => {
@@ -1569,6 +1575,36 @@ const searchError = ref('')
 const searchResults = ref<any[]>([])
 const trendingList = ref<any[]>([])
 const apiKeyWarning = ref('')
+const isTrendingLoading = ref(false)
+const trendingCache = ref<Record<string, any[]>>({})
+
+const getTrendingHeading = (): string => {
+  switch (searchCategory.value) {
+    case 'movie':
+      return 'Popularne filmy w tym tygodniu'
+    case 'tv':
+      return 'Najpopularniejsze seriale'
+    case 'anime':
+      return 'Najpopularniejsze anime'
+    case 'all':
+    default:
+      return 'Popularne w tym tygodniu'
+  }
+}
+
+const getTrendingSubheading = (): string => {
+  switch (searchCategory.value) {
+    case 'movie':
+      return 'Topowe hity kinowe i nowości na platformach'
+    case 'tv':
+      return 'Seriale i miniseriale, które teraz ogląda świat'
+    case 'anime':
+      return 'Hity japońskiej animacji i uwielbiane serie'
+    case 'all':
+    default:
+      return 'Hity i nowości według bazy The Movie Database'
+  }
+}
 
 const searchCategoryTabs = [
   { id: 'all', label: 'Wszystko', emoji: '🍿' },
@@ -1590,7 +1626,7 @@ const openSearchModal = () => {
   isSearchModalOpen.value = true
   searchError.value = ''
   apiKeyWarning.value = ''
-  loadTrendingIfEmpty()
+  loadTrendingForCategory(searchCategory.value)
   setTimeout(() => {
     searchInputRef.value?.focus()
   }, 350)
@@ -1606,12 +1642,15 @@ const clearSearch = () => {
   tmdbSearchQuery.value = ''
   searchResults.value = []
   searchError.value = ''
+  loadTrendingForCategory(searchCategory.value)
 }
 
 const selectSearchCategory = (catId: 'all' | 'movie' | 'tv' | 'anime') => {
   searchCategory.value = catId
   if (tmdbSearchQuery.value.trim()) {
     executeSearch()
+  } else {
+    loadTrendingForCategory(catId)
   }
 }
 
@@ -1661,16 +1700,34 @@ const executeSearch = async () => {
   }
 }
 
-const loadTrendingIfEmpty = async () => {
-  if (trendingList.value.length > 0) return
+const loadTrendingForCategory = async (catId: 'all' | 'movie' | 'tv' | 'anime' = 'all', forceRefresh = false) => {
+  if (!forceRefresh && trendingCache.value[catId]?.length) {
+    trendingList.value = trendingCache.value[catId]
+    return
+  }
+
+  isTrendingLoading.value = true
   try {
     const customKey = getStoredTmdbApiKey()
-    const url = customKey ? `/api/movies/trending?apiKey=${encodeURIComponent(customKey)}` : '/api/movies/trending'
-    const res = await $fetch<any>(url)
+    const params = new URLSearchParams({ type: catId })
+    if (customKey) params.set('apiKey', customKey)
+
+    const res = await $fetch<any>(`/api/movies/trending?${params.toString()}`)
     if (res?.success && res.results) {
-      trendingList.value = res.results
+      trendingCache.value[catId] = res.results
+      if (searchCategory.value === catId) {
+        trendingList.value = res.results
+      }
     }
-  } catch {}
+  } catch (err) {
+    console.warn('Failed to load trending items:', err)
+  } finally {
+    isTrendingLoading.value = false
+  }
+}
+
+const loadTrendingIfEmpty = async () => {
+  return loadTrendingForCategory(searchCategory.value)
 }
 
 const openApiKeyPrompt = () => {
@@ -1685,7 +1742,7 @@ const openApiKeyPrompt = () => {
       if (tmdbSearchQuery.value) {
         executeSearch()
       } else {
-        loadTrendingIfEmpty()
+        loadTrendingForCategory(searchCategory.value, true)
       }
     } else {
       localStorage.removeItem('duonest_tmdb_api_key')
@@ -3796,6 +3853,24 @@ ion-modal.dn-movies-search-modal {
   color: #64748b;
 }
 
+.trending-loading-box {
+  padding: 48px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #64748b;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.trending-loading-box ion-spinner {
+  width: 32px;
+  height: 32px;
+  color: #ec4899;
+}
+
 .trending-posters-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -5024,6 +5099,7 @@ ion-modal.dn-movies-details-modal {
 .details-hero-wrap {
   position: relative;
   background: #0f172a;
+  padding-bottom: 2rem;
 }
 
 .details-poster-backdrop {
