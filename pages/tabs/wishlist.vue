@@ -1043,8 +1043,8 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: #e0f2fe;
-  color: #0284c7;
+  background: #f1f5f9;
+  color: #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1151,7 +1151,7 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 .manual-add-btn {
   background: none;
   border: none;
-  color: #0284c7;
+  color: #0f172a;
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
@@ -1419,7 +1419,7 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 .price-val {
   font-size: 16px;
   font-weight: 800;
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .currency-val {
@@ -1483,9 +1483,9 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 }
 
 .link-btn {
-  color: #0284c7;
-  background: #f0f9ff;
-  border-color: #bae6fd;
+  color: #0f172a;
+  background: #f1f5f9;
+  border-color: #e2e8f0;
 }
 
 .complete-btn {
@@ -1506,7 +1506,7 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 
 .edit-btn:hover {
   background: #f8fafc;
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .delete-btn {
@@ -1546,7 +1546,7 @@ ion-modal.dn-wishlist-modal {
 
 .dn-wishlist-modal .modal-title-icon {
   font-size: 20px;
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .dn-wishlist-modal .modal-title-wrap ion-title {
@@ -1601,8 +1601,8 @@ ion-modal.dn-wishlist-modal {
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 14px;
 }
 
@@ -1612,7 +1612,7 @@ ion-modal.dn-wishlist-modal {
   border-radius: 8px;
   overflow: hidden;
   background: #ffffff;
-  border: 1px solid #e0f2fe;
+  border: 1px solid #e2e8f0;
 }
 
 .preview-thumb-box img {
@@ -1630,7 +1630,7 @@ ion-modal.dn-wishlist-modal {
 .preview-store-pill {
   font-size: 11px;
   font-weight: 700;
-  color: #0369a1;
+  color: #0f172a;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1639,7 +1639,7 @@ ion-modal.dn-wishlist-modal {
 .preview-price-tag {
   font-size: 13.5px;
   font-weight: 800;
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .form-group {
@@ -1688,13 +1688,13 @@ ion-modal.dn-wishlist-modal {
 }
 
 .target-choice-btn.active {
-  background: #e0f2fe;
-  border-color: #0284c7;
-  color: #0369a1;
+  background: #f1f5f9;
+  border-color: #0f172a;
+  color: #0f172a;
 }
 
 .target-choice-btn.active .target-btn-icon {
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .target-btn-sub {
@@ -1733,8 +1733,8 @@ ion-modal.dn-wishlist-modal {
 }
 
 .vis-choice-btn.active {
-  border-color: #0284c7;
-  background: #f0f9ff;
+  border-color: #0f172a;
+  background: #f8fafc;
 }
 
 .vis-choice-btn.surprise.active {
@@ -1792,8 +1792,8 @@ ion-modal.dn-wishlist-modal {
 }
 
 .modal-styled-input:focus-within {
-  border-color: #0284c7;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
 }
 
 .modal-textarea-styled {
@@ -1823,7 +1823,7 @@ ion-modal.dn-wishlist-modal {
 }
 
 .modal-styled-select:focus {
-  border-color: #0284c7;
+  border-color: #0f172a;
 }
 
 /* MODAL ACTIONS */
@@ -1859,7 +1859,7 @@ ion-modal.dn-wishlist-modal {
   border-radius: 12px;
   font-size: 14px;
   font-weight: 700;
-  background: #0284c7;
+  background: #0f172a;
   color: #ffffff;
   border: none;
   cursor: pointer;

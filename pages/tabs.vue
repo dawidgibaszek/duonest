@@ -475,7 +475,7 @@ watch(() => route.path, () => {
 }
 
 .duo-tab-btn.is-active {
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .duo-tab-btn.is-active .tab-icon-wrap ion-icon {
@@ -517,7 +517,7 @@ watch(() => route.path, () => {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
-.primary-badge { background: #0284c7; }
+.primary-badge { background: #0f172a; }
 .secondary-badge { background: #0d9488; }
 .tertiary-badge { background: #6366f1; }
 .pink-badge { background: #f43f5e; }

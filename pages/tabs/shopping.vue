@@ -328,17 +328,17 @@ const handleRefresh = (event: any) => {
   gap: 6px;
   font-size: 11px;
   font-weight: 700;
-  color: #0284c7;
-  background: #f0f9ff;
-  border: 1px dashed #bae6fd;
+  color: #0f172a;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
   border-radius: 8px;
   padding: 6px 12px;
   margin: 6px 16px 10px 16px;
 }
 
 .count-chip {
-  background: #e0f2fe;
-  color: #0284c7;
+  background: #f1f5f9;
+  color: #0f172a;
   font-size: 13px;
   font-weight: 800;
   padding: 2px 9px;
@@ -370,8 +370,8 @@ const handleRefresh = (event: any) => {
 }
 
 .custom-ion-input:focus-within {
-  border-color: #0284c7;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
 }
 
 .qty-input {
@@ -388,8 +388,8 @@ const handleRefresh = (event: any) => {
 }
 
 .qty-input:focus-within {
-  border-color: #0284c7;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
 }
 
 .category-select-scroll {
@@ -560,7 +560,7 @@ const handleRefresh = (event: any) => {
 
 .item-category-tag {
   font-size: 11px;
-  color: #0284c7;
+  color: #0f172a;
   font-weight: 600;
 }
 
@@ -604,12 +604,12 @@ const handleRefresh = (event: any) => {
   width: 64px;
   height: 64px;
   border-radius: 20px;
-  background: #f0f9ff;
+  background: #f1f5f9;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 12px;
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .empty-state h3 {

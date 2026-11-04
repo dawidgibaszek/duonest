@@ -808,13 +808,13 @@ const getGoalScopeInfo = (goal: any) => {
   if (!goal.assigned_to) {
     return {
       label: 'Wspólny cel',
-      color: '#0284c7',
-      bg: 'rgba(2, 132, 199, 0.1)',
-      border: 'rgba(2, 132, 199, 0.25)'
+      color: '#0f172a',
+      bg: 'rgba(15, 23, 42, 0.08)',
+      border: 'rgba(15, 23, 42, 0.2)'
     }
   }
   if (goal.assigned_to === currentUser.value.id) {
-    const color = currentUserAccentColor.value || '#0284c7'
+    const color = currentUserAccentColor.value || '#0f172a'
     return {
       label: 'Dla Ciebie',
       color: color,
@@ -1015,13 +1015,13 @@ const handleRefresh = (event: any) => {
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.25);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
 }
 
 .brand-name {
   font-size: 19px;
   font-weight: 800;
-  color: #0284c7;
+  color: #0f172a;
   letter-spacing: -0.02em;
   display: block;
   line-height: 1.1;
@@ -1057,7 +1057,7 @@ const handleRefresh = (event: any) => {
 
 .quick-gear-btn:hover {
   background: #f1f5f9;
-  color: #0284c7;
+  color: #0f172a;
   transform: rotate(25deg);
 }
 
@@ -1128,13 +1128,13 @@ const handleRefresh = (event: any) => {
 
 /* HERO CARD */
 .hero-card {
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 60%, #0d9488 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #334155 100%);
   color: #ffffff;
   border-radius: 20px;
   padding: 20px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 8px 24px -4px rgba(2, 132, 199, 0.25);
+  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.25);
   min-width: 0;
 }
 
@@ -1170,8 +1170,8 @@ const handleRefresh = (event: any) => {
 }
 
 .avatar-mine {
-  background: #38bdf8;
-  color: #0c4a6e;
+  background: #0f172a;
+  color: #ffffff;
   z-index: 2;
 }
 
@@ -1286,7 +1286,7 @@ const handleRefresh = (event: any) => {
   width: 120px;
   height: 120px;
   border-radius: 28px;
-  box-shadow: 0 10px 25px -4px rgba(2, 132, 199, 0.3);
+  box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.15);
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -1312,7 +1312,7 @@ const handleRefresh = (event: any) => {
 .badge-3 { bottom: 6px; left: 4px; animation-delay: 2s; }
 
 .accent-heart { color: #f43f5e; font-size: 16px; }
-.accent-sparkle { color: #0284c7; font-size: 16px; }
+.accent-sparkle { color: #0f172a; font-size: 16px; }
 .accent-leaf { color: #10b981; font-size: 16px; }
 
 @keyframes floatUp {
@@ -1358,7 +1358,7 @@ const handleRefresh = (event: any) => {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: #0284c7;
+  color: #0f172a;
   display: block;
   margin-bottom: 2px;
 }
@@ -1399,12 +1399,12 @@ const handleRefresh = (event: any) => {
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  background: #e0f2fe;
-  color: #0284c7;
+  background: #f1f5f9;
+  color: #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.1);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
 }
 
 .mood-details {
@@ -1414,7 +1414,7 @@ const handleRefresh = (event: any) => {
 .mood-label-pill {
   font-size: 12px;
   font-weight: 700;
-  color: #0284c7;
+  color: #0f172a;
   display: inline-block;
   margin-bottom: 2px;
 }
@@ -1550,8 +1550,8 @@ const handleRefresh = (event: any) => {
 
 .nudge-btn:active {
   transform: scale(0.92);
-  background: #f0f9ff;
-  border-color: #0284c7;
+  background: #f1f5f9;
+  border-color: #0f172a;
 }
 
 .nudge-icon-circle {
@@ -1568,7 +1568,7 @@ const handleRefresh = (event: any) => {
 .view-all-link {
   font-size: 12px;
   font-weight: 700;
-  color: #0284c7;
+  color: #0f172a;
   text-decoration: none;
 }
 
@@ -1631,7 +1631,7 @@ const handleRefresh = (event: any) => {
 .mini-task-pts {
   font-size: 11px;
   font-weight: 700;
-  color: #0284c7;
+  color: #0f172a;
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -1686,7 +1686,7 @@ const handleRefresh = (event: any) => {
 }
 
 .points-badge {
-  color: #0284c7;
+  color: #0f172a;
   font-weight: 900;
 }
 
@@ -1807,7 +1807,7 @@ const handleRefresh = (event: any) => {
 .score-total-val {
   font-size: 15px;
   font-weight: 800;
-  color: #0284c7;
+  color: #0f172a;
   line-height: 1.1;
 }
 
@@ -1880,9 +1880,9 @@ const handleRefresh = (event: any) => {
 .milestones-count-pill {
   font-size: 11px;
   font-weight: 700;
-  color: #0284c7;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
+  color: #0f172a;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   padding: 2px 8px;
   border-radius: 999px;
 }
@@ -2000,9 +2000,9 @@ const handleRefresh = (event: any) => {
 .goal-pts-tag {
   font-size: 12px;
   font-weight: 800;
-  color: #0284c7;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
+  color: #0f172a;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   padding: 2px 8px;
   border-radius: 999px;
 }
@@ -2025,7 +2025,7 @@ const handleRefresh = (event: any) => {
 
 .goal-edit-btn:hover {
   background: #f1f5f9;
-  color: #0284c7;
+  color: #0f172a;
   border-color: #cbd5e1;
 }
 
@@ -2069,13 +2069,13 @@ const handleRefresh = (event: any) => {
 
 .milestone-progress-bar-fill {
   height: 100%;
-  background: #0284c7;
+  background: #0f172a;
   border-radius: 999px;
   transition: width 0.4s ease;
 }
 
 .milestone-progress-bar-fill.fill-ready {
-  background: linear-gradient(90deg, #0284c7, #10b981) !important;
+  background: linear-gradient(90deg, #0f172a, #10b981) !important;
 }
 
 .milestone-progress-bar-fill.fill-claimed {
@@ -2097,7 +2097,7 @@ const handleRefresh = (event: any) => {
 
 .milestone-pct-badge {
   font-weight: 700;
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .milestone-card-item.is-ready .milestone-pct-badge {
@@ -2117,7 +2117,7 @@ const handleRefresh = (event: any) => {
 .milestone-claim-action {
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px dashed #bae6fd;
+  border-top: 1px dashed #e2e8f0;
 }
 
 .claim-reward-btn {
@@ -2164,7 +2164,7 @@ const handleRefresh = (event: any) => {
 .reactivate-goal-link {
   background: transparent;
   border: none;
-  color: #0284c7;
+  color: #0f172a;
   font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
@@ -2187,7 +2187,7 @@ const handleRefresh = (event: any) => {
 
 .empty-sparkle-icon {
   font-size: 32px;
-  color: #0284c7;
+  color: #0f172a;
   margin-bottom: 8px;
 }
 
@@ -2297,9 +2297,9 @@ const handleRefresh = (event: any) => {
 }
 
 .scope-choice-btn.active {
-  background: #f0f9ff;
-  border-color: #0284c7;
-  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.12);
+  background: #f8fafc;
+  border-color: #0f172a;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
 .scope-btn-icon {
@@ -2309,7 +2309,7 @@ const handleRefresh = (event: any) => {
 }
 
 .scope-choice-btn.active .scope-btn-icon {
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .scope-btn-texts {
@@ -2361,8 +2361,8 @@ const handleRefresh = (event: any) => {
 }
 
 .text-preset-chip.active {
-  background: #e0f2fe;
-  border-color: #0284c7;
+  background: #f1f5f9;
+  border-color: #0f172a;
 }
 
 .preset-name {
@@ -2374,8 +2374,8 @@ const handleRefresh = (event: any) => {
 .preset-pts {
   font-size: 10.5px;
   font-weight: 700;
-  color: #0284c7;
-  background: rgba(2, 132, 199, 0.1);
+  color: #0f172a;
+  background: rgba(15, 23, 42, 0.08);
   padding: 2px 6px;
   border-radius: 999px;
 }
@@ -2395,8 +2395,8 @@ const handleRefresh = (event: any) => {
 }
 
 .modal-styled-input:focus-within {
-  border-color: #0284c7;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
 }
 
 .modal-textarea-styled {
@@ -2414,8 +2414,8 @@ const handleRefresh = (event: any) => {
 .pts-target-badge {
   font-size: 13px;
   font-weight: 800;
-  color: #0284c7;
-  background: #e0f2fe;
+  color: #0f172a;
+  background: #f1f5f9;
   padding: 2px 8px;
   border-radius: 999px;
 }
@@ -2468,8 +2468,8 @@ const handleRefresh = (event: any) => {
 }
 
 .pts-option-pill.active {
-  background: #0284c7;
-  border-color: #0284c7;
+  background: #0f172a;
+  border-color: #0f172a;
   color: #ffffff;
 }
 

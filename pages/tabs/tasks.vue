@@ -1370,8 +1370,8 @@ const handleRefresh = (event: any) => {
 }
 
 .tag-shared {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 .tag-mine {
@@ -1430,8 +1430,8 @@ const handleRefresh = (event: any) => {
 }
 
 .modal-input:focus-within {
-  border-color: #0284c7;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
 }
 
 .modal-textarea {
@@ -1461,9 +1461,9 @@ const handleRefresh = (event: any) => {
 }
 
 .assignee-btn.active {
-  background: #0284c7;
+  background: #0f172a;
   color: #ffffff;
-  border-color: #0284c7;
+  border-color: #0f172a;
 }
 
 .toggle-row {
@@ -1565,8 +1565,8 @@ const handleRefresh = (event: any) => {
 }
 
 .pet-header-new {
-  background: #eff6ff;
-  color: #0284c7;
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 .pet-header-gear-btn {
@@ -1637,7 +1637,7 @@ const handleRefresh = (event: any) => {
 }
 
 .pill-count-chip {
-  background: #0284c7;
+  background: #0f172a;
   color: #ffffff;
   font-size: 10.5px;
   font-weight: 800;
@@ -1721,15 +1721,15 @@ const handleRefresh = (event: any) => {
 }
 
 .tab-pet-lvl.new-pill {
-  background: #eff6ff;
-  color: #0284c7;
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 .pet-open-pill {
   font-size: 11.5px;
   font-weight: 700;
-  color: #0284c7;
-  background: #f0f9ff;
+  color: #0f172a;
+  background: #f1f5f9;
   padding: 4px 10px;
   border-radius: 999px;
   white-space: nowrap;
@@ -1872,7 +1872,7 @@ const handleRefresh = (event: any) => {
 
 .pet-gear-action-btn ion-icon {
   font-size: 16px;
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .pet-gear-action-btn:hover {
@@ -1973,6 +1973,7 @@ const handleRefresh = (event: any) => {
 }
 
 .stat-pill-tag {
+  width: fit-content;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -1980,6 +1981,7 @@ const handleRefresh = (event: any) => {
   border-radius: 999px;
   font-size: 11.5px;
   font-weight: 800;
+  text-wrap: nowrap;
 }
 
 .tag-green {
@@ -2141,8 +2143,8 @@ const handleRefresh = (event: any) => {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: #0284c7;
-  background: #e0f2fe;
+  color: #0f172a;
+  background: #f1f5f9;
   padding: 2px 8px;
   border-radius: 999px;
 }
@@ -2169,7 +2171,7 @@ const handleRefresh = (event: any) => {
   border: none;
   font-size: 12px;
   font-weight: 800;
-  color: #0284c7;
+  color: #0f172a;
   cursor: pointer;
   padding: 4px 6px;
   white-space: nowrap;
@@ -2304,7 +2306,7 @@ const handleRefresh = (event: any) => {
 
 .add-chore-mini-btn {
   margin-top: 6px;
-  background: #0284c7;
+  background: #0f172a;
   color: #ffffff;
   border: none;
   padding: 7px 16px;
@@ -2316,7 +2318,7 @@ const handleRefresh = (event: any) => {
 }
 
 .add-chore-mini-btn:hover {
-  background: #0369a1;
+  background: #1e293b;
 }
 
 /* ============================================= */
@@ -2349,9 +2351,9 @@ const handleRefresh = (event: any) => {
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.06em;
-  color: #0284c7;
-  background: #e0f2fe;
-  border: 1px solid #bae6fd;
+  color: #0f172a;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   padding: 4px 14px;
   border-radius: 999px;
   margin-bottom: 10px;
@@ -2463,7 +2465,7 @@ const handleRefresh = (event: any) => {
 
 .section-badge-icon {
   font-size: 16px;
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .section-title-text {
@@ -2500,13 +2502,13 @@ const handleRefresh = (event: any) => {
 }
 
 .creator-pet-tile.is-selected {
-  background: #f0f9ff;
-  border-color: #0284c7;
-  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.14);
+  background: #f8fafc;
+  border-color: #0f172a;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
 }
 
 .creator-pet-tile.is-selected .tile-name {
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .tile-sprite-wrap {
@@ -2533,7 +2535,7 @@ const handleRefresh = (event: any) => {
   position: absolute;
   top: 6px;
   right: 6px;
-  color: #0284c7;
+  color: #0f172a;
   font-size: 16px;
   display: flex;
   align-items: center;
@@ -2560,7 +2562,7 @@ const handleRefresh = (event: any) => {
 }
 
 .creator-pretty-input:focus-within {
-  border-color: #0284c7;
+  border-color: #0f172a;
   --background: #ffffff;
 }
 
@@ -2600,11 +2602,11 @@ const handleRefresh = (event: any) => {
 }
 
 .cute-sug-pill.active {
-  background: #0284c7;
-  border-color: #0284c7;
+  background: #0f172a;
+  border-color: #0f172a;
   color: #ffffff;
   font-weight: 800;
-  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.2);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
 }
 
 /* Action CTA Buttons */
@@ -2625,17 +2627,17 @@ const handleRefresh = (event: any) => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: #0284c7;
+  background: #0f172a;
   color: #ffffff;
   border: none;
   cursor: pointer;
   transition: all 0.16s ease;
-  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.25);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15);
 }
 
 .creator-adopt-action-btn:hover:not(:disabled),
 .save-pet-settings-btn:hover:not(:disabled) {
-  background: #0369a1;
+  background: #1e293b;
   transform: translateY(-1px);
 }
 
@@ -2684,7 +2686,7 @@ ion-modal.dn-pet-settings-modal {
 
 .dn-pet-settings-modal .modal-title-icon {
   font-size: 20px;
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .dn-pet-settings-modal .modal-title-wrap ion-title {

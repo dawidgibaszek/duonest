@@ -1112,8 +1112,9 @@ const handleSaveNestSettings = async () => {
   })
 }
 
-// Accent Color Presets (10 curated vibrant colors)
+// Accent Color Presets (curated elegant & vibrant colors)
 const accentColorPresets = [
+  { hex: '#0f172a', label: 'Elegancka Czerń' },
   { hex: '#0284c7', label: 'Błękit Oceanu' },
   { hex: '#0d9488', label: 'Morski Szmaragd' },
   { hex: '#e11d48', label: 'Różana Czerwień' },
@@ -1312,7 +1313,7 @@ const handleRefresh = (event: any) => {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .partner-tag {
@@ -1324,7 +1325,7 @@ const handleRefresh = (event: any) => {
 }
 
 .pairing-tag {
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .active-mood-badge {
@@ -1333,9 +1334,9 @@ const handleRefresh = (event: any) => {
   gap: 5px;
   font-size: 11px;
   font-weight: 700;
-  color: #0284c7;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
+  color: #0f172a;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   padding: 2px 8px;
   border-radius: 999px;
 }
@@ -1369,10 +1370,10 @@ const handleRefresh = (event: any) => {
 }
 
 .mood-btn.active {
-  background: #f0f9ff;
-  border-color: #0284c7;
-  color: #0284c7;
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.15);
+  background: #f8fafc;
+  border-color: #0f172a;
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
 .mood-icon-circle {
@@ -1384,12 +1385,12 @@ const handleRefresh = (event: any) => {
   align-items: center;
   justify-content: center;
   border: 1px solid #e2e8f0;
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .mood-btn.active .mood-icon-circle {
-  border-color: #0284c7;
-  background: #0284c7;
+  border-color: #0f172a;
+  background: #0f172a;
   color: #ffffff;
 }
 
@@ -1417,8 +1418,8 @@ const handleRefresh = (event: any) => {
 }
 
 .custom-note-input:focus-within {
-  border-color: #0284c7;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
 }
 
 .save-mood-btn {
@@ -1679,8 +1680,8 @@ const handleRefresh = (event: any) => {
 }
 
 .my-code-box {
-  background: #f0f9ff;
-  border: 1px dashed #0284c7;
+  background: #f8fafc;
+  border: 1px dashed #0f172a;
   border-radius: 16px;
   padding: 14px;
   text-align: center;
@@ -1691,7 +1692,7 @@ const handleRefresh = (event: any) => {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.1em;
-  color: #0369a1;
+  color: #0f172a;
   display: block;
 }
 
@@ -1707,14 +1708,14 @@ const handleRefresh = (event: any) => {
   font-size: 26px;
   font-weight: 900;
   letter-spacing: 0.15em;
-  color: #0284c7;
+  color: #0f172a;
   font-family: monospace;
 }
 
 .copy-btn {
   background: #ffffff;
-  border: 1px solid #bae6fd;
-  color: #0284c7;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
   padding: 6px 12px;
   border-radius: 999px;
   font-size: 12px;
@@ -1763,12 +1764,12 @@ const handleRefresh = (event: any) => {
 }
 
 .partner-code-input:focus-within {
-  border-color: #0284c7;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
 }
 
 .join-submit-btn {
-  background: var(--dn-sea-gradient);
+  background: #0f172a;
   color: #ffffff;
   border: none;
   border-radius: 12px;
@@ -1869,7 +1870,7 @@ const handleRefresh = (event: any) => {
 
 /* --- PROFILE CARDS & EDITING STYLES --- */
 .my-profile-card {
-  border-left: 4px solid #0284c7;
+  border-left: 4px solid #0f172a;
 }
 
 .partner-profile-card {
@@ -1883,11 +1884,11 @@ const handleRefresh = (event: any) => {
   gap: 6px;
   font-size: 11px;
   font-weight: 700;
-  color: #0284c7;
-  background: #f0f9ff;
+  color: #0f172a;
+  background: #f1f5f9;
   padding: 3px 10px;
   border-radius: 999px;
-  border: 1px solid #bae6fd;
+  border: 1px solid #e2e8f0;
 }
 
 .partner-online-pill {
@@ -1971,8 +1972,8 @@ const handleRefresh = (event: any) => {
   font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
-  background: #e0f2fe;
-  color: #0369a1;
+  background: #f1f5f9;
+  color: #0f172a;
   padding: 1px 7px;
   border-radius: 999px;
 }
@@ -1999,9 +2000,9 @@ const handleRefresh = (event: any) => {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
-  color: #0284c7;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
   font-size: 12px;
   font-weight: 700;
   padding: 7px 12px;
@@ -2012,7 +2013,7 @@ const handleRefresh = (event: any) => {
 }
 
 .edit-profile-btn:active {
-  background: #e0f2fe;
+  background: #f1f5f9;
   transform: scale(0.97);
 }
 
@@ -2047,7 +2048,7 @@ const handleRefresh = (event: any) => {
 }
 
 .quote-icon {
-  color: #0284c7;
+  color: #0f172a;
   flex-shrink: 0;
 }
 
@@ -2210,7 +2211,7 @@ const handleRefresh = (event: any) => {
   position: absolute;
   left: 12px;
   font-size: 18px;
-  color: #0284c7;
+  color: #0f172a;
   pointer-events: none;
   z-index: 2;
 }
@@ -2231,8 +2232,8 @@ const handleRefresh = (event: any) => {
 }
 
 .input-with-icon-wrap .dn-styled-input:focus-within {
-  border-color: #0284c7;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
 }
 
 .textarea-with-icon-wrap {
@@ -2308,9 +2309,9 @@ const handleRefresh = (event: any) => {
 }
 
 .chip-btn.active {
-  background: #e0f2fe;
-  color: #0284c7;
-  border-color: #7dd3fc;
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
   font-weight: 700;
 }
 
@@ -2419,7 +2420,7 @@ ion-modal.dn-edit-profile-modal {
 
 .modal-title-icon {
   font-size: 20px;
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .modal-title-wrap ion-title {
@@ -2493,7 +2494,7 @@ ion-modal.dn-edit-profile-modal {
   width: 22px;
   height: 22px;
   background: #ffffff;
-  color: #0284c7;
+  color: #0f172a;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -2557,7 +2558,7 @@ ion-modal.dn-edit-profile-modal {
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .mini-section-tag.tag-love {
@@ -2611,7 +2612,7 @@ ion-modal.dn-edit-profile-modal {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.3);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.15);
 }
 
 .save-all-profile-btn:disabled {
@@ -2778,7 +2779,7 @@ ion-modal.dn-edit-profile-modal {
 .accent-color-btn.active {
   transform: scale(1.1);
   border-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.5), 0 4px 10px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.4), 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 /* LIVE ACCENT PREVIEW BOX */
@@ -2897,11 +2898,11 @@ ion-modal.dn-edit-profile-modal {
 /* PUSH NOTIFICATIONS SETTINGS CARD STYLING                   */
 /* ========================================================== */
 .push-settings-card {
-  border-left: 4px solid #0284c7;
+  border-left: 4px solid #0f172a;
 }
 
 .push-section-tag {
-  color: #0284c7 !important;
+  color: #0f172a !important;
 }
 
 .push-status-pill {
@@ -2963,14 +2964,14 @@ ion-modal.dn-edit-profile-modal {
   width: 42px;
   height: 42px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #0284c7 0%, #0d9488 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 22px;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
 }
 
 .master-toggle-text {
@@ -2992,7 +2993,7 @@ ion-modal.dn-edit-profile-modal {
 }
 
 .dn-push-toggle {
-  --track-background-checked: #0284c7;
+  --track-background-checked: #0f172a;
   --handle-background-checked: #ffffff;
 }
 
@@ -3058,7 +3059,7 @@ ion-modal.dn-edit-profile-modal {
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.05em;
-  color: #0284c7;
+  color: #0f172a;
   margin-bottom: 2px;
 }
 
@@ -3119,7 +3120,7 @@ ion-modal.dn-edit-profile-modal {
 .mood-icon-bg { background: #f3e8ff; color: #8b5cf6; }
 .calendar-icon-bg { background: #eef2ff; color: #6366f1; }
 .shopping-icon-bg { background: #ccfbf1; color: #0d9488; }
-.tasks-icon-bg { background: #e0f2fe; color: #0284c7; }
+.tasks-icon-bg { background: #f1f5f9; color: #0f172a; }
 .wishlist-icon-bg { background: #fdf2f8; color: #db2777; }
 .online-icon-bg { background: #dcfce7; color: #16a34a; }
 .sound-icon-bg { background: #fef3c7; color: #d97706; }
@@ -3152,9 +3153,9 @@ ion-modal.dn-edit-profile-modal {
 }
 
 .push-test-btn {
-  background: #f0f9ff;
-  color: #0284c7;
-  border: 1px solid #bae6fd;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
   border-radius: 14px;
   padding: 12px 18px;
   font-size: 13.5px;
@@ -3169,7 +3170,7 @@ ion-modal.dn-edit-profile-modal {
 }
 
 .push-test-btn:hover {
-  background: #e0f2fe;
+  background: #1e293b;
 }
 
 .push-test-btn:active {

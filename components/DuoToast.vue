@@ -505,7 +505,7 @@ onUnmounted(() => {
   border-radius: 20px;
   border: 1px solid rgba(226, 232, 240, 0.9);
   box-shadow:
-    0 16px 36px -8px rgba(2, 132, 199, 0.16),
+    0 16px 36px -8px rgba(15, 23, 42, 0.16),
     0 6px 18px -3px rgba(15, 23, 42, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
   overflow: hidden;
@@ -523,7 +523,7 @@ onUnmounted(() => {
 .duo-toast-card.is-dragging {
   cursor: grabbing;
   box-shadow:
-    0 22px 42px -6px rgba(2, 132, 199, 0.22),
+    0 22px 42px -6px rgba(15, 23, 42, 0.22),
     0 8px 24px -2px rgba(15, 23, 42, 0.12);
 }
 
@@ -635,9 +635,9 @@ onUnmounted(() => {
 }
 
 .icon-tasks {
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
 }
 
 .icon-mood {
@@ -653,9 +653,9 @@ onUnmounted(() => {
 }
 
 .icon-success {
-  background: linear-gradient(135deg, #0284c7 0%, #0d9488 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #0d9488 100%);
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
 }
 
 /* Content details */
@@ -676,14 +676,14 @@ onUnmounted(() => {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .type-love .duo-toast-tag { color: #e11d48; }
 .type-points .duo-toast-tag { color: #d97706; }
 .type-calendar .duo-toast-tag { color: #4f46e5; }
 .type-shopping .duo-toast-tag { color: #0d9488; }
-.type-tasks .duo-toast-tag { color: #0284c7; }
+.type-tasks .duo-toast-tag { color: #0f172a; }
 .type-mood .duo-toast-tag { color: #7c3aed; }
 .type-warning .duo-toast-tag { color: #ea580c; }
 
@@ -768,7 +768,7 @@ onUnmounted(() => {
 }
 
 .type-success .duo-toast-progress-bar {
-  background: linear-gradient(90deg, #0284c7, #0d9488);
+  background: linear-gradient(90deg, #0f172a, #0d9488);
 }
 
 .type-love .duo-toast-progress-bar {
@@ -788,7 +788,7 @@ onUnmounted(() => {
 }
 
 .type-tasks .duo-toast-progress-bar {
-  background: linear-gradient(90deg, #0284c7, #38bdf8);
+  background: linear-gradient(90deg, #0f172a, #334155);
 }
 
 .type-mood .duo-toast-progress-bar {

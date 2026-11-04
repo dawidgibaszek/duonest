@@ -295,7 +295,7 @@ const generateMyQrCode = async () => {
       width: 280,
       margin: 2,
       color: {
-        dark: '#0284c7', // Sea blue dots
+        dark: '#0f172a', // Dark Slate dots
         light: '#ffffff'
       }
     })
@@ -697,14 +697,14 @@ onUnmounted(() => {
   width: 72px;
   height: 72px;
   border-radius: 20px;
-  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.25);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
   margin-bottom: 12px;
 }
 
 .pairing-title {
   font-size: 28px;
   font-weight: 900;
-  color: #0284c7;
+  color: #0f172a;
   letter-spacing: -0.03em;
   margin: 0;
 }
@@ -727,7 +727,7 @@ onUnmounted(() => {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.1em;
-  color: #0369a1;
+  color: #0f172a;
   margin-bottom: 6px;
 }
 
@@ -750,14 +750,14 @@ onUnmounted(() => {
 }
 
 .name-input:focus-within {
-  border-color: #0284c7;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
 }
 
 .save-name-btn {
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
-  color: #0284c7;
+  background: #0f172a;
+  border: 1px solid #0f172a;
+  color: #ffffff;
   font-size: 13px;
   font-weight: 700;
   border-radius: 12px;
@@ -791,10 +791,10 @@ onUnmounted(() => {
 }
 
 .mode-tab-btn.active {
-  background: #0284c7;
+  background: #0f172a;
   color: #ffffff;
-  border-color: #0284c7;
-  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
+  border-color: #0f172a;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
 }
 
 .mode-tab-btn ion-icon {
@@ -812,7 +812,7 @@ onUnmounted(() => {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.1em;
-  color: #0284c7;
+  color: #0f172a;
   margin-bottom: 4px;
 }
 
@@ -832,8 +832,8 @@ onUnmounted(() => {
 
 /* CODE BOX */
 .code-box {
-  background: #f0f9ff;
-  border: 2px dashed #0284c7;
+  background: #f8fafc;
+  border: 2px dashed #0f172a;
   border-radius: 16px;
   padding: 14px 18px;
   display: flex;
@@ -846,14 +846,14 @@ onUnmounted(() => {
   font-size: 24px;
   font-weight: 900;
   letter-spacing: 0.15em;
-  color: #0284c7;
+  color: #0f172a;
   font-family: monospace;
 }
 
 .copy-action-btn {
   background: #ffffff;
-  border: 1px solid #bae6fd;
-  color: #0284c7;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
   padding: 8px 14px;
   border-radius: 999px;
   font-size: 12px;
@@ -903,7 +903,7 @@ onUnmounted(() => {
 /* SCAN CAMERA BUTTON */
 .scan-camera-btn {
   width: 100%;
-  background: linear-gradient(135deg, #0284c7 0%, #0d9488 100%);
+  background: #0f172a;
   color: #ffffff;
   border: none;
   border-radius: 16px;
@@ -912,12 +912,13 @@ onUnmounted(() => {
   align-items: center;
   gap: 14px;
   cursor: pointer;
-  box-shadow: 0 6px 20px rgba(2, 132, 199, 0.3);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15);
   text-align: left;
   transition: all 0.2s ease;
 }
 
 .scan-camera-btn:active {
+  background: #1e293b;
   transform: scale(0.98);
 }
 
@@ -1002,12 +1003,12 @@ onUnmounted(() => {
 }
 
 .partner-code-input:focus-within {
-  border-color: #0284c7;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
 }
 
 .pair-action-btn {
-  background: #0284c7;
+  background: #0f172a;
   color: #ffffff;
   border: none;
   border-radius: 12px;
@@ -1015,7 +1016,13 @@ onUnmounted(() => {
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 3px 10px rgba(2, 132, 199, 0.25);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.pair-action-btn:active {
+  background: #1e293b;
+  transform: scale(0.97);
 }
 
 .partner-name-field {
@@ -1043,8 +1050,8 @@ onUnmounted(() => {
 }
 
 .partner-name-input-styled:focus-within {
-  border-color: #0284c7;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
 }
 
 .error-msg {
@@ -1069,24 +1076,24 @@ onUnmounted(() => {
   align-items: center;
   gap: 14px;
   background: #ffffff;
-  border: 1.5px solid #e0f2fe;
+  border: 1px solid #e2e8f0;
   padding: 14px 16px;
   border-radius: 16px;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .scan-camera-btn {
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  background: #0f172a;
   border: none;
   color: #ffffff;
 }
 
 .scan-gallery-btn {
-  background: #f0f9ff;
-  border: 1.5px solid #bae6fd;
-  color: #0369a1;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
 }
 
 .scan-camera-btn:active,
@@ -1145,7 +1152,7 @@ onUnmounted(() => {
 }
 
 .scanner-header-btn.torch-on {
-  --color: #38bdf8;
+  --color: #fbbf24;
 }
 
 .scanner-modal-content {
@@ -1210,7 +1217,7 @@ onUnmounted(() => {
   position: absolute;
   width: 28px;
   height: 28px;
-  border-color: #38bdf8;
+  border-color: #ffffff;
   border-style: solid;
 }
 
@@ -1224,8 +1231,8 @@ onUnmounted(() => {
   left: 8px;
   right: 8px;
   height: 3px;
-  background: linear-gradient(90deg, transparent, #38bdf8, #0ea5e9, #38bdf8, transparent);
-  box-shadow: 0 0 12px #38bdf8;
+  background: linear-gradient(90deg, transparent, #ffffff, #cbd5e1, #ffffff, transparent);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
   animation: laserSweep 2.2s infinite ease-in-out;
 }
 
@@ -1275,12 +1282,14 @@ onUnmounted(() => {
 
 .action-gallery-btn {
   margin-top: 10px;
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  background: #0f172a;
   color: #ffffff;
   padding: 10px 18px;
   border-radius: 12px;
   font-size: 12.5px;
   font-weight: 700;
+  border: none;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1335,7 +1344,7 @@ onUnmounted(() => {
 
 .pill-icon {
   font-size: 18px;
-  color: #38bdf8;
+  color: #ffffff;
 }
 
 .pairing-live-listener-banner {
@@ -1380,7 +1389,7 @@ onUnmounted(() => {
 }
 
 .account-email-label strong {
-  color: #0369a1;
+  color: #0f172a;
 }
 
 .logout-link-btn {

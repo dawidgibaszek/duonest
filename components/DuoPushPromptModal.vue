@@ -138,7 +138,7 @@ const {
   border-radius: 26px;
   border: 1px solid rgba(226, 232, 240, 0.9);
   box-shadow:
-    0 25px 50px -12px rgba(2, 132, 199, 0.25),
+    0 25px 50px -12px rgba(15, 23, 42, 0.25),
     0 12px 24px -4px rgba(15, 23, 42, 0.12);
   padding: 24px 20px 20px 20px;
   text-align: center;
@@ -180,12 +180,12 @@ const {
   width: 64px;
   height: 64px;
   border-radius: 20px;
-  background: linear-gradient(135deg, #0284c7 0%, #0d9488 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10px 25px -4px rgba(2, 132, 199, 0.45);
+  box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.35);
 }
 
 .bell-svg {
@@ -225,9 +225,9 @@ const {
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #0284c7;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
+  color: #0f172a;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   border-radius: 9999px;
   padding: 3px 10px;
   margin-bottom: 8px;
@@ -297,8 +297,8 @@ const {
 }
 
 .tasks-bg {
-  background: #e0f2fe;
-  color: #0284c7;
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 .benefit-text {

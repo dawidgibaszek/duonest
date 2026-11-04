@@ -1169,9 +1169,9 @@ const handleRefresh = (event: any) => {
   gap: 4px;
   font-size: 11px;
   font-weight: 700;
-  color: #0284c7;
-  background: #f0f9ff;
-  border: 1px solid #bae6fd;
+  color: #0f172a;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   padding: 2px 8px;
   border-radius: 999px;
 }
@@ -1204,11 +1204,11 @@ const handleRefresh = (event: any) => {
   margin: 12px 16px;
   padding: 16px;
   border-radius: 18px;
-  background: linear-gradient(135deg, #0284c7 0%, #0d9488 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   color: #ffffff;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.15);
   cursor: pointer;
   transition: transform 0.2s ease;
   min-width: 0;
@@ -1225,7 +1225,7 @@ const handleRefresh = (event: any) => {
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0) 70%);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 70%);
 }
 
 .featured-header {
@@ -1242,7 +1242,7 @@ const handleRefresh = (event: any) => {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
   padding: 3px 8px;
   border-radius: 999px;
   backdrop-filter: blur(4px);
@@ -1252,7 +1252,7 @@ const handleRefresh = (event: any) => {
   font-size: 11px;
   font-weight: 800;
   background: #ffffff;
-  color: #0284c7;
+  color: #0f172a;
   padding: 3px 10px;
   border-radius: 999px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
@@ -1409,9 +1409,9 @@ const handleRefresh = (event: any) => {
 }
 
 .today-chip-btn {
-  background: #f0f9ff;
-  color: #0284c7;
-  border: 1px solid #bae6fd;
+  background: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
   border-radius: 999px;
   padding: 2px 8px;
   font-size: 11px;
@@ -1441,8 +1441,8 @@ const handleRefresh = (event: any) => {
 }
 
 .nav-arrow-btn:active {
-  background: #e0f2fe;
-  color: #0284c7;
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 /* WEEKDAYS HEADER */
@@ -1497,17 +1497,18 @@ const handleRefresh = (event: any) => {
 }
 
 .day-cell.is-today {
-  border-color: #38bdf8;
-  background: #f0f9ff;
+  border-color: #0f172a;
+  background: #f8fafc;
 }
 
 .day-cell.is-today .day-number {
-  color: #0284c7;
+  color: #0f172a;
+  font-weight: 800;
 }
 
 .day-cell.is-selected {
-  background: #0284c7 !important;
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+  background: #0f172a !important;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
 }
 
 .day-cell.is-selected .day-number {
@@ -1595,15 +1596,15 @@ const handleRefresh = (event: any) => {
 }
 
 .week-day-pill.is-today {
-  border-color: #38bdf8;
-  background: #f0f9ff;
+  border-color: #0f172a;
+  background: #f8fafc;
 }
 
 .week-day-pill.is-selected {
-  background: #0284c7;
-  border-color: #0284c7;
+  background: #0f172a;
+  border-color: #0f172a;
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
 }
 
 .w-name {
@@ -1647,7 +1648,7 @@ const handleRefresh = (event: any) => {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: #0284c7;
+  color: #0f172a;
   display: block;
   margin-bottom: 2px;
 }
@@ -1685,9 +1686,9 @@ const handleRefresh = (event: any) => {
   gap: 6px;
   font-size: 11px;
   font-weight: 700;
-  color: #0284c7;
-  background: #f0f9ff;
-  border: 1px dashed #bae6fd;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
   border-radius: 8px;
   padding: 6px 12px;
   margin-bottom: 12px;
@@ -1839,7 +1840,7 @@ const handleRefresh = (event: any) => {
 
 .detail-location-link {
   font-size: 11px;
-  color: #0284c7;
+  color: #0f172a;
   font-weight: 600;
   text-decoration: none;
   display: inline-flex;
@@ -1895,8 +1896,8 @@ const handleRefresh = (event: any) => {
 }
 
 .edit-btn:hover {
-  color: #0284c7;
-  border-color: #bae6fd;
+  color: #0f172a;
+  border-color: #cbd5e1;
 }
 
 .delete-btn:hover {
@@ -1914,8 +1915,8 @@ const handleRefresh = (event: any) => {
   width: 54px;
   height: 54px;
   border-radius: 18px;
-  background: #f0f9ff;
-  color: #0284c7;
+  background: #f1f5f9;
+  color: #0f172a;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1948,7 +1949,7 @@ const handleRefresh = (event: any) => {
 .ideas-header {
   font-size: 11px;
   font-weight: 800;
-  color: #0284c7;
+  color: #0f172a;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -1976,8 +1977,8 @@ const handleRefresh = (event: any) => {
 }
 
 .idea-chip:active {
-  background: #e0f2fe;
-  border-color: #0284c7;
+  background: #f1f5f9;
+  border-color: #0f172a;
 }
 
 .plan-btn {
@@ -1998,7 +1999,7 @@ const handleRefresh = (event: any) => {
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: #0284c7;
+  color: #0f172a;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2062,9 +2063,9 @@ const handleRefresh = (event: any) => {
 .countdown-badge {
   font-size: 10px;
   font-weight: 800;
-  background: #f0f9ff;
-  color: #0284c7;
-  border: 1px solid #bae6fd;
+  background: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
   padding: 2px 8px;
   border-radius: 999px;
 }
@@ -2187,7 +2188,7 @@ const handleRefresh = (event: any) => {
 .modal-ideas-label {
   font-size: 11px;
   font-weight: 800;
-  color: #0284c7;
+  color: #0f172a;
   display: block;
   margin-bottom: 6px;
 }
@@ -2201,12 +2202,12 @@ const handleRefresh = (event: any) => {
 
 .idea-pill-btn {
   background: #ffffff;
-  border: 1px solid #bae6fd;
+  border: 1px solid #cbd5e1;
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 11px;
   font-weight: 700;
-  color: #0369a1;
+  color: #0f172a;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -2238,8 +2239,8 @@ const handleRefresh = (event: any) => {
 }
 
 .modal-input:focus-within {
-  border-color: #0284c7;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
 }
 
 .category-grid {
@@ -2263,9 +2264,9 @@ const handleRefresh = (event: any) => {
 }
 
 .cat-select-btn.active {
-  background: #e0f2fe;
-  border-color: #0284c7;
-  color: #0284c7;
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
 }
 
 .cat-text {
@@ -2300,9 +2301,9 @@ const handleRefresh = (event: any) => {
 }
 
 .planner-chip.active {
-  background: #e0f2fe;
-  border-color: #0284c7;
-  color: #0284c7;
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
 }
 
 .surprise-toggle-card {

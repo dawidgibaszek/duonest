@@ -2820,7 +2820,7 @@ onMounted(() => {
 
 .action-search ion-icon { color: #8b5cf6; }
 .action-random ion-icon { color: #f59e0b; }
-.action-manual ion-icon { color: #0284c7; }
+.action-manual ion-icon { color: #0f172a; }
 
 .tile-meta {
   display: flex;
@@ -3080,7 +3080,7 @@ onMounted(() => {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-.type-movie { background: #0284c7; }
+.type-movie { background: #0f172a; }
 .type-tv { background: #0d9488; }
 .type-anime { background: #8b5cf6; }
 
@@ -5174,7 +5174,7 @@ ion-modal.dn-movies-random-modal {
 .winner-badge-pill {
   font-size: 11px;
   font-weight: 800;
-  color: #0284c7;
+  color: #0f172a;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -5445,7 +5445,7 @@ ion-modal.dn-movies-random-modal {
 .switch-to-tmdb-btn {
   background: none;
   border: none;
-  color: #0284c7;
+  color: #0f172a;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -5583,8 +5583,8 @@ ion-modal.dn-movies-details-modal {
 }
 
 .badge-tmdb {
-  background: #e0f2fe;
-  color: #0284c7;
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 .details-header-title {
@@ -5603,12 +5603,12 @@ ion-modal.dn-movies-details-modal {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  padding-bottom: 2rem;
 }
 
 .details-hero-wrap {
   position: relative;
   background: #0f172a;
-  padding-bottom: 2rem;
 }
 
 .details-poster-backdrop {
@@ -5640,6 +5640,7 @@ ion-modal.dn-movies-details-modal {
   position: relative;
   z-index: 2;
   align-items: flex-end;
+  margin-bottom: 1.5rem;
 }
 
 .details-float-poster {

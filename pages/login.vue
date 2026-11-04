@@ -297,9 +297,9 @@ const handleSubmit = async () => {
 .logo-wrapper {
   display: inline-flex;
   padding: 12px;
-  background: rgba(2, 132, 199, 0.08);
+  background: rgba(15, 23, 42, 0.06);
   border-radius: 28px;
-  box-shadow: 0 8px 24px -6px rgba(2, 132, 199, 0.2);
+  box-shadow: 0 8px 24px -6px rgba(15, 23, 42, 0.12);
   margin-top: 2rem;
 }
 
@@ -314,7 +314,7 @@ const handleSubmit = async () => {
   font-family: 'Outfit', sans-serif;
   font-size: 32px;
   font-weight: 800;
-  color: #0369a1;
+  color: #0f172a;
   margin: 0;
   letter-spacing: -0.5px;
   padding: 0;
@@ -325,8 +325,8 @@ const handleSubmit = async () => {
   padding: 24px;
   border-radius: 24px;
   background: #ffffff;
-  border: 1px solid rgba(2, 132, 199, 0.12);
-  box-shadow: 0 12px 36px -8px rgba(2, 132, 199, 0.12);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 12px 36px -8px rgba(15, 23, 42, 0.08);
 }
 
 .mode-switcher {
@@ -352,7 +352,7 @@ const handleSubmit = async () => {
 
 .mode-btn.active {
   background: #ffffff;
-  color: #0284c7;
+  color: #0f172a;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
 }
 
@@ -399,9 +399,9 @@ const handleSubmit = async () => {
 }
 
 .input-container:focus-within {
-  border-color: #0284c7;
+  border-color: #0f172a;
   background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
 }
 
 .field-icon {
@@ -440,7 +440,7 @@ const handleSubmit = async () => {
 }
 
 .eye-toggle-btn:hover {
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .friendly-error {
@@ -492,11 +492,17 @@ const handleSubmit = async () => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: linear-gradient(135deg, #0284c7 0%, #0d9488 100%);
+  background: #0f172a;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
   color: #ffffff;
   border: none;
   cursor: pointer;
-  transition: transform 0.15s ease, opacity 0.15s ease;
+  transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
+}
+
+.submit-btn:active {
+  background: #1e293b;
+  transform: scale(0.98);
 }
 
 .submit-btn:disabled {
