@@ -76,22 +76,27 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
 
-  const targetUrl = (event.notification.data && event.notification.data.url) || '/tabs/nest'
+  let targetPath = (event.notification.data && event.notification.data.url) || '/tabs/nest'
+
+  // Security guard: Only allow relative in-app paths starting with / (prevent open redirect to external phishing URLs)
+  if (typeof targetPath !== 'string' || !targetPath.startsWith('/') || targetPath.startsWith('//') || targetPath.includes('://')) {
+    targetPath = '/tabs/nest'
+  }
+
+  const finalUrl = new URL(targetPath, self.location.origin).href
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // If a DuoNest window is already open, focus it
+      // If a DuoNest window is already open, focus and navigate it
       for (const client of windowClients) {
-        if ('focus' in client) {
-          if (client.url.includes(self.location.origin)) {
-            client.navigate(targetUrl)
-            return client.focus()
-          }
+        if ('focus' in client && client.url.startsWith(self.location.origin)) {
+          client.navigate(finalUrl)
+          return client.focus()
         }
       }
-      // If no window is open, open a new one
+      // If no window is open, open a new one within our origin
       if (clients.openWindow) {
-        return clients.openWindow(targetUrl)
+        return clients.openWindow(finalUrl)
       }
     })
   )

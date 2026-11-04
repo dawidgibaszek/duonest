@@ -203,7 +203,8 @@ const {
   deleteShoppingItem,
   clearCompletedShopping,
   getUserAccentColor,
-  hexToRgba
+  hexToRgba,
+  initSupabaseSync
 } = useDuoState()
 
 const newItemTitle = ref('')
@@ -315,10 +316,13 @@ const handleSwipeDelete = (id: string) => {
   deleteShoppingItem(id)
 }
 
-const handleRefresh = (event: any) => {
-  setTimeout(() => {
+const handleRefresh = async (event: any) => {
+  try {
+    await initSupabaseSync()
+  } catch (_) {}
+  finally {
     event.target.complete()
-  }, 600)
+  }
 }
 </script>
 

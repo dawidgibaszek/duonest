@@ -676,7 +676,8 @@ const {
   updateMilestone,
   deleteMilestone,
   claimMilestone,
-  reactivateMilestone
+  reactivateMilestone,
+  initSupabaseSync
 } = useDuoState()
 
 const { askPermissionAfterPairing } = usePushNotifications()
@@ -991,10 +992,13 @@ const handleReactivateMilestone = (goal: any) => {
   reactivateMilestone(goal.id)
 }
 
-const handleRefresh = (event: any) => {
-  setTimeout(() => {
+const handleRefresh = async (event: any) => {
+  try {
+    await initSupabaseSync()
+  } catch (_) {}
+  finally {
     event.target.complete()
-  }, 700)
+  }
 }
 </script>
 

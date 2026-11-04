@@ -59,7 +59,7 @@ function formatPartnerAction(
     }
 
     case 'SHOPPING_ADD': {
-      const itemName = data?.name || 'nową pozycję'
+      const itemName = data?.title || data?.name || 'nową pozycję'
       return {
         title: `Lista zakupów 🛒`,
         body: `${name} dodał(a) do listy: ${itemName}`,
@@ -70,9 +70,10 @@ function formatPartnerAction(
 
     case 'SHOPPING_TOGGLE': {
       if (data?.is_completed) {
+        const itemName = data?.title || data?.name || 'pozycję'
         return {
           title: `Zakupy we dwoje 🛒`,
-          body: `${name} kupił(a) i odhaczył(a) pozycję z listy zakupów`,
+          body: `${name} kupił(a) i odhaczył(a): ${itemName}`,
           url: '/tabs/shopping',
           category: 'shopping'
         }
@@ -172,6 +173,16 @@ function formatPartnerAction(
         }
       }
       return null
+    }
+
+    case 'MILESTONE_CLAIM': {
+      const milestoneTitle = data?.title || 'wspólny cel'
+      return {
+        title: `Nagroda odblokowana! 🏆`,
+        body: `${name} odebrał(a) Wasz cel: ${milestoneTitle}!`,
+        url: '/tabs/nest',
+        category: 'milestones'
+      }
     }
 
     default:
@@ -306,3 +317,4 @@ export default defineEventHandler(async (event) => {
     totalDevices: subscriptions.length
   }
 })
+

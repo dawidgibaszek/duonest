@@ -685,7 +685,8 @@ const {
   currentUserAccentColor,
   partnerUserAccentColor,
   getUserAccentColor,
-  hexToRgba
+  hexToRgba,
+  initSupabaseSync
 } = useDuoState()
 
 // View modes: 'month' | 'week' | 'agenda'
@@ -1138,10 +1139,13 @@ const confirmDeleteEvent = (id: string, title: string) => {
   }
 }
 
-const handleRefresh = (event: any) => {
-  setTimeout(() => {
+const handleRefresh = async (event: any) => {
+  try {
+    await initSupabaseSync()
+  } catch (_) {}
+  finally {
     event.target.complete()
-  }, 500)
+  }
 }
 </script>
 

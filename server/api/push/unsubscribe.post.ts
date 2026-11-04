@@ -38,3 +38,4 @@ export default defineEventHandler(async (event) => {
     message: 'Push subscription removed successfully'
   }
 })
+

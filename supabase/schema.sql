@@ -324,3 +324,17 @@ alter table public.partnerships add column if not exists pet_xp integer default 
 drop policy if exists "Allow all on push_subscriptions" on public.push_subscriptions;
 create policy "Allow all on push_subscriptions" on public.push_subscriptions for all using (true) with check (true);
 
+-- ==========================================================
+-- OPTIONAL HARDENED RLS POLICIES FOR STRICT PARTNERSHIP ISOLATION
+-- (Uncomment when switching from anonymous pairing code auth to strict Supabase Auth UUIDs)
+-- ==========================================================
+-- create or replace function public.is_partnership_member(target_partnership_id text)
+-- returns boolean security definer language sql as $$
+--   select exists (
+--     select 1 from public.partnerships
+--     where id = target_partnership_id
+--     and (partner1_id = auth.uid()::text or partner2_id = auth.uid()::text)
+--   );
+-- $$;
+
+

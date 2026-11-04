@@ -107,7 +107,15 @@ export default defineEventHandler(async (event) => {
       url.searchParams.set('page', String(pageNumber))
 
       const resp = await fetch(url.toString(), { method: 'GET', headers })
-      if (!resp.ok) return null
+      if (!resp.ok) {
+        if (resp.status === 401) {
+          throw new Error('INVALID_API_KEY')
+        }
+        if (resp.status === 429) {
+          throw new Error('RATE_LIMITED')
+        }
+        return null
+      }
       return await resp.json()
     }
 
@@ -151,6 +159,20 @@ export default defineEventHandler(async (event) => {
       total_found: listToUse.length
     }
   } catch (err: any) {
+    if (err.message === 'INVALID_API_KEY') {
+      return {
+        success: false,
+        error: 'INVALID_API_KEY',
+        message: 'Klucz TMDB API jest nieprawidłowy lub wygasł. Sprawdź konfigurację TMDB_API_KEY.'
+      }
+    }
+    if (err.message === 'RATE_LIMITED') {
+      return {
+        success: false,
+        error: 'RATE_LIMITED',
+        message: 'Przekroczono limit zapytań TMDB API. Odczekaj chwilę przed kolejnym losowaniem.'
+      }
+    }
     return {
       success: false,
       error: 'SERVER_ERROR',

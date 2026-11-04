@@ -741,6 +741,32 @@ export const useDuoState = () => {
     }
   }
 
+  const clearPartnershipData = () => {
+    partnerUser.value = null
+    partnership.value = null
+    currentUser.value.partnership_id = null
+    shoppingItems.value = []
+    tasksList.value = []
+    eventsList.value = []
+    nudgesList.value = []
+    milestonesList.value = []
+    wishlistItems.value = []
+    moviesList.value = []
+    lastNudgeSentAt.value = null
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('duonest_partner_user')
+      localStorage.removeItem('duonest_partnership')
+      localStorage.removeItem('duonest_shopping')
+      localStorage.removeItem('duonest_tasks')
+      localStorage.removeItem('duonest_events')
+      localStorage.removeItem('duonest_nudges')
+      localStorage.removeItem('duonest_milestones')
+      localStorage.removeItem('duonest_wishlist')
+      localStorage.removeItem('duonest_movies')
+    }
+    syncToStorage()
+  }
+
   const clearAllDuoState = () => {
     currentUser.value = createInitialProfile()
     partnerUser.value = null
@@ -749,6 +775,7 @@ export const useDuoState = () => {
     tasksList.value = []
     eventsList.value = []
     nudgesList.value = []
+    milestonesList.value = []
     wishlistItems.value = []
     moviesList.value = []
     lastNudgeSentAt.value = null
@@ -763,6 +790,7 @@ export const useDuoState = () => {
       localStorage.removeItem('duonest_tasks')
       localStorage.removeItem('duonest_events')
       localStorage.removeItem('duonest_nudges')
+      localStorage.removeItem('duonest_milestones')
       localStorage.removeItem('duonest_wishlist')
       localStorage.removeItem('duonest_movies')
     }
@@ -1046,7 +1074,8 @@ export const useDuoState = () => {
         'WISHLIST_ADD',
         'WISHLIST_TOGGLE_COMPLETED',
         'MOVIE_ADD',
-        'MOVIE_TOGGLE_WATCHED'
+        'MOVIE_TOGGLE_WATCHED',
+        'MILESTONE_CLAIM'
       ]
 
       if (actionsForPush.includes(action)) {
@@ -1419,6 +1448,7 @@ export const useDuoState = () => {
         presence: { key: currentUser.value.id }
       }
     })
+    activePartnershipChannel = channel
 
     // 1. Presence: See when partner is actively inside the app
     channel
@@ -1457,11 +1487,18 @@ export const useDuoState = () => {
 
       switch (action) {
         case 'PARTNERSHIP_DISCONNECT': {
-          triggerToast('Wasze Gniazdko zostało rozłączone. Zostałeś wylogowany.', {
+          if (activePartnershipChannel && supabase) {
+            try { supabase.removeChannel(activePartnershipChannel) } catch (_) {}
+            activePartnershipChannel = null
+          }
+          clearPartnershipData()
+          triggerToast('Wasze Gniazdko zostało rozłączone przez partnera.', {
             type: 'warning',
             title: 'Gniazdko rozłączone'
           })
-          await signOutUser()
+          if (typeof window !== 'undefined') {
+            navigateTo('/pairing')
+          }
           break
         }
         // --- CALENDAR EVENTS ---
@@ -1503,7 +1540,7 @@ export const useDuoState = () => {
               ev.is_completed = data.is_completed
               if (partnership.value) {
                 if (data.nest_points !== undefined) {
-                  partnership.value.nest_points = Math.max(partnership.value.nest_points || 0, data.nest_points)
+                  partnership.value.nest_points = Math.max(0, Number(data.nest_points) || 0)
                 } else if (!wasCompleted && data.is_completed) {
                   partnership.value.nest_points = (Number(partnership.value.nest_points) || 0) + 10
                 } else if (wasCompleted && !data.is_completed) {
@@ -1579,12 +1616,16 @@ export const useDuoState = () => {
 
               if (partnerUser.value) {
                 if (data.user_points !== undefined) {
-                  partnerUser.value.points = Math.max(partnerUser.value.points || 0, data.user_points)
+                  partnerUser.value.points = Math.max(0, Number(data.user_points) || 0)
                 } else if (!wasCompleted && data.is_completed) {
                   partnerUser.value.points = (Number(partnerUser.value.points) || 0) + taskPts
                 } else if (wasCompleted && !data.is_completed) {
                   partnerUser.value.points = Math.max(0, (Number(partnerUser.value.points) || 0) - taskPts)
                 }
+              }
+
+              if (currentUser.value && data.partner_points !== undefined) {
+                currentUser.value.points = Math.max(0, Number(data.partner_points) || 0)
               }
 
               if (partnership.value) {
@@ -1595,7 +1636,7 @@ export const useDuoState = () => {
                 }
 
                 if (data.nest_points !== undefined) {
-                  partnership.value.nest_points = Math.max(partnership.value.nest_points || 0, data.nest_points)
+                  partnership.value.nest_points = Math.max(0, Number(data.nest_points) || 0)
                 } else if (!wasCompleted && data.is_completed) {
                   partnership.value.nest_points = (Number(partnership.value.nest_points) || 0) + taskPts
                 } else if (wasCompleted && !data.is_completed) {
@@ -1939,8 +1980,10 @@ export const useDuoState = () => {
               wishlistItems.value = Array.from(existingMap.values())
             }
             if (data.partnership && partnership.value) {
-              partnership.value.nest_points = Math.max(partnership.value.nest_points, data.partnership.nest_points || 0)
-              partnership.value.nest_level = Math.max(partnership.value.nest_level, data.partnership.nest_level || 1)
+              if (typeof data.partnership.nest_points === 'number') {
+                partnership.value.nest_points = Math.max(0, data.partnership.nest_points)
+                partnership.value.nest_level = Math.max(1, data.partnership.nest_level || 1 + Math.floor(partnership.value.nest_points / 50))
+              }
               if (data.partnership.nest_name) partnership.value.nest_name = data.partnership.nest_name
               if (data.partnership.anniversary_date) partnership.value.anniversary_date = data.partnership.anniversary_date
             }
@@ -2016,6 +2059,36 @@ export const useDuoState = () => {
           }
         } else if (payload.eventType === 'DELETE') {
           wishlistItems.value = wishlistItems.value.filter(w => w.id !== payload.old?.id)
+        }
+        syncToStorage()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'milestones', filter: `partnership_id=eq.${partnershipId}` }, (payload: any) => {
+        if (payload.eventType === 'INSERT') {
+          if (!milestonesList.value.some(m => m.id === payload.new.id)) {
+            milestonesList.value.push(payload.new)
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          const idx = milestonesList.value.findIndex(m => m.id === payload.new.id)
+          if (idx !== -1) {
+            milestonesList.value[idx] = payload.new
+          }
+        } else if (payload.eventType === 'DELETE') {
+          milestonesList.value = milestonesList.value.filter(m => m.id !== payload.old.id)
+        }
+        syncToStorage()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'movies', filter: `partnership_id=eq.${partnershipId}` }, (payload: any) => {
+        if (payload.eventType === 'INSERT') {
+          if (!moviesList.value.some(m => m.id === payload.new.id)) {
+            moviesList.value.unshift(payload.new)
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          const idx = moviesList.value.findIndex(m => m.id === payload.new.id)
+          if (idx !== -1) {
+            moviesList.value[idx] = payload.new
+          }
+        } else if (payload.eventType === 'DELETE') {
+          moviesList.value = moviesList.value.filter(m => m.id !== payload.old.id)
         }
         syncToStorage()
       })
@@ -2227,19 +2300,9 @@ export const useDuoState = () => {
           await loadPartnershipAndPartner(partnership.value.id, currentUser.value?.id || '')
         }
 
-        // Sync partnership to Supabase partnerships table if available
+        // Load partnership data from database if available
         if (partnership.value?.id) {
-          try {
-            await client.from('partnerships').upsert({
-              id: partnership.value.id,
-              partner1_id: partnership.value.partner1_id,
-              partner2_id: partnership.value.partner2_id,
-              nest_name: partnership.value.nest_name,
-              nest_level: partnership.value.nest_level,
-              nest_points: partnership.value.nest_points,
-              anniversary_date: partnership.value.anniversary_date
-            })
-          } catch (_) {}
+          await loadPartnershipAndPartner(partnership.value.id, currentUser.value?.id || '')
         }
       }
     } catch (err) {
@@ -2251,49 +2314,37 @@ export const useDuoState = () => {
     const client = getSupabaseClient()
     if (!client) return
     try {
-      const [shops, tasks, evts, ndgs, wshs, movs] = await Promise.all([
+      const [shops, tasks, evts, ndgs, wshs, movs, mls] = await Promise.all([
         client.from('shopping_items').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         client.from('tasks').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         client.from('events').select('*').eq('partnership_id', partnershipId).order('start_time', { ascending: true }),
         client.from('nudges').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }).limit(20),
         client.from('wishlist_items').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
-        client.from('movies').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false })
+        client.from('movies').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
+        client.from('milestones').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false })
       ])
 
-      if (shops.data && shops.data.length > 0) {
+      if (shops.data) {
         shoppingItems.value = shops.data
-      } else if (shoppingItems.value.length > 0) {
-        try { await client.from('shopping_items').upsert(shoppingItems.value) } catch (_) {}
       }
-
-      if (tasks.data && tasks.data.length > 0) {
+      if (tasks.data) {
         tasksList.value = tasks.data
-      } else if (tasksList.value.length > 0) {
-        try { await client.from('tasks').upsert(tasksList.value) } catch (_) {}
       }
-
-      if (evts.data && evts.data.length > 0) {
+      if (evts.data) {
         eventsList.value = evts.data
-      } else if (eventsList.value.length > 0) {
-        try { await client.from('events').upsert(eventsList.value) } catch (_) {}
       }
-
-      if (ndgs.data && ndgs.data.length > 0) {
+      if (ndgs.data) {
         nudgesList.value = ndgs.data
       }
-
-      if (wshs.data && wshs.data.length > 0) {
+      if (wshs.data) {
         const myIds = new Set([currentUser.value?.id, authUser.value?.id].filter(Boolean))
-        const filtered = wshs.data.filter((item: WishlistItem) => item.is_visible_to_partner || myIds.has(item.created_by))
-        wishlistItems.value = filtered
-      } else if (wishlistItems.value.length > 0) {
-        try { await client.from('wishlist_items').upsert(wishlistItems.value) } catch (_) {}
+        wishlistItems.value = wshs.data.filter((item: WishlistItem) => item.is_visible_to_partner || myIds.has(item.created_by))
       }
-
-      if (movs?.data && movs.data.length > 0) {
+      if (movs?.data) {
         moviesList.value = deduplicateMoviesList(movs.data)
-      } else if (moviesList.value.length > 0) {
-        try { await client.from('movies').upsert(moviesList.value) } catch (_) {}
+      }
+      if (mls?.data) {
+        milestonesList.value = mls.data
       }
 
       syncToStorage()
@@ -2329,6 +2380,10 @@ export const useDuoState = () => {
       return { success: false, error: 'Nie możesz sparować konta ze swoim własnym kodem.' }
     }
 
+    if (currentUser.value?.partnership_id) {
+      return { success: false, error: 'Twoje konto jest już połączone w Gniazdku. Rozłącz obecne partnerstwo przed sparowaniem z kimś nowym.' }
+    }
+
     let foundPartnerProfile: Profile | null = null
     if (supabase) {
       try {
@@ -2343,7 +2398,14 @@ export const useDuoState = () => {
       } catch (_) {}
     }
 
-    const newPartnershipId = foundPartnerProfile?.partnership_id || ('part_' + Math.random().toString(36).substring(2, 10))
+    if (foundPartnerProfile?.partnership_id) {
+      return { success: false, error: 'Ten partner jest już w innym Gniazdku. Musi najpierw rozłączyć swoje obecne partnerstwo.' }
+    }
+
+    // Clear any residual data before initiating fresh partnership
+    clearPartnershipData()
+
+    const newPartnershipId = 'part_' + Math.random().toString(36).substring(2, 10)
     const newPartnerId = foundPartnerProfile?.id || ('usr_partner_' + Math.random().toString(36).substring(2, 8))
     const partnerName = foundPartnerProfile?.name || (partnerDisplayName && partnerDisplayName !== 'Partner' ? partnerDisplayName : (foundPartnerProfile?.email ? foundPartnerProfile.email.split('@')[0] : 'Partner'))
 
@@ -2487,12 +2549,11 @@ export const useDuoState = () => {
       activePartnershipChannel = null
     }
 
-    currentUser.value.partnership_id = null
-    partnerUser.value = null
-    partnership.value = null
-    syncToStorage()
-    triggerToast('Rozłączono partnerstwo. Zostałeś wylogowany.', { type: 'warning', title: 'Rozłączono' })
-    await signOutUser()
+    clearPartnershipData()
+    triggerToast('Rozłączono partnerstwo.', { type: 'warning', title: 'Rozłączono' })
+    if (typeof window !== 'undefined') {
+      navigateTo('/pairing')
+    }
   }
 
   // --- SHOPPING LIST ACTIONS ---
@@ -2529,7 +2590,7 @@ export const useDuoState = () => {
     syncToStorage()
 
     // Broadcast live to partner
-    broadcastToPartner('SHOPPING_TOGGLE', { id, is_completed: item.is_completed })
+    broadcastToPartner('SHOPPING_TOGGLE', { id, is_completed: item.is_completed, title: item.title })
 
     if (supabase) {
       safeDb(supabase.from('shopping_items').update({
@@ -2605,6 +2666,7 @@ export const useDuoState = () => {
 
     // Assign completer and completion timestamp
     const myId = currentUser.value?.id || null
+    const previousCompleterId = task.completed_by
     task.completed_by = nowCompleted ? myId : null
     task.completed_at = nowCompleted ? new Date().toISOString() : null
 
@@ -2612,14 +2674,25 @@ export const useDuoState = () => {
     const delta = nowCompleted ? taskPts : -taskPts
 
     // Award / deduct points in local profile state permanently
-    if (currentUser.value) {
-      if (nowCompleted) {
+    if (nowCompleted) {
+      if (currentUser.value) {
         currentUser.value.points = (Number(currentUser.value.points) || 0) + taskPts
-      } else {
-        currentUser.value.points = Math.max(0, (Number(currentUser.value.points) || 0) - taskPts)
+        if (supabase && currentUser.value.id) {
+          safeDb(supabase.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
+        }
       }
-      if (supabase && currentUser.value.id) {
-        safeDb(supabase.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
+    } else {
+      // Uncompleting: deduct points from whichever user completed the task
+      if (previousCompleterId && partnerUser.value && previousCompleterId === partnerUser.value.id) {
+        partnerUser.value.points = Math.max(0, (Number(partnerUser.value.points) || 0) - taskPts)
+        if (supabase && partnerUser.value.id) {
+          safeDb(supabase.from('profiles').update({ points: partnerUser.value.points }).eq('id', partnerUser.value.id))
+        }
+      } else if (currentUser.value) {
+        currentUser.value.points = Math.max(0, (Number(currentUser.value.points) || 0) - taskPts)
+        if (supabase && currentUser.value.id) {
+          safeDb(supabase.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
+        }
       }
     }
 
@@ -2638,12 +2711,15 @@ export const useDuoState = () => {
     // Broadcast live to partner
     broadcastToPartner('TASK_TOGGLE', {
       id,
+      title: task.title,
+      points: task.points,
       is_completed: nowCompleted,
       completed_by: task.completed_by,
       completed_at: task.completed_at,
       pet_xp: partnership.value?.pet_xp,
       nest_points: partnership.value?.nest_points,
-      user_points: currentUser.value?.points
+      user_points: currentUser.value?.points,
+      partner_points: partnerUser.value?.points
     })
 
     if (supabase) {
@@ -2792,6 +2868,7 @@ export const useDuoState = () => {
     // Broadcast live to partner
     broadcastToPartner('EVENT_TOGGLE_COMPLETED', {
       id,
+      title: ev.title,
       is_completed: ev.is_completed,
       nest_points: partnership.value?.nest_points
     })
@@ -3146,29 +3223,6 @@ export const useDuoState = () => {
   // Total Duet score read exclusively from Supabase partnerships.nest_points
   const nestPoints = computed(() => Number(partnership.value?.nest_points) || 0)
 
-  // Watcher: if earned points from current tasks/nudges/events exceed what's stored in DB,
-  // persist the higher value to Supabase so DB stays up-to-date (monotonic backfill only)
-  watch([userEarnedPoints, partnerEarnedPoints, eventsEarnedPoints, sharedCompletedTasksPoints], ([uEarned, pEarned, eEarned, sEarned]) => {
-    if (!supabase) return
-    if (currentUser.value?.id && uEarned > (Number(currentUser.value.points) || 0)) {
-      currentUser.value.points = uEarned
-      safeDb(supabase.from('profiles').update({ points: uEarned }).eq('id', currentUser.value.id))
-    }
-    if (partnerUser.value?.id && pEarned > (Number(partnerUser.value.points) || 0)) {
-      partnerUser.value.points = pEarned
-      // Partner's points are updated on their side – we just update local display
-    }
-    const totalMinimum = userPoints.value + partnerPoints.value + eEarned + sEarned
-    if (partnership.value?.id && totalMinimum > (Number(partnership.value.nest_points) || 0)) {
-      partnership.value.nest_points = totalMinimum
-      partnership.value.nest_level = 1 + Math.floor(totalMinimum / 50)
-      safeDb(supabase.from('partnerships').update({
-        nest_points: partnership.value.nest_points,
-        nest_level: partnership.value.nest_level
-      }).eq('id', partnership.value.id))
-    }
-  }, { immediate: false })
-
   const nestLevel = computed(() => {
     return Math.max(1, 1 + Math.floor(nestPoints.value / 50))
   })
@@ -3215,6 +3269,9 @@ export const useDuoState = () => {
     milestonesList.value.push(newMilestone)
     syncToStorage()
     broadcastToPartner('MILESTONE_ADD', newMilestone)
+    if (supabase && partnership.value?.id) {
+      safeDb(supabase.from('milestones').insert(newMilestone))
+    }
     triggerToast(`Dodano cel: ${newMilestone.title}! 🎯`)
     return newMilestone
   }
@@ -3229,6 +3286,9 @@ export const useDuoState = () => {
     }
     syncToStorage()
     broadcastToPartner('MILESTONE_UPDATE', { id, updates })
+    if (supabase) {
+      safeDb(supabase.from('milestones').update(updates).eq('id', id))
+    }
     triggerToast('Zaktualizowano cel nagrody.')
   }
 
@@ -3238,29 +3298,38 @@ export const useDuoState = () => {
     milestonesList.value = milestonesList.value.filter(m => m.id !== id)
     syncToStorage()
     broadcastToPartner('MILESTONE_DELETE', { id })
+    if (supabase) {
+      safeDb(supabase.from('milestones').delete().eq('id', id))
+    }
     triggerToast(`Usunięto cel: ${item?.title || ''}.`)
   }
 
   const claimMilestone = async (id: string) => {
     if (!await verifyUserAndPartnershipAccess()) return
     const m = milestonesList.value.find(i => i.id === id)
-    if (!m) return
+    if (!m || m.is_completed) return
     const now = new Date().toISOString()
     m.is_completed = true
     m.completed_at = now
     syncToStorage()
-    broadcastToPartner('MILESTONE_CLAIM', { id, completed_at: now })
+    broadcastToPartner('MILESTONE_CLAIM', { id, title: m.title, completed_at: now })
+    if (supabase) {
+      safeDb(supabase.from('milestones').update({ is_completed: true, completed_at: now }).eq('id', id))
+    }
     triggerToast(`Gratulacje! Nagroda "${m.title}" została odebrana! 🎉`)
   }
 
   const reactivateMilestone = async (id: string) => {
     if (!await verifyUserAndPartnershipAccess()) return
     const m = milestonesList.value.find(i => i.id === id)
-    if (!m) return
+    if (!m || !m.is_completed) return
     m.is_completed = false
     m.completed_at = null
     syncToStorage()
-    broadcastToPartner('MILESTONE_REACTIVATE', { id })
+    broadcastToPartner('MILESTONE_REACTIVATE', { id, title: m.title })
+    if (supabase) {
+      safeDb(supabase.from('milestones').update({ is_completed: false, completed_at: null }).eq('id', id))
+    }
     triggerToast(`Cel "${m.title}" został ustawiony ponownie! 🚀`)
   }
 
@@ -3759,6 +3828,7 @@ export const useDuoState = () => {
     updateMyProfile,
     pairWithCode,
     disconnectPartnership,
+    clearPartnershipData,
     addShoppingItem,
     toggleShoppingItem,
     deleteShoppingItem,

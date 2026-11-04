@@ -209,6 +209,39 @@ export function extractPriceFromHtml(html: string): { price: string | null; curr
   return { price, currency }
 }
 
+function isPrivateHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().trim()
+  if (
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host.endsWith('.local') ||
+    host.endsWith('.internal') ||
+    host.endsWith('.lan') ||
+    host === '0.0.0.0' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    host === '[::1]'
+  ) {
+    return true
+  }
+
+  // IPv4 range checks
+  const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/
+  const match = host.match(ipv4Regex)
+  if (match) {
+    const oct1 = parseInt(match[1], 10)
+    const oct2 = parseInt(match[2], 10)
+    if (oct1 === 10) return true // 10.0.0.0/8
+    if (oct1 === 127) return true // 127.0.0.0/8
+    if (oct1 === 169 && oct2 === 254) return true // 169.254.0.0/16 Link-local / AWS metadata
+    if (oct1 === 172 && oct2 >= 16 && oct2 <= 31) return true // 172.16.0.0/12
+    if (oct1 === 192 && oct2 === 168) return true // 192.168.0.0/16
+    if (oct1 === 0) return true // 0.0.0.0/8
+  }
+
+  return false
+}
+
 export async function processScrape(rawUrl: string): Promise<{
   success: boolean
   data?: ScrapedProductData
@@ -238,6 +271,21 @@ export async function processScrape(rawUrl: string): Promise<{
     }
   }
 
+  // SSRF Protection: only allow standard http/https schemes and public hostnames
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    return {
+      success: false,
+      error: 'Dozwolone są wyłącznie protokoły HTTP oraz HTTPS'
+    }
+  }
+
+  if (isPrivateHost(parsedUrl.hostname)) {
+    return {
+      success: false,
+      error: 'Podany adres URL jest niedozwolony ze względów bezpieczeństwa.'
+    }
+  }
+
   const siteDomain = parsedUrl.hostname.replace(/^www\./i, '')
   const friendlySiteName = formatSiteName(parsedUrl.hostname)
   const defaultLogoFallback = `https://www.google.com/s2/favicons?domain=${parsedUrl.hostname}&sz=128`
@@ -263,7 +311,8 @@ export async function processScrape(rawUrl: string): Promise<{
       throw new Error(`HTTP ${response.status}`)
     }
 
-    const html = await response.text()
+    const rawText = await response.text()
+    const html = rawText.slice(0, 500000)
 
     // 1. Title Extraction
     let rawTitle = extractMeta(html, 'og:title') || extractMeta(html, 'twitter:title')

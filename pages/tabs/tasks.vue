@@ -824,7 +824,8 @@ const {
   hexToRgba,
   addTask,
   toggleTask,
-  deleteTask
+  deleteTask,
+  initSupabaseSync
 } = useDuoState()
 
 const {
@@ -1199,10 +1200,13 @@ const handleSwipeDeleteTask = async (id: string) => {
   await deleteTask(id)
 }
 
-const handleRefresh = (event: any) => {
-  setTimeout(() => {
+const handleRefresh = async (event: any) => {
+  try {
+    await initSupabaseSync()
+  } catch (_) {}
+  finally {
     event.target.complete()
-  }, 600)
+  }
 }
 </script>
 

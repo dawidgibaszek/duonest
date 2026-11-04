@@ -1043,7 +1043,8 @@ const {
   pairWithCode,
   disconnectPartnership,
   signOutUser,
-  triggerToast
+  triggerToast,
+  initSupabaseSync
 } = useDuoState()
 
 const {
@@ -1295,10 +1296,13 @@ const handleSignOut = async () => {
   await signOutUser()
 }
 
-const handleRefresh = (event: any) => {
-  setTimeout(() => {
+const handleRefresh = async (event: any) => {
+  try {
+    await initSupabaseSync()
+  } catch (_) {}
+  finally {
     event.target.complete()
-  }, 600)
+  }
 }
 </script>
 
