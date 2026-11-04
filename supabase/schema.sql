@@ -20,9 +20,13 @@ create table if not exists public.profiles (
   love_note text default 'Budujemy nasze wspólne gniazdko!',
   favorite_drink text default 'Kawa z mlekiem',
   favorite_treat text default 'Czekolada',
+  points integer not null default 0,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+-- Migration safety for existing deployments
+alter table if exists public.profiles add column if not exists points integer not null default 0;
 
 -- 2. PARTNERSHIPS TABLE
 create table if not exists public.partnerships (

@@ -1177,7 +1177,7 @@ const handleRefresh = (event: any) => {
 
 .avatar-theirs {
   background: #2dd4bf;
-  color: #134e4a;
+  color: #fff;
   margin-left: -12px;
   z-index: 1;
 }
@@ -1185,7 +1185,7 @@ const handleRefresh = (event: any) => {
 .avatar-heart {
   position: absolute;
   top: -4px;
-  left: 26px;
+  left: 33px;
   z-index: 3;
   color: #f43f5e;
   font-size: 16px;

@@ -298,7 +298,7 @@
                     <span>{{ evt.location }}</span>
                     <ion-icon :icon="ioniconsOpenOutline" class="open-icon" />
                   </a>
-                  <p class="detail-desc" v-if="evt.description">{{ evt.description }}</p>
+                  <!--<p class="detail-desc" v-if="evt.description">{{ evt.description }}</p>-->
                 </div>
 
                 <div class="event-creator-row">
@@ -1713,6 +1713,7 @@ const handleRefresh = (event: any) => {
   align-items: center;
   min-width: 0;
   overflow: hidden;
+  padding: 1rem;
 }
 
 .calendar-event-item ion-label {
@@ -1752,7 +1753,7 @@ const handleRefresh = (event: any) => {
   display: flex;
   flex-direction: column;
   background: #ffffff;
-  padding: 6px 8px;
+  padding: 4px 5px;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
   text-align: center;
