@@ -783,47 +783,158 @@
       <!-- ========================================================== -->
       <ion-modal
         :is-open="isRandomModalOpen"
-        :breakpoints="[0, 0.9, 1]"
-        :initial-breakpoint="0.9"
+        :breakpoints="[0, 0.95, 1]"
+        :initial-breakpoint="0.95"
         handle-behavior="cycle"
+        class="dn-movies-random-modal"
         @didDismiss="closeRandomModal"
       >
-        <div class="dn-modal-container random-modal-content">
-          <div class="dn-modal-header">
-            <div class="modal-title-col">
-              <h3>🎲 Co oglądamy dzisiaj?</h3>
-              <p>Losowanie filmu na wspólny wieczór</p>
+        <div class="dn-modal-container random-modal-layout">
+          <!-- Header -->
+          <div class="random-modal-header">
+            <div class="random-header-branding">
+              <div class="header-glyph-box glyph-amber">
+                <ion-icon :icon="ioniconsDice" />
+              </div>
+              <div class="header-text-block">
+                <span class="random-brand-badge">Ruletka filmowa</span>
+                <h3 class="random-modal-heading">Co oglądamy dzisiaj?</h3>
+              </div>
             </div>
-            <button type="button" class="modal-close-btn" @click="closeRandomModal">
+            <button
+              type="button"
+              class="modal-circle-close-btn"
+              @click="closeRandomModal"
+              aria-label="Zamknij"
+            >
               <ion-icon :icon="ioniconsCloseOutline" />
             </button>
           </div>
 
-          <div class="modal-scrollable-content random-picker-body">
-            <!-- Filter for randomizer -->
-            <div class="random-filter-row">
+          <!-- Modal Scrollable Content -->
+          <div class="modal-scrollable-content random-picker-scroll">
+            <!-- 1. Source Choice Segmented Control (Z Waszej listy vs Odkrywaj z TMDB) -->
+            <div class="random-source-tabs" data-no-swipe="true">
               <button
-                v-for="opt in randomFilterOptions"
-                :key="opt.id"
                 type="button"
-                class="random-filter-pill"
-                :class="{ active: randomFilterType === opt.id }"
-                @click="randomFilterType = opt.id"
+                class="source-tab-pill"
+                :class="{ active: randomSource === 'list' }"
+                @click="randomSource = 'list'; selectedRandomMovie = null; randomError = ''"
               >
-                {{ opt.label }}
+                <ion-icon :icon="ioniconsBookmarkOutline" />
+                <span>Z Waszej listy</span>
+                <span class="source-count-tag">{{ plannedCandidatesAll.length }}</span>
+              </button>
+
+              <button
+                type="button"
+                class="source-tab-pill"
+                :class="{ active: randomSource === 'tmdb' }"
+                @click="randomSource = 'tmdb'; selectedRandomMovie = null; randomError = ''"
+              >
+                <ion-icon :icon="ioniconsGlobeOutline" />
+                <span>Baza TMDB ✨</span>
               </button>
             </div>
 
-            <!-- Shuffler card container -->
-            <div class="random-display-card dn-card">
-              <div v-if="isSpinning" class="spinning-state">
-                <div class="spinning-dice">
-                  <ion-icon :icon="ioniconsDice" class="dice-spin-anim" />
-                </div>
-                <h4>Losuję seans...</h4>
-                <p class="shuffle-title">{{ currentShuffleTitle }}</p>
+            <!-- 2. Filters for 'list' source -->
+            <div v-if="randomSource === 'list'" class="source-filters-box">
+              <div class="filters-sub-label">
+                <span>Filtruj wg typu seansu:</span>
+              </div>
+              <div class="random-filter-row" data-no-swipe="true">
+                <button
+                  v-for="opt in randomFilterOptions"
+                  :key="opt.id"
+                  type="button"
+                  class="random-filter-pill"
+                  :class="{ active: randomFilterType === opt.id }"
+                  @click="randomFilterType = opt.id; selectedRandomMovie = null"
+                >
+                  <span>{{ opt.emoji }} {{ opt.label }}</span>
+                </button>
               </div>
 
+              <!-- Available count badge -->
+              <div class="available-counter-bar">
+                <span v-if="plannedCandidates.length > 0">
+                  Dostępnych seansów do wylosowania: <strong>{{ plannedCandidates.length }}</strong>
+                </span>
+                <span v-else class="empty-warn-text">
+                  Brak zapisanych seansów w tej kategorii.
+                </span>
+              </div>
+            </div>
+
+            <!-- 3. Filters for 'tmdb' source -->
+            <div v-else class="source-filters-box tmdb-filters-box">
+              <!-- Type -->
+              <div class="filters-sub-label">
+                <span>Kategoria:</span>
+              </div>
+              <div class="random-filter-row" data-no-swipe="true">
+                <button
+                  v-for="opt in randomFilterOptions"
+                  :key="opt.id"
+                  type="button"
+                  class="random-filter-pill"
+                  :class="{ active: randomFilterType === opt.id }"
+                  @click="randomFilterType = opt.id; selectedRandomMovie = null"
+                >
+                  <span>{{ opt.emoji }} {{ opt.label }}</span>
+                </button>
+              </div>
+
+              <!-- Genre -->
+              <div class="filters-sub-label">
+                <span>Gatunek filmu lub serialu:</span>
+              </div>
+              <div class="random-genres-scroll" data-no-swipe="true">
+                <button
+                  v-for="g in randomGenreOptions"
+                  :key="g.id"
+                  type="button"
+                  class="genre-chip-btn"
+                  :class="{ active: randomGenre === g.id }"
+                  @click="randomGenre = g.id; selectedRandomMovie = null"
+                >
+                  <span class="genre-emoji">{{ g.emoji }}</span>
+                  <span>{{ g.label }}</span>
+                </button>
+              </div>
+
+              <!-- Min rating -->
+              <div class="filters-sub-label">
+                <span>Minimalna ocena:</span>
+              </div>
+              <div class="random-ratings-row" data-no-swipe="true">
+                <button
+                  v-for="r in randomRatingOptions"
+                  :key="r.val"
+                  type="button"
+                  class="rating-filter-pill"
+                  :class="{ active: randomMinRating === r.val }"
+                  @click="randomMinRating = r.val; selectedRandomMovie = null"
+                >
+                  {{ r.label }}
+                </button>
+              </div>
+            </div>
+
+            <!-- 4. Shuffler / Winner Card Display -->
+            <div class="random-display-card dn-card">
+              <!-- Spinning State -->
+              <div v-if="isSpinning" class="spinning-state">
+                <div class="spinning-dice-orb">
+                  <ion-icon :icon="ioniconsDice" class="dice-spin-anim" />
+                </div>
+                <h4 class="spinning-header">Losuję seans...</h4>
+                <div class="shuffle-title-badge">
+                  <span>{{ currentShuffleTitle }}</span>
+                </div>
+              </div>
+
+              <!-- Winner State -->
               <div v-else-if="selectedRandomMovie" class="winner-state">
                 <div class="winner-poster-box">
                   <img
@@ -841,59 +952,113 @@
                 </div>
 
                 <div class="winner-meta">
-                  <span class="winner-badge-pill">✨ Dziś wieczorem oglądacie:</span>
+                  <div class="winner-badge-pill">
+                    <ion-icon :icon="ioniconsSparkles" />
+                    <span>Dziś wieczorem oglądacie:</span>
+                  </div>
                   <h3 class="winner-title">{{ selectedRandomMovie.title }}</h3>
-                  <span class="winner-details">
-                    {{ selectedRandomMovie.release_year }} • {{ selectedRandomMovie.genres?.join(', ') || 'Film' }}
-                  </span>
+                  <div class="winner-tags-row">
+                    <span v-if="selectedRandomMovie.release_year" class="winner-year">
+                      {{ selectedRandomMovie.release_year }}
+                    </span>
+                    <span v-if="selectedRandomMovie.vote_average" class="winner-score">
+                      ⭐ {{ selectedRandomMovie.vote_average }} (TMDB)
+                    </span>
+                    <span v-if="selectedRandomMovie.genres && selectedRandomMovie.genres.length > 0" class="winner-genre">
+                      {{ selectedRandomMovie.genres.slice(0, 2).join(' • ') }}
+                    </span>
+                  </div>
                   <p v-if="selectedRandomMovie.overview" class="winner-desc">
                     {{ selectedRandomMovie.overview }}
                   </p>
+
+                  <div v-if="isAlreadyInList(selectedRandomMovie.tmdb_id)" class="winner-already-note">
+                    <ion-icon :icon="ioniconsCheckmarkCircle" />
+                    <span>Znajduje się już na Waszej liście</span>
+                  </div>
                 </div>
               </div>
 
+              <!-- Error State -->
+              <div v-else-if="randomError" class="random-error-state">
+                <ion-icon :icon="ioniconsAlertCircleOutline" class="error-glyph" />
+                <h4>Brak wyników</h4>
+                <p>{{ randomError }}</p>
+              </div>
+
+              <!-- Initial Prompt State -->
               <div v-else class="random-prompt-state">
-                <ion-icon :icon="ioniconsSparkles" class="prompt-icon" />
+                <div class="prompt-orb-glow">
+                  <ion-icon :icon="ioniconsSparkles" class="prompt-icon" />
+                </div>
                 <h4>Nie możecie się zdecydować?</h4>
-                <p>Kliknij przycisk poniżej, a DuoNest wylosuje idealną propozycję z Waszej listy planowanych seansów!</p>
+                <p v-if="randomSource === 'list'">
+                  Kliknij przycisk poniżej, a DuoNest wylosuje idealną propozycję z Waszej listy planowanych seansów!
+                </p>
+                <p v-else>
+                  Kliknij przycisk poniżej, a DuoNest wylosuje niespodziankę z bazy TMDB z wybranego gatunku!
+                </p>
               </div>
             </div>
 
-            <!-- Spin Actions -->
+            <!-- 5. Spin and Action Buttons Footer -->
             <div class="random-actions-footer">
+              <!-- Spin Trigger Button -->
               <button
                 type="button"
-                class="dn-button-primary spin-btn"
-                :disabled="isSpinning || plannedCandidates.length === 0"
+                class="dn-button-primary spin-main-btn"
+                :disabled="isSpinning || (randomSource === 'list' && plannedCandidates.length === 0)"
                 @click="spinRandomMovie"
               >
                 <ion-icon :icon="ioniconsDice" />
-                <span>{{ selectedRandomMovie ? 'Losuj inny' : 'Wylosuj seans!' }}</span>
+                <span>{{ selectedRandomMovie ? 'Wylosuj inny seans' : 'Wylosuj seans!' }}</span>
               </button>
 
-              <div v-if="selectedRandomMovie && !isSpinning" class="winner-actions-row">
+              <!-- Winner Actions Bar -->
+              <div v-if="selectedRandomMovie && !isSpinning" class="winner-actions-grid">
+                <!-- Action 1: Oglądamy ten! -->
                 <button
                   type="button"
-                  class="winner-action-btn start-now-btn"
+                  class="winner-btn btn-watch-now"
                   @click="acceptRandomMovie(selectedRandomMovie)"
                 >
                   <ion-icon :icon="ioniconsPlayCircle" />
                   <span>Oglądamy ten!</span>
                 </button>
 
+                <!-- Action 2: Jeśli z TMDB i brak na liście -> Chcę obejrzeć / Zapisz -->
+                <button
+                  v-if="!isAlreadyInList(selectedRandomMovie.tmdb_id)"
+                  type="button"
+                  class="winner-btn btn-save-list"
+                  @click="addRandomToPlanned(selectedRandomMovie)"
+                >
+                  <ion-icon :icon="ioniconsBookmarkOutline" />
+                  <span>Zapisz na listę</span>
+                </button>
+
+                <!-- Action 3: Zaplanuj w Terminarzu -->
                 <button
                   type="button"
-                  class="winner-action-btn schedule-cal-btn"
+                  class="winner-btn btn-plan-date"
                   @click="scheduleMovieDate(selectedRandomMovie)"
                 >
                   <ion-icon :icon="ioniconsCalendar" />
-                  <span>Zaplanuj w kalendarzu</span>
+                  <span>Randka w Terminarzu</span>
                 </button>
               </div>
 
-              <span v-if="plannedCandidates.length === 0" class="random-empty-warn">
-                Brak pozycji w tej kategorii na liście "Do obejrzenia". Dodaj najpierw filmy lub zmień filtr.
-              </span>
+              <!-- Warning if list empty -->
+              <div v-if="randomSource === 'list' && plannedCandidates.length === 0" class="empty-list-switch-box">
+                <p>Nie macie żadnych planowanych filmów w tej kategorii.</p>
+                <button
+                  type="button"
+                  class="switch-to-tmdb-btn"
+                  @click="randomSource = 'tmdb'"
+                >
+                  Wylosuj z całej bazy TMDB &rarr;
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1460,17 +1625,49 @@ const submitReview = async () => {
 
 // --- MODAL 3: RANDOM MOVIE PICKER ---
 const isRandomModalOpen = ref(false)
+const randomSource = ref<'list' | 'tmdb'>('list')
 const randomFilterType = ref<'all' | 'movie' | 'tv' | 'anime'>('all')
+const randomGenre = ref<string>('all')
+const randomMinRating = ref<number>(0)
 const isSpinning = ref(false)
 const currentShuffleTitle = ref('')
-const selectedRandomMovie = ref<MovieItem | null>(null)
+const selectedRandomMovie = ref<any | null>(null)
+const randomError = ref('')
 
 const randomFilterOptions = [
-  { id: 'all', label: 'Wszystko' },
-  { id: 'movie', label: 'Tylko filmy' },
-  { id: 'tv', label: 'Tylko seriale' },
-  { id: 'anime', label: 'Tylko anime' }
+  { id: 'all', label: 'Wszystko', emoji: '🍿' },
+  { id: 'movie', label: 'Tylko filmy', emoji: '🎬' },
+  { id: 'tv', label: 'Tylko seriale', emoji: '📺' },
+  { id: 'anime', label: 'Tylko anime', emoji: '⛩️' }
 ] as const
+
+const randomGenreOptions = [
+  { id: 'all', label: 'Dowolny gatunek', emoji: '🍿' },
+  { id: 'action', label: 'Akcja', emoji: '💥' },
+  { id: 'comedy', label: 'Komedia', emoji: '😂' },
+  { id: 'horror', label: 'Horror', emoji: '👻' },
+  { id: 'romance', label: 'Romans', emoji: '❤️' },
+  { id: 'scifi', label: 'Sci-Fi', emoji: '🚀' },
+  { id: 'drama', label: 'Dramat', emoji: '🎭' },
+  { id: 'thriller', label: 'Thriller', emoji: '🕵️‍♂️' },
+  { id: 'animation', label: 'Animacja', emoji: '🎨' },
+  { id: 'adventure', label: 'Przygoda', emoji: '🗺️' },
+  { id: 'crime', label: 'Kryminał', emoji: '🔍' },
+  { id: 'fantasy', label: 'Fantasy', emoji: '🧙‍♂️' },
+  { id: 'family', label: 'Familijny', emoji: '🧸' },
+  { id: 'documentary', label: 'Dokument', emoji: '🎥' }
+] as const
+
+const randomRatingOptions = [
+  { val: 0, label: '⭐ Dowolna ocena' },
+  { val: 6.5, label: '⭐ 6.5+ (Dobre)' },
+  { val: 7.5, label: '⭐ 7.5+ (Bardzo dobre)' },
+  { val: 8.0, label: '⭐ 8.0+ (Hity & Klasyki)' }
+] as const
+
+const plannedCandidatesAll = computed(() => {
+  return moviesList.value.filter(m => m.status === 'planned')
+})
 
 const plannedCandidates = computed(() => {
   let list = moviesList.value.filter(m => m.status === 'planned')
@@ -1482,6 +1679,7 @@ const plannedCandidates = computed(() => {
 
 const openRandomPickerModal = () => {
   selectedRandomMovie.value = null
+  randomError.value = ''
   isSpinning.value = false
   isRandomModalOpen.value = true
 }
@@ -1490,43 +1688,177 @@ const closeRandomModal = () => {
   isRandomModalOpen.value = false
   selectedRandomMovie.value = null
   isSpinning.value = false
+  randomError.value = ''
 }
 
-const spinRandomMovie = () => {
-  const candidates = plannedCandidates.value
-  if (candidates.length === 0) return
-
-  isSpinning.value = true
+const spinRandomMovie = async () => {
+  randomError.value = ''
   selectedRandomMovie.value = null
 
-  // Fast shuffle animation
-  let counter = 0
-  const maxShuffle = Math.min(20, Math.max(8, candidates.length * 3))
-  const interval = setInterval(() => {
-    const rand = candidates[Math.floor(Math.random() * candidates.length)]
-    currentShuffleTitle.value = rand.title
-    counter++
-    if (counter >= maxShuffle) {
-      clearInterval(interval)
-      // Pick final winner
-      const winner = candidates[Math.floor(Math.random() * candidates.length)]
-      selectedRandomMovie.value = winner
-      isSpinning.value = false
+  if (randomSource.value === 'list') {
+    const candidates = plannedCandidates.value
+    if (candidates.length === 0) return
 
-      try {
-        confetti({
-          particleCount: 60,
-          spread: 80,
-          origin: { y: 0.6 }
-        })
-      } catch {}
+    isSpinning.value = true
+
+    // Fast shuffle animation
+    let counter = 0
+    const maxShuffle = Math.min(20, Math.max(8, candidates.length * 3))
+    const interval = setInterval(() => {
+      const rand = candidates[Math.floor(Math.random() * candidates.length)]
+      currentShuffleTitle.value = rand.title
+      counter++
+      if (counter >= maxShuffle) {
+        clearInterval(interval)
+        // Pick final winner
+        const winner = candidates[Math.floor(Math.random() * candidates.length)]
+        selectedRandomMovie.value = winner
+        isSpinning.value = false
+
+        try {
+          confetti({
+            particleCount: 60,
+            spread: 80,
+            origin: { y: 0.6 }
+          })
+        } catch {}
+      }
+    }, 100)
+  } else {
+    // TMDB Random Discover with filters
+    isSpinning.value = true
+    currentShuffleTitle.value = 'Przeszukuję bazę TMDB...'
+
+    const tempTitles = [
+      'Przeszukuję bazę TMDB...',
+      'Filtruję gatunki...',
+      'Wybieram najwyżej oceniane...',
+      'Sprawdzam recenzje...',
+      'Przygotowuję niespodziankę...'
+    ]
+    let tIdx = 0
+    const fetchInterval = setInterval(() => {
+      currentShuffleTitle.value = tempTitles[tIdx % tempTitles.length]
+      tIdx++
+    }, 250)
+
+    try {
+      const customKey = getStoredTmdbApiKey()
+      const params = new URLSearchParams({
+        type: randomFilterType.value,
+        genre: randomGenre.value,
+        minRating: String(randomMinRating.value)
+      })
+      if (customKey) params.set('apiKey', customKey)
+
+      const res = await $fetch<any>(`/api/movies/random?${params.toString()}`)
+      clearInterval(fetchInterval)
+
+      if (!res.success || !res.winner) {
+        isSpinning.value = false
+        randomError.value = res.message || 'Nie udało się wylosować seansu z bazy TMDB.'
+        return
+      }
+
+      // Fast flickering through candidate pool
+      const pool = res.pool && res.pool.length > 0 ? res.pool : [res.winner]
+      let counter = 0
+      const maxShuffle = 12
+      const shuffleInterval = setInterval(() => {
+        const item = pool[counter % pool.length]
+        currentShuffleTitle.value = item.title
+        counter++
+        if (counter >= maxShuffle) {
+          clearInterval(shuffleInterval)
+          selectedRandomMovie.value = res.winner
+          isSpinning.value = false
+
+          try {
+            confetti({
+              particleCount: 65,
+              spread: 85,
+              origin: { y: 0.6 }
+            })
+          } catch {}
+        }
+      }, 90)
+    } catch (err: any) {
+      clearInterval(fetchInterval)
+      isSpinning.value = false
+      randomError.value = 'Wystąpił błąd podczas losowania z bazy TMDB.'
     }
-  }, 100)
+  }
 }
 
-const acceptRandomMovie = async (movie: MovieItem) => {
-  await toggleMovieStatus(movie, 'watching')
+const acceptRandomMovie = async (movie: any) => {
+  if (movie.id) {
+    await toggleMovieStatus(movie, 'watching')
+  } else {
+    await addMovie({
+      title: movie.title,
+      original_title: movie.original_title,
+      tmdb_id: movie.tmdb_id,
+      media_type: movie.media_type || 'movie',
+      poster_path: movie.poster_path,
+      backdrop_path: movie.backdrop_path,
+      release_year: movie.release_year,
+      genres: movie.genres,
+      overview: movie.overview,
+      vote_average: movie.vote_average,
+      status: 'watching'
+    })
+    triggerToast(`Dodano seans "${movie.title}" jako oglądany! 🍿`, {
+      type: 'movies',
+      title: 'Kino we dwoje'
+    })
+  }
+
+  try {
+    confetti({
+      particleCount: 50,
+      spread: 70,
+      origin: { y: 0.7 }
+    })
+  } catch {}
+
   closeRandomModal()
+}
+
+const addRandomToPlanned = async (movie: any) => {
+  if (isAlreadyInList(movie.tmdb_id)) {
+    triggerToast(`Film "${movie.title}" jest już na Waszej liście!`, {
+      type: 'movies',
+      title: 'Kino we dwoje'
+    })
+    return
+  }
+
+  await addMovie({
+    title: movie.title,
+    original_title: movie.original_title,
+    tmdb_id: movie.tmdb_id,
+    media_type: movie.media_type || 'movie',
+    poster_path: movie.poster_path,
+    backdrop_path: movie.backdrop_path,
+    release_year: movie.release_year,
+    genres: movie.genres,
+    overview: movie.overview,
+    vote_average: movie.vote_average,
+    status: 'planned'
+  })
+
+  triggerToast(`Zapisano "${movie.title}" do Waszej listy planowanych seansów! 📌`, {
+    type: 'movies',
+    title: 'Kino we dwoje'
+  })
+
+  try {
+    confetti({
+      particleCount: 35,
+      spread: 60,
+      origin: { y: 0.85 }
+    })
+  } catch {}
 }
 
 // --- MODAL 4: MANUAL ADD MODAL ---
@@ -1617,7 +1949,24 @@ const confirmDeleteMovie = (movie: MovieItem) => {
   }
 }
 
-const scheduleMovieDate = async (movie: MovieItem) => {
+const scheduleMovieDate = async (movie: any) => {
+  // If drawn from TMDB and not yet saved in list, save it first as planned
+  if (!movie.id && movie.tmdb_id && !isAlreadyInList(movie.tmdb_id)) {
+    await addMovie({
+      title: movie.title,
+      original_title: movie.original_title,
+      tmdb_id: movie.tmdb_id,
+      media_type: movie.media_type || 'movie',
+      poster_path: movie.poster_path,
+      backdrop_path: movie.backdrop_path,
+      release_year: movie.release_year,
+      genres: movie.genres,
+      overview: movie.overview,
+      vote_average: movie.vote_average,
+      status: 'planned'
+    })
+  }
+
   // Suggest tomorrow evening or tonight
   const now = new Date()
   now.setHours(20, 0, 0, 0)
@@ -3682,6 +4031,7 @@ ion-modal.dn-movies-search-modal {
   border: 1px solid #cbd5e1;
   font-size: 13.5px;
   color: #0f172a;
+  background: #faf5ff;
   outline: none;
   font-family: inherit;
   resize: vertical;
@@ -3720,62 +4070,315 @@ ion-modal.dn-movies-search-modal {
   font-size: 15px;
 }
 
-/* RANDOM PICKER MODAL SPECIFICS */
-.random-picker-body {
+/* ========================================================== */
+/* RANDOM PICKER MODAL (CO OGLĄDAMY DZIŚ?) */
+/* ========================================================== */
+ion-modal.dn-movies-random-modal {
+  --border-radius: 28px 28px 0 0;
+  --background: #ffffff;
+  --box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.16);
+}
+
+.random-modal-layout {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.random-modal-header {
+  padding: 16px 18px 12px;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  background: #ffffff;
+  border-bottom: 1px solid rgba(241, 245, 249, 0.9);
+}
+
+.random-header-branding {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.glyph-amber {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.28) !important;
+}
+
+.random-brand-badge {
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  display: inline-block;
+  line-height: 1.2;
+}
+
+.random-modal-heading {
+  margin: 2px 0 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.2px;
+}
+
+.random-picker-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 18px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Source Choice Segmented Control */
+.random-source-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  background: #f1f5f9;
+  border-radius: 14px;
+}
+
+.source-tab-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.source-tab-pill ion-icon {
+  font-size: 16px;
+}
+
+.source-tab-pill.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  font-weight: 800;
+}
+
+.source-count-tag {
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.source-tab-pill.active .source-count-tag {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+/* Filters Containers */
+.source-filters-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filters-sub-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-top: 2px;
 }
 
 .random-filter-row {
   display: flex;
   gap: 6px;
-  flex-wrap: wrap;
-  justify-content: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.random-filter-row::-webkit-scrollbar {
+  display: none;
 }
 
 .random-filter-pill {
   padding: 6px 12px;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   color: #475569;
   cursor: pointer;
+  white-space: nowrap;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+}
+
+.random-filter-pill:active {
+  transform: scale(0.95);
 }
 
 .random-filter-pill.active {
   background: #f59e0b;
   color: #ffffff;
   border-color: #f59e0b;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
 }
 
+.available-counter-bar {
+  font-size: 11.5px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.available-counter-bar strong {
+  color: #0f172a;
+}
+
+.empty-warn-text {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* TMDB Specific Genre & Rating Filters */
+.random-genres-scroll {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.random-genres-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.genre-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+}
+
+.genre-chip-btn:active {
+  transform: scale(0.95);
+}
+
+.genre-chip-btn.active {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.random-ratings-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.random-ratings-row::-webkit-scrollbar {
+  display: none;
+}
+
+.rating-filter-pill {
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+}
+
+.rating-filter-pill:active {
+  transform: scale(0.95);
+}
+
+.rating-filter-pill.active {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #f59e0b;
+  font-weight: 800;
+}
+
+/* Shuffler / Winner Card */
 .random-display-card {
   width: 100%;
-  min-height: 240px;
-  padding: 20px;
+  min-height: 250px;
+  padding: 20px 16px;
   background: #ffffff;
   border-radius: 20px;
-  border: 2px dashed #cbd5e1;
+  border: 1.5px solid #e2e8f0;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
   display: flex;
   align-items: center;
   justify-content: center;
   text-align: center;
+  position: relative;
 }
 
+/* Spinning State */
 .spinning-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+}
+
+.spinning-dice-orb {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 38px;
+  color: #d97706;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.25);
 }
 
 .dice-spin-anim {
-  font-size: 56px;
-  color: #f59e0b;
-  animation: diceSpin 0.6s infinite ease-in-out;
+  animation: diceSpin 0.7s infinite ease-in-out;
 }
 
 @keyframes diceSpin {
@@ -3784,18 +4387,34 @@ ion-modal.dn-movies-search-modal {
   100% { transform: rotate(360deg) scale(1); }
 }
 
-.shuffle-title {
+.spinning-header {
+  margin: 0;
   font-size: 16px;
   font-weight: 800;
   color: #0f172a;
 }
 
+.shuffle-title-badge {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-size: 13.5px;
+  font-weight: 800;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Winner State */
 .winner-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
   animation: winnerPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  width: 100%;
 }
 
 @keyframes winnerPop {
@@ -3804,18 +4423,20 @@ ion-modal.dn-movies-search-modal {
 }
 
 .winner-poster-box {
-  width: 110px;
-  height: 160px;
+  width: 120px;
+  height: 175px;
   border-radius: 14px;
   overflow: hidden;
   position: relative;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2);
+  background: #0f172a;
 }
 
 .winner-poster {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .winner-poster-empty {
@@ -3826,7 +4447,7 @@ ion-modal.dn-movies-search-modal {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
+  font-size: 36px;
 }
 
 .winner-type-pill {
@@ -3834,11 +4455,13 @@ ion-modal.dn-movies-search-modal {
   top: 6px;
   left: 6px;
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 800;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 5px;
   color: #ffffff;
   text-transform: uppercase;
+  letter-spacing: 0.4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .winner-meta {
@@ -3846,24 +4469,57 @@ ion-modal.dn-movies-search-modal {
   flex-direction: column;
   align-items: center;
   gap: 4px;
+  width: 100%;
 }
 
 .winner-badge-pill {
   font-size: 12px;
-  font-weight: 700;
-  color: #f59e0b;
+  font-weight: 800;
+  color: #d97706;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .winner-title {
-  margin: 0;
-  font-size: 20px;
+  margin: 2px 0 0;
+  font-size: 19px;
   font-weight: 900;
   color: #0f172a;
+  line-height: 1.25;
 }
 
-.winner-details {
-  font-size: 12px;
+.winner-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 4px 0 2px;
+}
+
+.winner-year {
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+.winner-score {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fef3c7;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+.winner-genre {
   color: #64748b;
+  font-size: 11.5px;
   font-weight: 600;
 }
 
@@ -3879,70 +4535,180 @@ ion-modal.dn-movies-search-modal {
   overflow: hidden;
 }
 
+.winner-already-note {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #059669;
+}
+
+/* Prompt State */
 .random-prompt-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: #64748b;
+  padding: 16px;
+}
+
+.prompt-orb-glow {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  color: #d97706;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.2);
+}
+
+.random-prompt-state h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.random-prompt-state p {
+  margin: 0;
+  font-size: 12.5px;
+  max-width: 290px;
+  line-height: 1.4;
+}
+
+/* Error State in Randomizer */
+.random-error-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
   color: #64748b;
+  padding: 20px;
 }
 
-.prompt-icon {
+.error-glyph {
   font-size: 40px;
-  color: #f59e0b;
+  color: #ef4444;
 }
 
+.random-error-state h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.random-error-state p {
+  margin: 0;
+  font-size: 12.5px;
+  max-width: 280px;
+}
+
+/* Footer & Buttons */
 .random-actions-footer {
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
-.spin-btn {
+.spin-main-btn {
   width: 100%;
-  max-width: 280px;
+  max-width: 320px;
   background: linear-gradient(135deg, #f59e0b, #d97706);
   padding: 14px;
   font-size: 15px;
+  font-weight: 800;
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.32);
 }
 
-.winner-actions-row {
+.winner-actions-grid {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   width: 100%;
-  max-width: 340px;
+  max-width: 380px;
+  justify-content: center;
 }
 
-.winner-action-btn {
-  flex: 1;
-  padding: 10px;
+.winner-btn {
+  padding: 10px 14px;
   border-radius: 12px;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   cursor: pointer;
   border: none;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
 }
 
-.start-now-btn {
-  background: #10b981;
+.winner-btn:active {
+  transform: scale(0.95);
+}
+
+.btn-watch-now {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: #ffffff;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.28);
+  flex: 1 1 130px;
 }
 
-.schedule-cal-btn {
+.btn-save-list {
+  background: #f5f3ff;
+  color: #7c3aed;
+  border: 1.5px solid #ddd6fe;
+  flex: 1 1 120px;
+}
+
+.btn-plan-date {
   background: #e0e7ff;
   color: #4338ca;
+  border: 1.5px solid #c7d2fe;
+  flex: 1 1 140px;
 }
 
-.random-empty-warn {
-  font-size: 12px;
-  color: #ef4444;
+.empty-list-switch-box {
+  padding: 12px;
+  background: #fffbeb;
+  border: 1px dashed #fde68a;
+  border-radius: 12px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.empty-list-switch-box p {
+  margin: 0;
+  font-size: 12px;
+  color: #92400e;
+}
+
+.switch-to-tmdb-btn {
+  background: none;
+  border: none;
+  color: #d97706;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.switch-to-tmdb-btn:hover {
+  text-decoration: underline;
 }
 
 /* MANUAL ADD FORM SPECIFICS */
