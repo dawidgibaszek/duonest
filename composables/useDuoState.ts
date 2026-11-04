@@ -478,7 +478,7 @@ export const useDuoState = () => {
         love_note: cleanLoveNote,
         favorite_drink: cleanDrink,
         favorite_treat: cleanTreat,
-        points: Math.max(Number(savedUser.points) || 0, 0)
+        points: 0 // Points are ALWAYS loaded exclusively from Supabase, never from localStorage
       }
     } else {
       saveToStorage('duonest_current_user', currentUser.value)
@@ -496,7 +496,7 @@ export const useDuoState = () => {
         love_note: cleanPartnerLoveNote,
         favorite_drink: cleanPartnerDrink,
         favorite_treat: cleanPartnerTreat,
-        points: Math.max(Number(savedPartner.points) || 0, 0)
+        points: 0 // Points are ALWAYS loaded exclusively from Supabase, never from localStorage
       }
     }
 
@@ -514,7 +514,11 @@ export const useDuoState = () => {
 
     const savedPartnership = loadFromStorage<Partnership | null>('duonest_partnership', null)
     if (savedPartnership) {
-      partnership.value = savedPartnership
+      partnership.value = {
+        ...savedPartnership,
+        nest_points: 0, // Points are ALWAYS loaded exclusively from Supabase, never from localStorage
+        nest_level: 1   // Will be recalculated when Supabase data loads
+      }
       if (partnership.value.pet_xp === undefined) partnership.value.pet_xp = 0
     }
 
@@ -3099,54 +3103,35 @@ export const useDuoState = () => {
   const userEarnedPoints = computed(() => userRawTaskPoints.value + userNudgePoints.value)
   const partnerEarnedPoints = computed(() => partnerRawTaskPoints.value + partnerNudgePoints.value)
 
-  // Direct individual points, resiliently pulling from stored profile points and earned contributions
-  const userPoints = computed(() => {
-    const stored = Number(currentUser.value?.points) || 0
-    return Math.max(stored, userEarnedPoints.value)
-  })
+  // Individual points read exclusively from Supabase profiles.points (DB is single source of truth)
+  const userPoints = computed(() => Number(currentUser.value?.points) || 0)
+  const partnerPoints = computed(() => Number(partnerUser.value?.points) || 0)
 
-  const partnerPoints = computed(() => {
-    const stored = Number(partnerUser.value?.points) || 0
-    return Math.max(stored, partnerEarnedPoints.value)
-  })
+  // Total Duet score read exclusively from Supabase partnerships.nest_points
+  const nestPoints = computed(() => Number(partnership.value?.nest_points) || 0)
 
-  // Total Duet score is the true collective sum of partner contributions and shared achievements
-  const nestPoints = computed(() => {
-    const totalEarned = userPoints.value + partnerPoints.value + eventsEarnedPoints.value + sharedCompletedTasksPoints.value
-    const stored = Number(partnership.value?.nest_points) || 0
-    return Math.max(totalEarned, stored)
-  })
-
-  // Watcher to automatically backfill and persist points if calculated earned points ever exceed stored
+  // Watcher: if earned points from current tasks/nudges/events exceed what's stored in DB,
+  // persist the higher value to Supabase so DB stays up-to-date (monotonic backfill only)
   watch([userEarnedPoints, partnerEarnedPoints, eventsEarnedPoints, sharedCompletedTasksPoints], ([uEarned, pEarned, eEarned, sEarned]) => {
-    let changed = false
-    if (currentUser.value && uEarned > (Number(currentUser.value.points) || 0)) {
+    if (!supabase) return
+    if (currentUser.value?.id && uEarned > (Number(currentUser.value.points) || 0)) {
       currentUser.value.points = uEarned
-      changed = true
-      if (supabase && currentUser.value.id) {
-        safeDb(supabase.from('profiles').update({ points: uEarned }).eq('id', currentUser.value.id))
-      }
+      safeDb(supabase.from('profiles').update({ points: uEarned }).eq('id', currentUser.value.id))
     }
-    if (partnerUser.value && pEarned > (Number(partnerUser.value.points) || 0)) {
+    if (partnerUser.value?.id && pEarned > (Number(partnerUser.value.points) || 0)) {
       partnerUser.value.points = pEarned
-      changed = true
+      // Partner's points are updated on their side – we just update local display
     }
-    const totalMinimum = (Number(currentUser.value?.points) || 0) + (Number(partnerUser.value?.points) || 0) + eEarned + sEarned
-    if (partnership.value && totalMinimum > (Number(partnership.value.nest_points) || 0)) {
+    const totalMinimum = userPoints.value + partnerPoints.value + eEarned + sEarned
+    if (partnership.value?.id && totalMinimum > (Number(partnership.value.nest_points) || 0)) {
       partnership.value.nest_points = totalMinimum
       partnership.value.nest_level = 1 + Math.floor(totalMinimum / 50)
-      changed = true
-      if (supabase && partnership.value.id) {
-        safeDb(supabase.from('partnerships').update({
-          nest_points: partnership.value.nest_points,
-          nest_level: partnership.value.nest_level
-        }).eq('id', partnership.value.id))
-      }
+      safeDb(supabase.from('partnerships').update({
+        nest_points: partnership.value.nest_points,
+        nest_level: partnership.value.nest_level
+      }).eq('id', partnership.value.id))
     }
-    if (changed) {
-      syncToStorage()
-    }
-  }, { immediate: true })
+  }, { immediate: false })
 
   const nestLevel = computed(() => {
     return Math.max(1, 1 + Math.floor(nestPoints.value / 50))

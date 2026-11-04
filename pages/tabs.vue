@@ -444,7 +444,7 @@ watch(() => route.path, () => {
   justify-content: space-around;
   height: calc(56px + env(safe-area-inset-bottom, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.781);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid rgba(226, 232, 240, 0.8);
