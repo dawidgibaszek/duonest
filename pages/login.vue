@@ -296,7 +296,17 @@ const {
 
 initializeClientState()
 
-const mode = ref<'login' | 'register' | 'forgot' | 'recovery'>('login')
+const checkIsRecoveryInitial = () => {
+  if (route.query.type === 'recovery' || Boolean(route.query.code)) return true
+  if (typeof window !== 'undefined') {
+    const search = window.location.search || ''
+    const hash = window.location.hash || ''
+    return search.includes('type=recovery') || hash.includes('type=recovery') || hash.includes('access_token') || search.includes('code=')
+  }
+  return false
+}
+
+const mode = ref<'login' | 'register' | 'forgot' | 'recovery'>(checkIsRecoveryInitial() ? 'recovery' : 'login')
 const isEmailLocked = ref(false)
 const emailInput = ref('')
 const passwordInput = ref('')
@@ -429,7 +439,7 @@ onMounted(async () => {
   if (supabase) {
     try {
       supabase.auth.onAuthStateChange((event: string, session: any) => {
-        if (event === 'PASSWORD_RECOVERY') {
+        if (event === 'PASSWORD_RECOVERY' || (isRecovery && (event === 'SIGNED_IN' || event === 'USER_UPDATED'))) {
           mode.value = 'recovery'
           if (session?.user?.email && !emailInput.value) {
             emailInput.value = session.user.email.trim().toLowerCase()
