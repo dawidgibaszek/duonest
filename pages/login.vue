@@ -70,9 +70,12 @@
               </div>
             </div>
 
-            <!-- EMAIL FIELD (LOGIN, REGISTER, FORGOT) -->
-            <div class="form-field" v-if="mode !== 'recovery'">
-              <label class="field-label">Adres e-mail</label>
+            <!-- EMAIL FIELD (LOGIN, REGISTER, FORGOT, OR RECOVERY WHEN NOT LOCKED) -->
+            <div class="form-field" v-if="mode !== 'recovery' || !isEmailLocked">
+              <div class="field-label-row">
+                <label class="field-label">Adres e-mail</label>
+                <span class="password-hint" v-if="mode === 'recovery'">Konto w DuoNest</span>
+              </div>
               <div class="input-container">
                 <ion-icon :icon="ioniconsMailOutline" class="field-icon" />
                 <input
@@ -85,6 +88,24 @@
                   required
                 />
               </div>
+            </div>
+
+            <!-- DETECTED EMAIL BOX (IN RECOVERY MODE IF AUTO-DETECTED FROM LINK) -->
+            <div class="recovery-email-box" v-else-if="mode === 'recovery' && isEmailLocked">
+              <div class="recovery-email-left">
+                <ion-icon :icon="ioniconsMailOutline" class="recovery-email-icon" />
+                <div class="recovery-email-texts">
+                  <span class="recovery-email-label">Konto do zmiany hasła</span>
+                  <span class="recovery-email-val">{{ emailInput }}</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="recovery-email-change-btn"
+                @click="isEmailLocked = false"
+              >
+                Zmień
+              </button>
             </div>
 
             <!-- PASSWORD FIELD (LOGIN & REGISTER) -->
@@ -262,6 +283,7 @@ const {
 initializeClientState()
 
 const mode = ref<'login' | 'register' | 'forgot' | 'recovery'>('login')
+const isEmailLocked = ref(false)
 const emailInput = ref('')
 const passwordInput = ref('')
 const nameInput = ref('')
@@ -279,7 +301,7 @@ const isFormValid = computed(() => {
     return hasEmail
   }
   if (mode.value === 'recovery') {
-    return newPasswordInput.value.length >= 6 && newPasswordInput.value === confirmPasswordInput.value
+    return hasEmail && newPasswordInput.value.length >= 6 && newPasswordInput.value === confirmPasswordInput.value
   }
   const hasPass = passwordInput.value.length >= 6
   if (mode.value === 'register') {
@@ -305,7 +327,7 @@ const translateAuthError = (err: any): string => {
   if (msg.includes('Password should be at least 6 characters') || msg.includes('co najmniej 6')) {
     return 'Hasło musi mieć co najmniej 6 znaków.'
   }
-  if (msg.includes('Nie znaleziono konta')) {
+  if (msg.includes('Nie znaleziono konta') || msg.includes('Nie znaleziono profilu')) {
     return 'Nie znaleziono konta z tym adresem e-mail. Sprawdź e-mail lub przełącz na rejestrację.'
   }
   if (msg.includes('For security purposes, you can only request this once every')) {
@@ -320,22 +342,85 @@ const translateAuthError = (err: any): string => {
   return msg || 'Wystąpił problem. Sprawdź wprowadzone dane.'
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (typeof window === 'undefined') return
   const hash = window.location.hash || ''
   const search = window.location.search || ''
   const urlParams = new URLSearchParams(search)
 
-  if (urlParams.get('type') === 'recovery' || hash.includes('type=recovery') || hash.includes('access_token')) {
+  // 1. Detect recovery mode
+  const isRecovery = urlParams.get('type') === 'recovery' || hash.includes('type=recovery') || hash.includes('access_token') || urlParams.has('code')
+  if (isRecovery) {
     mode.value = 'recovery'
   }
 
+  // 2. Extract email from query param if provided
+  if (urlParams.get('email')) {
+    emailInput.value = urlParams.get('email')!.trim().toLowerCase()
+    isEmailLocked.value = true
+  }
+
+  // 3. Extract email and tokens from URL hash if provided
+  if (hash) {
+    const hashParams = new URLSearchParams(hash.replace(/^#/, ''))
+    const accessToken = hashParams.get('access_token')
+    const refreshToken = hashParams.get('refresh_token')
+
+    if (accessToken) {
+      try {
+        const payloadBase64 = accessToken.split('.')[1]
+        if (payloadBase64) {
+          const decoded = JSON.parse(atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/')))
+          if (decoded?.email && !emailInput.value) {
+            emailInput.value = String(decoded.email).trim().toLowerCase()
+            isEmailLocked.value = true
+          }
+        }
+      } catch (_) {}
+    }
+
+    const supabase = getSupabaseClient()
+    if (supabase && accessToken && refreshToken) {
+      try {
+        await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+      } catch (_) {}
+    }
+  }
+
+  // 4. Handle PKCE code in query if present
+  const code = urlParams.get('code')
   const supabase = getSupabaseClient()
+  if (supabase && code) {
+    try {
+      const { data: codeData } = await supabase.auth.exchangeCodeForSession(code)
+      if (codeData?.session?.user?.email && !emailInput.value) {
+        emailInput.value = codeData.session.user.email.trim().toLowerCase()
+        isEmailLocked.value = true
+      }
+    } catch (_) {}
+  }
+
+  // 5. Try getting email from active session
+  if (supabase && !emailInput.value) {
+    try {
+      const { data: sData } = await supabase.auth.getSession()
+      if (sData?.session?.user?.email) {
+        emailInput.value = sData.session.user.email.trim().toLowerCase()
+        isEmailLocked.value = true
+      }
+    } catch (_) {}
+  }
+
+  // 6. Listen for Supabase PASSWORD_RECOVERY event
   if (supabase) {
     try {
-      supabase.auth.onAuthStateChange((event: string) => {
+      supabase.auth.onAuthStateChange((event: string, session: any) => {
         if (event === 'PASSWORD_RECOVERY') {
           mode.value = 'recovery'
+          if (session?.user?.email && !emailInput.value) {
+            emailInput.value = session.user.email.trim().toLowerCase()
+            isEmailLocked.value = true
+          }
         }
       })
     } catch (_) {}
@@ -793,6 +878,64 @@ const handleSubmit = async () => {
   color: #94a3b8;
   margin-top: 24px;
   line-height: 1.5;
+}
+
+.recovery-email-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f0fdf4;
+  border: 1.5px solid #bbf7d0;
+  border-radius: 14px;
+  padding: 10px 14px;
+}
+
+.recovery-email-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.recovery-email-icon {
+  font-size: 20px;
+  color: #16a34a;
+  flex-shrink: 0;
+}
+
+.recovery-email-texts {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.recovery-email-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #15803d;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.recovery-email-val {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recovery-email-change-btn {
+  background: transparent;
+  border: none;
+  color: #0284c7;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  text-decoration: underline;
 }
 
 </style>

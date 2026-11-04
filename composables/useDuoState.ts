@@ -1072,79 +1072,116 @@ export const useDuoState = () => {
 
   const completePasswordReset = async (newPassword: string, emailHint?: string) => {
     if (!supabase) return { data: null, error: new Error('Brak połączenia z systemem') }
-    if (newPassword.length < 6) {
+    if (!newPassword || newPassword.length < 6) {
       return { data: null, error: new Error('Hasło musi mieć co najmniej 6 znaków.') }
     }
 
     try {
       const modernHash = await hashPassword(newPassword)
 
-      // 1. If active Supabase recovery session exists
-      const { data: sessionData } = await supabase.auth.getSession()
-      const authSessionUser = sessionData?.session?.user
+      // 1. Try to get user from active Supabase session if available
+      let sessionEmail = ''
+      try {
+        const { data: sessionData } = await supabase.auth.getSession()
+        sessionEmail = sessionData?.session?.user?.email || ''
+        if (!sessionEmail) {
+          const { data: userData } = await supabase.auth.getUser()
+          sessionEmail = userData?.user?.email || ''
+        }
+      } catch (_) {}
 
+      // Try updating password in Supabase Auth user record as well
       try {
         await supabase.auth.updateUser({ password: newPassword })
       } catch (_) {}
 
-      // 2. Determine target email
-      const targetEmail = authSessionUser?.email || emailHint || currentUser.value?.email
+      // 2. Determine target email (from hint, session, or current user)
+      const targetEmail = (emailHint || sessionEmail || currentUser.value?.email || '').trim().toLowerCase()
 
-      if (targetEmail) {
-        const { data: dbProfile } = await supabase
-          .from('profiles')
-          .select('*')
-          .ilike('email', targetEmail.trim().toLowerCase())
-          .maybeSingle()
-
-        if (dbProfile) {
-          const rawColor = dbProfile.avatar_color || '#0284c7'
-          const displayColor = rawColor.includes('|') ? rawColor.split('|')[0] : rawColor
-          const updatedAvatarColor = `${displayColor}|${modernHash}`
-
-          safeDb(supabase.from('profiles').update({ avatar_color: updatedAvatarColor }).eq('id', dbProfile.id))
-
-          // Create active session
-          const authUserObj = {
-            id: dbProfile.id,
-            email: dbProfile.email,
-            user_metadata: { name: dbProfile.name }
-          }
-          const authSessionObj = {
-            user: authUserObj,
-            access_token: 'duonest_direct_' + dbProfile.id
-          }
-
-          authUser.value = authUserObj
-          authSession.value = authSessionObj
-          saveToStorage('duonest_auth_user', authUserObj)
-          saveToStorage('duonest_auth_session', authSessionObj)
-          currentUserPasswordHash.value = modernHash
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('duonest_user_pwd_hash', modernHash)
-          }
-
-          currentUser.value = {
-            ...createInitialProfile(),
-            ...dbProfile,
-            avatar_color: displayColor
-          }
-          syncToStorage()
-
-          if (dbProfile.partnership_id) {
-            await loadPartnershipAndPartner(dbProfile.partnership_id, dbProfile.id)
-            subscribeToPartnershipRealtime(dbProfile.partnership_id)
-          } else if (currentUser.value?.pairing_code) {
-            subscribeToPairingChannel(currentUser.value.pairing_code)
-          }
-          subscribeToSecurityChannel(dbProfile.id, dbProfile.partnership_id)
-
-          return { data: true, error: null }
+      if (!targetEmail || !targetEmail.includes('@')) {
+        return {
+          data: null,
+          error: new Error('Nie udało się zidentyfikować adresu e-mail. Wprowadź swój e-mail i spróbuj ponownie.')
         }
       }
 
+      // 3. Find profile in profiles table
+      const { data: dbProfile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .ilike('email', targetEmail)
+        .maybeSingle()
+
+      if (profileErr) {
+        console.error('Error fetching profile for password reset:', profileErr)
+        return { data: null, error: new Error('Błąd odczytu profilu: ' + (profileErr.message || profileErr)) }
+      }
+
+      if (!dbProfile) {
+        return {
+          data: null,
+          error: new Error(`Nie znaleziono konta dla adresu e-mail: ${targetEmail}. Upewnij się, że podajesz poprawny adres e-mail.`)
+        }
+      }
+
+      // 4. Update password hash directly in profiles table (AWAITED to guarantee persistence)
+      const rawColor = dbProfile.avatar_color || '#0284c7'
+      const displayColor = rawColor.includes('|') ? rawColor.split('|')[0] : rawColor
+      const updatedAvatarColor = `${displayColor}|${modernHash}`
+
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update({ avatar_color: updatedAvatarColor })
+        .eq('id', dbProfile.id)
+
+      if (updateErr) {
+        console.error('Failed to update password hash in profiles:', updateErr)
+        return {
+          data: null,
+          error: new Error('Nie udało się zapisać nowego hasła w bazie danych: ' + (updateErr.message || updateErr))
+        }
+      }
+
+      // 5. Update state and local storage immediately
+      currentUserPasswordHash.value = modernHash
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('duonest_user_pwd_hash', modernHash)
+      }
+
+      // Create active session
+      const authUserObj = {
+        id: dbProfile.id,
+        email: dbProfile.email,
+        user_metadata: { name: dbProfile.name }
+      }
+      const authSessionObj = {
+        user: authUserObj,
+        access_token: 'duonest_direct_' + dbProfile.id
+      }
+
+      authUser.value = authUserObj
+      authSession.value = authSessionObj
+      saveToStorage('duonest_auth_user', authUserObj)
+      saveToStorage('duonest_auth_session', authSessionObj)
+
+      currentUser.value = {
+        ...createInitialProfile(),
+        ...dbProfile,
+        avatar_color: displayColor
+      }
+      syncToStorage()
+
+      if (dbProfile.partnership_id) {
+        await loadPartnershipAndPartner(dbProfile.partnership_id, dbProfile.id)
+        subscribeToPartnershipRealtime(dbProfile.partnership_id)
+      } else if (currentUser.value?.pairing_code) {
+        subscribeToPairingChannel(currentUser.value.pairing_code)
+      }
+      subscribeToSecurityChannel(dbProfile.id, dbProfile.partnership_id)
+
       return { data: true, error: null }
     } catch (err: any) {
+      console.error('Password reset exception:', err)
       return { data: null, error: err }
     }
   }
