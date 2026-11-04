@@ -974,6 +974,17 @@ export const useDuoState = () => {
         localStorage.setItem('duonest_user_pwd_hash', passHash)
       }
 
+      // Also register in Supabase Auth in background to enable password recovery features
+      try {
+        await supabase.auth.signUp({
+          email: cleanEmail,
+          password: password,
+          options: {
+            data: { name: cleanName }
+          }
+        })
+      } catch (_) {}
+
       // 4. Authenticate user immediately with no email verification needed
       const authUserObj = {
         id: newUserId,
@@ -1030,6 +1041,14 @@ export const useDuoState = () => {
           error: new Error('Nie znaleziono konta z tym adresem e-mail. Sprawdź e-mail lub zarejestruj się.')
         }
       }
+
+      // Ensure user account exists in Supabase auth.users so Supabase Auth can send the email
+      try {
+        await supabase.auth.signUp({
+          email: cleanEmail,
+          password: 'Tmp_' + Math.random().toString(36).substring(2, 11) + '!9X'
+        })
+      } catch (_) {}
 
       // 2. Prepare redirect URL to login with recovery mode
       const redirectUrl = typeof window !== 'undefined'
