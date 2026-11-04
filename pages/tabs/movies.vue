@@ -5613,14 +5613,18 @@ ion-modal.dn-movies-details-modal {
 
 .details-hero-wrap {
   position: relative;
+  overflow: hidden;
+  min-height: 230px;
   background: #0f172a;
 }
 
 .details-poster-backdrop {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: 190px;
-  position: relative;
+  height: 100%;
   overflow: hidden;
+  z-index: 0;
   background: #0f172a;
 }
 
@@ -5628,35 +5632,44 @@ ion-modal.dn-movies-details-modal {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.8;
+  object-position: center 25%;
+  opacity: 0.92;
+  display: block;
 }
 
 .backdrop-gradient-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgba(15, 23, 42, 0.2) 0%, rgba(15, 23, 42, 0.85) 100%);
+  background: linear-gradient(
+    to bottom,
+    rgba(15, 23, 42, 0.1) 0%,
+    rgba(15, 23, 42, 0.35) 45%,
+    rgba(15, 23, 42, 0.75) 80%,
+    rgba(15, 23, 42, 0.92) 100%
+  );
 }
 
 .details-floating-meta {
   display: flex;
   gap: 14px;
-  padding: 0 18px;
-  margin-top: -65px;
+  padding: 80px 18px 20px 18px;
   position: relative;
   z-index: 2;
   align-items: flex-end;
-  margin-bottom: 1.5rem;
+  margin: 0;
+  width: 100%;
 }
 
 .details-float-poster {
-  width: 94px;
-  min-width: 94px;
-  height: 140px;
+  width: 96px;
+  min-width: 96px;
+  height: 144px;
   border-radius: 14px;
   overflow: hidden;
   background: #1e293b;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-  border: 2px solid #ffffff;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  flex-shrink: 0;
 }
 
 .details-float-poster img {
@@ -5687,19 +5700,22 @@ ion-modal.dn-movies-details-modal {
 
 .float-title {
   margin: 0;
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 900;
-  color: #0f172a;
+  color: #ffffff;
   line-height: 1.25;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+  word-break: break-word;
 }
 
 .float-orig-title {
-  font-size: 11px;
-  color: #94a3b8;
+  font-size: 11.5px;
+  color: #cbd5e1;
   font-style: italic;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 .details-pills-row {
@@ -5710,13 +5726,19 @@ ion-modal.dn-movies-details-modal {
   margin-top: 4px;
 }
 
+.details-pills-row .type-tag {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
 .details-year-tag {
-  background: #f1f5f9;
-  color: #475569;
-  font-size: 11px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: 10.5px;
   font-weight: 700;
-  padding: 1px 6px;
+  padding: 2px 7px;
   border-radius: 6px;
+  backdrop-filter: blur(4px);
 }
 
 .details-content-meta {
