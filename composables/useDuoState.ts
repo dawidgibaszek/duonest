@@ -350,6 +350,15 @@ const currentUserPasswordHash = ref<string>(
   typeof window !== 'undefined' ? (localStorage.getItem('duonest_user_pwd_hash') || '') : ''
 )
 
+export const computeLegacyHash = (password: string): string => {
+  let hash = 0
+  for (let i = 0; i < password.length; i++) {
+    hash = ((hash << 5) - hash) + password.charCodeAt(i)
+    hash |= 0
+  }
+  return 'h_' + Math.abs(hash).toString(16)
+}
+
 export const hashPassword = async (password: string): Promise<string> => {
   if (typeof crypto !== 'undefined' && crypto?.subtle) {
     try {
@@ -361,12 +370,23 @@ export const hashPassword = async (password: string): Promise<string> => {
         .join('')
     } catch (_) {}
   }
-  let hash = 0
-  for (let i = 0; i < password.length; i++) {
-    hash = ((hash << 5) - hash) + password.charCodeAt(i)
-    hash |= 0
-  }
-  return 'h_' + Math.abs(hash).toString(16)
+  return computeLegacyHash(password)
+}
+
+export const verifyPassword = async (password: string, storedHash: string): Promise<boolean> => {
+  if (!storedHash) return true
+
+  // 1. Try modern SHA-256 hash
+  try {
+    const modernHash = await hashPassword(password)
+    if (storedHash === modernHash) return true
+  } catch (_) {}
+
+  // 2. Try legacy fallback hash (for accounts registered with h_ hash like Dawid's)
+  const legacyHash = computeLegacyHash(password)
+  if (storedHash === legacyHash) return true
+
+  return false
 }
 
 // Supabase project credentials (from runtimeConfig or env)
@@ -829,18 +849,19 @@ export const useDuoState = () => {
         displayColor = rawColor
       }
 
-      const enteredHash = await hashPassword(password)
-      if (storedHash && storedHash !== enteredHash) {
+      const isPasswordValid = await verifyPassword(password, storedHash)
+      if (!isPasswordValid) {
         return {
           data: null,
           error: new Error('Nieprawidłowe hasło. Sprawdź hasło i spróbuj ponownie.')
         }
       }
 
-      // If user profile did not have a hash stored yet, associate it now
-      if (!storedHash) {
-        storedHash = enteredHash
-        safeDb(supabase.from('profiles').update({ avatar_color: `${displayColor}|${enteredHash}` }).eq('id', dbProfile.id))
+      // If user profile had a legacy hash or no hash, auto-upgrade it now to modern SHA-256 in Supabase
+      const modernHash = await hashPassword(password)
+      if (!storedHash || storedHash !== modernHash) {
+        storedHash = modernHash
+        safeDb(supabase.from('profiles').update({ avatar_color: `${displayColor}|${modernHash}` }).eq('id', dbProfile.id))
       }
 
       currentUserPasswordHash.value = storedHash
@@ -1016,10 +1037,13 @@ export const useDuoState = () => {
     authUser.value = null
     authSession.value = null
     clearAllDuoState()
+    isStateInitialized.value = false
+    securityLifecycleBound = false
+    lastSecurityVerifiedAt = 0
+
     if (typeof window !== 'undefined') {
-      await navigateTo('/login', { replace: true })
+      window.location.href = '/login'
     }
-    isLoggingOut = false
   }
 
   // Save changes to storage
@@ -1264,6 +1288,11 @@ export const useDuoState = () => {
   const verifyUserAndPartnershipAccess = async (force: boolean = false): Promise<boolean> => {
     if (typeof window === 'undefined' || isLoggingOut) return true
 
+    // Do not run verification if user is not genuinely authenticated
+    if (!authUser.value || !authUser.value.id) {
+      return true
+    }
+
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       return true
     }
@@ -1276,7 +1305,7 @@ export const useDuoState = () => {
     const client = getSupabaseClient()
     if (!client) return true
 
-    const userId = currentUser.value?.id || authUser.value?.id
+    const userId = authUser.value.id
     const pId = partnership.value?.id || currentUser.value?.partnership_id
 
     if (!userId) {

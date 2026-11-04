@@ -243,9 +243,9 @@ const handleSubmit = async () => {
       }
 
       if (isPaired.value) {
-        await router.replace('/tabs/nest')
+        window.location.href = '/tabs/nest'
       } else {
-        await router.replace('/pairing')
+        window.location.href = '/pairing'
       }
     } else {
       const { error } = await signUpWithEmail(
@@ -261,9 +261,9 @@ const handleSubmit = async () => {
 
       // Instant creation & login! Direct route to pairing without any email verification
       if (isPaired.value) {
-        await router.replace('/tabs/nest')
+        window.location.href = '/tabs/nest'
       } else {
-        await router.replace('/pairing')
+        window.location.href = '/pairing'
       }
     }
   } catch (err: any) {
