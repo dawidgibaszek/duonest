@@ -514,14 +514,6 @@ export const useDuoState = () => {
 
     const savedPartnership = loadFromStorage<Partnership | null>('duonest_partnership', null)
     if (savedPartnership) {
-      const savedEarned = (savedTasks ? savedTasks.filter(t => t.is_completed).reduce((s, t) => s + (Number(t.points) || 15), 0) : 0)
-        + (savedNudges ? savedNudges.length * 5 : 0)
-        + (savedEvents ? savedEvents.filter(e => e.is_completed).length * 10 : 0)
-      const currentStored = Number(savedPartnership.nest_points) || 0
-      const finalPoints = Math.max(currentStored, savedEarned)
-      savedPartnership.nest_points = finalPoints
-      savedPartnership.nest_level = Math.max(1, 1 + Math.floor(finalPoints / 50))
-      saveToStorage('duonest_partnership', savedPartnership)
       partnership.value = savedPartnership
       if (partnership.value.pet_xp === undefined) partnership.value.pet_xp = 0
     }
@@ -656,7 +648,7 @@ export const useDuoState = () => {
           id: user.id,
           avatar_color: cleanColor,
           email: user.email || dbProfile.email,
-          points: Math.max(Number(dbProfile.points) || 0, Number(currentUser.value?.points) || 0)
+          points: Number(dbProfile.points) || 0
         }
         syncToStorage()
 
@@ -701,12 +693,13 @@ export const useDuoState = () => {
         .maybeSingle()
 
       if (pData) {
-        const storedNest = Number(pData.nest_points) || 0
-        const currentNest = Number(partnership.value?.nest_points) || 0
-        pData.nest_points = Math.max(storedNest, currentNest)
-        pData.nest_level = Math.max(1, 1 + Math.floor(pData.nest_points / 50))
-        partnership.value = pData
-        saveToStorage('duonest_partnership', pData)
+        partnership.value = {
+          ...partnership.value,
+          ...pData,
+          nest_points: Number(pData.nest_points) || 0,
+          nest_level: Number(pData.nest_level) || Math.max(1, 1 + Math.floor((Number(pData.nest_points) || 0) / 50))
+        }
+        saveToStorage('duonest_partnership', partnership.value)
 
         const myId = currentUserId || currentUser.value?.id || authUser.value?.id
         const partnerId = (myId && pData.partner1_id === myId)
@@ -730,7 +723,7 @@ export const useDuoState = () => {
               favorite_drink: pUser.favorite_drink === 'Kawa z mlekiem' ? '' : (pUser.favorite_drink || ''),
               favorite_treat: pUser.favorite_treat === 'Czekolada' ? '' : (pUser.favorite_treat || ''),
               avatar_color: cleanPartnerColor,
-              points: Math.max(Number(pUser.points) || 0, Number(partnerUser.value?.points) || 0)
+              points: Number(pUser.points) || 0
             }
             saveToStorage('duonest_partner_user', partnerUser.value)
           }
@@ -850,7 +843,7 @@ export const useDuoState = () => {
         favorite_drink: dbProfile.favorite_drink === 'Kawa z mlekiem' ? '' : (dbProfile.favorite_drink || ''),
         favorite_treat: dbProfile.favorite_treat === 'Czekolada' ? '' : (dbProfile.favorite_treat || ''),
         avatar_color: displayColor,
-        points: Math.max(Number(dbProfile.points) || 0, Number(currentUser.value?.points) || 0)
+        points: Number(dbProfile.points) || 0
       }
       syncToStorage()
 
@@ -1986,6 +1979,34 @@ export const useDuoState = () => {
         }
         syncToStorage()
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'partnerships', filter: `id=eq.${partnershipId}` }, (payload: any) => {
+        if (payload.new && partnership.value) {
+          if (typeof payload.new.nest_points === 'number') {
+            partnership.value.nest_points = payload.new.nest_points
+            partnership.value.nest_level = payload.new.nest_level || Math.max(1, 1 + Math.floor(payload.new.nest_points / 50))
+          }
+          if (payload.new.pet_xp !== undefined) partnership.value.pet_xp = payload.new.pet_xp
+          if (payload.new.pet_name) partnership.value.pet_name = payload.new.pet_name
+          if (payload.new.nest_name) partnership.value.nest_name = payload.new.nest_name
+          if (payload.new.anniversary_date) partnership.value.anniversary_date = payload.new.anniversary_date
+          syncToStorage()
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload: any) => {
+        if (payload.new) {
+          if (currentUser.value && payload.new.id === currentUser.value.id) {
+            if (typeof payload.new.points === 'number') {
+              currentUser.value.points = payload.new.points
+            }
+          }
+          if (partnerUser.value && payload.new.id === partnerUser.value.id) {
+            if (typeof payload.new.points === 'number') {
+              partnerUser.value.points = payload.new.points
+            }
+          }
+          syncToStorage()
+        }
+      })
 
     // Subscribe to channel
     channel.subscribe((status: string) => {
@@ -2134,7 +2155,8 @@ export const useDuoState = () => {
               ...dbProfile,
               name: dbProfile.name || currentUser.value.name || '',
               avatar_color: getCleanAccentColor(dbProfile.avatar_color, currentUser.value.avatar_color || '#0284c7'),
-              partnership_id: dbProfile.partnership_id || null
+              partnership_id: dbProfile.partnership_id || null,
+              points: Number(dbProfile.points) || 0
             }
             syncToStorage()
           }
@@ -2144,24 +2166,22 @@ export const useDuoState = () => {
             await loadPartnershipAndPartner(effectivePartnershipId, currentUser.value.id)
           }
 
-          // Sync our profile to Supabase profiles table
+          // Sync our profile metadata to Supabase profiles table without overriding database points
           try {
             const currentHash = currentUserPasswordHash.value || ''
             const cleanColor = getCleanAccentColor(currentUser.value.avatar_color, '#0284c7')
             const colorToSave = currentHash ? `${cleanColor}|${currentHash}` : cleanColor
-            await client.from('profiles').upsert({
-              id: currentUser.value.id,
+            await client.from('profiles').update({
               name: currentUser.value.name,
               avatar_color: colorToSave,
               pairing_code: currentUser.value.pairing_code,
               partnership_id: partnership.value?.id || currentUser.value.partnership_id || null,
-              points: currentUser.value.points || 0,
               current_mood: currentUser.value.current_mood,
               mood_note: currentUser.value.mood_note,
               love_note: currentUser.value.love_note,
               favorite_drink: currentUser.value.favorite_drink,
               favorite_treat: currentUser.value.favorite_treat
-            })
+            }).eq('id', currentUser.value.id)
           } catch (_) {}
         } else if (partnership.value?.id) {
           await loadPartnershipAndPartner(partnership.value.id, currentUser.value?.id || '')
@@ -2236,21 +2256,6 @@ export const useDuoState = () => {
         try { await client.from('movies').upsert(moviesList.value) } catch (_) {}
       }
 
-      if (partnership.value) {
-        const currentPoints = Number(partnership.value.nest_points) || 0
-        const totalEarned = (tasksList.value.filter(t => t.is_completed).reduce((s, t) => s + (Number(t.points) || 15), 0))
-          + (nudgesList.value.length * 5)
-          + (eventsList.value.filter(e => e.is_completed).length * 10)
-        const finalNestPoints = Math.max(currentPoints, totalEarned)
-        if (finalNestPoints > currentPoints) {
-          partnership.value.nest_points = finalNestPoints
-          partnership.value.nest_level = Math.max(1, 1 + Math.floor(finalNestPoints / 50))
-          safeDb(client.from('partnerships').update({
-            nest_points: finalNestPoints,
-            nest_level: partnership.value.nest_level
-          }).eq('id', partnershipId))
-        }
-      }
       syncToStorage()
     } catch (e) {
       // Table does not exist or network error
