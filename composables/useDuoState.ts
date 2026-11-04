@@ -1011,8 +1011,9 @@ export const useDuoState = () => {
     saveToStorage('duonest_movies', moviesList.value)
   }
 
-  // Broadcast an action to the partner via Supabase Realtime WebSocket
+  // Broadcast an action to the partner via Supabase Realtime WebSocket & Web Push
   const broadcastToPartner = (action: string, payload: any) => {
+    // 1. Live WebSocket broadcast for instant in-app sync (<50ms)
     if (activePartnershipChannel && realtimeStatus.value === 'connected') {
       try {
         activePartnershipChannel.send({
@@ -1028,6 +1029,41 @@ export const useDuoState = () => {
         })
       } catch (err) {
         console.warn('Realtime broadcast error:', err)
+      }
+    }
+
+    // 2. Real Web Push notification delivery for background/locked phone delivery
+    if (typeof window !== 'undefined' && (currentUser.value?.partnership_id || partnerUser.value?.id)) {
+      const actionsForPush = [
+        'NUDGE_SEND',
+        'MOOD_UPDATE',
+        'SHOPPING_ADD',
+        'SHOPPING_TOGGLE',
+        'TASK_ADD',
+        'TASK_TOGGLE',
+        'EVENT_ADD',
+        'EVENT_TOGGLE_COMPLETED',
+        'WISHLIST_ADD',
+        'WISHLIST_TOGGLE_COMPLETED',
+        'MOVIE_ADD',
+        'MOVIE_TOGGLE_WATCHED'
+      ]
+
+      if (actionsForPush.includes(action)) {
+        // Fire-and-forget server dispatch (never blocks or throws in UI)
+        $fetch('/api/push/send', {
+          method: 'POST',
+          body: {
+            action,
+            payload,
+            senderName: currentUser.value.name,
+            senderUserId: currentUser.value.id,
+            partnershipId: currentUser.value.partnership_id || null,
+            targetUserId: partnerUser.value?.id || null
+          }
+        }).catch((err) => {
+          console.warn('[WebPush] Partner push dispatch note:', err)
+        })
       }
     }
   }

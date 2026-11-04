@@ -80,6 +80,17 @@ export const usePushNotifications = () => {
       }
     } catch (_) {}
 
+    // Auto-register/sync subscription when user is authenticated and push is enabled
+    if (isPushEnabled.value && permission.value === 'granted') {
+      registerServiceWorkerSubscription()
+    }
+
+    watch(() => currentUser.value?.id, (newId) => {
+      if (newId && isPushEnabled.value && permission.value === 'granted') {
+        registerServiceWorkerSubscription()
+      }
+    })
+
     // Listen to partner realtime events (via activeToastItem) and dispatch push notification
     watch(activeToastItem, (newToast) => {
       if (!newToast) return
@@ -180,15 +191,13 @@ export const usePushNotifications = () => {
     }
   }
 
-  // Register push subscription with active ServiceWorker
+  // Register push subscription with active ServiceWorker & sync with database
   const registerServiceWorkerSubscription = async () => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
     try {
       const reg = await navigator.serviceWorker.ready
       if (!reg || !('pushManager' in reg)) return
 
-      // In pure PWA mode without explicit VAPID server key, service worker showNotification is used.
-      // If a VAPID public key is configured in env, we can subscribe to PushManager:
       const vapidPublicKey = (useRuntimeConfig().public as any)?.vapidPublicKey
       if (vapidPublicKey) {
         isSubscribing.value = true
@@ -199,6 +208,22 @@ export const usePushNotifications = () => {
             applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
           })
         }
+
+        // Sync subscription with Supabase via backend endpoint
+        if (sub && currentUser.value?.id) {
+          await $fetch('/api/push/subscribe', {
+            method: 'POST',
+            body: {
+              userId: currentUser.value.id,
+              partnershipId: currentUser.value.partnership_id || null,
+              subscription: sub.toJSON(),
+              userAgent: navigator.userAgent
+            }
+          }).catch((err) => {
+            console.warn('[WebPush] Subscription sync note:', err)
+          })
+        }
+
         isSubscribing.value = false
       }
     } catch (err) {
@@ -286,6 +311,23 @@ export const usePushNotifications = () => {
       isPushEnabled.value = false
       persistSettings()
       triggerToast('Powiadomienia push zostały wyłączone.', { type: 'info' })
+
+      // Unsubscribe from browser PushManager & delete subscription from server
+      try {
+        if ('serviceWorker' in navigator) {
+          const reg = await navigator.serviceWorker.ready
+          const sub = await reg?.pushManager?.getSubscription()
+          if (sub) {
+            await $fetch('/api/push/unsubscribe', {
+              method: 'POST',
+              body: { endpoint: sub.endpoint }
+            }).catch(() => {})
+            await sub.unsubscribe().catch(() => {})
+          }
+        }
+      } catch (err) {
+        console.warn('[WebPush] Unsubscribe note:', err)
+      }
     }
   }
 
@@ -365,7 +407,7 @@ export const usePushNotifications = () => {
     sendDirectNotification(title, body, url)
   }
 
-  // Test notification action
+  // Test notification action (sends real backend push to registered device)
   const sendTestNotification = async (customTitle?: any, customBody?: any, customUrl?: any) => {
     if (permission.value !== 'granted') {
       const granted = await requestPermission()
@@ -374,6 +416,9 @@ export const usePushNotifications = () => {
 
     isPushEnabled.value = true
     persistSettings()
+
+    // Ensure device is subscribed on server
+    await registerServiceWorkerSubscription()
 
     const partnerName = partnerUser.value?.name || 'Partner'
     const title = (typeof customTitle === 'string' && customTitle.trim())
@@ -386,7 +431,30 @@ export const usePushNotifications = () => {
       ? customUrl
       : '/tabs/nest'
 
-    sendDirectNotification(title, body, url, true)
+    let sentViaServer = false
+    if (currentUser.value?.id) {
+      try {
+        const res = await $fetch<{ success: boolean; sentCount?: number }>('/api/push/test', {
+          method: 'POST',
+          body: {
+            userId: currentUser.value.id,
+            title,
+            body
+          }
+        })
+        if (res?.success && (res.sentCount || 0) > 0) {
+          sentViaServer = true
+        }
+      } catch (err) {
+        console.warn('[WebPush] Server test dispatch note:', err)
+      }
+    }
+
+    // Fallback to direct client notification if server hasn't received subscription yet or local env
+    if (!sentViaServer) {
+      sendDirectNotification(title, body, url, true)
+    }
+
     triggerToast('Wysłano testowe powiadomienie na Twoje urządzenie!', { type: 'success', title: 'Powiadomienie Push' })
   }
 
