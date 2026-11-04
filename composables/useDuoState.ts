@@ -142,6 +142,8 @@ export interface MovieItem {
   added_by?: string | null
   watched_at?: string | null
   reviews?: Record<string, MovieReview>
+  last_watched_season?: number | null
+  last_watched_episode?: number | null
   created_at: string
   updated_at?: string
 }
@@ -3344,6 +3346,8 @@ export const useDuoState = () => {
       added_by: currentUser.value?.id || null,
       watched_at: movie.status === 'watched' ? new Date().toISOString() : null,
       reviews: {},
+      last_watched_season: movie.last_watched_season !== undefined ? movie.last_watched_season : ((movie.media_type === 'tv' || movie.media_type === 'anime') ? 1 : null),
+      last_watched_episode: movie.last_watched_episode !== undefined ? movie.last_watched_episode : ((movie.media_type === 'tv' || movie.media_type === 'anime') ? 1 : null),
       created_at: new Date().toISOString()
     }
 
@@ -3472,6 +3476,47 @@ export const useDuoState = () => {
     triggerToast(`Zapisano Twoją recenzję dla "${item.title}" (${rating}/10 ⭐)!`, { type: 'movies', title: 'Recenzje Filmowe' })
   }
 
+  const updateMovieProgress = async (id: string, season: number, episode: number) => {
+    if (!await verifyUserAndPartnershipAccess()) return
+    const item = moviesList.value.find(m => m.id === id)
+    if (!item) return
+
+    const cleanSeason = Math.max(1, Math.floor(season || 1))
+    const cleanEpisode = Math.max(1, Math.floor(episode || 1))
+
+    const updated: MovieItem = {
+      ...item,
+      last_watched_season: cleanSeason,
+      last_watched_episode: cleanEpisode,
+      updated_at: new Date().toISOString()
+    }
+
+    moviesList.value = moviesList.value.map(m => m.id === id ? updated : m)
+    syncToStorage()
+
+    broadcastToPartner('MOVIE_UPDATE', {
+      id,
+      last_watched_season: cleanSeason,
+      last_watched_episode: cleanEpisode,
+      updated_at: updated.updated_at
+    })
+
+    const client = getSupabaseClient()
+    const pId = partnership.value?.id || currentUser.value?.partnership_id
+    if (client && pId) {
+      safeDb(client.from('movies').update({
+        last_watched_season: cleanSeason,
+        last_watched_episode: cleanEpisode,
+        updated_at: updated.updated_at
+      }).eq('id', id))
+    }
+
+    triggerToast(`Zaktualizowano: ${item.title} (Sezon ${cleanSeason}, Odc. ${cleanEpisode})! 📺`, {
+      type: 'movies',
+      title: 'Postęp serialu'
+    })
+  }
+
   const refreshMovies = async () => {
     const client = getSupabaseClient()
     const pId = partnership.value?.id || currentUser.value?.partnership_id
@@ -3520,6 +3565,7 @@ export const useDuoState = () => {
     refreshWishlist,
     addMovie,
     updateMovie,
+    updateMovieProgress,
     deleteMovie,
     toggleMovieWatched,
     saveMovieReview,

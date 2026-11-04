@@ -193,6 +193,14 @@
                     <span class="status-dot"></span>
                     {{ getStatusLabel(movie.status) }}
                   </span>
+                  <span
+                    v-if="movie.status === 'watching' && isSeries(movie)"
+                    class="series-ep-pill"
+                    @click.stop="openEpisodeModal(movie)"
+                  >
+                    <ion-icon :icon="ioniconsTvOutline" />
+                    <span>S{{ movie.last_watched_season || 1 }}:E{{ movie.last_watched_episode || 1 }}</span>
+                  </span>
                   <span v-if="movie.watched_at && movie.status === 'watched'" class="watched-date-meta">
                     {{ formatWatchedDate(movie.watched_at) }}
                   </span>
@@ -202,6 +210,54 @@
                 <p v-if="movie.overview" class="movie-overview-excerpt">
                   {{ movie.overview }}
                 </p>
+              </div>
+            </div>
+
+            <!-- SERIES PROGRESS TRACKER (Visible when currently watching TV or Anime) -->
+            <div v-if="movie.status === 'watching' && isSeries(movie)" class="series-card-tracker">
+              <div class="series-tracker-left" @click="openEpisodeModal(movie)">
+                <div class="series-tracker-icon">
+                  <ion-icon :icon="ioniconsTvOutline" />
+                </div>
+                <div class="series-tracker-meta">
+                  <span class="series-tracker-label">Ostatnio obejrzany:</span>
+                  <div class="series-tracker-badge">
+                    <span class="tracker-season">Sezon {{ movie.last_watched_season || 1 }}</span>
+                    <span class="tracker-dot">•</span>
+                    <span class="tracker-episode">Odcinek {{ movie.last_watched_episode || 1 }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="series-tracker-controls">
+                <button
+                  type="button"
+                  class="tracker-btn tracker-btn-minus"
+                  title="Poprzedni odcinek"
+                  :disabled="(movie.last_watched_episode || 1) <= 1"
+                  @click.stop="decrementEpisode(movie)"
+                >
+                  <ion-icon :icon="ioniconsRemove" />
+                </button>
+
+                <button
+                  type="button"
+                  class="tracker-btn tracker-btn-edit"
+                  title="Zmień odcinek"
+                  @click.stop="openEpisodeModal(movie)"
+                >
+                  <ion-icon :icon="ioniconsCreateOutline" />
+                </button>
+
+                <button
+                  type="button"
+                  class="tracker-btn tracker-btn-plus"
+                  title="Następny odcinek (+1)"
+                  @click.stop="incrementEpisode(movie)"
+                >
+                  <ion-icon :icon="ioniconsAdd" />
+                  <span>+1</span>
+                </button>
               </div>
             </div>
 
@@ -1160,6 +1216,30 @@
               </div>
             </div>
 
+            <!-- Series Episode Progress (If watching series/anime) -->
+            <div v-if="manualForm.status === 'watching' && isSeries(manualForm)" class="form-row-2col">
+              <div class="form-group">
+                <label class="form-label">Aktualny sezon</label>
+                <input
+                  v-model.number="manualForm.season"
+                  type="number"
+                  min="1"
+                  class="form-input"
+                  placeholder="1"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Aktualny odcinek</label>
+                <input
+                  v-model.number="manualForm.episode"
+                  type="number"
+                  min="1"
+                  class="form-input"
+                  placeholder="1"
+                />
+              </div>
+            </div>
+
             <!-- Year & Genres -->
             <div class="form-row-2col">
               <div class="form-group">
@@ -1414,6 +1494,79 @@
                     </div>
                   </div>
 
+                  <!-- Series Episode tracker in Details Modal -->
+                  <div
+                    v-if="savedMovieInList.status === 'watching' && isSeries(savedMovieInList)"
+                    class="details-series-tracker-box"
+                  >
+                    <div class="details-series-header">
+                      <div class="details-series-title-grp">
+                        <ion-icon :icon="ioniconsTvOutline" />
+                        <span>Ostatnio obejrzany odcinek</span>
+                      </div>
+                      <span class="details-series-indicator">
+                        S{{ savedMovieInList.last_watched_season || 1 }}:E{{ savedMovieInList.last_watched_episode || 1 }}
+                      </span>
+                    </div>
+
+                    <div class="details-series-steppers-grid">
+                      <!-- Season control -->
+                      <div class="series-stepper-cell">
+                        <span class="stepper-sublabel">Sezon</span>
+                        <div class="stepper-control-row">
+                          <button
+                            type="button"
+                            class="step-circle-btn"
+                            :disabled="(savedMovieInList.last_watched_season || 1) <= 1"
+                            @click="updateMovieProgress(savedMovieInList.id, (savedMovieInList.last_watched_season || 1) - 1, savedMovieInList.last_watched_episode || 1)"
+                          >
+                            <ion-icon :icon="ioniconsRemove" />
+                          </button>
+                          <span class="step-num-val">{{ savedMovieInList.last_watched_season || 1 }}</span>
+                          <button
+                            type="button"
+                            class="step-circle-btn"
+                            @click="updateMovieProgress(savedMovieInList.id, (savedMovieInList.last_watched_season || 1) + 1, savedMovieInList.last_watched_episode || 1)"
+                          >
+                            <ion-icon :icon="ioniconsAdd" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- Episode control -->
+                      <div class="series-stepper-cell">
+                        <span class="stepper-sublabel">Odcinek</span>
+                        <div class="stepper-control-row">
+                          <button
+                            type="button"
+                            class="step-circle-btn"
+                            :disabled="(savedMovieInList.last_watched_episode || 1) <= 1"
+                            @click="decrementEpisode(savedMovieInList)"
+                          >
+                            <ion-icon :icon="ioniconsRemove" />
+                          </button>
+                          <span class="step-num-val">{{ savedMovieInList.last_watched_episode || 1 }}</span>
+                          <button
+                            type="button"
+                            class="step-circle-btn step-circle-plus"
+                            @click="incrementEpisode(savedMovieInList)"
+                          >
+                            <ion-icon :icon="ioniconsAdd" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      class="details-btn-secondary ep-custom-change-btn"
+                      @click="openEpisodeModal(savedMovieInList)"
+                    >
+                      <ion-icon :icon="ioniconsCreateOutline" />
+                      <span>Wpisz inny numer odcinka / sezonu</span>
+                    </button>
+                  </div>
+
                   <button
                     v-if="savedMovieInList.status === 'watched'"
                     type="button"
@@ -1447,6 +1600,153 @@
           </div>
         </div>
       </ion-modal>
+
+      <!-- ========================================================== -->
+      <!-- MODAL 6: EPISODE PROGRESS MODAL (ZAZNACZ ODCINEK SERIALU) -->
+      <!-- ========================================================== -->
+      <ion-modal
+        :is-open="isEpisodeModalOpen"
+        :breakpoints="[0, 0.65, 0.95]"
+        :initial-breakpoint="0.65"
+        handle-behavior="cycle"
+        class="dn-movies-episode-modal"
+        @didDismiss="closeEpisodeModal"
+      >
+        <div class="dn-modal-container ep-modal-container" v-if="selectedMovieForEpisode">
+          <div class="dn-modal-header">
+            <div class="modal-title-col">
+              <h3>Postęp seansu serialu</h3>
+              <p>Na którym odcinku skończyliście?</p>
+            </div>
+            <button type="button" class="modal-close-btn" @click="closeEpisodeModal">
+              <ion-icon :icon="ioniconsCloseOutline" />
+            </button>
+          </div>
+
+          <div class="modal-scrollable-content ep-modal-scroll">
+            <!-- Series preview bar -->
+            <div class="ep-series-preview">
+              <img
+                v-if="selectedMovieForEpisode.poster_path"
+                :src="selectedMovieForEpisode.poster_path"
+                :alt="selectedMovieForEpisode.title"
+                class="ep-series-thumb"
+              />
+              <div class="ep-series-meta">
+                <h4>{{ selectedMovieForEpisode.title }}</h4>
+                <div class="ep-current-pill">
+                  <ion-icon :icon="ioniconsTvOutline" />
+                  <span>Aktualnie: Sezon {{ selectedMovieForEpisode.last_watched_season || 1 }}, Odc. {{ selectedMovieForEpisode.last_watched_episode || 1 }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Steppers Box for Season and Episode -->
+            <div class="ep-selectors-grid">
+              <!-- Season Stepper -->
+              <div class="ep-stepper-card">
+                <span class="ep-card-title">SEZON</span>
+                <div class="ep-stepper-action-row">
+                  <button
+                    type="button"
+                    class="ep-circle-stepper-btn"
+                    :disabled="episodeForm.season <= 1"
+                    @click="episodeForm.season = Math.max(1, episodeForm.season - 1)"
+                  >
+                    <ion-icon :icon="ioniconsRemove" />
+                  </button>
+                  <div class="ep-number-display">
+                    <span class="ep-big-num">{{ episodeForm.season }}</span>
+                  </div>
+                  <button
+                    type="button"
+                    class="ep-circle-stepper-btn"
+                    @click="episodeForm.season++"
+                  >
+                    <ion-icon :icon="ioniconsAdd" />
+                  </button>
+                </div>
+              </div>
+
+              <!-- Episode Stepper -->
+              <div class="ep-stepper-card">
+                <span class="ep-card-title">ODCINEK</span>
+                <div class="ep-stepper-action-row">
+                  <button
+                    type="button"
+                    class="ep-circle-stepper-btn"
+                    :disabled="episodeForm.episode <= 1"
+                    @click="episodeForm.episode = Math.max(1, episodeForm.episode - 1)"
+                  >
+                    <ion-icon :icon="ioniconsRemove" />
+                  </button>
+                  <div class="ep-number-display">
+                    <span class="ep-big-num">{{ episodeForm.episode }}</span>
+                  </div>
+                  <button
+                    type="button"
+                    class="ep-circle-stepper-btn ep-circle-primary"
+                    @click="episodeForm.episode++"
+                  >
+                    <ion-icon :icon="ioniconsAdd" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Number Input & Fast Presets -->
+            <div class="ep-manual-input-box">
+              <label class="ep-input-label">Wpisz bezpośrednio numer odcinka:</label>
+              <div class="ep-input-row">
+                <span class="ep-input-prefix">Odcinek nr:</span>
+                <input
+                  v-model.number="episodeForm.episode"
+                  type="number"
+                  min="1"
+                  max="9999"
+                  class="ep-manual-number-input"
+                  placeholder="np. 12"
+                />
+              </div>
+
+              <!-- Fast Presets -->
+              <div class="ep-presets-row">
+                <button
+                  type="button"
+                  class="ep-preset-chip"
+                  @click="episodeForm.episode += 1"
+                >
+                  +1 odcinek
+                </button>
+                <button
+                  type="button"
+                  class="ep-preset-chip"
+                  @click="episodeForm.episode += 5"
+                >
+                  +5 odcinków
+                </button>
+                <button
+                  type="button"
+                  class="ep-preset-chip"
+                  @click="episodeForm.season += 1; episodeForm.episode = 1"
+                >
+                  Kolejny sezon (odc. 1)
+                </button>
+              </div>
+            </div>
+
+            <!-- Submit Button -->
+            <button
+              type="button"
+              class="details-btn-primary ep-save-btn"
+              @click="submitEpisodeProgress"
+            >
+              <ion-icon :icon="ioniconsCheckmarkCircleOutline" />
+              <span>Zapisz postęp: Sezon {{ episodeForm.season }}, Odc. {{ episodeForm.episode }}</span>
+            </button>
+          </div>
+        </div>
+      </ion-modal>
     </ion-content>
   </ion-page>
 </template>
@@ -1463,6 +1763,7 @@ const {
   moviesList,
   addMovie,
   updateMovie,
+  updateMovieProgress,
   deleteMovie,
   toggleMovieWatched,
   saveMovieReview,
@@ -1850,6 +2151,10 @@ const addFromTmdb = async (item: any, status: 'planned' | 'watched' | 'watching'
       origin: { y: 0.85 }
     })
   } catch {}
+
+  if (status === 'watching' && isSeries(added)) {
+    openEpisodeModal(added)
+  }
 }
 
 // --- MODAL 2: REVIEW MODAL ---
@@ -2149,7 +2454,9 @@ const manualForm = ref({
   release_year: '',
   genreInput: '',
   poster_path: '',
-  overview: ''
+  overview: '',
+  season: 1,
+  episode: 1
 })
 
 const openManualAddModal = () => {
@@ -2160,7 +2467,9 @@ const openManualAddModal = () => {
     release_year: new Date().getFullYear().toString(),
     genreInput: '',
     poster_path: '',
-    overview: ''
+    overview: '',
+    season: 1,
+    episode: 1
   }
   isManualModalOpen.value = true
 }
@@ -2205,7 +2514,9 @@ const submitManualAdd = async () => {
     release_year: manualForm.value.release_year.trim() || null,
     genres,
     poster_path: manualForm.value.poster_path.trim() || null,
-    overview: manualForm.value.overview.trim() || null
+    overview: manualForm.value.overview.trim() || null,
+    last_watched_season: isSeries(manualForm.value) ? manualForm.value.season : null,
+    last_watched_episode: isSeries(manualForm.value) ? manualForm.value.episode : null
   })
 
   closeManualModal()
@@ -2247,9 +2558,61 @@ const deleteFromDetails = (movie: MovieItem) => {
   confirmDeleteMovie(movie)
 }
 
+// --- MODAL 6: EPISODE PROGRESS MODAL ---
+const isEpisodeModalOpen = ref(false)
+const selectedMovieForEpisode = ref<MovieItem | null>(null)
+const episodeForm = ref({
+  season: 1,
+  episode: 1
+})
+
+const isSeries = (item?: any): boolean => {
+  if (!item) return false
+  return item.media_type === 'tv' || item.media_type === 'anime'
+}
+
+const openEpisodeModal = (movie: MovieItem) => {
+  selectedMovieForEpisode.value = movie
+  episodeForm.value = {
+    season: movie.last_watched_season || 1,
+    episode: movie.last_watched_episode || 1
+  }
+  isEpisodeModalOpen.value = true
+}
+
+const closeEpisodeModal = () => {
+  isEpisodeModalOpen.value = false
+  selectedMovieForEpisode.value = null
+}
+
+const submitEpisodeProgress = async () => {
+  if (!selectedMovieForEpisode.value) return
+  const s = Math.max(1, Math.floor(episodeForm.value.season || 1))
+  const ep = Math.max(1, Math.floor(episodeForm.value.episode || 1))
+  await updateMovieProgress(selectedMovieForEpisode.value.id, s, ep)
+  closeEpisodeModal()
+}
+
+const incrementEpisode = async (movie: MovieItem) => {
+  const currentEp = movie.last_watched_episode || 1
+  const currentSeason = movie.last_watched_season || 1
+  await updateMovieProgress(movie.id, currentSeason, currentEp + 1)
+}
+
+const decrementEpisode = async (movie: MovieItem) => {
+  const currentEp = movie.last_watched_episode || 1
+  const currentSeason = movie.last_watched_season || 1
+  if (currentEp > 1) {
+    await updateMovieProgress(movie.id, currentSeason, currentEp - 1)
+  }
+}
+
 // --- CARD ACTIONS ---
 const toggleMovieStatus = async (movie: MovieItem, newStatus: 'planned' | 'watching' | 'watched') => {
   await toggleMovieWatched(movie.id, newStatus)
+  if (newStatus === 'watching' && isSeries(movie)) {
+    openEpisodeModal(movie)
+  }
 }
 
 const confirmDeleteMovie = (movie: MovieItem) => {
@@ -5606,6 +5969,477 @@ ion-modal.dn-movies-details-modal {
 .dn-button-primary:active {
   transform: scale(0.97);
   background: #1e293b;
+}
+
+/* SERIES EPISODE BADGE (IN STATUS ROW) */
+.series-ep-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.15s ease;
+}
+
+.series-ep-pill:active {
+  background: #e2e8f0;
+}
+
+.series-ep-pill ion-icon {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* SERIES CARD TRACKER BOX */
+.series-card-tracker {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.series-tracker-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+
+.series-tracker-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: #0f172a;
+  flex-shrink: 0;
+}
+
+.series-tracker-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.series-tracker-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.series-tracker-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.tracker-dot {
+  color: #cbd5e1;
+  font-size: 11px;
+}
+
+.series-tracker-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.tracker-btn {
+  height: 32px;
+  min-width: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #334155;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+
+.tracker-btn:active {
+  transform: scale(0.94);
+  background: #f1f5f9;
+}
+
+.tracker-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.tracker-btn-edit {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.tracker-btn-plus {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 2px;
+  padding: 0 10px;
+}
+
+.tracker-btn-plus:active {
+  background: #1e293b;
+}
+
+/* DETAILS MODAL SERIES TRACKER BOX */
+.details-series-tracker-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.details-series-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.details-series-title-grp {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.details-series-title-grp ion-icon {
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.details-series-indicator {
+  font-size: 11.5px;
+  font-weight: 800;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+
+.details-series-steppers-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.series-stepper-cell {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stepper-sublabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.stepper-control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.step-circle-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.1s ease;
+}
+
+.step-circle-btn:active {
+  transform: scale(0.92);
+}
+
+.step-circle-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.step-circle-plus {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+
+.step-num-val {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ep-custom-change-btn {
+  width: 100%;
+  font-size: 12px;
+  padding: 8px 12px;
+}
+
+/* MODAL 6: EPISODE PROGRESS MODAL */
+ion-modal.dn-movies-episode-modal {
+  --border-radius: 24px 24px 0 0;
+}
+
+.ep-modal-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #ffffff;
+}
+
+.ep-modal-scroll {
+  padding: 16px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.ep-series-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.ep-series-thumb {
+  width: 44px;
+  height: 62px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #0f172a;
+}
+
+.ep-series-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ep-series-meta h4 {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.ep-current-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.ep-selectors-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.ep-stepper-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.ep-card-title {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.6px;
+}
+
+.ep-stepper-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.ep-circle-stepper-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.1s ease;
+}
+
+.ep-circle-stepper-btn:active {
+  transform: scale(0.92);
+}
+
+.ep-circle-stepper-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.ep-circle-stepper-btn.ep-circle-primary {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+
+.ep-number-display {
+  min-width: 32px;
+  text-align: center;
+}
+
+.ep-big-num {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.ep-manual-input-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ep-input-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.ep-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 11px;
+  padding: 6px 12px;
+}
+
+.ep-input-prefix {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.ep-manual-number-input {
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  width: 100%;
+  outline: none;
+}
+
+.ep-presets-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.ep-preset-chip {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+}
+
+.ep-preset-chip:active {
+  transform: scale(0.96);
+  background: #f1f5f9;
+}
+
+.ep-save-btn {
+  margin-top: 6px;
 }
 </style>
 

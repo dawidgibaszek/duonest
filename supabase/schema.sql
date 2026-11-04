@@ -162,9 +162,14 @@ create table if not exists public.movies (
   added_by text,
   watched_at timestamptz,
   reviews jsonb default '{}'::jsonb,
+  last_watched_season integer default 1,
+  last_watched_episode integer default 1,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+alter table public.movies add column if not exists last_watched_season integer default 1;
+alter table public.movies add column if not exists last_watched_episode integer default 1;
 
 -- ==========================================================
 -- INDEXES FOR FAST REALTIME QUERIES
