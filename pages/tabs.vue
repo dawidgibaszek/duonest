@@ -37,113 +37,122 @@
     </div>
 
     <!-- Native DuoNest Bottom Navigation Bar with filled active icons -->
-    <nav class="duo-native-tab-bar">
-      <button
-        type="button"
-        id="tab-btn-nest"
-        class="duo-tab-btn"
-        :class="{ 'is-active': activeTabIndex === 0 }"
-        @click="goToTab(0)"
-      >
-        <div class="tab-icon-wrap">
-          <ion-icon :icon="activeTabIndex === 0 ? ioniconsHeart : ioniconsHeartOutline" />
-        </div>
-        <span class="tab-title">Gniazdko</span>
-      </button>
+    <div class="duo-tab-bar-wrapper">
+      <nav class="duo-native-tab-bar">
+        <button
+          type="button"
+          id="tab-btn-nest"
+          class="duo-tab-btn"
+          :class="{ 'is-active': activeTabIndex === 0 }"
+          @click="goToTab(0)"
+        >
+          <div class="tab-icon-wrap">
+            <div class="tab-icon-pill"></div>
+            <ion-icon :icon="activeTabIndex === 0 ? ioniconsHeart : ioniconsHeartOutline" />
+          </div>
+          <span class="tab-title">Gniazdko</span>
+        </button>
 
-      <button
-        type="button"
-        id="tab-btn-shopping"
-        class="duo-tab-btn"
-        :class="{ 'is-active': activeTabIndex === 1 }"
-        @click="goToTab(1)"
-      >
-        <div class="tab-icon-wrap">
-          <ion-icon :icon="activeTabIndex === 1 ? ioniconsCart : ioniconsCartOutline" />
-          <span v-if="pendingShoppingCount > 0" class="tab-badge primary-badge">
-            {{ pendingShoppingCount }}
-          </span>
-        </div>
-        <span class="tab-title">Zakupy</span>
-      </button>
+        <button
+          type="button"
+          id="tab-btn-shopping"
+          class="duo-tab-btn"
+          :class="{ 'is-active': activeTabIndex === 1 }"
+          @click="goToTab(1)"
+        >
+          <div class="tab-icon-wrap">
+            <div class="tab-icon-pill"></div>
+            <ion-icon :icon="activeTabIndex === 1 ? ioniconsCart : ioniconsCartOutline" />
+            <span v-if="pendingShoppingCount > 0" class="tab-badge primary-badge">
+              {{ pendingShoppingCount }}
+            </span>
+          </div>
+          <span class="tab-title">Zakupy</span>
+        </button>
 
-      <button
-        type="button"
-        id="tab-btn-tasks"
-        class="duo-tab-btn"
-        :class="{ 'is-active': activeTabIndex === 2 }"
-        @click="goToTab(2)"
-      >
-        <div class="tab-icon-wrap">
-          <ion-icon :icon="activeTabIndex === 2 ? ioniconsCheckbox : ioniconsCheckboxOutline" />
-          <span v-if="pendingTasksCount > 0" class="tab-badge secondary-badge">
-            {{ pendingTasksCount }}
-          </span>
-        </div>
-        <span class="tab-title">Zadania</span>
-      </button>
+        <button
+          type="button"
+          id="tab-btn-tasks"
+          class="duo-tab-btn"
+          :class="{ 'is-active': activeTabIndex === 2 }"
+          @click="goToTab(2)"
+        >
+          <div class="tab-icon-wrap">
+            <div class="tab-icon-pill"></div>
+            <ion-icon :icon="activeTabIndex === 2 ? ioniconsCheckbox : ioniconsCheckboxOutline" />
+            <span v-if="pendingTasksCount > 0" class="tab-badge secondary-badge">
+              {{ pendingTasksCount }}
+            </span>
+          </div>
+          <span class="tab-title">Zadania</span>
+        </button>
 
-      <button
-        type="button"
-        id="tab-btn-calendar"
-        class="duo-tab-btn"
-        :class="{ 'is-active': activeTabIndex === 3 }"
-        @click="goToTab(3)"
-      >
-        <div class="tab-icon-wrap">
-          <ion-icon :icon="activeTabIndex === 3 ? ioniconsCalendar : ioniconsCalendarOutline" />
-          <span v-if="todayEventsCount > 0" class="tab-badge tertiary-badge">
-            {{ todayEventsCount }}
-          </span>
-        </div>
-        <span class="tab-title">Terminarz</span>
-      </button>
+        <button
+          type="button"
+          id="tab-btn-calendar"
+          class="duo-tab-btn"
+          :class="{ 'is-active': activeTabIndex === 3 }"
+          @click="goToTab(3)"
+        >
+          <div class="tab-icon-wrap">
+            <div class="tab-icon-pill"></div>
+            <ion-icon :icon="activeTabIndex === 3 ? ioniconsCalendar : ioniconsCalendarOutline" />
+            <span v-if="todayEventsCount > 0" class="tab-badge tertiary-badge">
+              {{ todayEventsCount }}
+            </span>
+          </div>
+          <span class="tab-title">Terminarz</span>
+        </button>
 
-      <button
-        type="button"
-        id="tab-btn-wishlist"
-        class="duo-tab-btn"
-        :class="{ 'is-active': activeTabIndex === 4 }"
-        @click="goToTab(4)"
-      >
-        <div class="tab-icon-wrap">
-          <ion-icon :icon="activeTabIndex === 4 ? ioniconsGift : ioniconsGiftOutline" />
-          <span v-if="pendingWishlistCount > 0" class="tab-badge pink-badge">
-            {{ pendingWishlistCount }}
-          </span>
-        </div>
-        <span class="tab-title">Wishlista</span>
-      </button>
+        <button
+          type="button"
+          id="tab-btn-wishlist"
+          class="duo-tab-btn"
+          :class="{ 'is-active': activeTabIndex === 4 }"
+          @click="goToTab(4)"
+        >
+          <div class="tab-icon-wrap">
+            <div class="tab-icon-pill"></div>
+            <ion-icon :icon="activeTabIndex === 4 ? ioniconsGift : ioniconsGiftOutline" />
+            <span v-if="pendingWishlistCount > 0" class="tab-badge pink-badge">
+              {{ pendingWishlistCount }}
+            </span>
+          </div>
+          <span class="tab-title">Wishlista</span>
+        </button>
 
-      <button
-        type="button"
-        id="tab-btn-movies"
-        class="duo-tab-btn"
-        :class="{ 'is-active': activeTabIndex === 5 }"
-        @click="goToTab(5)"
-      >
-        <div class="tab-icon-wrap">
-          <ion-icon :icon="activeTabIndex === 5 ? ioniconsFilm : ioniconsFilmOutline" />
-          <span v-if="pendingMoviesCount > 0" class="tab-badge purple-badge">
-            {{ pendingMoviesCount }}
-          </span>
-        </div>
-        <span class="tab-title">Filmy</span>
-      </button>
+        <button
+          type="button"
+          id="tab-btn-movies"
+          class="duo-tab-btn"
+          :class="{ 'is-active': activeTabIndex === 5 }"
+          @click="goToTab(5)"
+        >
+          <div class="tab-icon-wrap">
+            <div class="tab-icon-pill"></div>
+            <ion-icon :icon="activeTabIndex === 5 ? ioniconsFilm : ioniconsFilmOutline" />
+            <span v-if="pendingMoviesCount > 0" class="tab-badge purple-badge">
+              {{ pendingMoviesCount }}
+            </span>
+          </div>
+          <span class="tab-title">Filmy</span>
+        </button>
 
-      <button
-        type="button"
-        id="tab-btn-relationship"
-        class="duo-tab-btn"
-        :class="{ 'is-active': activeTabIndex === 6 }"
-        @click="goToTab(6)"
-      >
-        <div class="tab-icon-wrap">
-          <ion-icon :icon="activeTabIndex === 6 ? ioniconsSparkles : ioniconsSparklesOutline" />
-        </div>
-        <span class="tab-title">Relacja</span>
-      </button>
-    </nav>
+        <button
+          type="button"
+          id="tab-btn-relationship"
+          class="duo-tab-btn"
+          :class="{ 'is-active': activeTabIndex === 6 }"
+          @click="goToTab(6)"
+        >
+          <div class="tab-icon-wrap">
+            <div class="tab-icon-pill"></div>
+            <ion-icon :icon="activeTabIndex === 6 ? ioniconsSparkles : ioniconsSparklesOutline" />
+          </div>
+          <span class="tab-title">Relacja</span>
+        </button>
+      </nav>
+    </div>
   </ion-page>
 </template>
 
@@ -405,7 +414,7 @@ watch(() => route.path, () => {
 .tabs-touch-container {
   flex: 1;
   width: 100%;
-  height: calc(100% - 56px - env(safe-area-inset-bottom, 0px));
+  height: calc(100% - 72px - env(safe-area-inset-bottom, 0px));
   position: relative;
   overflow: hidden;
 }
@@ -437,20 +446,27 @@ watch(() => route.path, () => {
   height: 100%;
 }
 
-/* DUONEST NATIVE BOTTOM TAB BAR */
+/* ── TELEGRAM-STYLE FLOATING BOTTOM TAB BAR ── */
+
+.duo-tab-bar-wrapper {
+  position: relative;
+  z-index: 1000;
+  padding: 8px 12px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  background: transparent;
+}
+
 .duo-native-tab-bar {
   display: flex;
   align-items: center;
   justify-content: space-around;
-  height: calc(56px + env(safe-area-inset-bottom, 0px));
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: rgba(255, 255, 255, 0.781);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(226, 232, 240, 0.8);
-  position: relative;
-  z-index: 1000;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.03);
+  height: 56px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.10),
+    0 1px 4px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
 }
 
 .duo-tab-btn {
@@ -459,7 +475,7 @@ watch(() => route.path, () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   background: none;
   border: none;
   padding: 6px 0;
@@ -468,14 +484,33 @@ watch(() => route.path, () => {
   transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s ease;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  position: relative;
 }
 
 .duo-tab-btn:active {
-  transform: scale(0.92);
+  transform: scale(0.90);
 }
 
 .duo-tab-btn.is-active {
   color: #0f172a;
+}
+
+/* Animated pill indicator that appears under active icon */
+.tab-icon-pill {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -60%);
+  width: 0;
+  height: 28px;
+  background: #f1f5f9;
+  border-radius: 999px;
+  transition: width 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 0;
+}
+
+.duo-tab-btn.is-active .tab-icon-pill {
+  width: 44px;
 }
 
 .duo-tab-btn.is-active .tab-icon-wrap ion-icon {
@@ -483,8 +518,8 @@ watch(() => route.path, () => {
 }
 
 @keyframes tabIconPop {
-  0% { transform: scale(0.85); }
-  60% { transform: scale(1.15); }
+  0% { transform: scale(0.80); }
+  60% { transform: scale(1.18); }
   100% { transform: scale(1); }
 }
 
@@ -495,6 +530,13 @@ watch(() => route.path, () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 44px;
+  height: 28px;
+}
+
+.tab-icon-wrap ion-icon {
+  position: relative;
+  z-index: 1;
 }
 
 .tab-title {
@@ -507,7 +549,7 @@ watch(() => route.path, () => {
 .tab-badge {
   position: absolute;
   top: -4px;
-  right: -10px;
+  right: -6px;
   font-size: 10px;
   font-weight: 700;
   border-radius: 999px;
@@ -515,6 +557,7 @@ watch(() => route.path, () => {
   color: #ffffff;
   line-height: 1.2;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  z-index: 2;
 }
 
 .primary-badge { background: #0f172a; }
