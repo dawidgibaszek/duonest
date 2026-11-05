@@ -70,72 +70,43 @@
           </div>
         </div>
 
-        <!-- MAIN NEST INFO & VISUAL MASCOT SECTION -->
-        <div class="hero-center-layout">
-          <!-- LEFT: NEST TITLE, STAGE BADGE, DESCRIPTION -->
-          <div class="hero-info-col">
+        <!-- NEST TITLE & STAGE BADGES -->
+        <div class="hero-body">
+          <div class="hero-header-line">
             <h2 class="hero-nest-name">{{ partnership?.nest_name || 'Nasze Ciepłe Gniazdko' }}</h2>
-            
-            <div class="hero-stage-badge-wrap">
-              <span class="hero-stage-pill">
-                <ion-icon :icon="getStageIcon(nestLevel)" class="stage-icon-svg" />
-                <span>Poziom {{ nestLevel }} • {{ currentStageName }}</span>
-              </span>
-              <button class="hero-celebrate-btn" @click="celebrateWithConfetti" title="Świętuj">
-                <ion-icon :icon="ioniconsSparklesOutline" />
-                <span>Świętuj</span>
-              </button>
-            </div>
-
-            <p class="hero-stage-desc" v-if="currentStageDescription">{{ currentStageDescription }}</p>
+            <button class="hero-celebrate-btn" @click="celebrateWithConfetti" title="Świętuj">
+              <ion-icon :icon="ioniconsSparklesOutline" />
+              <span>Świętuj</span>
+            </button>
           </div>
 
-          <!-- RIGHT: PURE SVG NEST EMBLEM WITH FLOATING MICRO-BADGES -->
-          <div class="hero-mascot-col" @click="celebrateWithConfetti" title="Wasze Gniazdko - kliknij, aby świętować!">
-            <div class="nest-avatar-aura"></div>
-            <div class="nest-svg-wrapper">
-              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="nest-vector-svg">
-                <defs>
-                  <linearGradient id="nestShieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#1e293b" />
-                    <stop offset="100%" stop-color="#0f172a" />
-                  </linearGradient>
-                  <linearGradient id="nestTwigGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#34d399" />
-                    <stop offset="100%" stop-color="#059669" />
-                  </linearGradient>
-                  <linearGradient id="nestHeartGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#fb7185" />
-                    <stop offset="100%" stop-color="#f43f5e" />
-                  </linearGradient>
-                </defs>
-                <!-- Shield Base -->
-                <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#nestShieldGrad)" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
-                
-                <!-- Nest Twigs Base -->
-                <path d="M12 36C14 47 22 51 32 51C42 51 50 47 52 36" stroke="url(#nestTwigGrad)" stroke-width="3.5" stroke-linecap="round"/>
-                <path d="M15 41C20 48 26 50 32 50C38 50 44 48 49 41" stroke="#047857" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
-                <path d="M14 34C19 40 26 42 32 42C38 42 45 40 50 34" stroke="url(#nestTwigGrad)" stroke-width="2.5" stroke-linecap="round"/>
+          <div class="hero-stage-badge-wrap">
+            <span class="hero-stage-pill">
+              <ion-icon :icon="getStageIcon(nestLevel)" class="stage-icon-svg" />
+              <span>Poziom {{ nestLevel }} • {{ currentStageName }}</span>
+            </span>
+          </div>
 
-                <!-- Left User Nest Egg -->
-                <ellipse cx="26" cy="27" rx="7.5" ry="9.5" :fill="currentUserAccentColor" stroke="#ffffff" stroke-width="1.5" transform="rotate(-10 26 27)"/>
-                <!-- Right Partner Nest Egg -->
-                <ellipse cx="38" cy="27" rx="7.5" ry="9.5" :fill="partnerUserAccentColor" stroke="#ffffff" stroke-width="1.5" transform="rotate(10 38 27)"/>
+          <div class="hero-stage-quote" v-if="currentStageDescription">
+            <p class="hero-stage-desc">{{ currentStageDescription }}</p>
+          </div>
+        </div>
 
-                <!-- Central Loving Heart -->
-                <path d="M32 23C32 23 27 18 27 15C27 13 28.5 11.5 30.5 11.5C31.5 11.5 32 12.2 32 12.2C32 12.2 32.5 11.5 33.5 11.5C35.5 11.5 37 13 37 15C37 18 32 23 32 23Z" fill="url(#nestHeartGrad)" stroke="#ffffff" stroke-width="1"/>
-
-                <!-- Little Green Sprout Nodes -->
-                <circle cx="12" cy="36" r="2" fill="#34d399"/>
-                <circle cx="52" cy="36" r="2" fill="#34d399"/>
-              </svg>
-              <div class="nest-micro-badge badge-top">
-                <ion-icon :icon="ioniconsHeart" class="micro-heart" />
-              </div>
-              <div class="nest-micro-badge badge-bottom">
-                <ion-icon :icon="ioniconsSparkles" class="micro-sparkle" />
-              </div>
-            </div>
+        <!-- 3-METRIC QUICK STATS STRIP -->
+        <div class="hero-metrics-strip">
+          <div class="hero-metric-item">
+            <span class="metric-label">ETAP</span>
+            <span class="metric-val">Poz. {{ nestLevel }}</span>
+          </div>
+          <div class="metric-divider"></div>
+          <div class="hero-metric-item">
+            <span class="metric-label">POSTĘP XP</span>
+            <span class="metric-val">{{ levelProgress }}%</span>
+          </div>
+          <div class="metric-divider"></div>
+          <div class="hero-metric-item">
+            <span class="metric-label">DO KOLEJNEGO</span>
+            <span class="metric-val">{{ pointsToNextLevel }} pkt</span>
           </div>
         </div>
 
@@ -150,13 +121,12 @@
               {{ nestPoints }} pkt doświadczenia
             </span>
             <span class="xp-next">
-              Do poz. {{ nestLevel + 1 }}: <strong>{{ pointsToNextLevel }} pkt</strong>
+              Cel: Poz. {{ nestLevel + 1 }}
             </span>
           </div>
         </div>
       </div>
 
-      <!-- 2. PARTNER'S MOOD WIDGET -->
       <div class="dn-card mood-widget-card" v-if="partnerUser">
         <div class="card-header-row">
           <div class="header-left">
@@ -1453,26 +1423,21 @@ const handleRefresh = async (event: any) => {
   margin-top: 2px;
 }
 
-/* Center Layout: Nest Info & Mascot */
-.hero-center-layout {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.hero-body {
   margin-top: 14px;
   position: relative;
   z-index: 2;
 }
 
-.hero-info-col {
-  flex: 1;
-  min-width: 0;
+.hero-header-line {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .hero-nest-name {
-  font-size: 21px;
+  font-size: 22px;
   font-weight: 800;
   color: #ffffff;
   letter-spacing: -0.02em;
@@ -1486,27 +1451,26 @@ const handleRefresh = async (event: any) => {
 .hero-stage-badge-wrap {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+  gap: 8px;
   margin-top: 6px;
 }
 
 .hero-stage-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11px;
+  gap: 6px;
+  font-size: 11.5px;
   font-weight: 700;
-  background: rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.18);
-  padding: 3.5px 9px;
+  padding: 4px 12px;
   border-radius: 999px;
   backdrop-filter: blur(8px);
   color: #ffffff;
 }
 
 .stage-icon-svg {
-  font-size: 13.5px;
+  font-size: 14px;
   color: #34d399;
   flex-shrink: 0;
 }
@@ -1514,17 +1478,18 @@ const handleRefresh = async (event: any) => {
 .hero-celebrate-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.08) 100%);
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  padding: 3.5px 9px;
+  padding: 4px 12px;
   border-radius: 999px;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   backdrop-filter: blur(8px);
+  flex-shrink: 0;
 }
 
 .hero-celebrate-btn:hover {
@@ -1536,97 +1501,63 @@ const handleRefresh = async (event: any) => {
   transform: scale(0.93);
 }
 
+.hero-stage-quote {
+  background: rgba(255, 255, 255, 0.05);
+  border-left: 3px solid #34d399;
+  border-radius: 0 12px 12px 0;
+  padding: 8px 12px;
+  margin-top: 10px;
+}
+
 .hero-stage-desc {
   font-size: 12px;
   line-height: 1.45;
-  color: rgba(226, 232, 240, 0.85);
-  margin: 6px 0 0 0;
+  color: rgba(226, 232, 240, 0.88);
+  margin: 0;
 }
 
-/* Mascot Emblem */
-.hero-mascot-col {
-  flex-shrink: 0;
+/* 3-Metric Quick Stats Strip */
+.hero-metrics-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 8px 14px;
+  margin-top: 14px;
   position: relative;
+  z-index: 2;
+}
+
+.hero-metric-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 4px;
+  flex: 1;
+  text-align: center;
 }
 
-.nest-avatar-aura {
-  position: absolute;
-  width: 72px;
-  height: 72px;
-  border-radius: 22px;
-  background: radial-gradient(circle, rgba(52, 211, 153, 0.3) 0%, transparent 70%);
-  filter: blur(6px);
-  animation: auraPulse 3s infinite ease-in-out;
+.metric-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
 }
 
-.nest-svg-wrapper {
-  position: relative;
-  width: 62px;
-  height: 62px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+.metric-val {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #ffffff;
+  margin-top: 2px;
+  letter-spacing: -0.01em;
 }
 
-.hero-mascot-col:hover .nest-svg-wrapper {
-  transform: scale(1.08) rotate(3deg);
-}
-
-.hero-mascot-col:active .nest-svg-wrapper {
-  transform: scale(0.94);
-}
-
-.nest-vector-svg {
-  width: 58px;
-  height: 58px;
-  border-radius: 17px;
-  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.3));
-  animation: floatUp 3.5s ease-in-out infinite;
-  display: block;
-}
-
-.nest-micro-badge {
-  position: absolute;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-}
-
-.badge-top {
-  top: -5px;
-  right: -3px;
-  width: 20px;
-  height: 20px;
-  background: #ffffff;
-  font-size: 11px;
-  animation: floatUp 3.5s ease-in-out infinite 0.4s;
-}
-
-.micro-heart {
-  color: #f43f5e;
-}
-
-.badge-bottom {
-  bottom: -3px;
-  left: -3px;
-  width: 19px;
-  height: 19px;
-  background: #0f172a;
-  border: 1.5px solid #ffffff;
-  font-size: 10px;
-  animation: floatUp 3.5s ease-in-out infinite 1.2s;
-}
-
-.micro-sparkle {
-  color: #fbbf24;
+.metric-divider {
+  width: 1px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* XP Progress Bar */
