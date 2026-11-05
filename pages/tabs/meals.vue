@@ -483,6 +483,15 @@
                     <ion-icon :icon="ioniconsCalendarOutline" />
                     <span>Zaplanuj</span>
                   </button>
+                  <button
+                    type="button"
+                    class="recipe-action-delete-btn"
+                    @click.stop="confirmDeleteSavedRecipe(recipe)"
+                    aria-label="Usuń przepis z Twoich przepisów"
+                    title="Usuń z Twoich przepisów"
+                  >
+                    <ion-icon :icon="ioniconsTrashOutline" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -593,8 +602,8 @@
         <div v-else class="meals-cards-container">
           <div class="meals-cards-grid">
             <div
-              v-for="meal in apiResults"
-              :key="meal.id"
+              v-for="meal in (apiResults || []).filter(Boolean)"
+              :key="meal.id || meal.api_id || meal.title"
               class="recipe-card dn-card"
               @click="openApiMealPreview(meal)"
             >
@@ -714,14 +723,26 @@
               <span class="modal-sub-title">Inspiracja kulinarna dla Was</span>
             </div>
           </div>
-          <button
-            type="button"
-            class="modal-close-icon-btn"
-            @click="showDetailsModal = false"
-            aria-label="Zamknij"
-          >
-            <ion-icon :icon="ioniconsCloseOutline" />
-          </button>
+          <div class="modal-header-actions-group">
+            <button
+              v-if="isRecipeInSaved(activeSelectedMeal)"
+              type="button"
+              class="modal-delete-icon-btn"
+              @click="confirmDeleteSavedRecipe(activeSelectedMeal)"
+              aria-label="Usuń przepis z Twoich przepisów"
+              title="Usuń z Twoich przepisów"
+            >
+              <ion-icon :icon="ioniconsTrashOutline" />
+            </button>
+            <button
+              type="button"
+              class="modal-close-icon-btn"
+              @click="showDetailsModal = false"
+              aria-label="Zamknij"
+            >
+              <ion-icon :icon="ioniconsCloseOutline" />
+            </button>
+          </div>
         </div>
       </ion-header>
 
@@ -877,6 +898,17 @@
 
           <!-- Bottom Floating Action Bar -->
           <div class="recipe-bottom-floating-bar">
+            <button
+              v-if="isRecipeInSaved(activeSelectedMeal)"
+              type="button"
+              class="recipe-modal-delete-btn"
+              @click="confirmDeleteSavedRecipe(activeSelectedMeal)"
+              aria-label="Usuń z Twoich przepisów"
+              title="Usuń z Twoich przepisów"
+            >
+              <ion-icon :icon="ioniconsTrashOutline" />
+              <span>Usuń</span>
+            </button>
             <button
               type="button"
               class="dn-button-primary bottom-plan-btn"
@@ -1446,6 +1478,7 @@ const {
   addMeal,
   updateMeal,
   deleteMeal,
+  deleteSavedRecipe,
   toggleMealCompleted,
   addIngredientsToShopping,
   refreshMeals,
@@ -1466,6 +1499,7 @@ export interface SavedRecipe {
   key: string
   title: string
   titlePl?: string
+  rawTitle?: string
   category?: string
   area?: string
   image_url?: string
@@ -1482,18 +1516,42 @@ export interface SavedRecipe {
   latestMealId?: string
 }
 
+const deletedSavedRecipeKeys = ref<Set<string>>(new Set())
+if (process.client) {
+  try {
+    const raw = localStorage.getItem('duonest_deleted_saved_recipes')
+    if (raw) {
+      deletedSavedRecipeKeys.value = new Set(JSON.parse(raw))
+    }
+  } catch (_) {}
+}
+
+const unblockSavedRecipeKey = (key?: string) => {
+  if (!key) return
+  if (deletedSavedRecipeKeys.value.has(key)) {
+    deletedSavedRecipeKeys.value.delete(key)
+    if (process.client) {
+      try {
+        localStorage.setItem('duonest_deleted_saved_recipes', JSON.stringify(Array.from(deletedSavedRecipeKeys.value)))
+      } catch (_) {}
+    }
+  }
+}
+
 const savedRecipes = computed<SavedRecipe[]>(() => {
   const map = new Map<string, SavedRecipe>()
 
   for (const m of mealsList.value) {
     if (!m.title) continue
     const key = m.api_id ? `api_${m.api_id}` : `custom_${m.title.trim().toLowerCase()}`
+    if (deletedSavedRecipeKeys.value.has(key)) continue
     const existing = map.get(key)
     if (!existing) {
       map.set(key, {
         key,
         title: formatMealTitlePl(m.titlePl || m.title),
         titlePl: formatMealTitlePl(m.titlePl || m.title),
+        rawTitle: m.title,
         category: m.category,
         area: m.area,
         image_url: m.image_url,
@@ -1782,6 +1840,122 @@ const visiblePageNumbers = computed<(number | string)[]>(() => {
   return [1, '...', current - 1, current, current + 1, '...', total]
 })
 
+const fetchMealApi = async <T = any>(endpoint: string): Promise<T | null> => {
+  // 1. Primary path: Nuxt server route (and Netlify redirect)
+  try {
+    const res = await $fetch<T>(endpoint)
+    if (res && typeof res === 'object') return res
+  } catch (_) {}
+
+  // 2. Secondary path: direct Netlify serverless function invocation
+  if (endpoint.startsWith('/api/meals/')) {
+    const netlifyEndpoint = endpoint.replace('/api/meals/', '/.netlify/functions/meals-')
+    try {
+      const res = await $fetch<T>(netlifyEndpoint)
+      if (res && typeof res === 'object') return res
+    } catch (_) {}
+  }
+
+  // 3. Tertiary fallback: direct TheMealDB API
+  try {
+    if (endpoint.includes('/api/meals/search')) {
+      const urlObj = new URL(endpoint, 'http://localhost')
+      const isRandom = urlObj.searchParams.get('random') === 'true'
+      const q = urlObj.searchParams.get('q') || ''
+      const category = urlObj.searchParams.get('category') || ''
+
+      let tmdbUrl = 'https://www.themealdb.com/api/json/v1/1/search.php?s='
+      if (isRandom) {
+        tmdbUrl = 'https://www.themealdb.com/api/json/v1/1/random.php'
+      } else if (category && category !== 'all') {
+        tmdbUrl = `https://www.themealdb.com/api/json/v1/1/filter.php?c=${encodeURIComponent(category)}`
+      } else if (q) {
+        tmdbUrl = `https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(q)}`
+      }
+
+      const rawRes = await fetch(tmdbUrl, { headers: { Accept: 'application/json' } })
+      if (rawRes.ok) {
+        const data = await rawRes.json()
+        const rawList = Array.isArray(data?.meals) ? data.meals : []
+        const meals = rawList.map((raw: any) => ({
+          id: String(raw.idMeal || ''),
+          title: formatMealTitlePl(raw.strMeal || ''),
+          titlePl: formatMealTitlePl(raw.strMeal || ''),
+          originalTitle: raw.strMeal,
+          category: raw.strCategory || 'Inne',
+          categoryPl: raw.strCategory || 'Inne',
+          area: raw.strArea || 'Międzynarodowa',
+          areaPl: raw.strArea || 'Międzynarodowa',
+          thumbnail: raw.strMealThumb || '',
+          instructions: raw.strInstructions || '',
+          instructionsSteps: raw.strInstructions ? raw.strInstructions.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean) : [],
+          tags: raw.strTags ? raw.strTags.split(',').map((t: string) => t.trim()) : [],
+          youtubeUrl: raw.strYoutube || null,
+          sourceUrl: raw.strSource || null,
+          ingredients: []
+        }))
+        return {
+          success: true,
+          meals,
+          pagination: {
+            page: 1,
+            limit: meals.length,
+            total: meals.length,
+            totalPages: 1,
+            hasNext: false,
+            hasPrev: false
+          }
+        } as T
+      }
+    } else if (endpoint.includes('/api/meals/lookup')) {
+      const urlObj = new URL(endpoint, 'http://localhost')
+      const id = urlObj.searchParams.get('id') || ''
+      if (id) {
+        const rawRes = await fetch(`https://www.themealdb.com/api/json/v1/1/lookup.php?i=${encodeURIComponent(id)}`, { headers: { Accept: 'application/json' } })
+        if (rawRes.ok) {
+          const data = await rawRes.json()
+          const raw = data?.meals?.[0]
+          if (raw) {
+            const ingredients: any[] = []
+            for (let i = 1; i <= 20; i++) {
+              const ing = raw[`strIngredient${i}`]
+              const measure = raw[`strMeasure${i}`]
+              if (ing && ing.trim()) {
+                ingredients.push({
+                  name: translateIngredientName(ing.trim()),
+                  measure: measure ? formatMeasurePl(measure.trim()) : ''
+                })
+              }
+            }
+            return {
+              success: true,
+              meal: {
+                id: String(raw.idMeal || ''),
+                title: formatMealTitlePl(raw.strMeal || ''),
+                titlePl: formatMealTitlePl(raw.strMeal || ''),
+                originalTitle: raw.strMeal,
+                category: raw.strCategory || 'Inne',
+                categoryPl: raw.strCategory || 'Inne',
+                area: raw.strArea || 'Międzynarodowa',
+                areaPl: raw.strArea || 'Międzynarodowa',
+                thumbnail: raw.strMealThumb || '',
+                instructions: raw.strInstructions || '',
+                instructionsSteps: raw.strInstructions ? raw.strInstructions.split(/\r?\n+/).map((s: string) => s.trim()).filter(Boolean) : [],
+                tags: raw.strTags ? raw.strTags.split(',').map((t: string) => t.trim()) : [],
+                youtubeUrl: raw.strYoutube || null,
+                sourceUrl: raw.strSource || null,
+                ingredients
+              }
+            } as T
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
+  return null
+}
+
 const fetchApiMeals = async (overrideType?: string, overrideVal?: string, targetPage?: number) => {
   isLoadingApi.value = true
   if (targetPage !== undefined) {
@@ -1806,9 +1980,9 @@ const fetchApiMeals = async (overrideType?: string, overrideVal?: string, target
       }
     }
 
-    const res = await $fetch<{ success: boolean; meals: any[]; pagination?: any }>(`/api/meals/search?${params.toString()}`)
+    const res = await fetchMealApi<{ success: boolean; meals: any[]; pagination?: any }>(`/api/meals/search?${params.toString()}`)
     if (res && res.meals) {
-      apiResults.value = res.meals
+      apiResults.value = (res.meals || []).filter((m: any) => m && (m.id || m.title))
       if (res.pagination) {
         pagination.value = res.pagination
       } else {
@@ -1870,7 +2044,7 @@ const handleSurpriseMe = async () => {
   const minSuspenseDelay = new Promise(resolve => setTimeout(resolve, 650))
   try {
     const [res] = await Promise.all([
-      $fetch<{ success: boolean; meals: any[] }>('/api/meals/search?random=true'),
+      fetchMealApi<{ success: boolean; meals: any[] }>('/api/meals/search?random=true'),
       minSuspenseDelay
     ])
     if (res && res.meals && res.meals.length > 0) {
@@ -1902,7 +2076,7 @@ const ensureMealInstructionsTranslated = async (meal: any) => {
   if ((englishDetected || needsSteps) && meal.id) {
     isTranslatingRecipe.value = true
     try {
-      const res = await $fetch<{ success: boolean; meal: any }>(`/api/meals/lookup?id=${meal.id}`)
+      const res = await fetchMealApi<{ success: boolean; meal: any }>(`/api/meals/lookup?id=${meal.id}`)
       if (res && res.meal) {
         if (activeSelectedMeal.value && String(activeSelectedMeal.value.id) === String(meal.id)) {
           activeSelectedMeal.value = {
@@ -1965,12 +2139,12 @@ const openAssignModal = async (meal: any, defaultDate?: string) => {
   let fullMeal = meal
   if (meal.source === 'api' && meal.api_id && (!meal.ingredients || meal.ingredients.length === 0)) {
     try {
-      const res = await $fetch<{ success: boolean; meal: any }>(`/api/meals/lookup?id=${meal.api_id || meal.id}`)
+      const res = await fetchMealApi<{ success: boolean; meal: any }>(`/api/meals/lookup?id=${meal.api_id || meal.id}`)
       if (res?.meal) fullMeal = res.meal
     } catch (_) {}
   } else if (!meal.ingredients || meal.ingredients.length === 0) {
     try {
-      const res = await $fetch<{ success: boolean; meal: any }>(`/api/meals/lookup?id=${meal.id}`)
+      const res = await fetchMealApi<{ success: boolean; meal: any }>(`/api/meals/lookup?id=${meal.id}`)
       if (res?.meal) fullMeal = res.meal
     } catch (_) {}
   }
@@ -1985,6 +2159,9 @@ const confirmAssignMeal = async () => {
   if (!assignTargetMeal.value || !assignDate.value) return
   const m = assignTargetMeal.value
   const targetDay = weekDays.value.find(d => d.dateStr === assignDate.value)
+
+  const assignKey = (m.api_id || m.id) ? `api_${m.api_id || m.id}` : `custom_${(m.title || '').trim().toLowerCase()}`
+  unblockSavedRecipeKey(assignKey)
 
   await addMeal({
     date: assignDate.value,
@@ -2047,6 +2224,8 @@ const selectSavedRecipeForDay = async (recipe: SavedRecipe) => {
   if (!targetPickDate.value) return
   const targetDay = weekDays.value.find(d => d.dateStr === targetPickDate.value)
 
+  unblockSavedRecipeKey(recipe.key)
+
   await addMeal({
     date: targetPickDate.value,
     day_name: targetDay?.dayName || '',
@@ -2065,6 +2244,33 @@ const selectSavedRecipeForDay = async (recipe: SavedRecipe) => {
 
   showPickSavedModal.value = false
   activeSubView.value = 'calendar'
+}
+
+const isRecipeInSaved = (meal?: any) => {
+  if (!meal) return false
+  const key = meal.key || (meal.api_id ? `api_${meal.api_id}` : `custom_${(meal.title || '').trim().toLowerCase()}`)
+  return savedRecipes.value.some(r => r.key === key)
+}
+
+const confirmDeleteSavedRecipe = async (recipe: SavedRecipe | any) => {
+  if (!recipe) return
+  const title = formatMealTitlePl(recipe.titlePl || recipe.title || recipe.name)
+  if (confirm(`Czy na pewno chcesz usunąć przepis "${title}" z Twoich przepisów?`)) {
+    const key = recipe.key || (recipe.api_id ? `api_${recipe.api_id}` : `custom_${(recipe.title || '').trim().toLowerCase()}`)
+    deletedSavedRecipeKeys.value.add(key)
+    if (process.client) {
+      try {
+        localStorage.setItem('duonest_deleted_saved_recipes', JSON.stringify(Array.from(deletedSavedRecipeKeys.value)))
+      } catch (_) {}
+    }
+    await deleteSavedRecipe(recipe)
+    if (activeSelectedMeal.value) {
+      const activeKey = activeSelectedMeal.value.key || (activeSelectedMeal.value.api_id ? `api_${activeSelectedMeal.value.api_id}` : `custom_${(activeSelectedMeal.value.title || '').trim().toLowerCase()}`)
+      if (activeKey === key || (recipe.api_id && String(activeSelectedMeal.value.api_id) === String(recipe.api_id))) {
+        showDetailsModal.value = false
+      }
+    }
+  }
 }
 
 const openSavedRecipeDetails = (recipe: SavedRecipe) => {
@@ -2113,6 +2319,8 @@ const handleCreateCustomMeal = async () => {
   }
 
   const targetDay = weekDays.value.find(d => d.dateStr === customDate.value)
+
+  unblockSavedRecipeKey(`custom_${customTitle.value.trim().toLowerCase()}`)
 
   await addMeal({
     date: customDate.value,
@@ -3091,6 +3299,34 @@ onMounted(() => {
   background: #1e293b;
 }
 
+.recipe-action-delete-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  color: #94a3b8;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.recipe-action-delete-btn:hover {
+  background: #fef2f2;
+  color: #ef4444;
+  border-color: #fecaca;
+}
+
+.recipe-action-delete-btn:active {
+  transform: scale(0.92);
+}
+
 /* TWOJE PRZEPISY (SAVED RECIPES VIEW) */
 .saved-recipes-wrapper {
   padding: 12px 14px 40px;
@@ -3777,9 +4013,40 @@ onMounted(() => {
   margin-top: 6px;
   padding-top: 10px;
   border-top: 1px solid #f1f5f9;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.recipe-modal-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 13px 16px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fee2e2;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+  white-space: nowrap;
+}
+
+.recipe-modal-delete-btn:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.recipe-modal-delete-btn:active {
+  transform: scale(0.96);
 }
 
 .bottom-plan-btn {
+  flex: 1;
   width: 100%;
   padding: 13px;
   border-radius: 14px;
@@ -3887,6 +4154,42 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.modal-header-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dn-meal-sheet-modal .modal-delete-icon-btn {
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ef4444;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.dn-meal-sheet-modal .modal-delete-icon-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+.dn-meal-sheet-modal .modal-delete-icon-btn:active {
+  transform: scale(0.92);
 }
 
 .dn-meal-sheet-modal .modal-close-icon-btn {

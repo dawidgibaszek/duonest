@@ -343,3 +343,243 @@ export async function getAllMealsCatalog(): Promise<MealRecipe[]> {
   return cachedAllMealsCatalog
 }
 
+export interface SearchMealsOptions {
+  searchQuery?: string
+  category?: string
+  area?: string
+  isRandom?: boolean
+  pageNum?: number
+  limitNum?: number
+}
+
+export async function searchMealsCatalog(options: SearchMealsOptions) {
+  const searchQuery = String(options.searchQuery || '').trim()
+  const category = String(options.category || '').trim()
+  const area = String(options.area || '').trim()
+  const isRandom = Boolean(options.isRandom)
+  const pageNum = Math.max(1, parseInt(String(options.pageNum || 1), 10) || 1)
+  const limitNum = Math.max(1, Math.min(100, parseInt(String(options.limitNum || 24), 10) || 24))
+
+  // 1. RANDOM MEAL GENERATOR
+  if (isRandom) {
+    try {
+      const response = await fetch('https://www.themealdb.com/api/json/v1/1/random.php', {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(6000)
+      })
+      if (response.ok) {
+        const data = await response.json()
+        const rawMeals = Array.isArray(data?.meals) ? data.meals : []
+        if (rawMeals.length > 0) {
+          const meals: MealRecipe[] = rawMeals.map(normalizeMealDbItem)
+          if (meals[0]?.instructions) {
+            try {
+              const trans = await translateRecipeInstructionsAsync(meals[0].instructions)
+              if (trans.instructionsPl) {
+                meals[0].instructions = trans.instructionsPl
+                meals[0].instructionsSteps = trans.stepsPl
+              }
+            } catch (_) {}
+          }
+          return {
+            success: true,
+            meals,
+            pagination: { page: 1, limit: 1, total: 1, totalPages: 1, hasNext: false, hasPrev: false }
+          }
+        }
+      }
+    } catch (_) {}
+
+    // Fallback: pick a random meal from our static catalog of 793 recipes
+    const catalog = await getAllMealsCatalog()
+    if (catalog.length > 0) {
+      const randomIndex = Math.floor(Math.random() * catalog.length)
+      const randomMeal = catalog[randomIndex]
+      return {
+        success: true,
+        meals: [randomMeal],
+        pagination: { page: 1, limit: 1, total: 1, totalPages: 1, hasNext: false, hasPrev: false }
+      }
+    }
+  }
+
+  // 2. FULL CATALOG QUERY WITH CATEGORIES, CUISINES, SEARCH & PAGINATION
+  const allCatalog = await getAllMealsCatalog()
+  let filtered = allCatalog
+
+  // A. Filter by Category
+  if (category && category.toLowerCase() !== 'all' && category.toLowerCase() !== 'wszystkie') {
+    const lowerCat = category.toLowerCase()
+    const SEMANTIC_KEYWORDS: Record<string, string[]> = {
+      pasta: ['makaron', 'spaghetti', 'linguine', 'penne', 'lasagne', 'lasagna', 'noodle', 'fettuccine', 'cannelloni', 'rotolo', 'udon', 'lo mein', 'chow fun', 'pad thai', 'ramen', 'macaroni', 'mac and cheese', 'fideuà'],
+      breakfast: ['śniadani', 'pancake', 'naleśnik', 'omlet', 'omelette', 'szakszuka', 'shakshuka', 'jajka', 'egg', 'tost', 'toast', 'chałka', 'porridge', 'owsianka', 'gohan', 'frittata'],
+      side: ['soup', 'zupa', 'chłodnik', 'krem', 'rosół', 'barszcz', 'bulion', 'broth', 'chowder', 'bisque', 'ramen', 'pho'],
+      soup: ['soup', 'zupa', 'chłodnik', 'krem', 'rosół', 'barszcz', 'bulion', 'broth', 'chowder', 'bisque', 'ramen', 'pho', 'goulash', 'gulasz', 'stew', 'czorba', 'chorba'],
+      chicken: ['kurczak', 'chicken', 'indyk', 'turkey', 'kaczka', 'duck'],
+      beef: ['wołowina', 'beef', 'stek', 'steak', 'burger', 'polędwica'],
+      pork: ['wieprzowina', 'pork', 'boczek', 'bacon', 'szynka', 'ham', 'schab', 'kiełbas', 'sausage', 'chorizo'],
+      seafood: ['ryba', 'fish', 'łosoś', 'salmon', 'krewetk', 'prawn', 'shrimp', 'tuńczyk', 'tuna', 'kalmar', 'squid', 'małże', 'mussels', 'dorsz', 'cod', 'okoń', 'bass'],
+      vegetarian: ['wegetariańsk', 'tofu', 'hummus', 'falafel', 'bakłażan', 'aubergine', 'eggplant', 'cukinia', 'zucchini', 'dynia', 'pumpkin', 'fasola', 'bean', 'ciecierzyca', 'chickpea', 'soczewica', 'lentil'],
+      vegan: ['wegańsk', 'vegan', 'tofu', 'hummus', 'falafel', 'ratatouille', 'fasolka', 'açaí']
+    }
+    const extraKeywords = SEMANTIC_KEYWORDS[lowerCat] || []
+
+    filtered = filtered.filter(m => {
+      const matchesCategory =
+        m.category.toLowerCase() === lowerCat ||
+        m.categoryPl.toLowerCase() === lowerCat
+      if (matchesCategory) return true
+
+      if (extraKeywords.length > 0) {
+        const combined = `${m.title} ${m.originalTitle || ''} ${m.category}`.toLowerCase()
+        return extraKeywords.some(kw => combined.includes(kw))
+      }
+      return false
+    })
+  }
+
+  // B. Filter by Area / Cuisine
+  if (area && area.toLowerCase() !== 'all' && area.toLowerCase() !== 'wszystkie') {
+    const lowerArea = area.toLowerCase()
+    if (lowerArea === 'asian' || lowerArea === 'azjatycka') {
+      const asianAreas = ['chinese', 'japanese', 'thai', 'vietnamese', 'malaysian', 'filipino']
+      filtered = filtered.filter(m => asianAreas.includes(m.area.toLowerCase()))
+    } else {
+      filtered = filtered.filter(m =>
+        m.area.toLowerCase() === lowerArea ||
+        m.areaPl.toLowerCase() === lowerArea
+      )
+    }
+  }
+
+  // C. Multi-Word Search Query
+  if (searchQuery) {
+    const qLower = searchQuery.toLowerCase().trim()
+    const searchWords = qLower.split(/\s+/).filter(Boolean)
+
+    filtered = filtered.filter(m => {
+      const title = m.title.toLowerCase()
+      const titlePl = (m.titlePl || '').toLowerCase()
+      const origTitle = (m.originalTitle || '').toLowerCase()
+      const cat = m.category.toLowerCase()
+      const catPl = m.categoryPl.toLowerCase()
+      const ar = m.area.toLowerCase()
+      const arPl = m.areaPl.toLowerCase()
+      const combined = `${title} ${titlePl} ${origTitle} ${cat} ${catPl} ${ar} ${arPl}`
+
+      return searchWords.every(word => {
+        const enTerm = POLISH_TO_ENGLISH_SEARCH[word] || word
+        return combined.includes(word) || combined.includes(enTerm)
+      })
+    })
+  }
+
+  // D. Pagination Calculation
+  const total = filtered.length
+  const totalPages = Math.ceil(total / limitNum) || 1
+  const currentPage = Math.min(pageNum, totalPages)
+  const startIndex = (currentPage - 1) * limitNum
+  const paginatedMeals = filtered.slice(startIndex, startIndex + limitNum)
+
+  return {
+    success: true,
+    meals: paginatedMeals,
+    pagination: {
+      page: currentPage,
+      limit: limitNum,
+      total,
+      totalPages,
+      hasNext: currentPage < totalPages,
+      hasPrev: currentPage > 1
+    }
+  }
+}
+
+export async function lookupMealById(id: string) {
+  if (!id) {
+    return { success: false, error: 'MISSING_ID', meal: null }
+  }
+
+  // 1. First check our pre-compiled rich catalog
+  const catalog = await getAllMealsCatalog()
+  const foundInCatalog = catalog.find(m => String(m.id) === id)
+  if (foundInCatalog) {
+    const isEn = /\b(the|and|with|heat|oven|into|minutes)\b/i.test(foundInCatalog.instructions || '')
+    if (isEn && !foundInCatalog.instructionsPl) {
+      try {
+        const transResult = await translateRecipeInstructionsAsync(foundInCatalog.instructions)
+        if (transResult.instructionsPl) {
+          foundInCatalog.instructions = transResult.instructionsPl
+          foundInCatalog.instructionsPl = transResult.instructionsPl
+          foundInCatalog.instructionsSteps = transResult.stepsPl
+          foundInCatalog.instructionsStepsPl = transResult.stepsPl
+        }
+      } catch (_) {}
+    }
+    return { success: true, meal: foundInCatalog }
+  }
+
+  // 2. Fallback to live TheMealDB API
+  try {
+    const url = `https://www.themealdb.com/api/json/v1/1/lookup.php?i=${encodeURIComponent(id)}`
+    const response = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(6000) })
+    if (!response.ok) {
+      return { success: false, error: `HTTP_${response.status}`, meal: null }
+    }
+
+    const data = await response.json()
+    const rawMeals = Array.isArray(data?.meals) ? data.meals : []
+    if (rawMeals.length === 0) {
+      return { success: false, error: 'NOT_FOUND', meal: null }
+    }
+
+    const meal = normalizeMealDbItem(rawMeals[0])
+
+    try {
+      const transResult = await translateRecipeInstructionsAsync(meal.instructions)
+      if (transResult.instructionsPl) {
+        meal.instructions = transResult.instructionsPl
+        meal.instructionsSteps = transResult.stepsPl
+      }
+    } catch (_) {}
+
+    return { success: true, meal }
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'SERVER_ERROR', meal: null }
+  }
+}
+
+export function getMealCategoriesAndAreas() {
+  const categories = [
+    { key: 'all', label: 'Wszystkie' },
+    { key: 'Pasta', label: 'Makarony' },
+    { key: 'Chicken', label: 'Drób & Kurczak' },
+    { key: 'Beef', label: 'Wołowina' },
+    { key: 'Pork', label: 'Wieprzowina' },
+    { key: 'Seafood', label: 'Ryby & Owoce morza' },
+    { key: 'Vegetarian', label: 'Wegetariańskie' },
+    { key: 'Vegan', label: 'Wegańskie' },
+    { key: 'Side', label: 'Dodatki & Zupy' },
+    { key: 'Dessert', label: 'Desery' }
+  ]
+
+  const areas = [
+    { key: 'all', label: 'Wszystkie kuchnie' },
+    { key: 'Italian', label: 'Włoska' },
+    { key: 'Mexican', label: 'Meksykańska' },
+    { key: 'Asian', label: 'Azjatycka (Japonia / Chiny)' },
+    { key: 'American', label: 'Amerykańska' },
+    { key: 'French', label: 'Francuska' },
+    { key: 'Greek', label: 'Grecka / Śródziemnomorska' },
+    { key: 'Spanish', label: 'Hiszpańska' },
+    { key: 'Polish', label: 'Polska' },
+    { key: 'Indian', label: 'Indyjska' }
+  ]
+
+  return {
+    success: true,
+    categories,
+    areas
+  }
+}
+

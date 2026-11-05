@@ -4883,6 +4883,45 @@ export const useDuoState = () => {
     triggerToast(`Usunięto obiad "${item.title}" z planu.`)
   }
 
+  const deleteSavedRecipe = async (recipe: { key?: string; api_id?: string; title?: string; rawTitle?: string; titlePl?: string }) => {
+    if (!await verifyUserAndPartnershipAccess()) return
+    const client = getCleanDbClient() || getSupabaseClient()
+    const pId = partnership.value?.id || currentUser.value?.partnership_id
+
+    const tL = (recipe.title || '').trim().toLowerCase()
+    const rawTL = (recipe.rawTitle || '').trim().toLowerCase()
+    const tPlL = (recipe.titlePl || '').trim().toLowerCase()
+    const apiIdStr = recipe.api_id ? String(recipe.api_id) : ''
+
+    const matching = mealsList.value.filter(m => {
+      if (apiIdStr && m.api_id && String(m.api_id) === apiIdStr) {
+        return true
+      }
+      const mTL = (m.title || '').trim().toLowerCase()
+      const mPlL = (m.titlePl || '').trim().toLowerCase()
+      if (tL && (mTL === tL || mPlL === tL)) return true
+      if (rawTL && (mTL === rawTL || mPlL === rawTL)) return true
+      if (tPlL && (mTL === tPlL || mPlL === tPlL)) return true
+      return false
+    })
+
+    if (matching.length === 0) return
+
+    const deletedIds = matching.map(m => m.id)
+    mealsList.value = mealsList.value.filter(m => !deletedIds.includes(m.id))
+    syncToStorage()
+
+    for (const id of deletedIds) {
+      broadcastToPartner('MEAL_DELETE', { id })
+      if (client && pId) {
+        safeDb(client.from('meals').delete().eq('id', id))
+      }
+    }
+
+    const displayName = recipe.titlePl || recipe.title || 'przepis'
+    triggerToast(`Usunięto "${displayName}" z Twoich przepisów.`)
+  }
+
   const toggleMealCompleted = async (id: string) => {
     if (!await verifyUserAndPartnershipAccess()) return
     const item = mealsList.value.find(m => m.id === id)
@@ -4974,6 +5013,7 @@ export const useDuoState = () => {
     addMeal,
     updateMeal,
     deleteMeal,
+    deleteSavedRecipe,
     toggleMealCompleted,
     addIngredientsToShopping,
     refreshMeals,

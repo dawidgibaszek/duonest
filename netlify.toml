@@ -32,6 +32,21 @@
   to = "/.netlify/functions/wishlist-preview"
   status = 200
 
+[[redirects]]
+  from = "/api/meals/search"
+  to = "/.netlify/functions/meals-search"
+  status = 200
+
+[[redirects]]
+  from = "/api/meals/lookup"
+  to = "/.netlify/functions/meals-lookup"
+  status = 200
+
+[[redirects]]
+  from = "/api/meals/categories"
+  to = "/.netlify/functions/meals-categories"
+  status = 200
+
 # PWA & SPA Routing Fallback for Netlify
 [[redirects]]
   from = "/*"
