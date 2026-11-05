@@ -34,41 +34,75 @@
         <ion-refresher-content pulling-text="Przeciągnij, aby odświeżyć..." refreshing-spinner="crescent" />
       </ion-refresher>
 
-      <!-- 1. UNIFIED COUPLE & NEST HERO CARD -->
+      <!-- 1. ENRICHED COUPLE & NEST HERO CARD -->
       <div class="dn-card nest-hero-card">
-        <!-- TOP: AVATARS & DATES TOGETHER -->
+        <!-- BACKGROUND AMBIENT GLOWS & FLOATING SPARKLES -->
+        <div class="hero-ambient-glow glow-top-right"></div>
+        <div class="hero-ambient-glow glow-bottom-left"></div>
+        <div class="hero-decor-stars">
+          <span class="decor-star star-1">✦</span>
+          <span class="decor-star star-2">✧</span>
+          <span class="decor-star star-3">✦</span>
+        </div>
+
+        <!-- TOP: AVATARS & ANNIVERSARY BADGE -->
         <div class="hero-top-row">
           <div class="hero-avatar-duo" @click="navigateTo('/tabs/relationship')" title="Profil relacji">
             <div class="avatar-ring avatar-mine" :style="{ backgroundColor: currentUserAccentColor }">
               <span class="avatar-letter">{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
             </div>
             <div class="avatar-heart-pill">
-              <ion-icon :icon="ioniconsHeart" />
+              <ion-icon :icon="ioniconsHeart" class="heart-pulse-icon" />
             </div>
             <div class="avatar-ring avatar-theirs" :style="{ backgroundColor: partnerUserAccentColor }">
               <span class="avatar-letter">{{ partnerUser ? (partnerUser.name || 'P').charAt(0).toUpperCase() : '?' }}</span>
             </div>
           </div>
 
-          <div class="anniversary-badge">
-            <span class="anniversary-days">{{ daysTogether }}</span>
-            <span class="anniversary-sub">DNI RAZEM</span>
+          <div class="anniversary-badge" @click="celebrateWithConfetti" title="Świętujcie rocznicę!">
+            <div class="anniversary-icon-wrap">
+              <ion-icon :icon="ioniconsFlame" class="anniversary-flame-icon" />
+            </div>
+            <div class="anniversary-text-col">
+              <span class="anniversary-days">{{ daysTogether }}</span>
+              <span class="anniversary-sub">DNI RAZEM</span>
+            </div>
           </div>
         </div>
 
-        <!-- MAIN NEST INFO & STAGE -->
-        <div class="hero-body">
-          <div class="hero-title-row">
+        <!-- MAIN NEST INFO & VISUAL MASCOT SECTION -->
+        <div class="hero-center-layout">
+          <!-- LEFT: NEST TITLE, STAGE BADGE, DESCRIPTION -->
+          <div class="hero-info-col">
             <h2 class="hero-nest-name">{{ partnership?.nest_name || 'Nasze Ciepłe Gniazdko' }}</h2>
+            
             <div class="hero-stage-badge-wrap">
-              <span class="hero-stage-pill">Poziom {{ nestLevel }} • {{ currentStageName }}</span>
+              <span class="hero-stage-pill">
+                <span class="stage-icon-emoji">{{ getStageIcon(nestLevel) }}</span>
+                <span>Poziom {{ nestLevel }} • {{ currentStageName }}</span>
+              </span>
               <button class="hero-celebrate-btn" @click="celebrateWithConfetti" title="Świętuj">
                 <ion-icon :icon="ioniconsSparklesOutline" />
                 <span>Świętuj</span>
               </button>
             </div>
+
+            <p class="hero-stage-desc" v-if="currentStageDescription">{{ currentStageDescription }}</p>
           </div>
-          <p class="hero-stage-desc" v-if="currentStageDescription">{{ currentStageDescription }}</p>
+
+          <!-- RIGHT: NEST MASCOT / EMBLEM WITH FLOATING MICRO-BADGES -->
+          <div class="hero-mascot-col" @click="celebrateWithConfetti" title="Wasze Gniazdko - kliknij, aby świętować!">
+            <div class="nest-avatar-aura"></div>
+            <div class="nest-mascot-wrapper">
+              <img src="/icon.png" alt="Wasze Gniazdko" class="nest-mascot-img" />
+              <div class="nest-micro-badge badge-top">
+                <ion-icon :icon="ioniconsHeart" class="micro-heart" />
+              </div>
+              <div class="nest-micro-badge badge-bottom">
+                <ion-icon :icon="ioniconsSparkles" class="micro-sparkle" />
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- XP PROGRESS BAR -->
@@ -77,8 +111,13 @@
             <div class="hero-progress-bar" :style="{ width: levelProgress + '%' }"></div>
           </div>
           <div class="hero-progress-labels">
-            <span>{{ nestPoints }} pkt doświadczenia</span>
-            <span>Do poz. {{ nestLevel + 1 }}: {{ pointsToNextLevel }} pkt</span>
+            <span class="xp-current">
+              <ion-icon :icon="ioniconsSparkles" class="xp-icon" />
+              {{ nestPoints }} pkt doświadczenia
+            </span>
+            <span class="xp-next">
+              Do poz. {{ nestLevel + 1 }}: <strong>{{ pointsToNextLevel }} pkt</strong>
+            </span>
           </div>
         </div>
       </div>
@@ -739,6 +778,18 @@ const currentStageDescription = computed(() => {
   return stageNames[lvl]?.desc || ''
 })
 
+const getStageIcon = (level: number) => {
+  const icons: Record<number, string> = {
+    1: '🌱',
+    2: '🪶',
+    3: '⛺',
+    4: '🌟',
+    5: '🏰'
+  }
+  const lvl = Math.min(Math.max(level, 1), 5)
+  return icons[lvl] || '🌱'
+}
+
 const pendingChores = computed(() => {
   return tasksList.value.filter(t => !t.is_completed)
 })
@@ -1164,22 +1215,93 @@ const handleRefresh = async (event: any) => {
   flex-shrink: 0;
 }
 
-/* UNIFIED NEST HERO CARD */
+/* ========================================================== */
+/* ENRICHED NEST HERO CARD (ATMOSPHERIC, WARM & INTERACTIVE)  */
+/* ========================================================== */
 .nest-hero-card {
-  background: linear-gradient(145deg, #0f172a 0%, #1e293b 55%, #283548 100%);
+  background: linear-gradient(135deg, #090e1a 0%, #0f172a 45%, #1e293b 100%);
   color: #ffffff;
-  border-radius: 22px;
+  border-radius: 24px;
   padding: 20px 20px 18px 20px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 10px 28px -6px rgba(15, 23, 42, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 36px -6px rgba(11, 17, 32, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+/* Atmospheric Ambient Glows */
+.hero-ambient-glow {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(40px);
+  z-index: 0;
+}
+
+.glow-top-right {
+  top: -20px;
+  right: -20px;
+  width: 130px;
+  height: 130px;
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.22) 0%, transparent 70%);
+}
+
+.glow-bottom-left {
+  bottom: -30px;
+  left: -20px;
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.18) 0%, transparent 70%);
+}
+
+/* Ambient Constellation Stars */
+.hero-decor-stars {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.decor-star {
+  position: absolute;
+  color: #fef08a;
+  font-size: 11px;
+  animation: twinkle 3.5s ease-in-out infinite;
+}
+
+.star-1 {
+  top: 14px;
+  left: 45%;
+  animation-delay: 0s;
+  opacity: 0.45;
+}
+
+.star-2 {
+  top: 48px;
+  left: 56%;
+  font-size: 8px;
+  animation-delay: 1.2s;
+  opacity: 0.35;
+}
+
+.star-3 {
+  bottom: 34px;
+  right: 28%;
+  font-size: 9px;
+  animation-delay: 2.1s;
+  opacity: 0.4;
+}
+
+/* Top Row: Avatars & Days Together */
 .hero-top-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative;
+  z-index: 2;
 }
 
 .hero-avatar-duo {
@@ -1187,11 +1309,12 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   position: relative;
   cursor: pointer;
-  transition: transform 0.15s ease;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+  padding: 2px;
 }
 
 .hero-avatar-duo:active {
-  transform: scale(0.96);
+  transform: scale(0.95);
 }
 
 .avatar-ring {
@@ -1204,7 +1327,7 @@ const handleRefresh = async (event: any) => {
   justify-content: center;
   font-weight: 800;
   font-size: 17px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
 .avatar-mine {
@@ -1222,45 +1345,95 @@ const handleRefresh = async (event: any) => {
 
 .avatar-heart-pill {
   position: absolute;
-  top: -4px;
+  top: -5px;
   left: 31px;
   z-index: 3;
   color: #f43f5e;
-  font-size: 15px;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  font-size: 16px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
 }
 
+.heart-pulse-icon {
+  animation: heartbeat 2.2s infinite ease-in-out;
+}
+
+/* Glassmorphic Anniversary Badge */
 .anniversary-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  padding: 5px 12px 5px 8px;
+  border-radius: 16px;
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.anniversary-badge:hover {
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+.anniversary-badge:active {
+  transform: scale(0.95);
+}
+
+.anniversary-icon-wrap {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.25) 0%, rgba(251, 113, 133, 0.12) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(244, 63, 94, 0.2);
+}
+
+.anniversary-flame-icon {
+  color: #fb7185;
+  font-size: 16px;
+}
+
+.anniversary-text-col {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  text-align: right;
+  align-items: flex-start;
 }
 
 .anniversary-days {
-  font-size: 32px;
+  font-size: 22px;
   font-weight: 900;
   line-height: 1;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   color: #ffffff;
 }
 
 .anniversary-sub {
-  font-size: 9.5px;
+  font-size: 8.5px;
   font-weight: 800;
   letter-spacing: 0.12em;
-  opacity: 0.8;
+  color: rgba(255, 255, 255, 0.75);
   margin-top: 2px;
 }
 
-.hero-body {
-  margin-top: 16px;
+/* Center Layout: Nest Info & Mascot */
+.hero-center-layout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  position: relative;
+  z-index: 2;
 }
 
-.hero-title-row {
+.hero-info-col {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
 .hero-nest-name {
@@ -1268,7 +1441,9 @@ const handleRefresh = async (event: any) => {
   font-weight: 800;
   color: #ffffff;
   letter-spacing: -0.02em;
+  line-height: 1.25;
   margin: 0;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
   word-break: break-word;
   overflow-wrap: break-word;
 }
@@ -1276,79 +1451,239 @@ const handleRefresh = async (event: any) => {
 .hero-stage-badge-wrap {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
+  margin-top: 6px;
 }
 
 .hero-stage-pill {
   display: inline-flex;
   align-items: center;
-  font-size: 11.5px;
+  gap: 5px;
+  font-size: 11px;
   font-weight: 700;
-  background: rgba(255, 255, 255, 0.16);
-  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.13);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 3.5px 9px;
   border-radius: 999px;
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
   color: #ffffff;
+}
+
+.stage-icon-emoji {
+  font-size: 12px;
 }
 
 .hero-celebrate-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  background: rgba(255, 255, 255, 0.12);
+  gap: 4px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.08) 100%);
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  padding: 3.5px 9px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   backdrop-filter: blur(8px);
 }
 
 .hero-celebrate-btn:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
 }
 
 .hero-celebrate-btn:active {
-  transform: scale(0.94);
+  transform: scale(0.93);
 }
 
 .hero-stage-desc {
-  font-size: 12.5px;
+  font-size: 12px;
   line-height: 1.45;
-  color: #cbd5e1;
-  margin: 8px 0 0 0;
+  color: rgba(226, 232, 240, 0.85);
+  margin: 6px 0 0 0;
 }
 
+/* Mascot Emblem */
+.hero-mascot-col {
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.nest-avatar-aura {
+  position: absolute;
+  width: 72px;
+  height: 72px;
+  border-radius: 22px;
+  background: radial-gradient(circle, rgba(52, 211, 153, 0.3) 0%, transparent 70%);
+  filter: blur(6px);
+  animation: auraPulse 3s infinite ease-in-out;
+}
+
+.nest-mascot-wrapper {
+  position: relative;
+  width: 62px;
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.hero-mascot-col:hover .nest-mascot-wrapper {
+  transform: scale(1.08) rotate(3deg);
+}
+
+.hero-mascot-col:active .nest-mascot-wrapper {
+  transform: scale(0.94);
+}
+
+.nest-mascot-img {
+  width: 58px;
+  height: 58px;
+  border-radius: 17px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  animation: floatUp 3.5s ease-in-out infinite;
+}
+
+.nest-micro-badge {
+  position: absolute;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.badge-top {
+  top: -5px;
+  right: -3px;
+  width: 20px;
+  height: 20px;
+  background: #ffffff;
+  font-size: 11px;
+  animation: floatUp 3.5s ease-in-out infinite 0.4s;
+}
+
+.micro-heart {
+  color: #f43f5e;
+}
+
+.badge-bottom {
+  bottom: -3px;
+  left: -3px;
+  width: 19px;
+  height: 19px;
+  background: #0f172a;
+  border: 1.5px solid #ffffff;
+  font-size: 10px;
+  animation: floatUp 3.5s ease-in-out infinite 1.2s;
+}
+
+.micro-sparkle {
+  color: #fbbf24;
+}
+
+/* XP Progress Bar */
 .hero-progress-box {
   margin-top: 14px;
+  position: relative;
+  z-index: 2;
 }
 
 .hero-progress-track {
-  height: 7px;
-  background: rgba(255, 255, 255, 0.2);
+  height: 7.5px;
+  background: rgba(255, 255, 255, 0.14);
   border-radius: 999px;
   overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .hero-progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, #34d399 0%, #10b981 100%);
+  background: linear-gradient(90deg, #10b981 0%, #34d399 70%, #6ee7b7 100%);
   border-radius: 999px;
-  transition: width 0.5s ease;
+  transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
 }
 
 .hero-progress-labels {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 11px;
-  opacity: 0.85;
   margin-top: 6px;
   font-weight: 600;
+}
+
+.xp-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #a7f3d0;
+  font-weight: 700;
+}
+
+.xp-icon {
+  font-size: 12px;
+  color: #34d399;
+}
+
+.xp-next {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.xp-next strong {
+  color: #ffffff;
+}
+
+/* Keyframe Animations */
+@keyframes heartbeat {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.22);
+  }
+}
+
+@keyframes floatUp {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes auraPulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes twinkle {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.15);
+  }
 }
 
 /* SECTION BADGES */
