@@ -190,7 +190,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useDuoState } from '~/composables/useDuoState'
 import DuoIcon from '~/components/DuoIcon.vue'
 
@@ -211,6 +211,12 @@ const newItemTitle = ref('')
 const newItemQty = ref('')
 const selectedCategory = ref('Spożywcze')
 const activeFilter = ref('Wszystkie')
+
+onMounted(async () => {
+  try {
+    await initSupabaseSync()
+  } catch (_) {}
+})
 
 const categories = [
   { name: 'Wszystkie', key: 'all' },

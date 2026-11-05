@@ -807,7 +807,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import confetti from 'canvas-confetti'
 import { useDuoState, type TaskItem } from '~/composables/useDuoState'
 import { usePetState } from '~/composables/usePetState'
@@ -852,6 +852,12 @@ const {
 
 // Main Tab Navigation: 'tasks' | 'pet'
 const activeMainTab = ref<'tasks' | 'pet'>('tasks')
+
+onMounted(async () => {
+  try {
+    await initSupabaseSync()
+  } catch (_) {}
+})
 
 const handleSwitchToTasks = () => {
   activeMainTab.value = 'tasks'

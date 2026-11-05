@@ -668,7 +668,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { useDuoState, type EventItem } from '~/composables/useDuoState'
 import DuoIcon from '~/components/DuoIcon.vue'
 
@@ -694,6 +694,12 @@ const activeViewMode = ref<'month' | 'week' | 'agenda'>('month')
 
 // Category Filter
 const selectedCategoryFilter = ref<string>('all')
+
+onMounted(async () => {
+  try {
+    await initSupabaseSync()
+  } catch (_) {}
+})
 
 // Calendar Navigation State
 const viewDate = ref(new Date())

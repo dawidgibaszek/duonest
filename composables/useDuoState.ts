@@ -528,6 +528,7 @@ export const safeDb = (operation: any) => {
 
 export const useDuoState = () => {
   const supabase = getSupabaseClient()
+  const db = getCleanDbClient() || supabase
 
   // Hydrate from localStorage once on client
   const initializeClientState = () => {
@@ -560,7 +561,7 @@ export const useDuoState = () => {
         love_note: cleanLoveNote,
         favorite_drink: cleanDrink,
         favorite_treat: cleanTreat,
-        points: 0 // Points are ALWAYS loaded exclusively from Supabase, never from localStorage
+        points: Number(savedUser.points) || 0
       }
     } else {
       saveToStorage('duonest_current_user', currentUser.value)
@@ -578,7 +579,7 @@ export const useDuoState = () => {
         love_note: cleanPartnerLoveNote,
         favorite_drink: cleanPartnerDrink,
         favorite_treat: cleanPartnerTreat,
-        points: 0 // Points are ALWAYS loaded exclusively from Supabase, never from localStorage
+        points: Number(savedPartner.points) || 0
       }
     }
 
@@ -1526,23 +1527,21 @@ export const useDuoState = () => {
       clearInterval(securityCheckInterval)
       securityCheckInterval = null
     }
-    if (activeSecurityChannel && supabase) {
-      try { supabase.removeChannel(activeSecurityChannel) } catch (_) {}
+    if (activeSecurityChannel) {
+      try { (getCleanDbClient() || supabase)?.removeChannel(activeSecurityChannel) } catch (_) {}
       activeSecurityChannel = null
     }
-    if (activePartnershipChannel && supabase) {
-      try { supabase.removeChannel(activePartnershipChannel) } catch (_) {}
+    if (activePartnershipChannel) {
+      try { (getCleanDbClient() || supabase)?.removeChannel(activePartnershipChannel) } catch (_) {}
       activePartnershipChannel = null
     }
-    if (activePairingChannel && supabase) {
-      try { supabase.removeChannel(activePairingChannel) } catch (_) {}
+    if (activePairingChannel) {
+      try { (getCleanDbClient() || supabase)?.removeChannel(activePairingChannel) } catch (_) {}
       activePairingChannel = null
     }
-    if (supabase) {
-      try {
-        await supabase.auth.signOut()
-      } catch (_) {}
-    }
+    try {
+      await (getCleanDbClient() || supabase)?.auth?.signOut()
+    } catch (_) {}
     clearSupabaseSessionStorage()
     authUser.value = null
     authSession.value = null
@@ -1573,7 +1572,7 @@ export const useDuoState = () => {
   // Broadcast an action to the partner via Supabase Realtime WebSocket & Web Push
   const broadcastToPartner = (action: string, payload: any) => {
     // 1. Live WebSocket broadcast for instant in-app sync (<50ms)
-    if (activePartnershipChannel && realtimeStatus.value === 'connected') {
+    if (activePartnershipChannel) {
       try {
         activePartnershipChannel.send({
           type: 'broadcast',
@@ -1661,17 +1660,18 @@ export const useDuoState = () => {
 
   // --- REALTIME SECURITY LISTENER (AUTO-LOGOUT ON DB DELETE / UNPAIR) ---
   const subscribeToSecurityChannel = (userId: string, partnershipId?: string | null) => {
-    if (!supabase || typeof window === 'undefined' || !userId) return
+    const client = getCleanDbClient() || supabase
+    if (!client || typeof window === 'undefined' || !userId) return
 
     if (activeSecurityChannel) {
       try {
-        supabase.removeChannel(activeSecurityChannel)
+        client.removeChannel(activeSecurityChannel)
       } catch (_) {}
       activeSecurityChannel = null
     }
 
     const channelName = `duonest_sec_${userId}`
-    const channel = supabase.channel(channelName)
+    const channel = client.channel(channelName)
 
     // 1. Listen for user profile deletion or unpairing in Supabase
     channel.on(
@@ -1829,13 +1829,24 @@ export const useDuoState = () => {
       // 1. Verify user profile exists in database
       let { data: dbProfile, error: profileErr } = await client
         .from('profiles')
-        .select('id, partnership_id')
+        .select('*')
         .eq('id', userId)
         .maybeSingle()
 
       if (profileErr) {
         if (profileErr.code === '42P01' || profileErr.code === 'PGRST301' || profileErr.message?.includes('fetch') || profileErr.message?.includes('network') || profileErr.message?.includes('JWT')) {
           return true
+        }
+      }
+
+      if (dbProfile) {
+        currentUser.value = {
+          ...currentUser.value,
+          ...dbProfile,
+          name: dbProfile.name || currentUser.value.name || '',
+          avatar_color: getCleanAccentColor(dbProfile.avatar_color, currentUser.value.avatar_color || '#0284c7'),
+          partnership_id: dbProfile.partnership_id || null,
+          points: Number(dbProfile.points) || 0
         }
       }
 
@@ -1926,8 +1937,8 @@ export const useDuoState = () => {
           return false
         }
 
-        // Auto-heal partner name if missing or placeholder 'Partner'
-        if (dbPartnership && (!partnerUser.value || !partnerUser.value.name || partnerUser.value.name === 'Partner')) {
+        // Sync partner profile and points from DB
+        if (dbPartnership) {
           const myId = userId
           const partnerId = (myId && dbPartnership.partner1_id === myId)
             ? dbPartnership.partner2_id
@@ -1938,14 +1949,16 @@ export const useDuoState = () => {
               .select('*')
               .eq('id', partnerId)
               .maybeSingle()
-            if (pUser && pUser.name) {
+            if (pUser) {
               const rawPColor = pUser.avatar_color || '#0d9488'
               const cleanPColor = rawPColor.includes('|') ? rawPColor.split('|')[0] : rawPColor
               partnerUser.value = {
                 ...createInitialProfile(),
+                ...(partnerUser.value || {}),
                 ...pUser,
-                name: pUser.name,
-                avatar_color: cleanPColor
+                name: pUser.name || partnerUser.value?.name || 'Partner',
+                avatar_color: cleanPColor,
+                points: Number(pUser.points) || 0
               }
               saveToStorage('duonest_partner_user', partnerUser.value)
             }
@@ -1967,18 +1980,19 @@ export const useDuoState = () => {
 
   // --- REALTIME SUBSCRIPTION FOR PAIRED PARTNERS ---
   const subscribeToPartnershipRealtime = (partnershipId: string) => {
-    if (!supabase || typeof window === 'undefined') return
+    const client = getCleanDbClient() || supabase
+    if (!client || typeof window === 'undefined') return
 
     // If already subscribed to this partnership channel, do not duplicate
     if (activePartnershipChannel) {
       try {
-        supabase.removeChannel(activePartnershipChannel)
+        client.removeChannel(activePartnershipChannel)
       } catch (_) {}
     }
 
     realtimeStatus.value = 'connecting'
     const channelName = `duonest_channel_${partnershipId}`
-    const channel = supabase.channel(channelName, {
+    const channel = client.channel(channelName, {
       config: {
         broadcast: { ack: false, self: false },
         presence: { key: currentUser.value.id }
@@ -2021,8 +2035,8 @@ export const useDuoState = () => {
 
       switch (action) {
         case 'PARTNERSHIP_DISCONNECT': {
-          if (activePartnershipChannel && supabase) {
-            try { supabase.removeChannel(activePartnershipChannel) } catch (_) {}
+          if (activePartnershipChannel && client) {
+            try { client.removeChannel(activePartnershipChannel) } catch (_) {}
             activePartnershipChannel = null
           }
           clearPartnershipData()
@@ -2589,6 +2603,14 @@ export const useDuoState = () => {
         }
         syncToStorage()
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'nudges', filter: `partnership_id=eq.${partnershipId}` }, (payload: any) => {
+        if (payload.eventType === 'INSERT') {
+          if (!nudgesList.value.some(n => n.id === payload.new.id)) {
+            nudgesList.value.unshift(payload.new)
+            syncToStorage()
+          }
+        }
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'partnerships', filter: `id=eq.${partnershipId}` }, (payload: any) => {
         if (payload.new && partnership.value) {
           if (payload.new.pet_xp !== undefined) partnership.value.pet_xp = payload.new.pet_xp
@@ -2608,6 +2630,17 @@ export const useDuoState = () => {
           if (partnerUser.value && payload.new.id === partnerUser.value.id) {
             if (typeof payload.new.points === 'number') {
               partnerUser.value.points = payload.new.points
+            }
+            if (payload.new.name) partnerUser.value.name = payload.new.name
+            if (payload.new.current_mood) partnerUser.value.current_mood = payload.new.current_mood
+            if (payload.new.mood_note !== undefined) partnerUser.value.mood_note = payload.new.mood_note
+            if (payload.new.mood_updated_at) partnerUser.value.mood_updated_at = payload.new.mood_updated_at
+            if (payload.new.love_note !== undefined) partnerUser.value.love_note = payload.new.love_note
+            if (payload.new.favorite_drink !== undefined) partnerUser.value.favorite_drink = payload.new.favorite_drink
+            if (payload.new.favorite_treat !== undefined) partnerUser.value.favorite_treat = payload.new.favorite_treat
+            if (payload.new.avatar_color) {
+              const raw = payload.new.avatar_color
+              partnerUser.value.avatar_color = raw.includes('|') ? raw.split('|')[0] : raw
             }
           }
           syncToStorage()
@@ -2656,17 +2689,18 @@ export const useDuoState = () => {
 
   // --- REALTIME PAIRING CHANNEL ---
   const subscribeToPairingChannel = (myPairingCode: string) => {
-    if (!supabase || typeof window === 'undefined') return
+    const client = getCleanDbClient() || supabase
+    if (!client || typeof window === 'undefined') return
     const code = normalizePairingCode(myPairingCode)
     if (!code) return
 
     if (activePairingChannel) {
-      try { supabase.removeChannel(activePairingChannel) } catch (_) {}
+      try { client.removeChannel(activePairingChannel) } catch (_) {}
       activePairingChannel = null
     }
 
     const pairChannelName = `duonest_pair_${code}`
-    const pairChan = supabase.channel(pairChannelName, {
+    const pairChan = client.channel(pairChannelName, {
       config: { broadcast: { ack: true } }
     })
 
@@ -2704,7 +2738,7 @@ export const useDuoState = () => {
 
       // Clean up pairing channel and switch to partnership channel
       setTimeout(() => {
-        try { supabase.removeChannel(pairChan) } catch (_) {}
+        try { client.removeChannel(pairChan) } catch (_) {}
         activePairingChannel = null
         subscribeToPartnershipRealtime(newPartnership.id)
         subscribeToSecurityChannel(currentUser.value.id, newPartnership.id)
@@ -2843,8 +2877,8 @@ export const useDuoState = () => {
     if (!await verifyUserAndPartnershipAccess()) return
     currentUser.value.name = newName.trim()
     syncToStorage()
-    if (supabase && isOnlineWithSupabase.value) {
-      safeDb(supabase.from('profiles').update({ name: currentUser.value.name }).eq('id', currentUser.value.id))
+    if (db && isOnlineWithSupabase.value) {
+      safeDb(db.from('profiles').update({ name: currentUser.value.name }).eq('id', currentUser.value.id))
     }
   }
 
@@ -2861,9 +2895,9 @@ export const useDuoState = () => {
     }
 
     let foundPartnerProfile: Profile | null = null
-    if (supabase) {
+    if (db) {
       try {
-        const { data: dbTarget } = await supabase
+        const { data: dbTarget } = await db
           .from('profiles')
           .select('*')
           .eq('pairing_code', code)
@@ -2913,9 +2947,10 @@ export const useDuoState = () => {
     syncToStorage()
 
     // Connect to partner's pairing channel and send PAIR_REQUEST
-    if (supabase) {
+    const realtimeClient = getCleanDbClient() || supabase
+    if (realtimeClient) {
       try {
-        const targetPairChannel = supabase.channel(`duonest_pair_${code}`, {
+        const targetPairChannel = realtimeClient.channel(`duonest_pair_${code}`, {
           config: { broadcast: { ack: true } }
         })
 
@@ -2983,12 +3018,12 @@ export const useDuoState = () => {
     syncToStorage()
 
     // Try storing in Supabase DB if tables exist
-    if (supabase) {
-      safeDb(supabase.from('profiles').update({ partnership_id: newPartnershipId }).eq('id', currentUser.value.id))
+    if (db) {
+      safeDb(db.from('profiles').update({ partnership_id: newPartnershipId }).eq('id', currentUser.value.id))
       if (foundPartnerProfile) {
-        safeDb(supabase.from('profiles').update({ partnership_id: newPartnershipId }).eq('id', foundPartnerProfile.id))
+        safeDb(db.from('profiles').update({ partnership_id: newPartnershipId }).eq('id', foundPartnerProfile.id))
       }
-      safeDb(supabase.from('partnerships').upsert(createdPartnership))
+      safeDb(db.from('partnerships').upsert(createdPartnership))
     }
 
     // Subscribe to shared realtime channel
@@ -3007,20 +3042,20 @@ export const useDuoState = () => {
     // Broadcast disconnection notice so partner reacts instantly
     broadcastToPartner('PARTNERSHIP_DISCONNECT', {})
 
-    if (supabase) {
+    if (db) {
       if (myId) {
-        safeDb(supabase.from('profiles').update({ partnership_id: null }).eq('id', myId))
+        safeDb(db.from('profiles').update({ partnership_id: null }).eq('id', myId))
       }
       if (partnerId) {
-        safeDb(supabase.from('profiles').update({ partnership_id: null }).eq('id', partnerId))
+        safeDb(db.from('profiles').update({ partnership_id: null }).eq('id', partnerId))
       }
       if (pId) {
-        safeDb(supabase.from('partnerships').delete().eq('id', pId))
+        safeDb(db.from('partnerships').delete().eq('id', pId))
       }
     }
 
-    if (activePartnershipChannel && supabase) {
-      try { supabase.removeChannel(activePartnershipChannel) } catch (_) {}
+    if (activePartnershipChannel) {
+      try { (getCleanDbClient() || supabase)?.removeChannel(activePartnershipChannel) } catch (_) {}
       activePartnershipChannel = null
     }
 
@@ -3052,8 +3087,8 @@ export const useDuoState = () => {
     // Broadcast live to partner
     broadcastToPartner('SHOPPING_ADD', newItem)
 
-    if (supabase) {
-      safeDb(supabase.from('shopping_items').insert(newItem))
+    if (db) {
+      safeDb(db.from('shopping_items').insert(newItem))
     }
   }
 
@@ -3067,8 +3102,8 @@ export const useDuoState = () => {
     // Broadcast live to partner
     broadcastToPartner('SHOPPING_TOGGLE', { id, is_completed: item.is_completed, title: item.title })
 
-    if (supabase) {
-      safeDb(supabase.from('shopping_items').update({
+    if (db) {
+      safeDb(db.from('shopping_items').update({
         is_completed: item.is_completed,
         completed_at: item.is_completed ? new Date().toISOString() : null,
         completed_by: item.is_completed ? currentUser.value.id : null
@@ -3084,8 +3119,8 @@ export const useDuoState = () => {
     // Broadcast live to partner
     broadcastToPartner('SHOPPING_DELETE', { id })
 
-    if (supabase) {
-      safeDb(supabase.from('shopping_items').delete().eq('id', id))
+    if (db) {
+      safeDb(db.from('shopping_items').delete().eq('id', id))
     }
   }
 
@@ -3098,8 +3133,8 @@ export const useDuoState = () => {
     // Broadcast live to partner
     broadcastToPartner('SHOPPING_CLEAR', {})
 
-    if (supabase && toDelete.length > 0) {
-      safeDb(supabase.from('shopping_items').delete().in('id', toDelete))
+    if (db && toDelete.length > 0) {
+      safeDb(db.from('shopping_items').delete().in('id', toDelete))
     }
   }
 
@@ -3127,8 +3162,8 @@ export const useDuoState = () => {
     // Broadcast live to partner
     broadcastToPartner('TASK_ADD', newTask)
 
-    if (supabase) {
-      safeDb(supabase.from('tasks').insert(newTask))
+    if (db) {
+      safeDb(db.from('tasks').insert(newTask))
     }
   }
 
@@ -3152,21 +3187,21 @@ export const useDuoState = () => {
     if (nowCompleted) {
       if (currentUser.value) {
         currentUser.value.points = (Number(currentUser.value.points) || 0) + taskPts
-        if (supabase && currentUser.value.id) {
-          safeDb(supabase.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
+        if (db && currentUser.value.id) {
+          safeDb(db.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
         }
       }
     } else {
       // Uncompleting: deduct points from whichever user completed the task
       if (previousCompleterId && partnerUser.value && previousCompleterId === partnerUser.value.id) {
         partnerUser.value.points = Math.max(0, (Number(partnerUser.value.points) || 0) - taskPts)
-        if (supabase && partnerUser.value.id) {
-          safeDb(supabase.from('profiles').update({ points: partnerUser.value.points }).eq('id', partnerUser.value.id))
+        if (db && partnerUser.value.id) {
+          safeDb(db.from('profiles').update({ points: partnerUser.value.points }).eq('id', partnerUser.value.id))
         }
       } else if (currentUser.value) {
         currentUser.value.points = Math.max(0, (Number(currentUser.value.points) || 0) - taskPts)
-        if (supabase && currentUser.value.id) {
-          safeDb(supabase.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
+        if (db && currentUser.value.id) {
+          safeDb(db.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
         }
       }
     }
@@ -3189,15 +3224,15 @@ export const useDuoState = () => {
       partner_points: partnerUser.value?.points
     })
 
-    if (supabase) {
-      safeDb(supabase.from('tasks').update({
+    if (db) {
+      safeDb(db.from('tasks').update({
         is_completed: nowCompleted,
         completed_at: task.completed_at,
         completed_by: task.completed_by
       }).eq('id', id))
 
       if (partnership.value?.id) {
-        safeDb(supabase.from('partnerships').update({
+        safeDb(db.from('partnerships').update({
           pet_xp: partnership.value.pet_xp
         }).eq('id', partnership.value.id))
       }
@@ -3217,8 +3252,8 @@ export const useDuoState = () => {
       pet_xp: partnership.value.pet_xp || 0
     })
 
-    if (supabase && partnership.value.id) {
-      safeDb(supabase.from('partnerships').update({
+    if (db && partnership.value.id) {
+      safeDb(db.from('partnerships').update({
         pet_id: petId,
         pet_name: partnership.value.pet_name,
         pet_xp: partnership.value.pet_xp || 0
@@ -3235,8 +3270,8 @@ export const useDuoState = () => {
     // Broadcast live to partner
     broadcastToPartner('TASK_DELETE', { id })
 
-    if (supabase) {
-      safeDb(supabase.from('tasks').delete().eq('id', id))
+    if (db) {
+      safeDb(db.from('tasks').delete().eq('id', id))
     }
   }
 
@@ -3276,8 +3311,8 @@ export const useDuoState = () => {
     // Broadcast live to partner immediately
     broadcastToPartner('EVENT_ADD', newEvent)
 
-    if (supabase) {
-      safeDb(supabase.from('events').insert(newEvent))
+    if (db) {
+      safeDb(db.from('events').insert(newEvent))
     }
     triggerToast('Dodano plan do Waszego terminarza!')
     return newEvent
@@ -3298,8 +3333,8 @@ export const useDuoState = () => {
     // Broadcast live to partner
     broadcastToPartner('EVENT_UPDATE', { id, updates })
 
-    if (supabase) {
-      safeDb(supabase.from('events').update(updates).eq('id', id))
+    if (db) {
+      safeDb(db.from('events').update(updates).eq('id', id))
     }
     triggerToast('Zaktualizowano plan w terminarzu.')
   }
@@ -3318,8 +3353,8 @@ export const useDuoState = () => {
       } else if (wasCompleted && !ev.is_completed) {
         currentUser.value.points = Math.max(0, (Number(currentUser.value.points) || 0) - 10)
       }
-      if (supabase && currentUser.value.id) {
-        safeDb(supabase.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
+      if (db && currentUser.value.id) {
+        safeDb(db.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
       }
     }
     syncToStorage()
@@ -3332,8 +3367,8 @@ export const useDuoState = () => {
       user_points: currentUser.value?.points
     })
 
-    if (supabase) {
-      safeDb(supabase.from('events').update({ is_completed: ev.is_completed }).eq('id', id))
+    if (db) {
+      safeDb(db.from('events').update({ is_completed: ev.is_completed }).eq('id', id))
     }
     triggerToast(ev.is_completed ? 'Wydarzenie zrealizowane! +10 pkt dla Ciebie' : 'Oznaczono jako nadchodzące.')
   }
@@ -3346,8 +3381,8 @@ export const useDuoState = () => {
     // Broadcast live to partner
     broadcastToPartner('EVENT_DELETE', { id })
 
-    if (supabase) {
-      safeDb(supabase.from('events').delete().eq('id', id))
+    if (db) {
+      safeDb(db.from('events').delete().eq('id', id))
     }
     triggerToast('Usunięto plan z kalendarza.')
   }
@@ -3363,15 +3398,15 @@ export const useDuoState = () => {
     // Broadcast live to partner
     broadcastToPartner('MOOD_UPDATE', { mood, note: note.trim() })
 
-    if (supabase) {
-      safeDb(supabase.from('profiles').update({
+    if (db) {
+      safeDb(db.from('profiles').update({
         current_mood: mood,
         mood_note: note.trim(),
         mood_updated_at: new Date().toISOString()
       }).eq('id', currentUser.value.id))
 
       if (partnership.value) {
-        safeDb(supabase.from('mood_logs').insert({
+        safeDb(db.from('mood_logs').insert({
           partnership_id: partnership.value.id,
           user_id: currentUser.value.id,
           mood,
@@ -3458,10 +3493,10 @@ export const useDuoState = () => {
       sender_points: currentUser.value.points
     })
 
-    if (supabase) {
-      safeDb(supabase.from('nudges').insert(newNudge))
+    if (db) {
+      safeDb(db.from('nudges').insert(newNudge))
       if (currentUser.value?.id) {
-        safeDb(supabase.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
+        safeDb(db.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
       }
     }
 
@@ -3481,8 +3516,8 @@ export const useDuoState = () => {
       anniversary_date: partnership.value.anniversary_date
     })
 
-    if (supabase) {
-      safeDb(supabase.from('partnerships').update({
+    if (db) {
+      safeDb(db.from('partnerships').update({
         nest_name: partnership.value.nest_name,
         anniversary_date: partnership.value.anniversary_date
       }).eq('id', partnership.value.id))
@@ -3551,8 +3586,8 @@ export const useDuoState = () => {
     const cleanCurrentColor = getCleanAccentColor(currentUser.value.avatar_color)
     const colorToSave = currentHash ? `${cleanCurrentColor}|${currentHash}` : cleanCurrentColor
 
-    if (supabase && isOnlineWithSupabase.value) {
-      safeDb(supabase.from('profiles').update({
+    if (db && isOnlineWithSupabase.value) {
+      safeDb(db.from('profiles').update({
         name: currentUser.value.name,
         avatar_color: colorToSave,
         love_note: currentUser.value.love_note,
@@ -3561,7 +3596,7 @@ export const useDuoState = () => {
       }).eq('id', currentUser.value.id))
 
       if (partnership.value) {
-        safeDb(supabase.from('partnerships').update({
+        safeDb(db.from('partnerships').update({
           nest_name: partnership.value.nest_name,
           anniversary_date: partnership.value.anniversary_date
         }).eq('id', partnership.value.id))
@@ -3717,8 +3752,8 @@ export const useDuoState = () => {
     milestonesList.value.push(newMilestone)
     syncToStorage()
     broadcastToPartner('MILESTONE_ADD', newMilestone)
-    if (supabase && partnership.value?.id) {
-      safeDb(supabase.from('milestones').insert(newMilestone))
+    if (db && partnership.value?.id) {
+      safeDb(db.from('milestones').insert(newMilestone))
     }
     triggerToast(`Dodano cel: ${newMilestone.title}! 🎯`)
     return newMilestone
@@ -3734,8 +3769,8 @@ export const useDuoState = () => {
     }
     syncToStorage()
     broadcastToPartner('MILESTONE_UPDATE', { id, updates })
-    if (supabase) {
-      safeDb(supabase.from('milestones').update(updates).eq('id', id))
+    if (db) {
+      safeDb(db.from('milestones').update(updates).eq('id', id))
     }
     triggerToast('Zaktualizowano cel nagrody.')
   }
@@ -3746,8 +3781,8 @@ export const useDuoState = () => {
     milestonesList.value = milestonesList.value.filter(m => m.id !== id)
     syncToStorage()
     broadcastToPartner('MILESTONE_DELETE', { id })
-    if (supabase) {
-      safeDb(supabase.from('milestones').delete().eq('id', id))
+    if (db) {
+      safeDb(db.from('milestones').delete().eq('id', id))
     }
     triggerToast(`Usunięto cel: ${item?.title || ''}.`)
   }
@@ -3761,8 +3796,8 @@ export const useDuoState = () => {
     m.completed_at = now
     syncToStorage()
     broadcastToPartner('MILESTONE_CLAIM', { id, title: m.title, completed_at: now })
-    if (supabase) {
-      safeDb(supabase.from('milestones').update({ is_completed: true, completed_at: now }).eq('id', id))
+    if (db) {
+      safeDb(db.from('milestones').update({ is_completed: true, completed_at: now }).eq('id', id))
     }
     triggerToast(`Gratulacje! Nagroda "${m.title}" została odebrana! 🎉`)
   }
@@ -3775,8 +3810,8 @@ export const useDuoState = () => {
     m.completed_at = null
     syncToStorage()
     broadcastToPartner('MILESTONE_REACTIVATE', { id, title: m.title })
-    if (supabase) {
-      safeDb(supabase.from('milestones').update({ is_completed: false, completed_at: null }).eq('id', id))
+    if (db) {
+      safeDb(db.from('milestones').update({ is_completed: false, completed_at: null }).eq('id', id))
     }
     triggerToast(`Cel "${m.title}" został ustawiony ponownie! 🚀`)
   }
@@ -3819,8 +3854,8 @@ export const useDuoState = () => {
     wishlistItems.value = [newItem, ...wishlistItems.value.filter(w => w.id !== newItem.id)]
     syncToStorage()
 
-    if (supabase && isOnlineWithSupabase.value && partnership.value?.id) {
-      safeDb(supabase.from('wishlist_items').insert(newItem))
+    if (db && isOnlineWithSupabase.value && partnership.value?.id) {
+      safeDb(db.from('wishlist_items').insert(newItem))
     }
 
     // Only broadcast to partner if visible to partner
@@ -3846,8 +3881,8 @@ export const useDuoState = () => {
     wishlistItems.value = wishlistItems.value.map(w => w.id === id ? updated : w)
     syncToStorage()
 
-    if (supabase && isOnlineWithSupabase.value && partnership.value?.id) {
-      safeDb(supabase.from('wishlist_items').update(updates).eq('id', id))
+    if (db && isOnlineWithSupabase.value && partnership.value?.id) {
+      safeDb(db.from('wishlist_items').update(updates).eq('id', id))
     }
 
     if (updated.is_visible_to_partner) {
@@ -3873,8 +3908,8 @@ export const useDuoState = () => {
     wishlistItems.value = wishlistItems.value.filter(w => w.id !== id)
     syncToStorage()
 
-    if (supabase && isOnlineWithSupabase.value && partnership.value?.id) {
-      safeDb(supabase.from('wishlist_items').delete().eq('id', id))
+    if (db && isOnlineWithSupabase.value && partnership.value?.id) {
+      safeDb(db.from('wishlist_items').delete().eq('id', id))
     }
 
     if (item.is_visible_to_partner) {
@@ -3893,8 +3928,8 @@ export const useDuoState = () => {
     wishlistItems.value = wishlistItems.value.map(w => w.id === id ? { ...w, is_completed: newCompleted, completed_at: completedAt } : w)
     syncToStorage()
 
-    if (supabase && isOnlineWithSupabase.value && partnership.value?.id) {
-      safeDb(supabase.from('wishlist_items').update({
+    if (db && isOnlineWithSupabase.value && partnership.value?.id) {
+      safeDb(db.from('wishlist_items').update({
         is_completed: newCompleted,
         completed_at: completedAt
       }).eq('id', id))

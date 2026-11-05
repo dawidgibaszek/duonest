@@ -682,7 +682,11 @@ const {
 
 const { askPermissionAfterPairing } = usePushNotifications()
 
-onMounted(() => {
+onMounted(async () => {
+  try {
+    await initSupabaseSync()
+  } catch (_) {}
+
   if (partnership.value) {
     askPermissionAfterPairing(partnerUser.value?.name || 'Partner')
   }

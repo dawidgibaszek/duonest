@@ -1014,7 +1014,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import confetti from 'canvas-confetti'
 import { useDuoState } from '~/composables/useDuoState'
@@ -1022,6 +1022,12 @@ import { usePushNotifications } from '~/composables/usePushNotifications'
 import DuoIcon from '~/components/DuoIcon.vue'
 
 const route = useRoute()
+
+onMounted(async () => {
+  try {
+    await initSupabaseSync()
+  } catch (_) {}
+})
 
 const {
   currentUser,
