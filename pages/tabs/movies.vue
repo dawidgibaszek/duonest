@@ -10,6 +10,30 @@
           <p class="dn-header-subtitle">Wspólna lista seansów, maratony i Wasze recenzje</p>
         </div>
       </ion-toolbar>
+
+      <!-- MAIN TABS: Filmy & Seriale vs Wishlista -->
+      <ion-toolbar class="main-tabs-toolbar" data-no-swipe>
+        <div class="main-tabs-pill-row">
+          <button
+            type="button"
+            class="main-tab-pill active"
+          >
+            <ion-icon :icon="ioniconsFilmOutline" />
+            <span>Filmy & Seriale</span>
+            <span class="pill-count-chip" v-if="plannedCount > 0">{{ plannedCount }}</span>
+          </button>
+
+          <button
+            type="button"
+            class="main-tab-pill"
+            @click="switchToWishlist"
+          >
+            <ion-icon :icon="ioniconsGiftOutline" />
+            <span>Wishlista</span>
+            <span class="pill-count-chip" v-if="uncompletedWishlistCount > 0">{{ uncompletedWishlistCount }}</span>
+          </button>
+        </div>
+      </ion-toolbar>
     </ion-header>
 
     <ion-content ref="contentRef" :fullscreen="true">
@@ -1763,6 +1787,8 @@ const {
   partnerUser,
   partnership,
   moviesList,
+  wishlistItems,
+  activeLeisureSubTab,
   addMovie,
   updateMovie,
   updateMovieProgress,
@@ -1775,6 +1801,15 @@ const {
   partnerUserAccentColor,
   triggerToast
 } = useDuoState()
+
+// Subtab switcher to Wishlist
+const uncompletedWishlistCount = computed(() => {
+  return wishlistItems.value.filter(i => !i.is_completed).length
+})
+
+const switchToWishlist = () => {
+  activeLeisureSubTab.value = 'wishlist'
+}
 
 // Content ref for scrolling
 const contentRef = ref<any>(null)
@@ -2732,6 +2767,53 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* MAIN TABS TOOLBAR & PILLS (Rozrywka: Filmy & Seriale | Wishlista) */
+.main-tabs-toolbar {
+  --background: #ffffff;
+  padding: 4px 16px 8px 16px;
+}
+
+.main-tabs-pill-row {
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 14px;
+  gap: 4px;
+}
+
+.main-tab-pill {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.main-tab-pill.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.pill-count-chip {
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
 /* PAGE HEADER & GENERAL WRAPPERS */
 .movies-main-wrapper {
   padding: 12px 14px 40px;

@@ -234,6 +234,11 @@ const milestonesList = ref<NestMilestone[]>([])
 const wishlistItems = ref<WishlistItem[]>([])
 const moviesList = ref<MovieItem[]>([])
 
+// Active sub-tabs for grouped navigation
+export const activeDailySubTab = ref<'shopping' | 'tasks'>('shopping')
+export const activeTasksMainTab = ref<'tasks' | 'pet'>('tasks')
+export const activeLeisureSubTab = ref<'movies' | 'wishlist'>('movies')
+
 export const normalizeMovieTitle = (str?: string | null): string => {
   if (!str) return ''
   return str.trim().toLowerCase().replace(/[\s\-_:,'"]+/g, ' ')
@@ -4755,6 +4760,9 @@ export const useDuoState = () => {
     hasSentDailyNudge,
     formattedNextNudgeTime,
     nextNudgeRemainingMs,
+    activeDailySubTab,
+    activeTasksMainTab,
+    activeLeisureSubTab,
     updatePartnershipSettings,
     subscribeToPairingChannel,
     checkDbPairingStatus,

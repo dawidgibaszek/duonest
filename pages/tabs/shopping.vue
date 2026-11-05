@@ -10,6 +10,40 @@
           <p class="dn-header-subtitle">Wszystko, czego potrzebujecie w domu</p>
         </div>
       </ion-toolbar>
+
+      <!-- MAIN TABS: Zakupy vs Zadania vs Zwierzak -->
+      <ion-toolbar class="main-tabs-toolbar" data-no-swipe>
+        <div class="main-tabs-pill-row">
+          <button
+            type="button"
+            class="main-tab-pill active"
+          >
+            <ion-icon :icon="ioniconsCartOutline" />
+            <span>Zakupy</span>
+            <span class="pill-count-chip" v-if="uncompletedCount > 0">{{ uncompletedCount }}</span>
+          </button>
+
+          <button
+            type="button"
+            class="main-tab-pill"
+            @click="switchToTasks"
+          >
+            <ion-icon :icon="ioniconsCheckboxOutline" />
+            <span>Zadania</span>
+            <span class="pill-count-chip" v-if="uncompletedTasksCount > 0">{{ uncompletedTasksCount }}</span>
+          </button>
+
+          <button
+            type="button"
+            class="main-tab-pill pet-tab-pill"
+            @click="switchToPet"
+          >
+            <span class="tab-pet-emoji">{{ hasPet ? currentPetDef.emoji : '🐾' }}</span>
+            <span>Zwierzak</span>
+            <span class="tab-pet-lvl" v-if="hasPet">lvl {{ petLevel }}</span>
+          </button>
+        </div>
+      </ion-toolbar>
     </ion-header>
 
     <ion-content :fullscreen="true">
@@ -192,10 +226,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useDuoState } from '~/composables/useDuoState'
+import { usePetState } from '~/composables/usePetState'
 import DuoIcon from '~/components/DuoIcon.vue'
 
 const {
   shoppingItems,
+  tasksList,
+  activeDailySubTab,
+  activeTasksMainTab,
   currentUser,
   partnerUser,
   addShoppingItem,
@@ -206,6 +244,30 @@ const {
   hexToRgba,
   initSupabaseSync
 } = useDuoState()
+
+const {
+  hasPet,
+  petLevel,
+  currentPetDef,
+  onEnterPetView
+} = usePetState()
+
+const uncompletedTasksCount = computed(() => {
+  return tasksList.value.filter(t => !t.is_completed).length
+})
+
+const switchToTasks = () => {
+  activeDailySubTab.value = 'tasks'
+  activeTasksMainTab.value = 'tasks'
+}
+
+const switchToPet = () => {
+  activeDailySubTab.value = 'tasks'
+  activeTasksMainTab.value = 'pet'
+  try {
+    onEnterPetView()
+  } catch (_) {}
+}
 
 const newItemTitle = ref('')
 const newItemQty = ref('')
@@ -333,6 +395,70 @@ const handleRefresh = async (event: any) => {
 </script>
 
 <style scoped>
+/* MAIN TABS TOOLBAR & PILLS (Codzienność: Zakupy | Zadania | Zwierzak) */
+.main-tabs-toolbar {
+  --background: #ffffff;
+  padding: 4px 16px 8px 16px;
+}
+
+.main-tabs-pill-row {
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 14px;
+  gap: 4px;
+}
+
+.main-tab-pill {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.main-tab-pill.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.main-tab-pill.pet-tab-pill.active {
+  color: #db2777;
+}
+
+.pill-count-chip {
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.tab-pet-emoji {
+  font-size: 15px;
+}
+
+.tab-pet-lvl {
+  font-size: 10px;
+  font-weight: 800;
+  background: #fdf2f8;
+  color: #db2777;
+  padding: 1px 5px;
+  border-radius: 999px;
+}
+
 .gesture-hint-bar {
   display: flex;
   align-items: center;

@@ -12,21 +12,25 @@
           <TabNest />
         </div>
         <div class="tab-slide" :class="{ 'is-active': activeTabIndex === 1 }">
-          <TabShopping />
+          <div v-show="activeDailySubTab === 'shopping'" class="subtab-fill-container">
+            <TabShopping />
+          </div>
+          <div v-show="activeDailySubTab === 'tasks'" class="subtab-fill-container">
+            <TabTasks />
+          </div>
         </div>
         <div class="tab-slide" :class="{ 'is-active': activeTabIndex === 2 }">
-          <TabTasks />
-        </div>
-        <div class="tab-slide" :class="{ 'is-active': activeTabIndex === 3 }">
           <TabCalendar />
         </div>
+        <div class="tab-slide" :class="{ 'is-active': activeTabIndex === 3 }">
+          <div v-show="activeLeisureSubTab === 'movies'" class="subtab-fill-container">
+            <TabMovies />
+          </div>
+          <div v-show="activeLeisureSubTab === 'wishlist'" class="subtab-fill-container">
+            <TabWishlist />
+          </div>
+        </div>
         <div class="tab-slide" :class="{ 'is-active': activeTabIndex === 4 }">
-          <TabWishlist />
-        </div>
-        <div class="tab-slide" :class="{ 'is-active': activeTabIndex === 5 }">
-          <TabMovies />
-        </div>
-        <div class="tab-slide" :class="{ 'is-active': activeTabIndex === 6 }">
           <TabRelationship />
         </div>
       </div>
@@ -51,48 +55,31 @@
 
         <button
           type="button"
-          id="tab-btn-shopping"
+          id="tab-btn-daily"
           class="duo-tab-btn"
           :class="{ 'is-active': activeTabIndex === 1 }"
-          @click="goToTab(1)"
+          @click="handleDailyTabClick"
         >
           <div class="tab-icon-wrap">
             <div class="tab-icon-pill"></div>
-            <ion-icon :icon="activeTabIndex === 1 ? ioniconsCart : ioniconsCartOutline" />
-            <span v-if="pendingShoppingCount > 0" class="tab-badge primary-badge">
-              {{ pendingShoppingCount }}
+            <ion-icon :icon="activeTabIndex === 1 ? ioniconsCheckbox : ioniconsCheckboxOutline" />
+            <span v-if="(pendingShoppingCount + pendingTasksCount) > 0" class="tab-badge primary-badge">
+              {{ pendingShoppingCount + pendingTasksCount }}
             </span>
           </div>
-          <span class="tab-title">Zakupy</span>
-        </button>
-
-        <button
-          type="button"
-          id="tab-btn-tasks"
-          class="duo-tab-btn"
-          :class="{ 'is-active': activeTabIndex === 2 }"
-          @click="goToTab(2)"
-        >
-          <div class="tab-icon-wrap">
-            <div class="tab-icon-pill"></div>
-            <ion-icon :icon="activeTabIndex === 2 ? ioniconsCheckbox : ioniconsCheckboxOutline" />
-            <span v-if="pendingTasksCount > 0" class="tab-badge primary-badge">
-              {{ pendingTasksCount }}
-            </span>
-          </div>
-          <span class="tab-title">Zadania</span>
+          <span class="tab-title">Codzienność</span>
         </button>
 
         <button
           type="button"
           id="tab-btn-calendar"
           class="duo-tab-btn"
-          :class="{ 'is-active': activeTabIndex === 3 }"
-          @click="goToTab(3)"
+          :class="{ 'is-active': activeTabIndex === 2 }"
+          @click="goToTab(2)"
         >
           <div class="tab-icon-wrap">
             <div class="tab-icon-pill"></div>
-            <ion-icon :icon="activeTabIndex === 3 ? ioniconsCalendar : ioniconsCalendarOutline" />
+            <ion-icon :icon="activeTabIndex === 2 ? ioniconsCalendar : ioniconsCalendarOutline" />
             <span v-if="todayEventsCount > 0" class="tab-badge primary-badge">
               {{ todayEventsCount }}
             </span>
@@ -102,48 +89,31 @@
 
         <button
           type="button"
-          id="tab-btn-wishlist"
+          id="tab-btn-leisure"
           class="duo-tab-btn"
-          :class="{ 'is-active': activeTabIndex === 4 }"
-          @click="goToTab(4)"
+          :class="{ 'is-active': activeTabIndex === 3 }"
+          @click="handleLeisureTabClick"
         >
           <div class="tab-icon-wrap">
             <div class="tab-icon-pill"></div>
-            <ion-icon :icon="activeTabIndex === 4 ? ioniconsGift : ioniconsGiftOutline" />
-            <span v-if="pendingWishlistCount > 0" class="tab-badge primary-badge">
-              {{ pendingWishlistCount }}
+            <ion-icon :icon="activeTabIndex === 3 ? ioniconsFilm : ioniconsFilmOutline" />
+            <span v-if="(pendingMoviesCount + pendingWishlistCount) > 0" class="tab-badge primary-badge">
+              {{ pendingMoviesCount + pendingWishlistCount }}
             </span>
           </div>
-          <span class="tab-title">Wishlista</span>
-        </button>
-
-        <button
-          type="button"
-          id="tab-btn-movies"
-          class="duo-tab-btn"
-          :class="{ 'is-active': activeTabIndex === 5 }"
-          @click="goToTab(5)"
-        >
-          <div class="tab-icon-wrap">
-            <div class="tab-icon-pill"></div>
-            <ion-icon :icon="activeTabIndex === 5 ? ioniconsFilm : ioniconsFilmOutline" />
-            <span v-if="pendingMoviesCount > 0" class="tab-badge primary-badge">
-              {{ pendingMoviesCount }}
-            </span>
-          </div>
-          <span class="tab-title">Filmy</span>
+          <span class="tab-title">Rozrywka</span>
         </button>
 
         <button
           type="button"
           id="tab-btn-relationship"
           class="duo-tab-btn"
-          :class="{ 'is-active': activeTabIndex === 6 }"
-          @click="goToTab(6)"
+          :class="{ 'is-active': activeTabIndex === 4 }"
+          @click="goToTab(4)"
         >
           <div class="tab-icon-wrap">
             <div class="tab-icon-pill"></div>
-            <ion-icon :icon="activeTabIndex === 6 ? ioniconsSparkles : ioniconsSparklesOutline" />
+            <ion-icon :icon="activeTabIndex === 4 ? ioniconsSparkles : ioniconsSparklesOutline" />
           </div>
           <span class="tab-title">Relacja</span>
         </button>
@@ -166,7 +136,15 @@ import TabMovies from '~/pages/tabs/movies.vue'
 import TabRelationship from '~/pages/tabs/relationship.vue'
 
 const route = useRoute()
-const { shoppingItems, tasksList, eventsList, wishlistItems, moviesList } = useDuoState()
+const {
+  shoppingItems,
+  tasksList,
+  eventsList,
+  wishlistItems,
+  moviesList,
+  activeDailySubTab,
+  activeLeisureSubTab
+} = useDuoState()
 
 const pendingShoppingCount = computed(() => {
   return shoppingItems.value.filter(i => !i.is_completed).length
@@ -189,7 +167,7 @@ const pendingMoviesCount = computed(() => {
   return moviesList.value.filter(m => m.status === 'planned').length
 })
 
-const TABS = ['nest', 'shopping', 'tasks', 'calendar', 'wishlist', 'movies', 'relationship']
+const TABS = ['nest', 'daily', 'calendar', 'leisure', 'relationship']
 const activeTabIndex = ref(0)
 const containerRef = ref<HTMLElement | null>(null)
 const trackRef = ref<HTMLElement | null>(null)
@@ -443,7 +421,12 @@ const onTouchEnd = (e: TouchEvent) => {
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         try { navigator.vibrate(10) } catch {}
       }
-      const targetPath = `/tabs/${TABS[targetIndex]}`
+      let targetPath = `/tabs/${TABS[targetIndex]}`
+      if (targetIndex === 1) {
+        targetPath = `/tabs/${activeDailySubTab.value}`
+      } else if (targetIndex === 3) {
+        targetPath = `/tabs/${activeLeisureSubTab.value}`
+      }
       if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
         window.history.replaceState({}, '', targetPath)
       }
@@ -497,9 +480,41 @@ const goToTab = (index: number) => {
     try { navigator.vibrate(12) } catch {}
   }
 
-  const targetPath = `/tabs/${TABS[index]}`
+  let targetPath = `/tabs/${TABS[index]}`
+  if (index === 1) {
+    targetPath = `/tabs/${activeDailySubTab.value}`
+  } else if (index === 3) {
+    targetPath = `/tabs/${activeLeisureSubTab.value}`
+  }
+
   if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
     window.history.replaceState({}, '', targetPath)
+  }
+}
+
+const handleDailyTabClick = () => {
+  if (activeTabIndex.value === 1) {
+    // If already on Codzienność tab, toggle between shopping and tasks
+    activeDailySubTab.value = activeDailySubTab.value === 'shopping' ? 'tasks' : 'shopping'
+    const targetPath = `/tabs/${activeDailySubTab.value}`
+    if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
+      window.history.replaceState({}, '', targetPath)
+    }
+  } else {
+    goToTab(1)
+  }
+}
+
+const handleLeisureTabClick = () => {
+  if (activeTabIndex.value === 3) {
+    // If already on Rozrywka tab, toggle between movies and wishlist
+    activeLeisureSubTab.value = activeLeisureSubTab.value === 'movies' ? 'wishlist' : 'movies'
+    const targetPath = `/tabs/${activeLeisureSubTab.value}`
+    if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
+      window.history.replaceState({}, '', targetPath)
+    }
+  } else {
+    goToTab(3)
   }
 }
 
@@ -515,20 +530,40 @@ const handleResize = () => {
 // Synchronize active tab from initial route URL
 const syncTabFromRoute = (animate: boolean = false) => {
   const path = route.path
-  const tabName = TABS.find(t => path.includes(t))
-  if (tabName) {
-    const idx = TABS.indexOf(tabName)
-    if (idx !== -1) {
-      if (animate && idx !== activeTabIndex.value) {
-        goToTab(idx)
-      } else {
-        activeTabIndex.value = idx
-        const width = getContainerWidth()
-        if (trackRef.value) {
-          trackRef.value.style.transition = 'none'
-          trackRef.value.style.transform = `translate3d(${-idx * width}px, 0, 0)`
-        }
-      }
+  let idx = 0
+
+  if (path.includes('nest')) {
+    idx = 0
+  } else if (path.includes('shopping')) {
+    idx = 1
+    activeDailySubTab.value = 'shopping'
+  } else if (path.includes('tasks')) {
+    idx = 1
+    activeDailySubTab.value = 'tasks'
+  } else if (path.includes('daily')) {
+    idx = 1
+  } else if (path.includes('calendar')) {
+    idx = 2
+  } else if (path.includes('movies')) {
+    idx = 3
+    activeLeisureSubTab.value = 'movies'
+  } else if (path.includes('wishlist')) {
+    idx = 3
+    activeLeisureSubTab.value = 'wishlist'
+  } else if (path.includes('leisure')) {
+    idx = 3
+  } else if (path.includes('relationship')) {
+    idx = 4
+  }
+
+  if (animate && idx !== activeTabIndex.value) {
+    goToTab(idx)
+  } else {
+    activeTabIndex.value = idx
+    const width = getContainerWidth()
+    if (trackRef.value) {
+      trackRef.value.style.transition = 'none'
+      trackRef.value.style.transform = `translate3d(${-idx * width}px, 0, 0)`
     }
   }
 }
@@ -569,6 +604,24 @@ onUnmounted(() => {
 watch(() => route.path, () => {
   syncTabFromRoute(true)
 })
+
+watch(activeDailySubTab, (newVal) => {
+  if (activeTabIndex.value === 1 && typeof window !== 'undefined') {
+    const targetPath = `/tabs/${newVal}`
+    if (window.location.pathname !== targetPath) {
+      window.history.replaceState({}, '', targetPath)
+    }
+  }
+})
+
+watch(activeLeisureSubTab, (newVal) => {
+  if (activeTabIndex.value === 3 && typeof window !== 'undefined') {
+    const targetPath = `/tabs/${newVal}`
+    if (window.location.pathname !== targetPath) {
+      window.history.replaceState({}, '', targetPath)
+    }
+  }
+})
 </script>
 
 <style scoped>
@@ -602,7 +655,7 @@ watch(() => route.path, () => {
   position: absolute;
   top: 0;
   left: 0;
-  width: 700%; /* 7 slides * 100% */
+  width: 500%; /* 5 slides * 100% */
   will-change: transform;
   transform: translate3d(0, 0, 0);
   -webkit-backface-visibility: hidden;
@@ -612,13 +665,23 @@ watch(() => route.path, () => {
 }
 
 .tab-slide {
-  width: 14.285714%; /* 1/7th of 700% = 100% of container viewport */
+  width: 20%; /* 1/5th of 500% = 100% of container viewport */
   height: 100%;
   position: relative;
   overflow: hidden;
   contain: layout style;
   -webkit-transform: translateZ(0);
   transform: translateZ(0);
+}
+
+.subtab-fill-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .tab-slide :deep(ion-page) {

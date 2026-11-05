@@ -30,9 +30,19 @@
         </div>
       </ion-toolbar>
 
-      <!-- MAIN TABS: Zadania vs Zwierzak -->
-      <ion-toolbar class="main-tabs-toolbar">
+      <!-- MAIN TABS: Zakupy vs Zadania vs Zwierzak -->
+      <ion-toolbar class="main-tabs-toolbar" data-no-swipe>
         <div class="main-tabs-pill-row">
+          <button
+            type="button"
+            class="main-tab-pill"
+            @click="handleSwitchToShopping"
+          >
+            <ion-icon :icon="ioniconsCartOutline" />
+            <span>Zakupy</span>
+            <span class="pill-count-chip" v-if="uncompletedShoppingCount > 0">{{ uncompletedShoppingCount }}</span>
+          </button>
+
           <button
             type="button"
             class="main-tab-pill"
@@ -816,6 +826,9 @@ import PetSprite from '~/components/PetSprite.vue'
 
 const {
   tasksList,
+  shoppingItems,
+  activeDailySubTab,
+  activeTasksMainTab,
   currentUser,
   partnerUser,
   currentUserAccentColor,
@@ -850,8 +863,16 @@ const {
   renamePet
 } = usePetState()
 
-// Main Tab Navigation: 'tasks' | 'pet'
-const activeMainTab = ref<'tasks' | 'pet'>('tasks')
+// Main Tab Navigation: 'tasks' | 'pet' (synced with global activeTasksMainTab)
+const activeMainTab = activeTasksMainTab
+
+const uncompletedShoppingCount = computed(() => {
+  return shoppingItems.value.filter(i => !i.is_completed).length
+})
+
+const handleSwitchToShopping = () => {
+  activeDailySubTab.value = 'shopping'
+}
 
 onMounted(async () => {
   try {
@@ -860,11 +881,13 @@ onMounted(async () => {
 })
 
 const handleSwitchToTasks = () => {
-  activeMainTab.value = 'tasks'
+  activeDailySubTab.value = 'tasks'
+  activeTasksMainTab.value = 'tasks'
 }
 
 const handleSwitchToPet = () => {
-  activeMainTab.value = 'pet'
+  activeDailySubTab.value = 'tasks'
+  activeTasksMainTab.value = 'pet'
   onEnterPetView()
 }
 
@@ -1626,15 +1649,16 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 12px;
+  padding: 8px 10px;
   border-radius: 10px;
   border: none;
   background: transparent;
   color: #64748b;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .main-tab-pill.active {
