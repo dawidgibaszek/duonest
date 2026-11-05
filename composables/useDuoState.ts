@@ -418,8 +418,12 @@ export const SUPABASE_PUBLIC_KEY = getSupabaseConfig().key
 
 // Active Supabase Realtime Channels references
 let activePartnershipChannel: any = null
+let activePartnershipId: string | null = null
 let activePairingChannel: any = null
+let activePairingCode: string | null = null
 let activeSecurityChannel: any = null
+let activeSecurityUserId: string | null = null
+let activeSecurityPartnershipId: string | null = null
 let globalSupabaseClient: any = null
 let cleanDbClient: any = null
 let securityLifecycleBound = false
@@ -1617,14 +1621,20 @@ export const useDuoState = () => {
       try { (getCleanDbClient() || supabase)?.removeChannel(activeSecurityChannel) } catch (_) {}
       activeSecurityChannel = null
     }
+    activeSecurityUserId = null
+    activeSecurityPartnershipId = null
+
     if (activePartnershipChannel) {
       try { (getCleanDbClient() || supabase)?.removeChannel(activePartnershipChannel) } catch (_) {}
       activePartnershipChannel = null
     }
+    activePartnershipId = null
+
     if (activePairingChannel) {
       try { (getCleanDbClient() || supabase)?.removeChannel(activePairingChannel) } catch (_) {}
       activePairingChannel = null
     }
+    activePairingCode = null
     try {
       await (getCleanDbClient() || supabase)?.auth?.signOut()
     } catch (_) {}
@@ -1749,6 +1759,20 @@ export const useDuoState = () => {
     const client = getCleanDbClient() || supabase
     if (!client || typeof window === 'undefined' || !userId) return
 
+    const channelName = `duonest_sec_${userId}`
+    const targetPartnershipId = partnershipId || null
+
+    // If channel is already active and subscribed/joining for this exact user and partnership, do not duplicate
+    if (
+      activeSecurityChannel &&
+      activeSecurityUserId === userId &&
+      activeSecurityPartnershipId === targetPartnershipId &&
+      (activeSecurityChannel.state === 'joined' || activeSecurityChannel.state === 'joining')
+    ) {
+      return
+    }
+
+    // Clean up any existing security channel references
     if (activeSecurityChannel) {
       try {
         client.removeChannel(activeSecurityChannel)
@@ -1756,8 +1780,21 @@ export const useDuoState = () => {
       activeSecurityChannel = null
     }
 
-    const channelName = `duonest_sec_${userId}`
+    // Also remove any existing channel with this name/topic from Supabase client's internal channels registry
+    try {
+      const existingChannels = (client.getChannels ? client.getChannels() : []) || []
+      for (const ch of existingChannels) {
+        if (ch && (ch.topic === `realtime:${channelName}` || ch.topic === channelName)) {
+          client.removeChannel(ch)
+        }
+      }
+    } catch (_) {}
+
+    activeSecurityUserId = userId
+    activeSecurityPartnershipId = targetPartnershipId
+
     const channel = client.channel(channelName)
+    activeSecurityChannel = channel
 
     // 1. Listen for user profile deletion or unpairing in Supabase
     channel.on(
@@ -1798,14 +1835,14 @@ export const useDuoState = () => {
     )
 
     // 2. If paired, listen for partnership deletion or removal in Supabase
-    if (partnershipId) {
+    if (targetPartnershipId) {
       channel.on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'partnerships',
-          filter: `id=eq.${partnershipId}`
+          filter: `id=eq.${targetPartnershipId}`
         },
         async (payload: any) => {
           if (payload.eventType === 'DELETE') {
@@ -1836,8 +1873,12 @@ export const useDuoState = () => {
     }
 
     channel.subscribe((status: string) => {
-      if (status === 'SUBSCRIBED') {
-        activeSecurityChannel = channel
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        if (activeSecurityChannel === channel) {
+          activeSecurityChannel = null
+          activeSecurityUserId = null
+          activeSecurityPartnershipId = null
+        }
       }
     })
   }
@@ -2067,17 +2108,39 @@ export const useDuoState = () => {
   // --- REALTIME SUBSCRIPTION FOR PAIRED PARTNERS ---
   const subscribeToPartnershipRealtime = (partnershipId: string) => {
     const client = getCleanDbClient() || supabase
-    if (!client || typeof window === 'undefined') return
+    if (!client || typeof window === 'undefined' || !partnershipId) return
 
-    // If already subscribed to this partnership channel, do not duplicate
+    const channelName = `duonest_channel_${partnershipId}`
+
+    // If already subscribed or joining for this exact partnershipId, do not duplicate
+    if (
+      activePartnershipChannel &&
+      activePartnershipId === partnershipId &&
+      (activePartnershipChannel.state === 'joined' || activePartnershipChannel.state === 'joining')
+    ) {
+      return
+    }
+
     if (activePartnershipChannel) {
       try {
         client.removeChannel(activePartnershipChannel)
       } catch (_) {}
+      activePartnershipChannel = null
     }
 
+    // Clean up any channels matching this name from client internal registry
+    try {
+      const existingChannels = (client.getChannels ? client.getChannels() : []) || []
+      for (const ch of existingChannels) {
+        if (ch && (ch.topic === `realtime:${channelName}` || ch.topic === channelName)) {
+          client.removeChannel(ch)
+        }
+      }
+    } catch (_) {}
+
     realtimeStatus.value = 'connecting'
-    const channelName = `duonest_channel_${partnershipId}`
+    activePartnershipId = partnershipId
+
     const channel = client.channel(channelName, {
       config: {
         broadcast: { ack: false, self: false },
@@ -2758,8 +2821,12 @@ export const useDuoState = () => {
 
         // Ask partner for any updates they made while we were offline
         broadcastToPartner('REQ_STATE_SYNC', {})
-      } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+      } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         realtimeStatus.value = 'disconnected'
+        if (activePartnershipChannel === channel) {
+          activePartnershipChannel = null
+          activePartnershipId = null
+        }
       }
     })
   }
@@ -2780,15 +2847,36 @@ export const useDuoState = () => {
     const code = normalizePairingCode(myPairingCode)
     if (!code) return
 
+    const pairChannelName = `duonest_pair_${code}`
+
+    if (
+      activePairingChannel &&
+      activePairingCode === code &&
+      (activePairingChannel.state === 'joined' || activePairingChannel.state === 'joining')
+    ) {
+      return
+    }
+
     if (activePairingChannel) {
       try { client.removeChannel(activePairingChannel) } catch (_) {}
       activePairingChannel = null
     }
 
-    const pairChannelName = `duonest_pair_${code}`
+    try {
+      const existingChannels = (client.getChannels ? client.getChannels() : []) || []
+      for (const ch of existingChannels) {
+        if (ch && (ch.topic === `realtime:${pairChannelName}` || ch.topic === pairChannelName)) {
+          client.removeChannel(ch)
+        }
+      }
+    } catch (_) {}
+
+    activePairingCode = code
+
     const pairChan = client.channel(pairChannelName, {
       config: { broadcast: { ack: true } }
     })
+    activePairingChannel = pairChan
 
     pairChan.on('broadcast', { event: 'PAIR_REQUEST' }, async (envelope: any) => {
       const { initiatorProfile, newPartnership } = envelope.payload || {}
@@ -2826,14 +2914,18 @@ export const useDuoState = () => {
       setTimeout(() => {
         try { client.removeChannel(pairChan) } catch (_) {}
         activePairingChannel = null
+        activePairingCode = null
         subscribeToPartnershipRealtime(newPartnership.id)
         subscribeToSecurityChannel(currentUser.value.id, newPartnership.id)
       }, 500)
     })
 
     pairChan.subscribe((status: string) => {
-      if (status === 'SUBSCRIBED') {
-        activePairingChannel = pairChan
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        if (activePairingChannel === pairChan) {
+          activePairingChannel = null
+          activePairingCode = null
+        }
       }
     })
   }
