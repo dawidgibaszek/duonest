@@ -1226,10 +1226,10 @@ export const useDuoState = () => {
         })
       } catch (_) {}
 
-      // 2. Prepare redirect URL to dedicated reset-password page
+      // 2. Prepare redirect URL to dedicated reset-password page (including email for OTP fallback)
       const redirectUrl = typeof window !== 'undefined'
-        ? `${window.location.origin}/reset-password`
-        : 'https://duonestapp.pl/reset-password'
+        ? `${window.location.origin}/reset-password?email=${encodeURIComponent(cleanEmail)}`
+        : `https://duonestapp.pl/reset-password?email=${encodeURIComponent(cleanEmail)}`
 
       // 3. Dispatch password recovery request via Supabase Auth + connected Resend SMTP
       const { error: resetErr } = await authClient.auth.resetPasswordForEmail(cleanEmail, {

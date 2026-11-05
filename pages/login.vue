@@ -288,6 +288,10 @@ onMounted(async () => {
 
   // 1. If recovery intent or tokens detected, immediately delegate to dedicated /reset-password
   const isRecoveryIntent =
+    urlParams.has('token_hash') ||
+    hash.includes('token_hash') ||
+    urlParams.has('token') ||
+    hash.includes('token=') ||
     urlParams.get('type') === 'recovery' ||
     hash.includes('type=recovery') ||
     hash.includes('access_token') ||
@@ -359,7 +363,7 @@ const handleSubmit = async () => {
         return
       }
 
-      successMessage.value = 'Jeśli podany adres e-mail istnieje w bazie, przesłana została na niego wiadomość z linkiem do zmiany hasła. Sprawdź swoją skrzynkę (w tym folder SPAM).'
+      successMessage.value = 'Jeśli podany adres e-mail istnieje w bazie, przesłana została wiadomość z bezpiecznym linkiem oraz 6-cyfrowym kodem weryfikacyjnym. Sprawdź swoją skrzynkę (w tym folder SPAM).'
     }
   } catch (err: any) {
     errorMessage.value = translateAuthError(err)
