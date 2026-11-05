@@ -1561,7 +1561,7 @@ export const useDuoState = () => {
         if (!currentPassword) {
           return { success: false, error: 'Wprowadź obecne hasło.' }
         }
-        const isMatch = await verifyPasswordHash(currentPassword, storedHash)
+        const isMatch = await verifyPassword(currentPassword, storedHash)
         if (!isMatch) {
           return { success: false, error: 'Podane obecne hasło jest nieprawidłowe.' }
         }
@@ -3374,13 +3374,36 @@ export const useDuoState = () => {
   ) => {
     if (!title.trim() || !partnership.value) return
     if (!await verifyUserAndPartnershipAccess()) return
+
+    // Normalize start_time to valid ISO timestamp
+    let normalizedStartTime = startTime || new Date().toISOString()
+    const startD = new Date(normalizedStartTime)
+    if (!isNaN(startD.getTime())) {
+      normalizedStartTime = startD.toISOString()
+    }
+
+    // Normalize end_time to valid ISO timestamp or undefined
+    let normalizedEndTime: string | undefined = undefined
+    if (endTime && endTime.trim()) {
+      const trimmedEnd = endTime.trim()
+      if (/^\d{2}:\d{2}(:\d{2})?$/.test(trimmedEnd)) {
+        const datePart = normalizedStartTime.split('T')[0]
+        const fullLocal = `${datePart}T${trimmedEnd.substring(0, 5)}:00`
+        const endD = new Date(fullLocal)
+        if (!isNaN(endD.getTime())) normalizedEndTime = endD.toISOString()
+      } else {
+        const endD = new Date(trimmedEnd)
+        if (!isNaN(endD.getTime())) normalizedEndTime = endD.toISOString()
+      }
+    }
+
     const newEvent: EventItem = {
       id: 'ev_' + Math.random().toString(36).substring(2, 9),
       partnership_id: partnership.value.id,
       title: title.trim(),
       category,
-      start_time: startTime || new Date().toISOString(),
-      end_time: endTime || undefined,
+      start_time: normalizedStartTime,
+      end_time: normalizedEndTime,
       description: description.trim() || undefined,
       location: location.trim() || undefined,
       is_completed: false,
@@ -3412,15 +3435,36 @@ export const useDuoState = () => {
     const idx = eventsList.value.findIndex(e => e.id === id)
     if (idx === -1) return
 
-    eventsList.value[idx] = { ...eventsList.value[idx], ...updates }
+    const sanitizedUpdates: Partial<EventItem> = { ...updates }
+    if (sanitizedUpdates.start_time) {
+      const startD = new Date(sanitizedUpdates.start_time)
+      if (!isNaN(startD.getTime())) {
+        sanitizedUpdates.start_time = startD.toISOString()
+      }
+    }
+    if (sanitizedUpdates.end_time) {
+      const trimmedEnd = sanitizedUpdates.end_time.trim()
+      if (/^\d{2}:\d{2}(:\d{2})?$/.test(trimmedEnd)) {
+        const baseStart = sanitizedUpdates.start_time || eventsList.value[idx].start_time || new Date().toISOString()
+        const datePart = baseStart.split('T')[0]
+        const fullLocal = `${datePart}T${trimmedEnd.substring(0, 5)}:00`
+        const endD = new Date(fullLocal)
+        if (!isNaN(endD.getTime())) sanitizedUpdates.end_time = endD.toISOString()
+      } else {
+        const endD = new Date(trimmedEnd)
+        if (!isNaN(endD.getTime())) sanitizedUpdates.end_time = endD.toISOString()
+      }
+    }
+
+    eventsList.value[idx] = { ...eventsList.value[idx], ...sanitizedUpdates }
     eventsList.value.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
     syncToStorage()
 
     // Broadcast live to partner
-    broadcastToPartner('EVENT_UPDATE', { id, updates })
+    broadcastToPartner('EVENT_UPDATE', { id, updates: sanitizedUpdates })
 
     if (db) {
-      safeDb(db.from('events').update(updates).eq('id', id))
+      safeDb(db.from('events').update(sanitizedUpdates).eq('id', id))
     }
     triggerToast('Zaktualizowano plan w terminarzu.')
   }

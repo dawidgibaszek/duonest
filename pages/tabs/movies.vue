@@ -2662,9 +2662,12 @@ const scheduleMovieDate = async (movie: any) => {
     })
   }
 
-  // Suggest tomorrow evening or tonight
+  // Suggest tonight (or tomorrow evening if past 20:00)
   const now = new Date()
   now.setHours(20, 0, 0, 0)
+  if (now.getTime() < Date.now()) {
+    now.setDate(now.getDate() + 1)
+  }
   const startTime = now.toISOString()
 
   await addEvent(

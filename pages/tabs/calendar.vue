@@ -701,9 +701,56 @@ onMounted(async () => {
   } catch (_) {}
 })
 
+// Local date formatting helpers
+const formatLocalDate = (d: Date): string => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+const toLocalIsoString = (date: Date): string => {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mm = String(date.getMinutes()).padStart(2, '0')
+  const ss = String(date.getSeconds()).padStart(2, '0')
+  return `${y}-${m}-${day}T${hh}:${mm}:${ss}`
+}
+
+const toDbTimestamp = (dateStr: string): string => {
+  if (!dateStr) return new Date().toISOString()
+  const d = new Date(dateStr)
+  if (!isNaN(d.getTime())) {
+    return d.toISOString()
+  }
+  return dateStr
+}
+
+const toDbEndTimestamp = (endTimeStr: string, startDateStr: string): string | null => {
+  if (!endTimeStr || !endTimeStr.trim()) return null
+  const trimmed = endTimeStr.trim()
+  if (/^\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) {
+    const datePart = startDateStr ? startDateStr.split('T')[0] : formatLocalDate(new Date())
+    const fullLocal = `${datePart}T${trimmed.substring(0, 5)}:00`
+    const d = new Date(fullLocal)
+    return !isNaN(d.getTime()) ? d.toISOString() : null
+  }
+  const timeMatch = trimmed.match(/T(\d{2}:\d{2}(:\d{2})?)/)
+  if (timeMatch && startDateStr) {
+    const datePart = startDateStr.split('T')[0]
+    const fullLocal = `${datePart}T${timeMatch[1].substring(0, 5)}:00`
+    const d = new Date(fullLocal)
+    return !isNaN(d.getTime()) ? d.toISOString() : null
+  }
+  const d = new Date(trimmed)
+  return !isNaN(d.getTime()) ? d.toISOString() : null
+}
+
 // Calendar Navigation State
 const viewDate = ref(new Date())
-const selectedDateStr = ref(new Date().toISOString().split('T')[0])
+const selectedDateStr = ref(formatLocalDate(new Date()))
 
 // Modal State
 const showEventModal = ref(false)
@@ -713,7 +760,7 @@ const editingEventId = ref<string | null>(null)
 const modalForm = reactive({
   title: '',
   category: 'date' as EventItem['category'],
-  startTime: new Date().toISOString(),
+  startTime: toLocalIsoString(new Date()),
   endTime: '',
   location: '',
   description: '',
@@ -827,7 +874,7 @@ const handleSwipeCompleteEvent = (evt: EventItem) => {
 const jumpToToday = () => {
   const now = new Date()
   viewDate.value = new Date(now.getFullYear(), now.getMonth(), 1)
-  selectedDateStr.value = now.toISOString().split('T')[0]
+  selectedDateStr.value = formatLocalDate(now)
 }
 
 const selectDate = (dateStr: string) => {
@@ -837,13 +884,27 @@ const selectDate = (dateStr: string) => {
 // Helpers
 const getDateOnly = (isoString: string) => {
   if (!isoString) return ''
-  return isoString.split('T')[0]
+  try {
+    const d = new Date(isoString)
+    if (!isNaN(d.getTime())) {
+      return formatLocalDate(d)
+    }
+  } catch (_) {}
+  return isoString.split('T')[0] || ''
 }
 
 const formatTimeOnly = (isoString: string) => {
   try {
+    if (!isoString) return ''
+    if (/^\d{2}:\d{2}(:\d{2})?$/.test(isoString)) {
+      return isoString.substring(0, 5)
+    }
     const d = new Date(isoString)
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+    const match = isoString.match(/T(\d{2}:\d{2})/)
+    return match ? match[1] : ''
   } catch {
     return ''
   }
@@ -890,7 +951,7 @@ interface CalendarCell {
 const calendarCells = computed<CalendarCell[]>(() => {
   const year = currentYear.value
   const month = currentMonthIndex.value
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = formatLocalDate(new Date())
 
   const firstDayOfMonth = new Date(year, month, 1)
   const lastDayOfMonth = new Date(year, month + 1, 0)
@@ -907,7 +968,7 @@ const calendarCells = computed<CalendarCell[]>(() => {
   for (let i = startDayOfWeek - 1; i >= 0; i--) {
     const day = prevMonthLastDay - i
     const d = new Date(year, month - 1, day)
-    const dateStr = d.toISOString().split('T')[0]
+    const dateStr = formatLocalDate(d)
     cells.push({
       dateStr,
       dayNumber: day,
@@ -920,7 +981,7 @@ const calendarCells = computed<CalendarCell[]>(() => {
   // 2. Current month days
   for (let day = 1; day <= totalDays; day++) {
     const d = new Date(year, month, day)
-    const dateStr = d.toISOString().split('T')[0]
+    const dateStr = formatLocalDate(d)
     cells.push({
       dateStr,
       dayNumber: day,
@@ -934,7 +995,7 @@ const calendarCells = computed<CalendarCell[]>(() => {
   const remaining = (7 - (cells.length % 7)) % 7
   for (let day = 1; day <= remaining; day++) {
     const d = new Date(year, month + 1, day)
-    const dateStr = d.toISOString().split('T')[0]
+    const dateStr = formatLocalDate(d)
     cells.push({
       dateStr,
       dayNumber: day,
@@ -956,13 +1017,13 @@ const currentWeekDays = computed(() => {
   const monday = new Date(base)
   monday.setDate(base.getDate() - dayOfWeek)
 
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = formatLocalDate(new Date())
   const weekDays = []
 
   for (let i = 0; i < 7; i++) {
     const d = new Date(monday)
     d.setDate(monday.getDate() + i)
-    const dateStr = d.toISOString().split('T')[0]
+    const dateStr = formatLocalDate(d)
     weekDays.push({
       dateStr,
       dayNumber: d.getDate(),
@@ -984,14 +1045,14 @@ const formatWeekRangeLabel = computed(() => {
 const prevWeek = () => {
   const cur = new Date(selectedDateStr.value)
   cur.setDate(cur.getDate() - 7)
-  selectedDateStr.value = cur.toISOString().split('T')[0]
+  selectedDateStr.value = formatLocalDate(cur)
   viewDate.value = new Date(cur.getFullYear(), cur.getMonth(), 1)
 }
 
 const nextWeek = () => {
   const cur = new Date(selectedDateStr.value)
   cur.setDate(cur.getDate() + 7)
-  selectedDateStr.value = cur.toISOString().split('T')[0]
+  selectedDateStr.value = formatLocalDate(cur)
   viewDate.value = new Date(cur.getFullYear(), cur.getMonth(), 1)
 }
 
@@ -1094,8 +1155,14 @@ const openEditModal = (evt: EventItem) => {
   editingEventId.value = evt.id
   modalForm.title = evt.title
   modalForm.category = evt.category
-  modalForm.startTime = evt.start_time
-  modalForm.endTime = evt.end_time || ''
+  const startD = new Date(evt.start_time)
+  modalForm.startTime = !isNaN(startD.getTime()) ? toLocalIsoString(startD) : evt.start_time
+  if (evt.end_time) {
+    const endD = new Date(evt.end_time)
+    modalForm.endTime = !isNaN(endD.getTime()) ? toLocalIsoString(endD) : evt.end_time
+  } else {
+    modalForm.endTime = ''
+  }
   modalForm.location = evt.location || ''
   modalForm.description = evt.description || ''
   modalForm.plannerName = evt.planner_name || 'Wspólnie'
@@ -1112,12 +1179,15 @@ const closeEventModal = () => {
 const handleSaveEvent = async () => {
   if (!modalForm.title.trim()) return
 
+  const startTimestamp = toDbTimestamp(modalForm.startTime)
+  const endTimestamp = toDbEndTimestamp(modalForm.endTime, modalForm.startTime)
+
   if (isEditingMode.value && editingEventId.value) {
     await updateEvent(editingEventId.value, {
       title: modalForm.title.trim(),
       category: modalForm.category,
-      start_time: modalForm.startTime,
-      end_time: modalForm.endTime || null,
+      start_time: startTimestamp,
+      end_time: endTimestamp,
       location: modalForm.location.trim() || null,
       description: modalForm.description.trim() || null,
       planner_name: modalForm.plannerName,
@@ -1127,10 +1197,10 @@ const handleSaveEvent = async () => {
     await addEvent(
       modalForm.title.trim(),
       modalForm.category,
-      modalForm.startTime,
+      startTimestamp,
       modalForm.description.trim(),
       modalForm.location.trim(),
-      modalForm.endTime,
+      endTimestamp || '',
       modalForm.isSurprise,
       modalForm.plannerName
     )
