@@ -568,6 +568,7 @@
                 v-model="modalForm.startTime"
                 presentation="date-time"
                 locale="pl-PL"
+                hour-cycle="h23"
                 class="custom-datetime"
               />
             </div>
@@ -579,6 +580,7 @@
                 v-model="modalForm.endTime"
                 presentation="time"
                 locale="pl-PL"
+                hour-cycle="h23"
                 class="custom-datetime time-only"
               />
             </div>
@@ -901,7 +903,9 @@ const formatTimeOnly = (isoString: string) => {
     }
     const d = new Date(isoString)
     if (!isNaN(d.getTime())) {
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      const hh = String(d.getHours()).padStart(2, '0')
+      const mm = String(d.getMinutes()).padStart(2, '0')
+      return `${hh}:${mm}`
     }
     const match = isoString.match(/T(\d{2}:\d{2})/)
     return match ? match[1] : ''
@@ -1094,7 +1098,8 @@ const formatFullDate = (dateStr: string) => {
       day: 'numeric',
       month: 'short',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: false
     })
   } catch {
     return dateStr

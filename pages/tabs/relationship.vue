@@ -1372,7 +1372,9 @@ const nudgePresets = [
 const formattedPartnerMoodTime = computed(() => {
   if (!partnerUser.value?.mood_updated_at) return 'Dzisiaj'
   const date = new Date(partnerUser.value.mood_updated_at)
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mm = String(date.getMinutes()).padStart(2, '0')
+  return `${hh}:${mm}`
 })
 
 const getMoodLabel = (mood?: string | null) => {
