@@ -34,14 +34,15 @@
         <ion-refresher-content pulling-text="Przeciągnij, aby odświeżyć..." refreshing-spinner="crescent" />
       </ion-refresher>
 
-      <!-- COUPLE HERO BANNER & DAYS TOGETHER -->
-      <div class="dn-card hero-card">
-        <div class="hero-top">
-          <div class="avatar-duo" @click="navigateTo('/tabs/relationship')" title="Kliknij, aby przejść do profilu">
+      <!-- 1. UNIFIED COUPLE & NEST HERO CARD -->
+      <div class="dn-card nest-hero-card">
+        <!-- TOP: AVATARS & DATES TOGETHER -->
+        <div class="hero-top-row">
+          <div class="hero-avatar-duo" @click="navigateTo('/tabs/relationship')" title="Profil relacji">
             <div class="avatar-ring avatar-mine" :style="{ backgroundColor: currentUserAccentColor }">
               <span class="avatar-letter">{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
             </div>
-            <div class="avatar-heart">
+            <div class="avatar-heart-pill">
               <ion-icon :icon="ioniconsHeart" />
             </div>
             <div class="avatar-ring avatar-theirs" :style="{ backgroundColor: partnerUserAccentColor }">
@@ -49,57 +50,191 @@
             </div>
           </div>
 
-          <div class="anniversary-stats">
-            <div class="days-num">{{ daysTogether }}</div>
-            <div class="days-label">DNI RAZEM</div>
+          <div class="anniversary-badge">
+            <span class="anniversary-days">{{ daysTogether }}</span>
+            <span class="anniversary-sub">DNI RAZEM</span>
           </div>
         </div>
 
-        <div class="hero-nest-title">
-          <h2>{{ partnership?.nest_name || 'Nasze Ciepłe Gniazdko' }}</h2>
-          <span class="nest-level-tag">Poziom {{ nestLevel }} • {{ currentStageName }}</span>
+        <!-- MAIN NEST INFO & STAGE -->
+        <div class="hero-body">
+          <div class="hero-title-row">
+            <h2 class="hero-nest-name">{{ partnership?.nest_name || 'Nasze Ciepłe Gniazdko' }}</h2>
+            <div class="hero-stage-badge-wrap">
+              <span class="hero-stage-pill">Poziom {{ nestLevel }} • {{ currentStageName }}</span>
+              <button class="hero-celebrate-btn" @click="celebrateWithConfetti" title="Świętuj">
+                <ion-icon :icon="ioniconsSparklesOutline" />
+                <span>Świętuj</span>
+              </button>
+            </div>
+          </div>
+          <p class="hero-stage-desc" v-if="currentStageDescription">{{ currentStageDescription }}</p>
         </div>
 
-        <!-- PROGRESS BAR -->
-        <div class="nest-progress-bar-container">
-          <div class="nest-progress-bar" :style="{ width: levelProgress + '%' }"></div>
-        </div>
-        <div class="progress-info">
-          <span>{{ nestPoints }} pkt doświadczenia</span>
-          <span>Do kolejnego poziomu: {{ pointsToNextLevel }} pkt</span>
+        <!-- XP PROGRESS BAR -->
+        <div class="hero-progress-box">
+          <div class="hero-progress-track">
+            <div class="hero-progress-bar" :style="{ width: levelProgress + '%' }"></div>
+          </div>
+          <div class="hero-progress-labels">
+            <span>{{ nestPoints }} pkt doświadczenia</span>
+            <span>Do poz. {{ nestLevel + 1 }}: {{ pointsToNextLevel }} pkt</span>
+          </div>
         </div>
       </div>
 
-      <!-- VISUAL NEST GAMIFICATION ILLUSTRATION -->
-      <div class="dn-card nest-stage-card">
-        <div class="nest-visual-stage" :class="'stage-' + Math.min(nestLevel, 5)">
-          <div class="nest-illustration-wrapper">
-            <img src="/icon.png" alt="Wasze Gniazdko" class="nest-main-img" />
-            <div class="floating-badge badge-1">
-              <ion-icon :icon="ioniconsHeart" class="accent-heart" />
+      <!-- 2. PARTNER'S MOOD WIDGET -->
+      <div class="dn-card mood-widget-card" v-if="partnerUser">
+        <div class="card-header-row">
+          <div class="header-left">
+            <span class="section-badge">NASTRÓJ PARTNERA</span>
+            <h4>Jak się czuje {{ partnerUser.name }}?</h4>
+          </div>
+          <span class="mood-time">{{ formattedMoodTime }}</span>
+        </div>
+
+        <div class="partner-mood-body">
+          <div class="mood-icon-bubble">
+            <DuoIcon :name="'mood-' + (partnerUser.current_mood || 'happy')" :size="26" />
+          </div>
+          <div class="mood-details">
+            <span class="mood-label-pill">{{ getMoodLabel(partnerUser.current_mood) }}</span>
+            <p class="mood-note-quote" v-if="partnerUser.mood_note">
+              "{{ partnerUser.mood_note }}"
+            </p>
+            <p class="mood-note-empty" v-else>
+              Brak dodatkowej notatki na dziś.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. DAILY NUDGE / QUICK AFFECTION BAR -->
+      <div class="dn-card nudge-card">
+        <div class="card-header-row">
+          <div class="header-left">
+            <span class="section-badge love-badge">DROBNE GESTY</span>
+            <h4>Codzienne puknięcie (Nudge)</h4>
+          </div>
+          <span class="nudge-points-tag" :class="{ 'points-done': hasSentDailyNudge }">
+            {{ hasSentDailyNudge ? 'Wysłano dzisiaj' : '+5 pkt' }}
+          </span>
+        </div>
+
+        <!-- STATE A: ALREADY SENT TODAY -->
+        <div v-if="hasSentDailyNudge" class="nudge-already-sent-box">
+          <div class="sent-status-icon-row">
+            <div class="sent-sparkle-badge">
+              <ion-icon :icon="ioniconsCheckmarkCircle" />
             </div>
-            <div class="floating-badge badge-2">
-              <ion-icon :icon="ioniconsSparkles" class="accent-sparkle" />
+            <div class="sent-status-texts">
+              <span class="sent-title">Wysłano dzisiejsze puknięcie! 💕</span>
+              <span class="sent-subtitle">{{ partnerUser?.name || 'Partner' }} otrzymał Twój ciepły gest.</span>
             </div>
-            <div class="floating-badge badge-3">
-              <ion-icon :icon="ioniconsLeafOutline" class="accent-leaf" />
-            </div>
+          </div>
+
+          <div class="nudge-timer-pill">
+            <ion-icon :icon="ioniconsTimeOutline" class="timer-clock-icon" />
+            <span>Kolejne możesz wysłać za: <strong>{{ formattedNextNudgeTime }}</strong></span>
           </div>
         </div>
 
-        <div class="stage-description">
-          <h3>{{ currentStageName }}</h3>
-          <p>{{ currentStageDescription }}</p>
-          <div class="stage-footer">
-            <button class="celebrate-btn" @click="celebrateWithConfetti">
-              <ion-icon :icon="ioniconsSparklesOutline" />
-              <span>Oklaski dla Gniazdka!</span>
+        <!-- STATE B: AVAILABLE TO SEND -->
+        <div v-else>
+          <p class="nudge-sub">Wyślij szybką reakcję, by wywołać uśmiech u {{ partnerUser?.name || 'partnera' }}:</p>
+
+          <div class="nudge-actions-grid">
+            <button class="nudge-btn" @click="sendQuickNudge('hug', 'Ciepły uścisk!')">
+              <div class="nudge-icon-circle">
+                <DuoIcon name="nudge-hug" :size="20" />
+              </div>
+              <span class="nudge-text">Uścisk</span>
+            </button>
+            <button class="nudge-btn" @click="sendQuickNudge('kiss', 'Słodki buziak!')">
+              <div class="nudge-icon-circle">
+                <DuoIcon name="nudge-kiss" :size="20" />
+              </div>
+              <span class="nudge-text">Buziak</span>
+            </button>
+            <button class="nudge-btn" @click="sendQuickNudge('tea', 'Ciepła herbatka!')">
+              <div class="nudge-icon-circle">
+                <DuoIcon name="nudge-tea" :size="20" />
+              </div>
+              <span class="nudge-text">Herbatka</span>
+            </button>
+            <button class="nudge-btn" @click="sendQuickNudge('love', 'Bardzo Cię kocham!')">
+              <div class="nudge-icon-circle">
+                <DuoIcon name="nudge-love" :size="20" />
+              </div>
+              <span class="nudge-text">Kocham Cię</span>
             </button>
           </div>
         </div>
       </div>
 
-      <!-- DUO POINTS BREAKDOWN & SHARED / PER-PERSON MILESTONES -->
+      <!-- 4. TODAY'S PENDING CHORES SUMMARY -->
+      <div class="dn-card tasks-summary-card">
+        <div class="card-header-row">
+          <div class="header-left">
+            <span class="section-badge">OBOWIĄZKI DOMOWE</span>
+            <h4>Do zrobienia dzisiaj</h4>
+          </div>
+          <NuxtLink to="/tabs/tasks" class="view-all-link">Zobacz wszystkie →</NuxtLink>
+        </div>
+
+        <div class="mini-tasks-list" v-if="pendingChores.length > 0">
+          <div
+            v-for="task in pendingChores.slice(0, 3)"
+            :key="task.id"
+            class="mini-task-item"
+            :style="{ borderLeft: `3.5px solid ${getUserAccentColor(task.assigned_to)}` }"
+            @click="toggleTask(task.id)"
+          >
+            <div
+              class="checkbox-circle"
+              :class="{ checked: task.is_completed }"
+              :style="task.is_completed ? {
+                backgroundColor: getUserAccentColor(task.assigned_to),
+                borderColor: getUserAccentColor(task.assigned_to)
+              } : {}"
+            >
+              <ion-icon v-if="task.is_completed" :icon="ioniconsCheckmarkOutline" />
+            </div>
+            <div class="mini-task-details">
+              <span class="mini-task-title">{{ task.title }}</span>
+              <span
+                class="mini-task-assignee"
+                :style="{ color: getUserAccentColor(task.assigned_to), fontWeight: '700' }"
+              >
+                {{ task.assigned_to ? (task.assigned_to === currentUser.id ? 'Dla Ciebie' : ('Dla ' + (partnerUser?.name || 'partnera'))) : 'Wspólne' }}
+              </span>
+            </div>
+            <span class="mini-task-pts">+{{ task.points }} pkt</span>
+          </div>
+        </div>
+        <div v-else class="empty-mini-card">
+          <ion-icon :icon="ioniconsCheckmarkCircleOutline" class="check-icon" />
+          <span>Wszystkie dzisiejsze zadania zrobione! Czas na relaks.</span>
+        </div>
+      </div>
+
+      <!-- 5. UPCOMING CALENDAR HIGHLIGHT -->
+      <div class="dn-card event-summary-card" v-if="upcomingEvent">
+        <div class="card-header-row">
+          <div class="header-left">
+            <span class="section-badge calendar-badge">NAJBLIŻSZE PLANY</span>
+            <h4>{{ upcomingEvent.title }}</h4>
+          </div>
+          <NuxtLink to="/tabs/calendar" class="view-all-link">Kalendarz →</NuxtLink>
+        </div>
+        <p class="event-desc">{{ upcomingEvent.description || 'Wspólne plany w Waszym terminarzu.' }}</p>
+        <div class="event-date-pill">
+          <ion-icon :icon="ioniconsTimeOutline" />
+          <span>{{ formatEventDate(upcomingEvent.start_time) }}</span>
+        </div>
+      </div>
+
+      <!-- 6. DUO POINTS BREAKDOWN & SHARED / PER-PERSON MILESTONES -->
       <div class="dn-card points-milestones-card">
         <div class="card-header-row">
           <div class="header-left">
@@ -317,157 +452,6 @@
             <ion-icon :icon="ioniconsAddOutline" />
             <span>Dodaj cel</span>
           </button>
-        </div>
-      </div>
-
-      <!-- PARTNER'S MOOD WIDGET (USING SVG ICONS) -->
-      <div class="dn-card mood-widget-card" v-if="partnerUser">
-        <div class="card-header-row">
-          <div class="header-left">
-            <span class="section-badge">NASTRÓJ PARTNERA</span>
-            <h4>Jak się czuje {{ partnerUser.name }}?</h4>
-          </div>
-          <span class="mood-time">{{ formattedMoodTime }}</span>
-        </div>
-
-        <div class="partner-mood-body">
-          <div class="mood-icon-bubble">
-            <DuoIcon :name="'mood-' + (partnerUser.current_mood || 'happy')" :size="26" />
-          </div>
-          <div class="mood-details">
-            <span class="mood-label-pill">{{ getMoodLabel(partnerUser.current_mood) }}</span>
-            <p class="mood-note-quote" v-if="partnerUser.mood_note">
-              "{{ partnerUser.mood_note }}"
-            </p>
-            <p class="mood-note-empty" v-else>
-              Brak dodatkowej notatki na dziś.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- DAILY NUDGE / QUICK AFFECTION BAR (USING SVG ICONS) -->
-      <div class="dn-card nudge-card">
-        <div class="card-header-row">
-          <div class="header-left">
-            <span class="section-badge love-badge">DROBNE GESTY</span>
-            <h4>Codzienne puknięcie (Nudge)</h4>
-          </div>
-          <span class="nudge-points-tag" :class="{ 'points-done': hasSentDailyNudge }">
-            {{ hasSentDailyNudge ? 'Wysłano dzisiaj' : '+5 pkt' }}
-          </span>
-        </div>
-
-        <!-- STATE A: ALREADY SENT TODAY -->
-        <div v-if="hasSentDailyNudge" class="nudge-already-sent-box">
-          <div class="sent-status-icon-row">
-            <div class="sent-sparkle-badge">
-              <ion-icon :icon="ioniconsCheckmarkCircle" />
-            </div>
-            <div class="sent-status-texts">
-              <span class="sent-title">Wysłano dzisiejsze puknięcie! 💕</span>
-              <span class="sent-subtitle">{{ partnerUser?.name || 'Partner' }} otrzymał Twój ciepły gest.</span>
-            </div>
-          </div>
-
-          <div class="nudge-timer-pill">
-            <ion-icon :icon="ioniconsTimeOutline" class="timer-clock-icon" />
-            <span>Kolejne możesz wysłać za: <strong>{{ formattedNextNudgeTime }}</strong></span>
-          </div>
-        </div>
-
-        <!-- STATE B: AVAILABLE TO SEND -->
-        <div v-else>
-          <p class="nudge-sub">Wyślij szybką reakcję, by wywołać uśmiech u {{ partnerUser?.name || 'partnera' }}:</p>
-
-          <div class="nudge-actions-grid">
-            <button class="nudge-btn" @click="sendQuickNudge('hug', 'Ciepły uścisk!')">
-              <div class="nudge-icon-circle">
-                <DuoIcon name="nudge-hug" :size="20" />
-              </div>
-              <span class="nudge-text">Uścisk</span>
-            </button>
-            <button class="nudge-btn" @click="sendQuickNudge('kiss', 'Słodki buziak!')">
-              <div class="nudge-icon-circle">
-                <DuoIcon name="nudge-kiss" :size="20" />
-              </div>
-              <span class="nudge-text">Buziak</span>
-            </button>
-            <button class="nudge-btn" @click="sendQuickNudge('tea', 'Ciepła herbatka!')">
-              <div class="nudge-icon-circle">
-                <DuoIcon name="nudge-tea" :size="20" />
-              </div>
-              <span class="nudge-text">Herbatka</span>
-            </button>
-            <button class="nudge-btn" @click="sendQuickNudge('love', 'Bardzo Cię kocham!')">
-              <div class="nudge-icon-circle">
-                <DuoIcon name="nudge-love" :size="20" />
-              </div>
-              <span class="nudge-text">Kocham Cię</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- TODAY'S PENDING CHORES SUMMARY -->
-      <div class="dn-card tasks-summary-card">
-        <div class="card-header-row">
-          <div class="header-left">
-            <span class="section-badge">OBOWIĄZKI DOMOWE</span>
-            <h4>Do zrobienia dzisiaj</h4>
-          </div>
-          <NuxtLink to="/tabs/tasks" class="view-all-link">Zobacz wszystkie →</NuxtLink>
-        </div>
-
-        <div class="mini-tasks-list" v-if="pendingChores.length > 0">
-          <div
-            v-for="task in pendingChores.slice(0, 3)"
-            :key="task.id"
-            class="mini-task-item"
-            :style="{ borderLeft: `3.5px solid ${getUserAccentColor(task.assigned_to)}` }"
-            @click="toggleTask(task.id)"
-          >
-            <div
-              class="checkbox-circle"
-              :class="{ checked: task.is_completed }"
-              :style="task.is_completed ? {
-                backgroundColor: getUserAccentColor(task.assigned_to),
-                borderColor: getUserAccentColor(task.assigned_to)
-              } : {}"
-            >
-              <ion-icon v-if="task.is_completed" :icon="ioniconsCheckmarkOutline" />
-            </div>
-            <div class="mini-task-details">
-              <span class="mini-task-title">{{ task.title }}</span>
-              <span
-                class="mini-task-assignee"
-                :style="{ color: getUserAccentColor(task.assigned_to), fontWeight: '700' }"
-              >
-                {{ task.assigned_to ? (task.assigned_to === currentUser.id ? 'Dla Ciebie' : ('Dla ' + (partnerUser?.name || 'partnera'))) : 'Wspólne' }}
-              </span>
-            </div>
-            <span class="mini-task-pts">+{{ task.points }} pkt</span>
-          </div>
-        </div>
-        <div v-else class="empty-mini-card">
-          <ion-icon :icon="ioniconsCheckmarkCircleOutline" class="check-icon" />
-          <span>Wszystkie dzisiejsze zadania zrobione! Czas na relaks.</span>
-        </div>
-      </div>
-
-      <!-- UPCOMING CALENDAR HIGHLIGHT -->
-      <div class="dn-card event-summary-card" v-if="upcomingEvent">
-        <div class="card-header-row">
-          <div class="header-left">
-            <span class="section-badge calendar-badge">NAJBLIŻSZE PLANY</span>
-            <h4>{{ upcomingEvent.title }}</h4>
-          </div>
-          <NuxtLink to="/tabs/calendar" class="view-all-link">Kalendarz →</NuxtLink>
-        </div>
-        <p class="event-desc">{{ upcomingEvent.description || 'Wspólne plany w Waszym terminarzu.' }}</p>
-        <div class="event-date-pill">
-          <ion-icon :icon="ioniconsTimeOutline" />
-          <span>{{ formatEventDate(upcomingEvent.start_time) }}</span>
         </div>
       </div>
 
@@ -1135,25 +1119,25 @@ const handleRefresh = async (event: any) => {
   flex-shrink: 0;
 }
 
-/* HERO CARD */
-.hero-card {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #334155 100%);
+/* UNIFIED NEST HERO CARD */
+.nest-hero-card {
+  background: linear-gradient(145deg, #0f172a 0%, #1e293b 55%, #283548 100%);
   color: #ffffff;
-  border-radius: 20px;
-  padding: 20px;
+  border-radius: 22px;
+  padding: 20px 20px 18px 20px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.25);
-  min-width: 0;
+  box-shadow: 0 10px 28px -6px rgba(15, 23, 42, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.hero-top {
+.hero-top-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.avatar-duo {
+.hero-avatar-duo {
   display: flex;
   align-items: center;
   position: relative;
@@ -1161,21 +1145,21 @@ const handleRefresh = async (event: any) => {
   transition: transform 0.15s ease;
 }
 
-.avatar-duo:active {
+.hero-avatar-duo:active {
   transform: scale(0.96);
 }
 
 .avatar-ring {
-  width: 46px;
-  height: 46px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  border: 3px solid #ffffff;
+  border: 2.5px solid #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  font-size: 18px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  font-size: 17px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 .avatar-mine {
@@ -1186,26 +1170,29 @@ const handleRefresh = async (event: any) => {
 
 .avatar-theirs {
   background: #2dd4bf;
-  color: #fff;
+  color: #ffffff;
   margin-left: -12px;
   z-index: 1;
 }
 
-.avatar-heart {
+.avatar-heart-pill {
   position: absolute;
   top: -4px;
-  left: 33px;
+  left: 31px;
   z-index: 3;
   color: #f43f5e;
-  font-size: 16px;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+  font-size: 15px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
-.anniversary-stats {
+.anniversary-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   text-align: right;
 }
 
-.days-num {
+.anniversary-days {
   font-size: 32px;
   font-weight: 900;
   line-height: 1;
@@ -1213,153 +1200,110 @@ const handleRefresh = async (event: any) => {
   color: #ffffff;
 }
 
-.days-label {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  opacity: 0.85;
+.anniversary-sub {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  opacity: 0.8;
+  margin-top: 2px;
 }
 
-.hero-nest-title {
-  margin-top: 18px;
+.hero-body {
+  margin-top: 16px;
 }
 
-.hero-nest-title h2 {
+.hero-title-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hero-nest-name {
   font-size: 21px;
   font-weight: 800;
   color: #ffffff;
+  letter-spacing: -0.02em;
+  margin: 0;
   word-break: break-word;
   overflow-wrap: break-word;
-  min-width: 0;
 }
 
-.nest-level-tag {
-  display: inline-block;
-  font-size: 12px;
-  font-weight: 600;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 3px 10px;
+.hero-stage-badge-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hero-stage-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.16);
+  padding: 4px 10px;
   border-radius: 999px;
-  margin-top: 4px;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.hero-celebrate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
   backdrop-filter: blur(8px);
 }
 
-.nest-progress-bar-container {
-  height: 8px;
-  background: rgba(255, 255, 255, 0.25);
+.hero-celebrate-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.hero-celebrate-btn:active {
+  transform: scale(0.94);
+}
+
+.hero-stage-desc {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #cbd5e1;
+  margin: 8px 0 0 0;
+}
+
+.hero-progress-box {
+  margin-top: 14px;
+}
+
+.hero-progress-track {
+  height: 7px;
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 999px;
-  margin-top: 16px;
   overflow: hidden;
 }
 
-.nest-progress-bar {
+.hero-progress-bar {
   height: 100%;
-  background: #34d399;
+  background: linear-gradient(90deg, #34d399 0%, #10b981 100%);
   border-radius: 999px;
   transition: width 0.5s ease;
 }
 
-.progress-info {
+.hero-progress-labels {
   display: flex;
   justify-content: space-between;
   font-size: 11px;
-  opacity: 0.9;
+  opacity: 0.85;
   margin-top: 6px;
-  font-weight: 500;
-}
-
-/* NEST STAGE CARD */
-.nest-stage-card {
-  text-align: center;
-  padding: 20px;
-}
-
-.nest-visual-stage {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 16px 0;
-}
-
-.nest-illustration-wrapper {
-  position: relative;
-  width: 140px;
-  height: 140px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.nest-main-img {
-  width: 120px;
-  height: 120px;
-  border-radius: 28px;
-  box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.15);
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.nest-main-img:active {
-  transform: scale(1.08);
-}
-
-.floating-badge {
-  position: absolute;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-  animation: floatUp 3s infinite ease-in-out;
-}
-
-.badge-1 { top: 0; left: 6px; animation-delay: 0s; }
-.badge-2 { top: 12px; right: 4px; animation-delay: 1s; }
-.badge-3 { bottom: 6px; left: 4px; animation-delay: 2s; }
-
-.accent-heart { color: #f43f5e; font-size: 16px; }
-.accent-sparkle { color: #0f172a; font-size: 16px; }
-.accent-leaf { color: #10b981; font-size: 16px; }
-
-@keyframes floatUp {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
-
-.stage-description h3 {
-  font-size: 18px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.stage-description p {
-  font-size: 13px;
-  color: #64748b;
-  margin: 6px 0 14px 0;
-  line-height: 1.4;
-}
-
-.celebrate-btn {
-  background: #f8fafc;
-  color: #0f172a;
-  border: 1px solid #e2e8f0;
-  padding: 8px 16px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.celebrate-btn:active {
-  transform: scale(0.96);
-  background: #f1f5f9;
+  font-weight: 600;
 }
 
 /* SECTION BADGES */
