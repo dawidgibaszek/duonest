@@ -1520,6 +1520,91 @@ export const useDuoState = () => {
     }
   }
 
+  const changeUserPassword = async (currentPassword: string, newPassword: string) => {
+    const dbClient = getCleanDbClient()
+    const authClient = getSupabaseClient()
+    if (!dbClient) return { success: false, error: 'Brak połączenia z bazą danych' }
+
+    const userId = currentUser.value?.id
+    if (!userId) return { success: false, error: 'Musisz być zalogowany, aby zmienić hasło.' }
+
+    if (!newPassword || newPassword.length < 6) {
+      return { success: false, error: 'Nowe hasło musi mieć co najmniej 6 znaków.' }
+    }
+
+    try {
+      // 1. Fetch current profile from database
+      const { data: dbProfile, error: fetchErr } = await dbClient
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle()
+
+      if (fetchErr || !dbProfile) {
+        return { success: false, error: 'Nie udało się odczytać profilu użytkownika.' }
+      }
+
+      const rawColor = dbProfile.avatar_color || '#0284c7'
+      let storedHash = ''
+      let displayColor = '#0284c7'
+
+      if (rawColor.includes('|')) {
+        const parts = rawColor.split('|')
+        displayColor = parts[0] || '#0284c7'
+        storedHash = parts[1] || ''
+      } else {
+        displayColor = rawColor
+      }
+
+      // 2. If profile already has a stored password hash, verify current password
+      if (storedHash) {
+        if (!currentPassword) {
+          return { success: false, error: 'Wprowadź obecne hasło.' }
+        }
+        const isMatch = await verifyPasswordHash(currentPassword, storedHash)
+        if (!isMatch) {
+          return { success: false, error: 'Podane obecne hasło jest nieprawidłowe.' }
+        }
+      }
+
+      // 3. Compute modern SHA-256 hash for the new password
+      const modernHash = await hashPassword(newPassword)
+      const updatedColor = `${displayColor}|${modernHash}`
+
+      // 4. Update password directly in profiles table (AWAITED)
+      const { error: updateErr } = await dbClient
+        .from('profiles')
+        .update({
+          avatar_color: updatedColor,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId)
+
+      if (updateErr) {
+        console.error('Password change error in profiles:', updateErr)
+        return { success: false, error: 'Nie udało się zapisać nowego hasła w bazie danych: ' + updateErr.message }
+      }
+
+      // 5. Update password in Supabase Auth if session exists
+      if (authClient) {
+        try {
+          await authClient.auth.updateUser({ password: newPassword })
+        } catch (_) {}
+      }
+
+      // 6. Update local state & storage
+      currentUserPasswordHash.value = modernHash
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('duonest_user_pwd_hash', modernHash)
+      }
+
+      return { success: true, error: null }
+    } catch (err: any) {
+      console.error('Password change exception:', err)
+      return { success: false, error: err?.message || 'Nie udało się zmienić hasła.' }
+    }
+  }
+
   const signOutUser = async () => {
     if (isLoggingOut) return
     isLoggingOut = true
@@ -4336,6 +4421,7 @@ export const useDuoState = () => {
     requestPasswordReset,
     completePasswordReset,
     verifyEmailForProfile,
-    resendVerificationEmail
+    resendVerificationEmail,
+    changeUserPassword
   }
 }

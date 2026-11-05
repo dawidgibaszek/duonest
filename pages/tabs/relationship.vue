@@ -814,11 +814,147 @@
           <p class="section-desc">
             Zalogowano jako: <strong>{{ currentUser.email || currentUser.name || 'Użytkownik' }}</strong>
           </p>
-          <div class="partnership-buttons-row">
-            <button class="signout-app-btn" @click="handleSignOut">
-              <ion-icon :icon="ioniconsPowerOutline" />
-              <span>Wyloguj się z DuoNest</span>
+
+          <div class="account-actions-box">
+            <!-- PRZYCISK ROZWIJAJĄCY FORMULARZ ZMIANY HASŁA -->
+            <button
+              type="button"
+              class="change-password-toggle-btn"
+              :class="{ 'is-open': isPasswordChangeOpen }"
+              @click="togglePasswordChangeForm"
+            >
+              <div class="toggle-btn-left">
+                <ion-icon :icon="ioniconsLockClosedOutline" class="btn-icon" />
+                <span>Zmień hasło do konta</span>
+              </div>
+              <ion-icon
+                :icon="isPasswordChangeOpen ? ioniconsChevronUpOutline : ioniconsChevronDownOutline"
+                class="chevron-icon"
+              />
             </button>
+
+            <!-- ROZWIJANY FORMULARZ ZMIANY HASŁA -->
+            <transition name="expand">
+              <div class="password-change-container" v-if="isPasswordChangeOpen">
+                <form @submit.prevent="handleChangePassword" class="password-change-form">
+                  <!-- OBECNE HASŁO -->
+                  <div class="pwd-field">
+                    <label class="pwd-label">Obecne hasło</label>
+                    <div class="pwd-input-wrap">
+                      <ion-icon :icon="ioniconsLockClosedOutline" class="pwd-input-icon" />
+                      <input
+                        v-model="currentPasswordInput"
+                        :type="showCurrentPassword ? 'text' : 'password'"
+                        placeholder="Wpisz dotychczasowe hasło"
+                        class="pwd-native-input"
+                        autocomplete="current-password"
+                        required
+                      />
+                      <button
+                        type="button"
+                        class="pwd-eye-btn"
+                        @click="showCurrentPassword = !showCurrentPassword"
+                        tabindex="-1"
+                      >
+                        <ion-icon :icon="showCurrentPassword ? ioniconsEyeOffOutline : ioniconsEyeOutline" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- NOWE HASŁO -->
+                  <div class="pwd-field">
+                    <div class="pwd-label-row">
+                      <label class="pwd-label">Nowe hasło</label>
+                      <span class="pwd-hint">min. 6 znaków</span>
+                    </div>
+                    <div class="pwd-input-wrap">
+                      <ion-icon :icon="ioniconsKeyOutline" class="pwd-input-icon" />
+                      <input
+                        v-model="newPasswordInput"
+                        :type="showNewPassword ? 'text' : 'password'"
+                        placeholder="Wpisz nowe hasło (min. 6 znaków)"
+                        class="pwd-native-input"
+                        autocomplete="new-password"
+                        minlength="6"
+                        required
+                      />
+                      <button
+                        type="button"
+                        class="pwd-eye-btn"
+                        @click="showNewPassword = !showNewPassword"
+                        tabindex="-1"
+                      >
+                        <ion-icon :icon="showNewPassword ? ioniconsEyeOffOutline : ioniconsEyeOutline" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- POWTÓRZ NOWE HASŁO -->
+                  <div class="pwd-field">
+                    <label class="pwd-label">Powtórz nowe hasło</label>
+                    <div class="pwd-input-wrap">
+                      <ion-icon :icon="ioniconsKeyOutline" class="pwd-input-icon" />
+                      <input
+                        v-model="confirmNewPasswordInput"
+                        :type="showConfirmNewPassword ? 'text' : 'password'"
+                        placeholder="Powtórz nowe hasło"
+                        class="pwd-native-input"
+                        autocomplete="new-password"
+                        minlength="6"
+                        required
+                      />
+                      <button
+                        type="button"
+                        class="pwd-eye-btn"
+                        @click="showConfirmNewPassword = !showConfirmNewPassword"
+                        tabindex="-1"
+                      >
+                        <ion-icon :icon="showConfirmNewPassword ? ioniconsEyeOffOutline : ioniconsEyeOutline" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- BŁĄD -->
+                  <div class="pwd-banner error" v-if="changePasswordError">
+                    <ion-icon :icon="ioniconsAlertCircleOutline" class="banner-icon" />
+                    <span>{{ changePasswordError }}</span>
+                  </div>
+
+                  <!-- SUKCES -->
+                  <div class="pwd-banner success" v-if="changePasswordSuccess">
+                    <ion-icon :icon="ioniconsCheckmarkCircleOutline" class="banner-icon" />
+                    <span>{{ changePasswordSuccess }}</span>
+                  </div>
+
+                  <!-- PRZYCISKI AKCJI -->
+                  <div class="pwd-buttons-row">
+                    <button
+                      type="submit"
+                      class="save-pwd-btn"
+                      :disabled="isChangingPassword || !isPasswordFormValid"
+                    >
+                      <ion-spinner name="crescent" v-if="isChangingPassword" class="pwd-spinner" />
+                      <span v-else>Zapisz nowe hasło</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="cancel-pwd-btn"
+                      @click="cancelPasswordChange"
+                      :disabled="isChangingPassword"
+                    >
+                      Anuluj
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </transition>
+
+            <div class="partnership-buttons-row">
+              <button class="signout-app-btn" @click="handleSignOut">
+                <ion-icon :icon="ioniconsPowerOutline" />
+                <span>Wyloguj się z DuoNest</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1049,6 +1185,7 @@ const {
   pairWithCode,
   disconnectPartnership,
   signOutUser,
+  changeUserPassword,
   triggerToast,
   initSupabaseSync
 } = useDuoState()
@@ -1296,6 +1433,80 @@ const handlePairWithCode = async () => {
 const handleDisconnect = () => {
   disconnectPartnership()
   navigateTo('/pairing', { replace: true })
+}
+
+// Password Change inside Account Card
+const isPasswordChangeOpen = ref(false)
+const currentPasswordInput = ref('')
+const newPasswordInput = ref('')
+const confirmNewPasswordInput = ref('')
+const showCurrentPassword = ref(false)
+const showNewPassword = ref(false)
+const showConfirmNewPassword = ref(false)
+const isChangingPassword = ref(false)
+const changePasswordError = ref('')
+const changePasswordSuccess = ref('')
+
+const isPasswordFormValid = computed(() => {
+  return (
+    Boolean(currentPasswordInput.value) &&
+    newPasswordInput.value.length >= 6 &&
+    newPasswordInput.value === confirmNewPasswordInput.value
+  )
+})
+
+const togglePasswordChangeForm = () => {
+  isPasswordChangeOpen.value = !isPasswordChangeOpen.value
+  changePasswordError.value = ''
+  changePasswordSuccess.value = ''
+}
+
+const cancelPasswordChange = () => {
+  isPasswordChangeOpen.value = false
+  currentPasswordInput.value = ''
+  newPasswordInput.value = ''
+  confirmNewPasswordInput.value = ''
+  changePasswordError.value = ''
+  changePasswordSuccess.value = ''
+}
+
+const handleChangePassword = async () => {
+  if (!isPasswordFormValid.value || isChangingPassword.value) return
+
+  if (newPasswordInput.value !== confirmNewPasswordInput.value) {
+    changePasswordError.value = 'Nowe hasła nie są identyczne.'
+    return
+  }
+
+  isChangingPassword.value = true
+  changePasswordError.value = ''
+  changePasswordSuccess.value = ''
+
+  try {
+    const res = await changeUserPassword(currentPasswordInput.value, newPasswordInput.value)
+    if (!res.success) {
+      changePasswordError.value = res.error || 'Nie udało się zmienić hasła.'
+      return
+    }
+
+    changePasswordSuccess.value = 'Twoje hasło zostało pomyślnie zmienione!'
+    currentPasswordInput.value = ''
+    newPasswordInput.value = ''
+    confirmNewPasswordInput.value = ''
+    confetti({
+      particleCount: 50,
+      spread: 60,
+      origin: { y: 0.7 }
+    })
+    setTimeout(() => {
+      isPasswordChangeOpen.value = false
+      changePasswordSuccess.value = ''
+    }, 2500)
+  } catch (err: any) {
+    changePasswordError.value = err?.message || 'Błąd podczas zmiany hasła.'
+  } finally {
+    isChangingPassword.value = false
+  }
 }
 
 const handleSignOut = async () => {
@@ -2646,6 +2857,227 @@ ion-modal.dn-edit-profile-modal {
 
 
 
+
+.account-actions-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.change-password-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #1e293b;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.change-password-toggle-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.change-password-toggle-btn.is-open {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+  color: #0284c7;
+}
+
+.toggle-btn-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toggle-btn-left .btn-icon {
+  font-size: 18px;
+  color: #0284c7;
+}
+
+.chevron-icon {
+  font-size: 16px;
+  color: #64748b;
+  transition: transform 0.2s ease;
+}
+
+.password-change-container {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+}
+
+.password-change-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pwd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.pwd-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pwd-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.pwd-hint {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.pwd-input-wrap {
+  display: flex;
+  align-items: center;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0 12px;
+  transition: all 0.2s ease;
+}
+
+.pwd-input-wrap:focus-within {
+  background: #ffffff;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+}
+
+.pwd-input-icon {
+  font-size: 17px;
+  color: #64748b;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.pwd-native-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 10px 0;
+  font-size: 14px;
+  color: #0f172a;
+  outline: none;
+  font-family: inherit;
+}
+
+.pwd-native-input::placeholder {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.pwd-eye-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.pwd-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.pwd-banner.error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+}
+
+.pwd-banner.success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
+}
+
+.banner-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.pwd-buttons-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.save-pwd-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  background: #0284c7;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+  transition: background 0.15s ease;
+}
+
+.save-pwd-btn:hover:not(:disabled) {
+  background: #0369a1;
+}
+
+.save-pwd-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancel-pwd-btn {
+  padding: 10px 14px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cancel-pwd-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.pwd-spinner {
+  font-size: 18px;
+  color: #ffffff;
+}
 
 .partnership-buttons-row {
   display: flex;
