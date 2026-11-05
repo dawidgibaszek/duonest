@@ -334,6 +334,16 @@
           </button>
         </div>
 
+        <!-- Results Meta Bar (Total Count & Current Page) -->
+        <div v-if="pagination.total > 0 && !isLoadingApi" class="recipes-meta-bar">
+          <span class="meta-count-text">
+            Dostępne przepisy: <strong>{{ pagination.total }}</strong>
+          </span>
+          <span class="meta-page-badge" v-if="pagination.totalPages > 1">
+            Strona {{ pagination.page }} z {{ pagination.totalPages }}
+          </span>
+        </div>
+
         <!-- Loading state -->
         <div v-if="isLoadingApi" class="recipes-loading-state">
           <ion-spinner name="crescent" color="primary" />
@@ -350,48 +360,89 @@
         </div>
 
         <!-- Recipes Grid (Clean, symmetrical, aligned 2-column cards) -->
-        <div v-else class="meals-cards-grid">
-          <div
-            v-for="meal in apiResults"
-            :key="meal.id"
-            class="recipe-card dn-card"
-            @click="openApiMealPreview(meal)"
-          >
-            <!-- Card Media with Badge Overlay -->
-            <div class="recipe-card-media">
-              <img
-                :src="meal.thumbnail"
-                :alt="meal.title"
-                loading="lazy"
-                class="recipe-img"
-              />
-              <div class="recipe-badges-overlay">
-                <span class="recipe-badge-cuisine" v-if="meal.areaPl || meal.area">
-                  {{ meal.areaPl || meal.area }}
-                </span>
-                <span class="recipe-badge-category" v-if="meal.categoryPl || meal.category">
-                  {{ meal.categoryPl || meal.category }}
-                </span>
+        <div v-else class="meals-cards-container">
+          <div class="meals-cards-grid">
+            <div
+              v-for="meal in apiResults"
+              :key="meal.id"
+              class="recipe-card dn-card"
+              @click="openApiMealPreview(meal)"
+            >
+              <!-- Card Media with Badge Overlay -->
+              <div class="recipe-card-media">
+                <img
+                  :src="meal.thumbnail"
+                  :alt="meal.title"
+                  loading="lazy"
+                  class="recipe-img"
+                />
+                <div class="recipe-badges-overlay">
+                  <span class="recipe-badge-cuisine" v-if="meal.areaPl || meal.area">
+                    {{ meal.areaPl || meal.area }}
+                  </span>
+                  <span class="recipe-badge-category" v-if="meal.categoryPl || meal.category">
+                    {{ meal.categoryPl || meal.category }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Card Content with Pinned Action Button -->
+              <div class="recipe-card-body">
+                <h4 class="recipe-card-title" :title="meal.title">
+                  {{ meal.title }}
+                </h4>
+
+                <div class="recipe-bottom-action">
+                  <button
+                    type="button"
+                    class="recipe-plan-pill-btn"
+                    @click.stop="openAssignModal(meal)"
+                  >
+                    <ion-icon :icon="ioniconsCalendarOutline" />
+                    <span>Zaplanuj</span>
+                  </button>
+                </div>
               </div>
             </div>
+          </div>
 
-            <!-- Card Content with Pinned Action Button -->
-            <div class="recipe-card-body">
-              <h4 class="recipe-card-title" :title="meal.title">
-                {{ meal.title }}
-              </h4>
+          <!-- Pagination Bar -->
+          <div v-if="pagination.totalPages > 1 && !isLoadingApi" class="meals-pagination-bar">
+            <button
+              type="button"
+              class="pagination-nav-btn prev-btn"
+              :disabled="pagination.page <= 1"
+              @click="goToPage(pagination.page - 1)"
+              aria-label="Poprzednia strona"
+            >
+              <ion-icon :icon="ioniconsChevronBackOutline" />
+              <span>Poprzednia</span>
+            </button>
 
-              <div class="recipe-bottom-action">
-                <button
-                  type="button"
-                  class="recipe-plan-pill-btn"
-                  @click.stop="openAssignModal(meal)"
-                >
-                  <ion-icon :icon="ioniconsCalendarOutline" />
-                  <span>Zaplanuj</span>
-                </button>
-              </div>
+            <div class="pagination-pages-group">
+              <button
+                v-for="(p, pIdx) in visiblePageNumbers"
+                :key="pIdx"
+                type="button"
+                class="page-number-btn"
+                :class="{ active: p === pagination.page, ellipsis: p === '...' }"
+                :disabled="p === '...'"
+                @click="p !== '...' && goToPage(p)"
+              >
+                {{ p }}
+              </button>
             </div>
+
+            <button
+              type="button"
+              class="pagination-nav-btn next-btn"
+              :disabled="pagination.page >= pagination.totalPages"
+              @click="goToPage(pagination.page + 1)"
+              aria-label="Następna strona"
+            >
+              <span>Następna</span>
+              <ion-icon :icon="ioniconsChevronForwardOutline" />
+            </button>
           </div>
         </div>
       </div>
@@ -1154,25 +1205,60 @@ const activeFilterId = ref('all')
 const apiResults = ref<any[]>([])
 const isLoadingApi = ref(false)
 const isLoadingRandom = ref(false)
+const currentPage = ref(1)
+const pagination = ref({
+  page: 1,
+  limit: 24,
+  total: 0,
+  totalPages: 1,
+  hasNext: false,
+  hasPrev: false
+})
 
 const curatedFilterPills = [
-  { id: 'all', label: 'Wszystkie', type: 'all', value: '' },
+  { id: 'all', label: 'Wszystkie (790+)', type: 'all', value: '' },
   { id: 'pasta', label: 'Makarony', type: 'category', value: 'Pasta' },
   { id: 'chicken', label: 'Drób & Kurczak', type: 'category', value: 'Chicken' },
+  { id: 'beef', label: 'Wołowina', type: 'category', value: 'Beef' },
+  { id: 'pork', label: 'Wieprzowina', type: 'category', value: 'Pork' },
+  { id: 'seafood', label: 'Ryby & Owoce morza', type: 'category', value: 'Seafood' },
   { id: 'veg', label: 'Wegetariańskie', type: 'category', value: 'Vegetarian' },
+  { id: 'vegan', label: 'Wegańskie', type: 'category', value: 'Vegan' },
+  { id: 'breakfast', label: 'Śniadania', type: 'category', value: 'Breakfast' },
+  { id: 'lamb', label: 'Jagnięcina', type: 'category', value: 'Lamb' },
+  { id: 'soup', label: 'Zupy & Dodatki', type: 'category', value: 'Side' },
+  { id: 'starter', label: 'Przekąski', type: 'category', value: 'Starter' },
+  { id: 'dessert', label: 'Desery', type: 'category', value: 'Dessert' },
   { id: 'italian', label: 'Włoska', type: 'area', value: 'Italian' },
   { id: 'asian', label: 'Azjatycka', type: 'area', value: 'Asian' },
-  { id: 'mexican', label: 'Meksykańska', type: 'area', value: 'Mexican' },
-  { id: 'beef', label: 'Wołowina', type: 'category', value: 'Beef' },
-  { id: 'seafood', label: 'Ryby & Owoce morza', type: 'category', value: 'Seafood' },
-  { id: 'soup', label: 'Zupy & Dodatki', type: 'category', value: 'Side' },
-  { id: 'dessert', label: 'Desery', type: 'category', value: 'Dessert' }
+  { id: 'mexican', label: 'Meksykańska', type: 'area', value: 'Mexican' }
 ]
 
-const fetchApiMeals = async (overrideType?: string, overrideVal?: string) => {
+const visiblePageNumbers = computed<(number | string)[]>(() => {
+  const current = pagination.value.page
+  const total = pagination.value.totalPages
+  if (total <= 5) {
+    return Array.from({ length: total }, (_, i) => i + 1)
+  }
+  if (current <= 3) {
+    return [1, 2, 3, '...', total]
+  }
+  if (current >= total - 2) {
+    return [1, '...', total - 2, total - 1, total]
+  }
+  return [1, '...', current - 1, current, current + 1, '...', total]
+})
+
+const fetchApiMeals = async (overrideType?: string, overrideVal?: string, targetPage?: number) => {
   isLoadingApi.value = true
+  if (targetPage !== undefined) {
+    currentPage.value = targetPage
+  }
   try {
     const params = new URLSearchParams()
+    params.set('page', String(currentPage.value || 1))
+    params.set('limit', '24')
+
     if (searchQuery.value.trim()) {
       params.set('q', searchQuery.value.trim())
     } else {
@@ -1187,11 +1273,24 @@ const fetchApiMeals = async (overrideType?: string, overrideVal?: string) => {
       }
     }
 
-    const res = await $fetch<{ success: boolean; meals: any[] }>(`/api/meals/search?${params.toString()}`)
+    const res = await $fetch<{ success: boolean; meals: any[]; pagination?: any }>(`/api/meals/search?${params.toString()}`)
     if (res && res.meals) {
       apiResults.value = res.meals
+      if (res.pagination) {
+        pagination.value = res.pagination
+      } else {
+        pagination.value = {
+          page: 1,
+          limit: 24,
+          total: res.meals.length,
+          totalPages: 1,
+          hasNext: false,
+          hasPrev: false
+        }
+      }
     } else {
       apiResults.value = []
+      pagination.value = { page: 1, limit: 24, total: 0, totalPages: 1, hasNext: false, hasPrev: false }
     }
   } catch (e) {
     console.warn('fetchApiMeals error:', e)
@@ -1204,11 +1303,32 @@ const fetchApiMeals = async (overrideType?: string, overrideVal?: string) => {
 const applyCuratedFilter = (pill: any) => {
   activeFilterId.value = pill.id
   searchQuery.value = ''
-  fetchApiMeals(pill.type, pill.value)
+  currentPage.value = 1
+  fetchApiMeals(pill.type, pill.value, 1)
 }
 
 const triggerSearch = () => {
-  fetchApiMeals()
+  currentPage.value = 1
+  fetchApiMeals(undefined, undefined, 1)
+}
+
+const clearSearch = () => {
+  searchQuery.value = ''
+  currentPage.value = 1
+  fetchApiMeals(undefined, undefined, 1)
+}
+
+const goToPage = (page: number | string) => {
+  if (typeof page !== 'number') return
+  if (page < 1 || page > pagination.value.totalPages || page === pagination.value.page) return
+  currentPage.value = page
+  fetchApiMeals(undefined, undefined, page)
+  if (typeof window !== 'undefined') {
+    const el = document.querySelector('.quick-filter-scroll')
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }
 }
 
 const handleSurpriseMe = async () => {
@@ -2111,6 +2231,133 @@ onMounted(() => {
 .recipes-empty-state {
   text-align: center;
   padding: 40px 20px;
+}
+
+/* RESULTS META BAR & PAGINATION */
+.recipes-meta-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 2px 8px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.meta-count-text strong {
+  color: #0f172a;
+}
+
+.meta-page-badge {
+  background: #f1f5f9;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 11.5px;
+  border: 1px solid #e2e8f0;
+}
+
+.meals-cards-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.meals-pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 20px;
+  margin-bottom: 24px;
+  padding: 8px 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.pagination-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 11px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+  flex-shrink: 0;
+}
+
+.pagination-nav-btn:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #0f172a;
+}
+
+.pagination-nav-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.pagination-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  border-color: #e2e8f0;
+}
+
+.pagination-pages-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pagination-pages-group::-webkit-scrollbar {
+  display: none;
+}
+
+.page-number-btn {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #475569;
+  font-size: 12.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+  padding: 0;
+}
+
+.page-number-btn:hover:not(.active):not(.ellipsis) {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.page-number-btn:active:not(.active):not(.ellipsis) {
+  transform: scale(0.92);
+}
+
+.page-number-btn.active {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.2);
+}
+
+.page-number-btn.ellipsis {
+  cursor: default;
+  color: #94a3b8;
 }
 
 /* ======================================================= */

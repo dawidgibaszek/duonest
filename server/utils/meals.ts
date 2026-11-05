@@ -861,3 +861,103 @@ export function normalizeMealDbItem(raw: any): MealRecipe {
     ingredients
   }
 }
+
+// ------------------------------------------------------------------
+// FULL MEALS CATALOG CACHE (793 RECIPES ACROSS ALL CATEGORIES)
+// ------------------------------------------------------------------
+let cachedAllMealsCatalog: MealRecipe[] | null = null
+let catalogLastFetched = 0
+const CATALOG_TTL = 1000 * 60 * 60 * 24 // 24 hours
+
+export async function getAllMealsCatalog(): Promise<MealRecipe[]> {
+  const now = Date.now()
+  if (cachedAllMealsCatalog && cachedAllMealsCatalog.length > 0 && now - catalogLastFetched < CATALOG_TTL) {
+    return cachedAllMealsCatalog
+  }
+
+  const categories = [
+    'Beef', 'Breakfast', 'Chicken', 'Dessert', 'Goat', 'Lamb',
+    'Miscellaneous', 'Pasta', 'Pork', 'Seafood', 'Side', 'Starter',
+    'Vegan', 'Vegetarian'
+  ]
+
+  const areasToTag = [
+    'Italian', 'Mexican', 'Chinese', 'Japanese', 'Thai', 'Spanish',
+    'Greek', 'British', 'French', 'Vietnamese', 'Malaysian', 'Filipino'
+  ]
+
+  try {
+    const areaPromises = areasToTag.map(async (a) => {
+      try {
+        const res = await fetch(`https://www.themealdb.com/api/json/v1/1/filter.php?a=${encodeURIComponent(a)}`, {
+          signal: AbortSignal.timeout(4500)
+        })
+        const data = await res.json()
+        return {
+          area: a,
+          ids: new Set<string>((data.meals || []).map((m: any) => String(m.idMeal)))
+        }
+      } catch (_) {
+        return { area: a, ids: new Set<string>() }
+      }
+    })
+
+    const catPromises = categories.map(async (c) => {
+      try {
+        const res = await fetch(`https://www.themealdb.com/api/json/v1/1/filter.php?c=${encodeURIComponent(c)}`, {
+          signal: AbortSignal.timeout(6000)
+        })
+        const data = await res.json()
+        return (data.meals || []).map((m: any) => ({ ...m, category: c }))
+      } catch (_) {
+        return []
+      }
+    })
+
+    const [catResults, areaResults] = await Promise.all([
+      Promise.all(catPromises),
+      Promise.all(areaPromises)
+    ])
+
+    const areaLookup = new Map<string, string>()
+    for (const ar of areaResults) {
+      for (const id of ar.ids) {
+        areaLookup.set(id, ar.area)
+      }
+    }
+
+    const flatMeals = catResults.flat()
+    const map = new Map<string, MealRecipe>()
+
+    for (const m of flatMeals) {
+      const id = String(m.idMeal || '')
+      if (!id || map.has(id)) continue
+
+      const area = areaLookup.get(id) || 'Międzynarodowa'
+      const category = m.category || 'Inne'
+
+      map.set(id, {
+        id,
+        title: String(m.strMeal || 'Bez nazwy'),
+        category,
+        categoryPl: translateCategoryToPl(category),
+        area,
+        areaPl: translateAreaToPl(area),
+        instructions: '',
+        thumbnail: String(m.strMealThumb || ''),
+        tags: [],
+        youtubeUrl: null,
+        sourceUrl: null,
+        ingredients: []
+      })
+    }
+
+    cachedAllMealsCatalog = Array.from(map.values())
+    catalogLastFetched = now
+    return cachedAllMealsCatalog
+  } catch (err) {
+    console.warn('Failed to build meals catalog:', err)
+    return cachedAllMealsCatalog || []
+  }
+}
+
