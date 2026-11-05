@@ -518,15 +518,8 @@
             aria-label="Wylosuj obiad"
           >
             <template v-if="isLoadingRandom">
-              <div class="dice-roll-wrap">
-                <ion-icon :icon="ioniconsShuffleOutline" class="rolling-shuffle-icon" />
-              </div>
-              <span class="btn-rolling-text">Losuję</span>
-              <span class="loading-dots">
-                <span class="dot d1">.</span>
-                <span class="dot d2">.</span>
-                <span class="dot d3">.</span>
-              </span>
+              <span class="minimal-spinner" aria-hidden="true"></span>
+              <span class="btn-rolling-text">Losowanie...</span>
             </template>
             <template v-else>
               <span>Wylosuj</span>
@@ -1895,22 +1888,30 @@ const showDetailsModal = ref(false)
 const activeSelectedMeal = ref<any>(null)
 const isTranslatingRecipe = ref(false)
 
-const openMealDetailsModal = (meal: any) => {
-  activeSelectedMeal.value = meal
-  showDetailsModal.value = true
+const isTextInEnglish = (text?: string) => {
+  if (!text) return false
+  const sample = text.toLowerCase().slice(0, 300)
+  return /\b(the|and|with|heat|oven|into|minutes|bowl|place|cook|until|add)\b/i.test(sample)
 }
 
-const openApiMealPreview = async (meal: any) => {
-  activeSelectedMeal.value = meal
-  showDetailsModal.value = true
+const ensureMealInstructionsTranslated = async (meal: any) => {
+  if (!meal) return
+  const needsSteps = !meal.instructionsSteps || meal.instructionsSteps.length === 0
+  const englishDetected = isTextInEnglish(meal.instructions) || (meal.instructionsSteps && isTextInEnglish(meal.instructionsSteps[0]))
 
-  // If steps or translated ingredients are not yet populated, fetch lookup
-  if (!meal.instructionsSteps || meal.instructionsSteps.length === 0 || !meal.ingredients || meal.ingredients.length === 0) {
+  if ((englishDetected || needsSteps) && meal.id) {
     isTranslatingRecipe.value = true
     try {
       const res = await $fetch<{ success: boolean; meal: any }>(`/api/meals/lookup?id=${meal.id}`)
       if (res && res.meal) {
-        activeSelectedMeal.value = res.meal
+        if (activeSelectedMeal.value && String(activeSelectedMeal.value.id) === String(meal.id)) {
+          activeSelectedMeal.value = {
+            ...activeSelectedMeal.value,
+            instructions: res.meal.instructions || activeSelectedMeal.value.instructions,
+            instructionsSteps: res.meal.instructionsSteps || activeSelectedMeal.value.instructionsSteps,
+            ingredients: res.meal.ingredients?.length ? res.meal.ingredients : activeSelectedMeal.value.ingredients
+          }
+        }
       }
     } catch (e) {
       console.warn('lookup error:', e)
@@ -1918,6 +1919,18 @@ const openApiMealPreview = async (meal: any) => {
       isTranslatingRecipe.value = false
     }
   }
+}
+
+const openMealDetailsModal = (meal: any) => {
+  activeSelectedMeal.value = meal
+  showDetailsModal.value = true
+  ensureMealInstructionsTranslated(meal)
+}
+
+const openApiMealPreview = async (meal: any) => {
+  activeSelectedMeal.value = meal
+  showDetailsModal.value = true
+  ensureMealInstructionsTranslated(meal)
 }
 
 const openAssignFromDetails = (meal: any) => {
@@ -2612,9 +2625,8 @@ onMounted(() => {
 }
 
 .surprise-hero-bar.is-rolling {
-  border-color: #0f172a;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-color: #cbd5e1;
+  background: #ffffff;
 }
 
 .surprise-left-content {
@@ -2639,9 +2651,7 @@ onMounted(() => {
 }
 
 .surprise-icon-orb.is-spinning {
-  background: #0f172a;
-  box-shadow: 0 0 14px rgba(15, 23, 42, 0.35);
-  animation: orbSpinPulse 0.8s ease-in-out infinite alternate;
+  opacity: 0.75;
 }
 
 .surprise-texts {
@@ -2684,7 +2694,7 @@ onMounted(() => {
   font-weight: 700;
   flex-shrink: 0;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
   user-select: none;
@@ -2693,7 +2703,7 @@ onMounted(() => {
 .surprise-pill-btn:hover:not(:disabled) {
   background: #1e293b;
   transform: translateY(-1px);
-  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.18);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
 }
 
 .surprise-pill-btn:active:not(:disabled) {
@@ -2709,90 +2719,37 @@ onMounted(() => {
   transform: translateX(2px);
 }
 
-/* Dynamic Loading Animation State */
+/* Minimalist Loading State */
 .surprise-pill-btn.is-loading {
-  background: linear-gradient(90deg, #0f172a 0%, #1e293b 28%, #334155 50%, #1e293b 72%, #0f172a 100%);
-  background-size: 240% 100%;
-  animation: surpriseShimmer 1.4s ease-in-out infinite;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.35);
+  background: #0f172a;
+  opacity: 0.88;
   cursor: wait;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.1);
+  gap: 7px;
 }
 
-.dice-roll-wrap {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.minimal-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: minimalSpin 0.75s linear infinite;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
-.rolling-shuffle-icon {
-  font-size: 14px;
-  animation: rollIconSpin 0.7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+@keyframes minimalSpin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .btn-rolling-text {
-  font-weight: 800;
-  letter-spacing: 0.3px;
-}
-
-.loading-dots {
-  display: inline-flex;
-  margin-left: -2px;
-}
-
-.loading-dots .dot {
-  font-size: 14px;
-  font-weight: 900;
-  line-height: 1;
-  display: inline-block;
-  animation: dotBounce 1.2s infinite ease-in-out;
-}
-
-.loading-dots .d1 { animation-delay: 0s; }
-.loading-dots .d2 { animation-delay: 0.2s; }
-.loading-dots .d3 { animation-delay: 0.4s; }
-
-@keyframes surpriseShimmer {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-@keyframes rollIconSpin {
-  0% {
-    transform: rotate(0deg) scale(1);
-  }
-  50% {
-    transform: rotate(180deg) scale(1.15);
-  }
-  100% {
-    transform: rotate(360deg) scale(1);
-  }
-}
-
-@keyframes orbSpinPulse {
-  0% {
-    transform: rotate(0deg) scale(1);
-  }
-  100% {
-    transform: rotate(180deg) scale(1.08);
-  }
-}
-
-@keyframes dotBounce {
-  0%, 80%, 100% {
-    opacity: 0.2;
-    transform: translateY(0);
-  }
-  40% {
-    opacity: 1;
-    transform: translateY(-2px);
-  }
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: #ffffff;
 }
 
 /* SEARCH FIELD */
@@ -4158,6 +4115,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   position: relative;
   touch-action: manipulation;
   min-width: 0;
+  color: #475569;
 }
 
 .day-select-btn:active {

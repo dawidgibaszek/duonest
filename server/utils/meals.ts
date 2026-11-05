@@ -148,12 +148,12 @@ export async function translateTextToPolish(text: string): Promise<string> {
   }
 
   try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(clean.slice(0, 480))}&langpair=en|pl`
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(4500) })
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pl&dt=t&q=${encodeURIComponent(clean)}`
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(6000) })
     if (res.ok) {
       const data = await res.json()
-      const translated = data?.responseData?.translatedText
-      if (translated && typeof translated === 'string' && !translated.includes('MYMEMORY WARNING')) {
+      const translated = Array.isArray(data?.[0]) ? data[0].map((s: any) => s[0]).join('') : ''
+      if (translated && typeof translated === 'string') {
         translationCache.set(clean, translated)
         return translated
       }

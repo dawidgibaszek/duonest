@@ -18,6 +18,18 @@ export default defineEventHandler(async (event) => {
     const catalog = await getAllMealsCatalog()
     const foundInCatalog = catalog.find(m => String(m.id) === id)
     if (foundInCatalog) {
+      const isEn = /\b(the|and|with|heat|oven|into|minutes)\b/i.test(foundInCatalog.instructions || '')
+      if (isEn && !foundInCatalog.instructionsPl) {
+        try {
+          const transResult = await translateRecipeInstructionsAsync(foundInCatalog.instructions)
+          if (transResult.instructionsPl) {
+            foundInCatalog.instructions = transResult.instructionsPl
+            foundInCatalog.instructionsPl = transResult.instructionsPl
+            foundInCatalog.instructionsSteps = transResult.stepsPl
+            foundInCatalog.instructionsStepsPl = transResult.stepsPl
+          }
+        } catch (_) {}
+      }
       return { success: true, meal: foundInCatalog }
     }
 
