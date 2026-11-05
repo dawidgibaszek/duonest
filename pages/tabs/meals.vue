@@ -192,16 +192,16 @@
                     :class="{ 'strike': day.meal.is_completed }"
                     @click="openMealDetailsModal(day.meal)"
                   >
-                    {{ day.meal.title }}
+                    {{ formatMealTitlePl(day.meal.titlePl || day.meal.title) }}
                   </h4>
                 </div>
 
                 <div class="meal-tags-row">
-                  <span v-if="day.meal.category" class="tag-pill category-pill">
-                    {{ day.meal.category }}
+                  <span v-if="day.meal.categoryPl || day.meal.category" class="tag-pill category-pill">
+                    {{ day.meal.categoryPl || day.meal.category }}
                   </span>
-                  <span v-if="day.meal.area" class="tag-pill area-pill">
-                    {{ day.meal.area }}
+                  <span v-if="day.meal.areaPl || day.meal.area" class="tag-pill area-pill">
+                    {{ day.meal.areaPl || day.meal.area }}
                   </span>
                   <span v-if="day.meal.ingredients?.length" class="tag-pill ingredients-pill">
                     <ion-icon :icon="ioniconsListOutline" />
@@ -448,8 +448,8 @@
               </div>
 
               <div class="recipe-card-body">
-                <h4 class="recipe-card-title" :title="recipe.title">
-                  {{ recipe.title }}
+                <h4 class="recipe-card-title" :title="formatMealTitlePl(recipe.titlePl || recipe.title)">
+                  {{ formatMealTitlePl(recipe.titlePl || recipe.title) }}
                 </h4>
 
                 <div class="saved-card-meta-row">
@@ -607,8 +607,8 @@
 
               <!-- Card Content with Action Buttons -->
               <div class="recipe-card-body">
-                <h4 class="recipe-card-title" :title="meal.title">
-                  {{ meal.title }}
+                <h4 class="recipe-card-title" :title="formatMealTitlePl(meal.titlePl || meal.title)">
+                  {{ formatMealTitlePl(meal.titlePl || meal.title) }}
                 </h4>
 
                 <div class="recipe-bottom-action">
@@ -734,8 +734,8 @@
 
           <!-- Recipe Title & Quick Meta -->
           <div class="recipe-title-section">
-            <h2 class="recipe-display-title">{{ activeSelectedMeal.titlePl || activeSelectedMeal.title }}</h2>
-            <p v-if="activeSelectedMeal.titlePl && activeSelectedMeal.titlePl !== activeSelectedMeal.title" class="recipe-original-name">
+            <h2 class="recipe-display-title">{{ formatMealTitlePl(activeSelectedMeal.titlePl || activeSelectedMeal.title) }}</h2>
+            <p v-if="activeSelectedMeal.title && formatMealTitlePl(activeSelectedMeal.titlePl || activeSelectedMeal.title) !== activeSelectedMeal.title" class="recipe-original-name">
               {{ activeSelectedMeal.title }}
             </p>
 
@@ -921,7 +921,7 @@
               :style="{ backgroundImage: `url(${assignTargetMeal.thumbnail || assignTargetMeal.image_url})` }"
             />
             <div class="assign-meal-info">
-              <h4 class="assign-meal-name">{{ assignTargetMeal.title }}</h4>
+              <h4 class="assign-meal-name">{{ formatMealTitlePl(assignTargetMeal.titlePl || assignTargetMeal.title) }}</h4>
               <p class="assign-meal-meta">{{ assignTargetMeal.categoryPl || assignTargetMeal.category }} • {{ assignTargetMeal.areaPl || assignTargetMeal.area }}</p>
             </div>
           </div>
@@ -1378,7 +1378,7 @@
               </div>
 
               <div class="pick-item-info">
-                <h4 class="pick-item-title">{{ rec.title }}</h4>
+                <h4 class="pick-item-title">{{ formatMealTitlePl(rec.titlePl || rec.title) }}</h4>
                 <div class="pick-item-meta">
                   <span class="pick-meta-chip source-chip" :class="rec.source">
                     {{ rec.source === 'custom' ? 'Domowy' : 'Inspiracja' }}
@@ -1450,6 +1450,7 @@ const activeSubView = ref<'calendar' | 'my-recipes' | 'explore'>('calendar')
 export interface SavedRecipe {
   key: string
   title: string
+  titlePl?: string
   category?: string
   area?: string
   image_url?: string
@@ -1476,7 +1477,8 @@ const savedRecipes = computed<SavedRecipe[]>(() => {
     if (!existing) {
       map.set(key, {
         key,
-        title: m.title,
+        title: formatMealTitlePl(m.titlePl || m.title),
+        titlePl: formatMealTitlePl(m.titlePl || m.title),
         category: m.category,
         area: m.area,
         image_url: m.image_url,
@@ -1943,7 +1945,7 @@ const confirmAssignMeal = async () => {
   await addMeal({
     date: assignDate.value,
     day_name: targetDay?.dayName || '',
-    title: m.title,
+    title: formatMealTitlePl(m.titlePl || m.title),
     category: m.categoryPl || m.category || '',
     area: m.areaPl || m.area || '',
     cook_id: assignCook.value,
@@ -2004,7 +2006,7 @@ const selectSavedRecipeForDay = async (recipe: SavedRecipe) => {
   await addMeal({
     date: targetPickDate.value,
     day_name: targetDay?.dayName || '',
-    title: recipe.title,
+    title: formatMealTitlePl(recipe.titlePl || recipe.title),
     category: recipe.category || '',
     area: recipe.area || '',
     cook_id: pickModalCook.value,

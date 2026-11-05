@@ -4,12 +4,18 @@ import {
   translateMeasurePl,
   formatMeasurePl
 } from '../../utils/mealTranslations'
+import {
+  formatMealTitlePl,
+  translateRecipeTitle
+} from '../../utils/mealTitlesDict'
 
 export {
   INGREDIENTS_PL_DICT,
   translateIngredientName,
   translateMeasurePl,
-  formatMeasurePl
+  formatMeasurePl,
+  formatMealTitlePl,
+  translateRecipeTitle
 }
 
 export interface MealIngredient {
@@ -237,10 +243,13 @@ export function normalizeMealDbItem(raw: any): MealRecipe {
   const category = raw.strCategory || 'Inne'
   const area = raw.strArea || 'Międzynarodowa'
   const instructions = String(raw.strInstructions || '').replace(/\r\n/g, '\n')
+  const rawTitle = String(raw.strMeal || 'Bez nazwy')
+  const titlePl = formatMealTitlePl(rawTitle)
 
   return {
     id: String(raw.idMeal || ''),
-    title: String(raw.strMeal || 'Bez nazwy'),
+    title: rawTitle,
+    titlePl,
     category,
     categoryPl: translateCategoryToPl(category),
     area,
@@ -328,10 +337,13 @@ export async function getAllMealsCatalog(): Promise<MealRecipe[]> {
 
       const area = areaLookup.get(id) || 'Międzynarodowa'
       const category = m.category || 'Inne'
+      const rawTitle = String(m.strMeal || 'Bez nazwy')
+      const titlePl = formatMealTitlePl(rawTitle)
 
       map.set(id, {
         id,
-        title: String(m.strMeal || 'Bez nazwy'),
+        title: rawTitle,
+        titlePl,
         category,
         categoryPl: translateCategoryToPl(category),
         area,

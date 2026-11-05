@@ -87,6 +87,7 @@ export default defineEventHandler(async (event) => {
 
       filtered = filtered.filter(m => {
         const title = m.title.toLowerCase()
+        const titlePl = (m.titlePl || '').toLowerCase()
         const cat = m.category.toLowerCase()
         const catPl = m.categoryPl.toLowerCase()
         const ar = m.area.toLowerCase()
@@ -95,6 +96,7 @@ export default defineEventHandler(async (event) => {
         return (
           title.includes(qLower) ||
           title.includes(enTerm) ||
+          titlePl.includes(qLower) ||
           cat.includes(qLower) ||
           cat.includes(enTerm) ||
           catPl.includes(qLower) ||
