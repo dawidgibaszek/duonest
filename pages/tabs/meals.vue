@@ -3687,7 +3687,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   width: 44px;
   height: 5px;
   border-radius: 9999px;
-  margin-top: 10px;
+  margin-top: 8px;
   margin-bottom: 2px;
 }
 
@@ -3701,7 +3701,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px 12px 16px;
+  padding: 28px 16px 13px 16px;
   background: #ffffff;
   width: 100%;
   box-sizing: border-box;
