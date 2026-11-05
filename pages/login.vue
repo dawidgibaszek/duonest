@@ -268,8 +268,12 @@ const translateAuthError = (err: any): string => {
   if (msg.includes('Nie znaleziono konta') || msg.includes('Nie znaleziono profilu')) {
     return 'Nie znaleziono konta z tym adresem e-mail. Sprawdź e-mail lub przełącz na rejestrację.'
   }
-  if (msg.includes('For security purposes, you can only request this once every')) {
-    return 'Zbyt wiele prób. Odczekaj chwilę przed kolejną prośbą o reset hasła.'
+  if (msg.includes('For security purposes') || msg.includes('over_email_send_rate_limit')) {
+    const secondsMatch = msg.match(/after (\d+) seconds/i)
+    if (secondsMatch && secondsMatch[1]) {
+      return `Zbyt częste próby. Ze względów bezpieczeństwa odczekaj jeszcze ${secondsMatch[1]} sekund przed ponownym wysłaniem.`
+    }
+    return 'Zbyt wiele prób w krótkim czasie. Odczekaj około minuty przed kolejną prośbą o reset hasła.'
   }
   if (msg.includes('Error sending') || msg.includes('email provider')) {
     return 'Problem z wysyłką wiadomości e-mail. Sprawdź konfigurację SMTP w Supabase lub spróbuj ponownie za chwilę.'
