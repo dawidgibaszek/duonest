@@ -118,14 +118,15 @@
 
           <!-- MANUAL CODE INPUT -->
           <div class="manual-input-box">
-            <label class="manual-label">Kod parowania partnera</label>
+            <label class="manual-label">Kod parowania lub e-mail partnera</label>
             <div class="manual-input-row">
               <ion-input
                 v-model="partnerCodeInput"
-                placeholder="np. DN-849201"
+                placeholder="np. DN-849201 lub e-mail"
                 class="partner-code-input"
-                maxlength="12"
+                maxlength="100"
                 :clear-input="true"
+                @keyup.enter="submitPairing(partnerCodeInput)"
               />
               <button
                 class="pair-action-btn"
@@ -136,6 +137,7 @@
                 <span v-else>Połącz</span>
               </button>
             </div>
+            <p class="input-hint">Wpisz 6-znakowy kod partnera (np. DN-849201) lub jego adres e-mail w aplikacji.</p>
 
             <span class="error-msg" v-if="pairingError">{{ pairingError }}</span>
           </div>
@@ -245,18 +247,29 @@ const {
   updateMyName,
   pairWithCode,
   subscribeToPairingChannel,
+  checkDbPairingStatus,
   signOutUser,
   triggerToast
 } = useDuoState()
 
 const { askPermissionAfterPairing } = usePushNotifications()
 
+let pairingPollInterval: any = null
+
 const handleSignOut = async () => {
+  if (pairingPollInterval) {
+    clearInterval(pairingPollInterval)
+    pairingPollInterval = null
+  }
   await signOutUser()
 }
 
 watch(isPaired, (paired) => {
   if (paired) {
+    if (pairingPollInterval) {
+      clearInterval(pairingPollInterval)
+      pairingPollInterval = null
+    }
     confetti({
       particleCount: 120,
       spread: 75,
@@ -655,13 +668,46 @@ const stopScanner = async () => {
   isTorchOn.value = false
 }
 
-onMounted(() => {
+onMounted(async () => {
   generateMyQrCode()
   if (currentUser.value?.pairing_code) {
     subscribeToPairingChannel(currentUser.value.pairing_code)
   }
-  if (isPaired.value) {
+
+  // Check immediately with Supabase DB if already paired or if local state was stale
+  const currentlyPaired = await checkDbPairingStatus()
+  if (currentlyPaired && isPaired.value) {
     navigateTo('/tabs/nest', { replace: true })
+    return
+  }
+
+  // Periodic poll to detect if partner accepted / paired while on this screen
+  if (!pairingPollInterval) {
+    pairingPollInterval = setInterval(async () => {
+      if (isPaired.value) {
+        if (pairingPollInterval) {
+          clearInterval(pairingPollInterval)
+          pairingPollInterval = null
+        }
+        return
+      }
+      const paired = await checkDbPairingStatus()
+      if (paired) {
+        if (pairingPollInterval) {
+          clearInterval(pairingPollInterval)
+          pairingPollInterval = null
+        }
+        triggerToast(`Połączono z: ${partnerUser.value?.name || 'Partnerem'}! Witamy w Gniazdku!`)
+        confetti({
+          particleCount: 120,
+          spread: 75,
+          origin: { y: 0.6 },
+          colors: ['#0284c7', '#0ea5e9', '#0d9488', '#38bdf8']
+        })
+        askPermissionAfterPairing(partnerUser.value?.name || 'Partner')
+        navigateTo('/tabs/nest', { replace: true })
+      }
+    }, 2500)
   }
 })
 
@@ -674,6 +720,10 @@ watch(() => currentUser.value?.pairing_code, (newCode) => {
 
 onUnmounted(() => {
   stopScanner()
+  if (pairingPollInterval) {
+    clearInterval(pairingPollInterval)
+    pairingPollInterval = null
+  }
 })
 </script>
 
@@ -995,11 +1045,18 @@ onUnmounted(() => {
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid #e2e8f0;
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.input-hint {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  margin: 6px 0 0 2px;
+  line-height: 1.4;
 }
 
 .partner-code-input:focus-within {

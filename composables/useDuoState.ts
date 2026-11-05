@@ -2878,6 +2878,7 @@ export const useDuoState = () => {
     })
     activePairingChannel = pairChan
 
+    // 1. Listen for realtime broadcast PAIR_REQUEST
     pairChan.on('broadcast', { event: 'PAIR_REQUEST' }, async (envelope: any) => {
       const { initiatorProfile, newPartnership } = envelope.payload || {}
       if (!initiatorProfile || !newPartnership) return
@@ -2919,6 +2920,36 @@ export const useDuoState = () => {
         subscribeToSecurityChannel(currentUser.value.id, newPartnership.id)
       }, 500)
     })
+
+    // 2. Listen for Postgres changes on currentUser profile (in case partner updated DB directly)
+    const myId = currentUser.value?.id || authUser.value?.id
+    if (myId) {
+      pairChan.on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${myId}`
+        },
+        async (payload: any) => {
+          const newPId = payload.new?.partnership_id
+          if (newPId && (!partnership.value?.id || partnership.value?.id !== newPId)) {
+            currentUser.value.partnership_id = newPId
+            await loadPartnershipAndPartner(newPId, myId)
+            syncToStorage()
+            triggerToast(`Konta zostały pomyślnie połączone! Witamy w Gniazdku!`)
+            setTimeout(() => {
+              try { client.removeChannel(pairChan) } catch (_) {}
+              activePairingChannel = null
+              activePairingCode = null
+              subscribeToPartnershipRealtime(newPId)
+              subscribeToSecurityChannel(myId, newPId)
+            }, 500)
+          }
+        }
+      )
+    }
 
     pairChan.subscribe((status: string) => {
       if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
@@ -3060,47 +3091,257 @@ export const useDuoState = () => {
     }
   }
 
-  const pairWithCode = async (rawCode: string, partnerDisplayName: string = 'Partner'): Promise<{ success: boolean; error?: string }> => {
-    const code = normalizePairingCode(rawCode)
-    if (!code) return { success: false, error: 'Wprowadź kod parowania.' }
+  // Helper: auto-heal abandoned, corrupted, or ghost partnerships in Supabase
+  const checkAndAutoHealPartnership = async (profile: Profile, client: any): Promise<boolean> => {
+    if (!profile.partnership_id) return true
 
-    if (code === normalizePairingCode(currentUser.value.pairing_code)) {
+    try {
+      const { data: part } = await client
+        .from('partnerships')
+        .select('*')
+        .eq('id', profile.partnership_id)
+        .maybeSingle()
+
+      if (!part) {
+        // Partnership doesn't exist in DB - clear profile reference
+        await client.from('profiles').update({ partnership_id: null }).eq('id', profile.id)
+        profile.partnership_id = null
+        return true
+      }
+
+      // Check for ghost partner
+      const isGhost =
+        (part.partner1_id && part.partner1_id.startsWith('usr_partner_')) ||
+        (part.partner2_id && part.partner2_id.startsWith('usr_partner_')) ||
+        (part.partner1_id === part.partner2_id)
+
+      if (isGhost) {
+        await client.from('partnerships').delete().eq('id', part.id)
+        await client.from('profiles').update({ partnership_id: null }).eq('id', profile.id)
+        profile.partnership_id = null
+        return true
+      }
+
+      // Check if the other partner exists and still references this partnership
+      const otherPartnerId = part.partner1_id === profile.id ? part.partner2_id : part.partner1_id
+      const { data: otherProfile } = await client
+        .from('profiles')
+        .select('id, partnership_id')
+        .eq('id', otherPartnerId)
+        .maybeSingle()
+
+      if (!otherProfile || otherProfile.partnership_id !== part.id) {
+        // Other partner has disconnected or deleted account - clear orphaned partnership
+        await client.from('partnerships').delete().eq('id', part.id)
+        await client.from('profiles').update({ partnership_id: null }).eq('id', profile.id)
+        profile.partnership_id = null
+        return true
+      }
+
+      // Truly active mutual partnership with another real user
+      return false
+    } catch (_) {
+      return false
+    }
+  }
+
+  // Check pairing status against Supabase DB directly
+  const checkDbPairingStatus = async (): Promise<boolean> => {
+    const client = getCleanDbClient() || supabase
+    const myId = currentUser.value?.id || authUser.value?.id
+    if (!client || !myId) return Boolean(partnership.value?.id)
+
+    try {
+      const { data } = await client
+        .from('profiles')
+        .select('partnership_id')
+        .eq('id', myId)
+        .maybeSingle()
+
+      if (data?.partnership_id) {
+        if (!partnership.value?.id || partnership.value.id !== data.partnership_id) {
+          currentUser.value.partnership_id = data.partnership_id
+          await loadPartnershipAndPartner(data.partnership_id, myId)
+          syncToStorage()
+          subscribeToPartnershipRealtime(data.partnership_id)
+          subscribeToSecurityChannel(myId, data.partnership_id)
+        }
+        return true
+      } else {
+        if (currentUser.value.partnership_id || partnership.value) {
+          clearPartnershipData()
+        }
+        return false
+      }
+    } catch (_) {
+      return Boolean(partnership.value?.id)
+    }
+  }
+
+  const pairWithCode = async (rawInput: string, partnerDisplayName: string = 'Partner'): Promise<{ success: boolean; error?: string }> => {
+    if (!rawInput || !rawInput.trim()) {
+      return { success: false, error: 'Wprowadź kod parowania lub adres e-mail partnera.' }
+    }
+
+    const trimmedInput = rawInput.trim()
+    const myCleanEmail = sanitizeEmail(currentUser.value?.email || authUser.value?.email)
+    const myCode = normalizePairingCode(currentUser.value?.pairing_code)
+
+    // Check if input is an email address
+    const isEmailInput = trimmedInput.includes('@') && trimmedInput.includes('.')
+    const targetEmail = isEmailInput ? sanitizeEmail(trimmedInput) : ''
+    const targetCode = !isEmailInput ? normalizePairingCode(trimmedInput) : ''
+
+    if (isEmailInput && myCleanEmail && targetEmail === myCleanEmail) {
+      return { success: false, error: 'Nie możesz sparować konta ze swoim własnym adresem e-mail.' }
+    }
+
+    if (!isEmailInput && myCode && targetCode === myCode) {
       return { success: false, error: 'Nie możesz sparować konta ze swoim własnym kodem.' }
     }
 
-    if (currentUser.value?.partnership_id) {
-      return { success: false, error: 'Twoje konto jest już połączone w Gniazdku. Rozłącz obecne partnerstwo przed sparowaniem z kimś nowym.' }
+    const dbClient = getCleanDbClient() || supabase
+    if (!dbClient) {
+      return { success: false, error: 'Brak połączenia z bazą danych.' }
     }
 
+    // 1. Search for partner profile in Supabase
     let foundPartnerProfile: Profile | null = null
-    if (db) {
-      try {
-        const { data: dbTarget } = await db
-          .from('profiles')
-          .select('*')
-          .eq('pairing_code', code)
-          .maybeSingle()
-        if (dbTarget) {
-          foundPartnerProfile = dbTarget
+
+    if (isEmailInput) {
+      const { data } = await dbClient
+        .from('profiles')
+        .select('*')
+        .ilike('email', targetEmail)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle()
+
+      if (data) {
+        foundPartnerProfile = data
+      }
+    } else {
+      const { data } = await dbClient
+        .from('profiles')
+        .select('*')
+        .eq('pairing_code', targetCode)
+        .limit(1)
+        .maybeSingle()
+
+      if (data) {
+        foundPartnerProfile = data
+      } else {
+        // Fallback: search without "DN-" prefix or partial match if someone didn't include DN-
+        const rawClean = trimmedInput.toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^DN/, '')
+        if (rawClean) {
+          const { data: fbData } = await dbClient
+            .from('profiles')
+            .select('*')
+            .ilike('pairing_code', `%${rawClean}%`)
+            .limit(1)
+            .maybeSingle()
+          if (fbData) {
+            foundPartnerProfile = fbData
+          }
         }
-      } catch (_) {}
+      }
     }
 
-    if (foundPartnerProfile?.partnership_id) {
-      return { success: false, error: 'Ten partner jest już w innym Gniazdku. Musi najpierw rozłączyć swoje obecne partnerstwo.' }
+    // Fallback: in case user entered email prefix (e.g. without domain)
+    if (!foundPartnerProfile && !isEmailInput) {
+      const { data: emailMatch } = await dbClient
+        .from('profiles')
+        .select('*')
+        .ilike('email', `${trimmedInput.toLowerCase()}%`)
+        .limit(1)
+        .maybeSingle()
+      if (emailMatch) {
+        foundPartnerProfile = emailMatch
+      }
     }
 
-    // Clear any residual data before initiating fresh partnership
+    if (!foundPartnerProfile) {
+      return {
+        success: false,
+        error: isEmailInput
+          ? `Nie znaleziono użytkownika o adresie: ${targetEmail}. Upewnij się, że partner założył konto w DuoNest.`
+          : `Nie znaleziono partnera z kodem: ${targetCode || trimmedInput}. Upewnij się, że kod jest poprawny lub wpisz adres e-mail partnera.`
+      }
+    }
+
+    // Cannot pair with oneself
+    if (
+      foundPartnerProfile.id === currentUser.value.id ||
+      (myCleanEmail && foundPartnerProfile.email && sanitizeEmail(foundPartnerProfile.email) === myCleanEmail)
+    ) {
+      return { success: false, error: 'Nie możesz sparować konta ze samym sobą.' }
+    }
+
+    // Check if partner has ALREADY initiated a partnership WITH CURRENT USER
+    if (foundPartnerProfile.partnership_id) {
+      const { data: existingPart } = await dbClient
+        .from('partnerships')
+        .select('*')
+        .eq('id', foundPartnerProfile.partnership_id)
+        .maybeSingle()
+
+      if (
+        existingPart &&
+        ((existingPart.partner1_id === currentUser.value.id && existingPart.partner2_id === foundPartnerProfile.id) ||
+         (existingPart.partner2_id === currentUser.value.id && existingPart.partner1_id === foundPartnerProfile.id))
+      ) {
+        // Mutual handshake completed!
+        currentUser.value.partnership_id = existingPart.id
+        partnerUser.value = {
+          ...createInitialProfile(),
+          ...foundPartnerProfile,
+          name: foundPartnerProfile.name || (foundPartnerProfile.email ? foundPartnerProfile.email.split('@')[0] : 'Partner'),
+          partnership_id: existingPart.id
+        }
+        partnership.value = existingPart
+        syncToStorage()
+
+        await dbClient.from('profiles').update({ partnership_id: existingPart.id }).eq('id', currentUser.value.id)
+
+        subscribeToPartnershipRealtime(existingPart.id)
+        subscribeToSecurityChannel(currentUser.value.id, existingPart.id)
+        triggerToast(`Połączono z: ${partnerUser.value.name}! Witamy w Gniazdku!`)
+        return { success: true }
+      }
+    }
+
+    // Check & auto-heal currentUser partnership if stale or ghost
+    if (currentUser.value?.partnership_id) {
+      const isMyCurrentFree = await checkAndAutoHealPartnership(currentUser.value, dbClient)
+      if (!isMyCurrentFree) {
+        return {
+          success: false,
+          error: 'Twoje konto jest już połączone w Gniazdku. Rozłącz obecne partnerstwo w zakładce Relacja przed połączeniem z kimś nowym.'
+        }
+      }
+    }
+
+    // Check & auto-heal partner's partnership if stale or ghost
+    if (foundPartnerProfile.partnership_id) {
+      const isPartnerFree = await checkAndAutoHealPartnership(foundPartnerProfile, dbClient)
+      if (!isPartnerFree) {
+        return {
+          success: false,
+          error: `Ten partner (${foundPartnerProfile.name || foundPartnerProfile.email}) jest już połączony w innym Gniazdku. Partner musi najpierw rozłączyć swoje obecne partnerstwo.`
+        }
+      }
+    }
+
+    // Clear any residual data on this client before creating fresh partnership
     clearPartnershipData()
 
     const newPartnershipId = 'part_' + Math.random().toString(36).substring(2, 10)
-    const newPartnerId = foundPartnerProfile?.id || ('usr_partner_' + Math.random().toString(36).substring(2, 8))
-    const partnerName = foundPartnerProfile?.name || (partnerDisplayName && partnerDisplayName !== 'Partner' ? partnerDisplayName : (foundPartnerProfile?.email ? foundPartnerProfile.email.split('@')[0] : 'Partner'))
+    const partnerName = foundPartnerProfile.name || (partnerDisplayName && partnerDisplayName !== 'Partner' ? partnerDisplayName : (foundPartnerProfile.email ? foundPartnerProfile.email.split('@')[0] : 'Partner'))
 
     const createdPartnership: Partnership = {
       id: newPartnershipId,
       partner1_id: currentUser.value.id,
-      partner2_id: newPartnerId,
+      partner2_id: foundPartnerProfile.id,
       nest_name: 'Nasze Ciepłe Gniazdko',
       nest_level: 1,
       anniversary_date: new Date().toISOString().split('T')[0],
@@ -3109,126 +3350,90 @@ export const useDuoState = () => {
 
     const createdPartner: Profile = {
       ...createInitialProfile(),
-      ...(foundPartnerProfile || {}),
-      id: newPartnerId,
+      ...foundPartnerProfile,
       name: partnerName,
-      pairing_code: code,
       partnership_id: newPartnershipId,
-      current_mood: foundPartnerProfile?.current_mood || 'loved',
-      avatar_color: getCleanAccentColor(foundPartnerProfile?.avatar_color, '#0d9488')
+      avatar_color: getCleanAccentColor(foundPartnerProfile.avatar_color, '#0d9488')
     }
 
-    // Set local state immediately so partnerUser exists before receiving handshake
+    // 2. Persist to Supabase with real AWAIT
+    const { error: partErr } = await dbClient.from('partnerships').upsert(createdPartnership)
+    if (partErr) {
+      return { success: false, error: 'Błąd zapisu nowego Gniazdka: ' + (partErr.message || 'spróbuj ponownie.') }
+    }
+
+    const { error: u1Err } = await dbClient.from('profiles').update({ partnership_id: newPartnershipId }).eq('id', currentUser.value.id)
+    if (u1Err) {
+      return { success: false, error: 'Błąd przypisania Twojego profilu: ' + (u1Err.message || 'spróbuj ponownie.') }
+    }
+
+    const { error: u2Err } = await dbClient.from('profiles').update({ partnership_id: newPartnershipId }).eq('id', foundPartnerProfile.id)
+    if (u2Err) {
+      return { success: false, error: 'Błąd przypisania profilu partnera: ' + (u2Err.message || 'spróbuj ponownie.') }
+    }
+
+    // 3. Update local state
     currentUser.value.partnership_id = newPartnershipId
     partnerUser.value = createdPartner
     partnership.value = createdPartnership
     syncToStorage()
 
-    // Connect to partner's pairing channel and send PAIR_REQUEST
-    const realtimeClient = getCleanDbClient() || supabase
-    if (realtimeClient) {
-      try {
-        const targetPairChannel = realtimeClient.channel(`duonest_pair_${code}`, {
+    // 4. Send Realtime broadcast to partner on pairing channel
+    try {
+      const broadcastPayload = {
+        initiatorProfile: currentUser.value,
+        newPartnership: createdPartnership
+      }
+      const pCode = foundPartnerProfile.pairing_code
+      if (pCode) {
+        const partnerPairChannel = dbClient.channel(`duonest_pair_${pCode}`, {
           config: { broadcast: { ack: true } }
         })
-
-        targetPairChannel.on('broadcast', { event: 'PAIR_ACCEPTED' }, (envelope: any) => {
-          const { targetProfile, newPartnership: returnedPartnership } = envelope.payload || {}
-          if (targetProfile) {
-            partnerUser.value = {
-              ...(partnerUser.value || createdPartner),
-              ...targetProfile,
-              name: targetProfile.name || partnerUser.value?.name || 'Partner'
-            }
-            if (returnedPartnership && partnership.value) {
-              partnership.value = returnedPartnership
-            }
-            syncToStorage()
-            triggerToast(`Połączono z: ${partnerUser.value.name}!`)
+        partnerPairChannel.subscribe((status: string) => {
+          if (status === 'SUBSCRIBED') {
+            partnerPairChannel.send({
+              type: 'broadcast',
+              event: 'PAIR_REQUEST',
+              payload: broadcastPayload
+            }).catch(() => {})
+            setTimeout(() => {
+              partnerPairChannel.send({
+                type: 'broadcast',
+                event: 'PAIR_REQUEST',
+                payload: broadcastPayload
+              }).catch(() => {})
+            }, 300)
           }
         })
-
-        await new Promise<void>((resolve) => {
-          targetPairChannel.subscribe(async (status: string) => {
-            if (status === 'SUBSCRIBED') {
-              const broadcastPayload = {
-                initiatorProfile: currentUser.value,
-                newPartnership: createdPartnership
-              }
-              // Send immediate + backup repeats to guarantee reception
-              try {
-                await targetPairChannel.send({
-                  type: 'broadcast',
-                  event: 'PAIR_REQUEST',
-                  payload: broadcastPayload
-                })
-              } catch (_) {}
-
-              setTimeout(() => {
-                try {
-                  targetPairChannel.send({
-                    type: 'broadcast',
-                    event: 'PAIR_REQUEST',
-                    payload: broadcastPayload
-                  })
-                } catch (_) {}
-              }, 200)
-
-              setTimeout(() => {
-                try {
-                  targetPairChannel.send({
-                    type: 'broadcast',
-                    event: 'PAIR_REQUEST',
-                    payload: broadcastPayload
-                  })
-                } catch (_) {}
-                resolve()
-              }, 450)
-            }
-          })
-          setTimeout(resolve, 1800)
-        })
-      } catch (e) {
-        console.warn('Realtime pairing broadcast attempt:', e)
       }
-    }
+    } catch (_) {}
 
-    syncToStorage()
-
-    // Try storing in Supabase DB if tables exist
-    if (db) {
-      safeDb(db.from('profiles').update({ partnership_id: newPartnershipId }).eq('id', currentUser.value.id))
-      if (foundPartnerProfile) {
-        safeDb(db.from('profiles').update({ partnership_id: newPartnershipId }).eq('id', foundPartnerProfile.id))
-      }
-      safeDb(db.from('partnerships').upsert(createdPartnership))
-    }
-
-    // Subscribe to shared realtime channel
+    // 5. Connect to partnership realtime & security channels
     subscribeToPartnershipRealtime(newPartnershipId)
     subscribeToSecurityChannel(currentUser.value.id, newPartnershipId)
 
-    triggerToast('Konta zostały pomyślnie sparowane! Witajcie w Waszym Gniazdku!')
+    triggerToast(`Konta zostały pomyślnie sparowane! Witajcie w Waszym Gniazdku!`)
     return { success: true }
   }
 
   const disconnectPartnership = async () => {
-    const pId = partnership.value?.id
-    const myId = currentUser.value?.id
+    const pId = partnership.value?.id || currentUser.value?.partnership_id
+    const myId = currentUser.value?.id || authUser.value?.id
     const partnerId = partnerUser.value?.id
 
     // Broadcast disconnection notice so partner reacts instantly
     broadcastToPartner('PARTNERSHIP_DISCONNECT', {})
 
-    if (db) {
+    const dbClient = getCleanDbClient() || supabase
+    if (dbClient) {
       if (myId) {
-        safeDb(db.from('profiles').update({ partnership_id: null }).eq('id', myId))
+        try { await dbClient.from('profiles').update({ partnership_id: null }).eq('id', myId) } catch (_) {}
       }
       if (partnerId) {
-        safeDb(db.from('profiles').update({ partnership_id: null }).eq('id', partnerId))
+        try { await dbClient.from('profiles').update({ partnership_id: null }).eq('id', partnerId) } catch (_) {}
       }
       if (pId) {
-        safeDb(db.from('partnerships').delete().eq('id', pId))
+        try { await dbClient.from('partnerships').delete().eq('id', pId) } catch (_) {}
       }
     }
 
@@ -3240,7 +3445,7 @@ export const useDuoState = () => {
     clearPartnershipData()
     triggerToast('Rozłączono partnerstwo.', { type: 'warning', title: 'Rozłączono' })
     if (typeof window !== 'undefined') {
-      navigateTo('/pairing')
+      navigateTo('/pairing', { replace: true })
     }
   }
 
@@ -4552,6 +4757,7 @@ export const useDuoState = () => {
     nextNudgeRemainingMs,
     updatePartnershipSettings,
     subscribeToPairingChannel,
+    checkDbPairingStatus,
     normalizePairingCode,
     verifyUserAndPartnershipAccess,
     requestPasswordReset,
