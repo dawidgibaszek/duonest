@@ -303,7 +303,6 @@
               <h3 class="saved-heading">Twoje Przepisy</h3>
               <span class="count-chip" v-if="savedRecipes.length > 0">{{ savedRecipes.length }}</span>
             </div>
-            <p class="saved-subheading">Wasze domowe dania oraz przepisy zapisane z inspiracji</p>
           </div>
           <button
             type="button"
@@ -790,8 +789,8 @@
                   <ion-icon :icon="ioniconsCheckmarkOutline" />
                 </div>
                 <div class="ing-info-col">
-                  <span class="ing-title">{{ ing.name }}</span>
-                  <span v-if="ing.measure" class="ing-quantity">{{ ing.measure }}</span>
+                  <span class="ing-title">{{ translateIngredientName(ing.name) }}</span>
+                  <span v-if="ing.measure" class="ing-quantity">{{ formatMeasurePl(ing.measure) }}</span>
                 </div>
               </div>
             </div>
@@ -1705,7 +1704,11 @@ const handleDeleteMeal = async (id: string) => {
 
 const handleAddMealIngredientsToShopping = async (meal: MealItem) => {
   if (!meal.ingredients || meal.ingredients.length === 0) return
-  await addIngredientsToShopping(meal.ingredients)
+  const translated = meal.ingredients.map(ing => ({
+    name: translateIngredientName(ing.name),
+    measure: ing.measure ? formatMeasurePl(ing.measure) : ''
+  }))
+  await addIngredientsToShopping(translated)
 }
 
 // --- EXPLORE / RECIPES CATALOG STATE ---
@@ -1893,7 +1896,11 @@ const openAssignFromDetails = (meal: any) => {
 
 const handleAddIngredientsFromDetails = async () => {
   if (!activeSelectedMeal.value?.ingredients) return
-  await addIngredientsToShopping(activeSelectedMeal.value.ingredients)
+  const translated = activeSelectedMeal.value.ingredients.map(ing => ({
+    name: translateIngredientName(ing.name),
+    measure: ing.measure ? formatMeasurePl(ing.measure) : ''
+  }))
+  await addIngredientsToShopping(translated)
 }
 
 // --- ASSIGN MEAL TO DAY MODAL ---
