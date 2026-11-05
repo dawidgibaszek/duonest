@@ -840,8 +840,8 @@ watch(activeLeisureSubTab, (newVal) => {
 }
 
 .primary-badge { background: #0f172a; }
-.secondary-badge { background: #0d9488; }
-.tertiary-badge { background: #6366f1; }
-.pink-badge { background: #f43f5e; }
-.purple-badge { background: #8b5cf6; }
+.secondary-badge { background: #1e293b; }
+.tertiary-badge { background: #18181b; }
+.pink-badge { background: #0f172a; }
+.purple-badge { background: #1e293b; }
 </style>

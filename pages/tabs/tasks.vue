@@ -945,7 +945,7 @@ const handlePetClick = () => {
     particleCount: 25,
     spread: 45,
     origin: { y: 0.4 },
-    colors: ['#ec4899', '#f43f5e', '#a855f7']
+    colors: ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b']
   })
 }
 
@@ -970,7 +970,7 @@ const handleQuickCompletePetTask = async (task: TaskItem) => {
     particleCount: 70,
     spread: 75,
     origin: { y: 0.45 },
-    colors: ['#10b981', '#06b6d4', '#f59e0b', '#ec4899']
+    colors: ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b']
   })
   setCustomSpeech(`Brawo! Kolejne zadanie zrobione! +15 XP dla mnie! ⭐🎉`)
 }
@@ -1079,7 +1079,7 @@ const handleSettingsPetClick = () => {
     particleCount: 20,
     spread: 45,
     origin: { y: 0.5 },
-    colors: ['#ec4899', '#f43f5e', '#a855f7']
+    colors: ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b']
   })
   setTimeout(() => {
     settingsAnimation.value = 'happy'
@@ -1184,7 +1184,7 @@ const handleToggleTask = async (task: TaskItem) => {
         particleCount: 110,
         spread: 80,
         origin: { y: 0.6 },
-        colors: ['#0284c7', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6']
+        colors: ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b', '#cbd5e1']
       })
     } else {
       triggerPetAnimation('happy', 1400)
@@ -1192,7 +1192,7 @@ const handleToggleTask = async (task: TaskItem) => {
         particleCount: 60,
         spread: 50,
         origin: { y: 0.7 },
-        colors: ['#0284c7', '#0ea5e9', '#10b981', '#f59e0b']
+        colors: ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b']
       })
     }
   } else {
@@ -1259,9 +1259,9 @@ const handleRefresh = async (event: any) => {
   gap: 6px;
   font-size: 11px;
   font-weight: 700;
-  color: #0d9488;
-  background: #f0fdfa;
-  border: 1px dashed #99f6e4;
+  color: #0f172a;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
   border-radius: 8px;
   padding: 6px 12px;
   margin: 6px 16px 10px 16px;
@@ -1422,13 +1422,13 @@ const handleRefresh = async (event: any) => {
 }
 
 .tag-mine {
-  background: #f0fdfa;
-  color: #0d9488;
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 .tag-partner {
-  background: #fef2f2;
-  color: #e11d48;
+  background: #f8fafc;
+  color: #1e293b;
 }
 
 .recurring-pill {
@@ -1539,9 +1539,9 @@ const handleRefresh = async (event: any) => {
 }
 
 .rec-pill.active {
-  background: #0d9488;
+  background: #0f172a;
   color: #ffffff;
-  border-color: #0d9488;
+  border-color: #0f172a;
 }
 
 .points-selector-row {

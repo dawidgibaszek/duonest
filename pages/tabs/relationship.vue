@@ -1334,19 +1334,14 @@ const handleSaveNestSettings = async () => {
   })
 }
 
-// Accent Color Presets (curated elegant & vibrant colors)
+// Accent Color Presets (curated sophisticated shades of black & charcoal)
 const accentColorPresets = [
-  { hex: '#0f172a', label: 'Elegancka Czerń' },
-  { hex: '#0284c7', label: 'Błękit Oceanu' },
-  { hex: '#0d9488', label: 'Morski Szmaragd' },
-  { hex: '#e11d48', label: 'Różana Czerwień' },
-  { hex: '#6366f1', label: 'Głębokie Indygo' },
-  { hex: '#8b5cf6', label: 'Lawendowy Fiolet' },
-  { hex: '#f59e0b', label: 'Ciepły Bursztyn' },
-  { hex: '#f97316', label: 'Słoneczny Koral' },
-  { hex: '#059669', label: 'Leśny Szmaragd' },
-  { hex: '#ec4899', label: 'Malinowy Róż' },
-  { hex: '#7c3aed', label: 'Królewski Fiolet' }
+  { hex: '#0f172a', label: 'Głęboki Obsydian' },
+  { hex: '#18181b', label: 'Matowy Antracyt' },
+  { hex: '#111827', label: 'Ciemny Karbon' },
+  { hex: '#1e293b', label: 'Grafitowy Łupkowy' },
+  { hex: '#1c1917', label: 'Ciepły Onyks' },
+  { hex: '#0a0a0c', label: 'Nocna Czerń' }
 ]
 
 const handleSelectAccentColor = async (colorHex: string) => {
@@ -1356,7 +1351,7 @@ const handleSelectAccentColor = async (colorHex: string) => {
     particleCount: 40,
     spread: 50,
     origin: { y: 0.6 },
-    colors: [colorHex]
+    colors: [colorHex, '#334155', '#94a3b8', '#cbd5e1']
   })
 }
 
@@ -1416,7 +1411,7 @@ const handleSaveProfile = async () => {
     particleCount: 60,
     spread: 60,
     origin: { y: 0.6 },
-    colors: [currentUserAccentColor.value, '#38bdf8', '#f43f5e']
+    colors: [currentUserAccentColor.value, '#1e293b', '#475569', '#94a3b8']
   })
 }
 
@@ -1479,7 +1474,7 @@ const handleSendNudge = async () => {
       particleCount: 50,
       spread: 60,
       origin: { y: 0.6 },
-      colors: [currentUserAccentColor.value, '#0ea5e9', '#0d9488', '#f43f5e']
+      colors: [currentUserAccentColor.value, '#1e293b', '#475569', '#94a3b8']
     })
   }
 }
@@ -3148,15 +3143,15 @@ const handleRefresh = async (event: any) => {
   flex-shrink: 0;
 }
 
-.love-icon-bg { background: #ffe4e6; color: #f43f5e; }
-.mood-icon-bg { background: #f3e8ff; color: #8b5cf6; }
-.calendar-icon-bg { background: #eef2ff; color: #6366f1; }
-.shopping-icon-bg { background: #ccfbf1; color: #0d9488; }
+.love-icon-bg { background: #f1f5f9; color: #0f172a; }
+.mood-icon-bg { background: #f8fafc; color: #1e293b; }
+.calendar-icon-bg { background: #f1f5f9; color: #334155; }
+.shopping-icon-bg { background: #f8fafc; color: #18181b; }
 .tasks-icon-bg { background: #f1f5f9; color: #0f172a; }
-.wishlist-icon-bg { background: #fdf2f8; color: #db2777; }
-.online-icon-bg { background: #dcfce7; color: #16a34a; }
-.sound-icon-bg { background: #fef3c7; color: #d97706; }
-.vibrate-icon-bg { background: #f1f5f9; color: #475569; }
+.wishlist-icon-bg { background: #f8fafc; color: #1e293b; }
+.online-icon-bg { background: #f1f5f9; color: #334155; }
+.sound-icon-bg { background: #f8fafc; color: #475569; }
+.vibrate-icon-bg { background: #f1f5f9; color: #64748b; }
 
 .toggle-item-info {
   display: flex;
@@ -3424,9 +3419,9 @@ const handleRefresh = async (event: any) => {
 }
 
 .change-password-toggle-btn.is-open {
-  background: #f0f9ff;
-  border-color: #bae6fd;
-  color: #0284c7;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
 }
 
 .toggle-btn-left {
@@ -3437,7 +3432,7 @@ const handleRefresh = async (event: any) => {
 
 .toggle-btn-left .btn-icon {
   font-size: 18px;
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .chevron-icon {
@@ -3495,8 +3490,8 @@ const handleRefresh = async (event: any) => {
 
 .pwd-input-wrap:focus-within {
   background: #ffffff;
-  border-color: #0284c7;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
 }
 
 .pwd-input-icon {
@@ -3574,19 +3569,19 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   justify-content: center;
   padding: 10px 16px;
-  background: #0284c7;
+  background: #0f172a;
   color: #ffffff;
   border: none;
   border-radius: 12px;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.25);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
   transition: background 0.15s ease;
 }
 
 .save-pwd-btn:hover:not(:disabled) {
-  background: #0369a1;
+  background: #1e293b;
 }
 
 .save-pwd-btn:disabled {

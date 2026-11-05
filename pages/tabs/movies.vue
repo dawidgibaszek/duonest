@@ -2843,7 +2843,7 @@ onMounted(() => {
 }
 
 .count-chip {
-  background: #8b5cf6;
+  background: #0f172a;
   color: #ffffff;
   font-size: 11px;
   font-weight: 700;
@@ -2927,7 +2927,7 @@ onMounted(() => {
   font-size: 22px;
 }
 
-.action-search ion-icon { color: #8b5cf6; }
+.action-search ion-icon { color: #0f172a; }
 .action-random ion-icon { color: #f59e0b; }
 .action-manual ion-icon { color: #0f172a; }
 
@@ -3071,7 +3071,7 @@ onMounted(() => {
 }
 
 .collection-search-input:focus {
-  border-color: #8b5cf6;
+  border-color: #0f172a;
 }
 
 .clear-search-btn {
@@ -3190,8 +3190,8 @@ onMounted(() => {
 }
 
 .type-movie { background: #0f172a; }
-.type-tv { background: #0d9488; }
-.type-anime { background: #8b5cf6; }
+.type-tv { background: #1e293b; }
+.type-anime { background: #334155; }
 
 .tmdb-score-tag {
   font-size: 9.5px;
@@ -3403,7 +3403,7 @@ onMounted(() => {
   border-radius: 8px;
   font-size: 11.5px;
   font-weight: 700;
-  color: #8b5cf6;
+  color: #0f172a;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -3413,7 +3413,7 @@ onMounted(() => {
 
 .add-review-btn:active {
   transform: scale(0.96);
-  background: #f5f3ff;
+  background: #f1f5f9;
 }
 
 /* Reviews Couple Grid */
@@ -3490,7 +3490,7 @@ onMounted(() => {
   align-items: center;
   gap: 4px;
   font-size: 10.5px;
-  color: #8b5cf6;
+  color: #0f172a;
   font-weight: 600;
   cursor: pointer;
   padding: 4px 0;
@@ -3549,8 +3549,8 @@ onMounted(() => {
 
 .schedule-date-btn {
   background: #f8fafc;
-  color: #6366f1;
-  border: 1px solid #e0e7ff;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
 }
 
 /* EMPTY STATE */
@@ -3570,8 +3570,8 @@ onMounted(() => {
   width: 64px;
   height: 64px;
   border-radius: 20px;
-  background: #f5f3ff;
-  color: #8b5cf6;
+  background: #f1f5f9;
+  color: #0f172a;
   font-size: 32px;
   display: flex;
   align-items: center;
@@ -3634,8 +3634,8 @@ onMounted(() => {
   width: 68px;
   height: 68px;
   border-radius: 22px;
-  background: #f5f3ff;
-  color: #8b5cf6;
+  background: #f1f5f9;
+  color: #0f172a;
   font-size: 34px;
   display: flex;
   align-items: center;
@@ -4150,7 +4150,7 @@ ion-modal.dn-movies-search-modal {
 }
 
 .count-bubble {
-  background: #8b5cf6;
+  background: #0f172a;
   color: #ffffff;
   font-size: 10px;
   font-weight: 800;
@@ -4161,7 +4161,7 @@ ion-modal.dn-movies-search-modal {
 .results-manual-link {
   background: none;
   border: none;
-  color: #8b5cf6;
+  color: #0f172a;
   font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
@@ -4744,14 +4744,14 @@ ion-modal.dn-movies-search-modal {
 .rating-big-num {
   font-size: 42px;
   font-weight: 900;
-  color: #8b5cf6;
+  color: #0f172a;
   line-height: 1;
 }
 
 .rating-big-scale {
   font-size: 16px;
   font-weight: 700;
-  color: #a855f7;
+  color: #334155;
 }
 
 .rating-descriptor {
@@ -4800,9 +4800,9 @@ ion-modal.dn-movies-search-modal {
 }
 
 .rating-chip-btn.active {
-  background: #8b5cf6;
+  background: #0f172a;
   color: #ffffff;
-  border-color: #8b5cf6;
+  border-color: #0f172a;
 }
 
 .review-textarea-section {
@@ -4833,14 +4833,14 @@ ion-modal.dn-movies-search-modal {
   border: 1px solid #cbd5e1;
   font-size: 13.5px;
   color: #0f172a;
-  background: #faf5ff;
+  background: #f8fafc;
   outline: none;
   font-family: inherit;
   resize: vertical;
 }
 
 .review-textarea:focus {
-  border-color: #8b5cf6;
+  border-color: #0f172a;
 }
 
 .partner-existing-review-box {
@@ -5596,7 +5596,7 @@ ion-modal.dn-movies-random-modal {
 }
 
 .form-input:focus {
-  border-color: #8b5cf6;
+  border-color: #0f172a;
 }
 
 .form-textarea {
@@ -5613,7 +5613,7 @@ ion-modal.dn-movies-random-modal {
 }
 
 .form-textarea:focus {
-  border-color: #8b5cf6;
+  border-color: #0f172a;
 }
 
 .form-row-2col {
@@ -5640,9 +5640,9 @@ ion-modal.dn-movies-random-modal {
 }
 
 .choice-pill.active {
-  background: #8b5cf6;
+  background: #0f172a;
   color: #ffffff;
-  border-color: #8b5cf6;
+  border-color: #0f172a;
 }
 
 .submit-manual-btn {
@@ -5905,7 +5905,7 @@ ion-modal.dn-movies-details-modal {
   padding: 8px 10px;
   background: #ffffff;
   border-radius: 10px;
-  border-left: 3px solid #8b5cf6;
+  border-left: 3px solid #0f172a;
 }
 
 .mini-review-card.partner {

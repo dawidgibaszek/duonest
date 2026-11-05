@@ -839,7 +839,7 @@ const celebrateWithConfetti = () => {
     particleCount: 80,
     spread: 60,
     origin: { y: 0.6 },
-    colors: ['#0284c7', '#0ea5e9', '#0d9488', '#38bdf8', '#f43f5e']
+    colors: ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b', '#cbd5e1']
   })
 }
 
@@ -924,7 +924,7 @@ const getGoalScopeInfo = (goal: any) => {
       border: hexToRgba(color, 0.3)
     }
   }
-  const color = partnerUserAccentColor.value || '#0d9488'
+  const color = partnerUserAccentColor.value || '#1e293b'
   return {
     label: `Dla ${partnerUser.value?.name || 'Partnera'}`,
     color: color,
@@ -1084,7 +1084,7 @@ const handleClaimMilestone = (goal: any) => {
     particleCount: 90,
     spread: 75,
     origin: { y: 0.6 },
-    colors: ['#0284c7', '#0d9488', '#f43f5e', '#f59e0b', '#10b981']
+    colors: ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b', '#cbd5e1']
   })
 }
 
@@ -1676,10 +1676,10 @@ const handleRefresh = async (event: any) => {
 
 .hero-progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, #10b981 0%, #34d399 70%, #6ee7b7 100%);
+  background: linear-gradient(90deg, #ffffff 0%, #cbd5e1 70%, #94a3b8 100%);
   border-radius: 999px;
   transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-  box-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
 }
 
 .hero-progress-labels {
@@ -1695,13 +1695,13 @@ const handleRefresh = async (event: any) => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: #a7f3d0;
+  color: #f1f5f9;
   font-weight: 700;
 }
 
 .xp-icon {
   font-size: 12px;
-  color: #34d399;
+  color: #ffffff;
 }
 
 .xp-next {
@@ -2685,12 +2685,12 @@ const handleRefresh = async (event: any) => {
 .milestone-claim-action {
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px dashed #bbf7d0;
+  border-top: 1px dashed #e2e8f0;
 }
 
 .claim-reward-btn {
   width: 100%;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   color: #ffffff;
   border: none;
   border-radius: 12px;

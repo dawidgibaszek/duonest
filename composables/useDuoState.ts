@@ -225,20 +225,25 @@ const createInitialProfile = (): Profile => ({
 })
 
 // Color & styling helper utilities
-export const getCleanAccentColor = (rawColor?: string | null, fallback = '#0284c7'): string => {
+export const getCleanAccentColor = (rawColor?: string | null, fallback = '#0f172a'): string => {
   if (!rawColor) return fallback
   const first = rawColor.split('|')[0].trim()
-  return first.startsWith('#') ? first : (first ? `#${first}` : fallback)
+  const col = first.startsWith('#') ? first : (first ? `#${first}` : fallback)
+  // Upgrade old legacy default accent colors to sophisticated black
+  if (col.toLowerCase() === '#0284c7' || col.toLowerCase() === '#0d9488' || col.toLowerCase() === '#38bdf8') {
+    return fallback
+  }
+  return col
 }
 
 export const hexToRgba = (hex: string, alpha = 0.15): string => {
-  if (!hex) return `rgba(2, 132, 199, ${alpha})`
+  if (!hex) return `rgba(15, 23, 42, ${alpha})`
   let c = hex.replace('#', '').trim()
   if (c.length === 3) {
     c = c.split('').map(x => x + x).join('')
   }
   const num = parseInt(c, 16)
-  if (isNaN(num)) return `rgba(2, 132, 199, ${alpha})`
+  if (isNaN(num)) return `rgba(15, 23, 42, ${alpha})`
   const r = (num >> 16) & 255
   const g = (num >> 8) & 255
   const b = num & 255
@@ -598,7 +603,7 @@ export const useDuoState = () => {
         ...createInitialProfile(),
         ...savedUser,
         name: cleanName,
-        avatar_color: getCleanAccentColor(savedUser.avatar_color, '#0284c7'),
+        avatar_color: getCleanAccentColor(savedUser.avatar_color, '#0f172a'),
         love_note: cleanLoveNote,
         favorite_drink: cleanDrink,
         favorite_treat: cleanTreat,
@@ -616,7 +621,7 @@ export const useDuoState = () => {
       partnerUser.value = {
         ...createInitialProfile(),
         ...savedPartner,
-        avatar_color: getCleanAccentColor(savedPartner.avatar_color, '#0d9488'),
+        avatar_color: getCleanAccentColor(savedPartner.avatar_color, '#1e293b'),
         love_note: cleanPartnerLoveNote,
         favorite_drink: cleanPartnerDrink,
         favorite_treat: cleanPartnerTreat,
@@ -2019,7 +2024,7 @@ export const useDuoState = () => {
           ...currentUser.value,
           ...dbProfile,
           name: dbProfile.name || currentUser.value.name || '',
-          avatar_color: getCleanAccentColor(dbProfile.avatar_color, currentUser.value.avatar_color || '#0284c7'),
+          avatar_color: getCleanAccentColor(dbProfile.avatar_color, currentUser.value.avatar_color || '#0f172a'),
           partnership_id: dbProfile.partnership_id || null,
           points: Number(dbProfile.points) || 0
         }
@@ -3108,7 +3113,7 @@ export const useDuoState = () => {
               ...currentUser.value,
               ...dbProfile,
               name: dbProfile.name || currentUser.value.name || '',
-              avatar_color: getCleanAccentColor(dbProfile.avatar_color, currentUser.value.avatar_color || '#0284c7'),
+              avatar_color: getCleanAccentColor(dbProfile.avatar_color, currentUser.value.avatar_color || '#0f172a'),
               partnership_id: dbProfile.partnership_id || null,
               points: Number(dbProfile.points) || 0
             }
@@ -3464,7 +3469,7 @@ export const useDuoState = () => {
       ...foundPartnerProfile,
       name: partnerName,
       partnership_id: newPartnershipId,
-      avatar_color: getCleanAccentColor(foundPartnerProfile.avatar_color, '#0d9488')
+      avatar_color: getCleanAccentColor(foundPartnerProfile.avatar_color, '#1e293b')
     }
 
     // 2. Persist to Supabase with real AWAIT
@@ -4155,11 +4160,11 @@ export const useDuoState = () => {
 
   // User Accent Colors (for tasks, assignments, and personalized styling)
   const currentUserAccentColor = computed(() => {
-    return getCleanAccentColor(currentUser.value?.avatar_color, '#0284c7')
+    return getCleanAccentColor(currentUser.value?.avatar_color, '#0f172a')
   })
 
   const partnerUserAccentColor = computed(() => {
-    return getCleanAccentColor(partnerUser.value?.avatar_color, '#0d9488')
+    return getCleanAccentColor(partnerUser.value?.avatar_color, '#1e293b')
   })
 
   const getUserAccentColor = (userId?: string | null): string => {

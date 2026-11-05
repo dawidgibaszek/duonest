@@ -710,6 +710,7 @@
       data-no-swipe="true"
     >
       <ion-header class="modal-custom-header ion-no-border">
+        <div class="modal-sheet-handle-spacer" aria-hidden="true"></div>
         <div class="modal-sheet-header">
           <div class="modal-title-wrap">
             <div class="modal-title-icon-badge">
@@ -910,6 +911,7 @@
       data-no-swipe="true"
     >
       <ion-header class="modal-custom-header ion-no-border">
+        <div class="modal-sheet-handle-spacer" aria-hidden="true"></div>
         <div class="modal-sheet-header">
           <div class="modal-title-wrap">
             <div class="modal-title-icon-badge">
@@ -1057,6 +1059,7 @@
       data-no-swipe="true"
     >
       <ion-header class="modal-custom-header ion-no-border">
+        <div class="modal-sheet-handle-spacer" aria-hidden="true"></div>
         <div class="modal-sheet-header">
           <div class="modal-title-wrap">
             <div class="modal-title-icon-badge">
@@ -1251,6 +1254,7 @@
       data-no-swipe="true"
     >
       <ion-header class="modal-custom-header ion-no-border">
+        <div class="modal-sheet-handle-spacer" aria-hidden="true"></div>
         <div class="modal-sheet-header">
           <div class="modal-title-wrap">
             <div class="modal-title-icon-badge">
@@ -1684,7 +1688,7 @@ const getCookIcon = (cookId?: string) => {
 
 const getCookBadgeStyle = (cookId?: string) => {
   if (cookId === 'partner') {
-    const col = partnerUserAccentColor.value || '#ec4899'
+    const col = partnerUserAccentColor.value || '#1e293b'
     return {
       backgroundColor: hexToRgba(col, 0.12),
       color: col,
@@ -1693,19 +1697,19 @@ const getCookBadgeStyle = (cookId?: string) => {
   }
   if (cookId === 'restaurant' || cookId === 'takeout') {
     return {
-      backgroundColor: 'rgba(245, 158, 11, 0.12)',
-      color: '#d97706',
-      borderColor: 'rgba(245, 158, 11, 0.28)'
+      backgroundColor: 'rgba(30, 41, 59, 0.1)',
+      color: '#1e293b',
+      borderColor: 'rgba(30, 41, 59, 0.24)'
     }
   }
   if (cookId === 'both') {
     return {
-      backgroundColor: 'rgba(139, 92, 246, 0.12)',
-      color: '#7c3aed',
-      borderColor: 'rgba(139, 92, 246, 0.28)'
+      backgroundColor: 'rgba(15, 23, 42, 0.1)',
+      color: '#0f172a',
+      borderColor: 'rgba(15, 23, 42, 0.24)'
     }
   }
-  const myCol = currentUserAccentColor.value || '#0284c7'
+  const myCol = currentUserAccentColor.value || '#0f172a'
   return {
     backgroundColor: hexToRgba(myCol, 0.12),
     color: myCol,
@@ -2236,7 +2240,7 @@ onMounted(() => {
 }
 
 .subview-count-badge {
-  background: #0284c7;
+  background: #0f172a;
   color: #ffffff;
   font-size: 9.5px;
   font-weight: 800;
@@ -2311,7 +2315,7 @@ onMounted(() => {
 .today-return-btn {
   background: none;
   border: none;
-  color: #0284c7;
+  color: #0f172a;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
@@ -2332,8 +2336,8 @@ onMounted(() => {
 }
 
 .day-meal-card.is-today {
-  border-color: #0284c7;
-  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.08);
+  border-color: #0f172a;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
 }
 
 .day-meal-card.is-completed {
@@ -2369,7 +2373,7 @@ onMounted(() => {
 .today-pill {
   font-size: 9px;
   font-weight: 800;
-  background: #0284c7;
+  background: #0f172a;
   color: #ffffff;
   padding: 1px 6px;
   border-radius: 999px;
@@ -2549,7 +2553,7 @@ onMounted(() => {
 }
 
 .slot-saved-btn {
-  background: #0284c7;
+  background: #0f172a;
   color: #ffffff;
 }
 
@@ -2608,9 +2612,9 @@ onMounted(() => {
 }
 
 .surprise-hero-bar.is-rolling {
-  border-color: #38bdf8;
-  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.15);
-  background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+  border-color: #0f172a;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
 }
 
 .surprise-left-content {
@@ -2635,8 +2639,8 @@ onMounted(() => {
 }
 
 .surprise-icon-orb.is-spinning {
-  background: #0284c7;
-  box-shadow: 0 0 14px rgba(2, 132, 199, 0.5);
+  background: #0f172a;
+  box-shadow: 0 0 14px rgba(15, 23, 42, 0.35);
   animation: orbSpinPulse 0.8s ease-in-out infinite alternate;
 }
 
@@ -2650,7 +2654,7 @@ onMounted(() => {
   font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
-  color: #0284c7;
+  color: #0f172a;
   letter-spacing: 0.5px;
 }
 
@@ -2707,10 +2711,10 @@ onMounted(() => {
 
 /* Dynamic Loading Animation State */
 .surprise-pill-btn.is-loading {
-  background: linear-gradient(90deg, #0f172a 0%, #0369a1 28%, #0284c7 50%, #38bdf8 72%, #0f172a 100%);
+  background: linear-gradient(90deg, #0f172a 0%, #1e293b 28%, #334155 50%, #1e293b 72%, #0f172a 100%);
   background-size: 240% 100%;
   animation: surpriseShimmer 1.4s ease-in-out infinite;
-  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.42);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.35);
   cursor: wait;
 }
 
@@ -3162,7 +3166,7 @@ onMounted(() => {
 
 .saved-hero-icon {
   font-size: 18px;
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .saved-heading {
@@ -3214,7 +3218,7 @@ onMounted(() => {
 }
 
 .pick-recipe-item:hover, .pick-recipe-item:active {
-  border-color: #0284c7;
+  border-color: #0f172a;
   background: #f8fafc;
 }
 
@@ -3264,8 +3268,8 @@ onMounted(() => {
 }
 
 .pick-meta-chip.source-chip.custom {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 .pick-meta-chip.source-chip.api {
@@ -3537,7 +3541,7 @@ onMounted(() => {
 
 .quick-chip ion-icon {
   font-size: 13px;
-  color: #0284c7;
+  color: #0f172a;
 }
 
 /* Top Action Box */
@@ -3846,8 +3850,16 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   width: 44px;
   height: 5px;
   border-radius: 9999px;
-  margin-top: 10px;
+  margin-top: 8px;
   margin-bottom: 2px;
+}
+
+.modal-sheet-handle-spacer {
+  height: 24px;
+  width: 100%;
+  pointer-events: none;
+  background: #ffffff;
+  flex-shrink: 0;
 }
 
 .dn-meal-sheet-modal .modal-custom-header {
@@ -3856,11 +3868,12 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   border-bottom: 1px solid #f1f5f9;
 }
 
-.dn-meal-sheet-modal .modal-sheet-header {
+.dn-meal-sheet-modal .modal-sheet-header,
+.modal-sheet-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 42px 18px 14px 18px;
+  padding: 12px 18px 14px 18px;
   background: #ffffff;
   width: 100%;
   box-sizing: border-box;
@@ -4152,8 +4165,8 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .day-select-btn.is-today:not(.active) {
-  border-color: #38bdf8;
-  background: rgba(56, 189, 248, 0.05);
+  border-color: #0f172a;
+  background: rgba(15, 23, 42, 0.04);
 }
 
 .day-select-btn.active {

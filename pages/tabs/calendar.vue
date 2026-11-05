@@ -1648,12 +1648,12 @@ const handleRefresh = async (event: any) => {
   color: #ffffff;
 }
 
-.dot-date { background: #e11d48; }
-.dot-trip { background: #0284c7; }
-.dot-home { background: #16a34a; }
-.dot-anniversary { background: #f59e0b; }
+.dot-date { background: #0f172a; }
+.dot-trip { background: #1e293b; }
+.dot-home { background: #334155; }
+.dot-anniversary { background: #18181b; }
 .dot-work { background: #64748b; }
-.dot-other { background: #8b5cf6; }
+.dot-other { background: #475569; }
 
 /* WEEK STRIP VIEW */
 .week-strip-card {
@@ -1827,12 +1827,12 @@ const handleRefresh = async (event: any) => {
   --background: #f8fafc;
 }
 
-.border-date { border-left-color: #e11d48; }
-.border-trip { border-left-color: #0284c7; }
-.border-home { border-left-color: #16a34a; }
-.border-anniversary { border-left-color: #f59e0b; }
+.border-date { border-left-color: #0f172a; }
+.border-trip { border-left-color: #1e293b; }
+.border-home { border-left-color: #334155; }
+.border-anniversary { border-left-color: #18181b; }
 .border-work { border-left-color: #64748b; }
-.border-other { border-left-color: #8b5cf6; }
+.border-other { border-left-color: #475569; }
 
 .event-done-toggle {
   background: none;
@@ -1892,12 +1892,12 @@ const handleRefresh = async (event: any) => {
   flex-shrink: 0;
 }
 
-.cat-date { background: #ffe4e6; color: #e11d48; }
-.cat-trip { background: #e0f2fe; color: #0284c7; }
-.cat-home { background: #f0fdf4; color: #16a34a; }
-.cat-anniversary { background: #fef3c7; color: #b45309; }
-.cat-work { background: #f1f5f9; color: #475569; }
-.cat-other { background: #f5f3ff; color: #7c3aed; }
+.cat-date { background: #f1f5f9; color: #0f172a; border: 1px solid #e2e8f0; }
+.cat-trip { background: #f8fafc; color: #1e293b; border: 1px solid #e2e8f0; }
+.cat-home { background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
+.cat-anniversary { background: #f8fafc; color: #18181b; border: 1px solid #e2e8f0; }
+.cat-work { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+.cat-other { background: #f8fafc; color: #0f172a; border: 1px solid #e2e8f0; }
 
 .event-time-chip {
   display: inline-flex;
@@ -2304,7 +2304,7 @@ const handleRefresh = async (event: any) => {
 }
 
 .meta-loc {
-  color: #0284c7;
+  color: #0f172a;
   text-decoration: none;
   font-weight: 600;
   transition: color 0.15s ease;
@@ -2312,7 +2312,7 @@ const handleRefresh = async (event: any) => {
 
 .meta-loc:hover {
   text-decoration: underline;
-  color: #0369a1;
+  color: #1e293b;
 }
 
 .open-icon-mini {
@@ -2434,7 +2434,8 @@ const handleRefresh = async (event: any) => {
 }
 
 .modal-ideas-row {
-  background: #f0f9ff;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 10px 12px;
 }

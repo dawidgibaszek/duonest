@@ -1010,9 +1010,9 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   }
   if (!item.for_user_id || item.for_user_id === 'together') {
     return {
-      backgroundColor: 'rgba(99, 102, 241, 0.12)',
-      color: '#4f46e5',
-      border: '1px solid rgba(99, 102, 241, 0.28)'
+      backgroundColor: 'rgba(15, 23, 42, 0.08)',
+      color: '#0f172a',
+      border: '1px solid rgba(15, 23, 42, 0.18)'
     }
   }
   const partnerCol = getUserAccentColor(partnerUser.value?.id || null)
@@ -1090,7 +1090,7 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 .count-chip {
   font-size: 11px;
   font-weight: 700;
-  background: #f43f5e;
+  background: #0f172a;
   color: #ffffff;
   padding: 2px 7px;
   border-radius: 999px;
@@ -1327,8 +1327,8 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   width: 58px;
   height: 58px;
   border-radius: 20px;
-  background: #fdf2f8;
-  color: #f43f5e;
+  background: #f1f5f9;
+  color: #0f172a;
   font-size: 30px;
   display: flex;
   align-items: center;
@@ -1393,8 +1393,8 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 }
 
 .wishlist-card.is-surprise {
-  border-left: 4px solid #f43f5e;
-  background: linear-gradient(to right, #fff1f2 0%, #ffffff 15%);
+  border-left: 4px solid #0f172a;
+  background: linear-gradient(to right, #f8fafc 0%, #ffffff 15%);
 }
 
 /* CARD META ROW */
@@ -1425,9 +1425,9 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 }
 
 .surprise-badge {
-  background: #ffe4e6;
-  color: #e11d48;
-  border: 1px solid #fecdd3;
+  background: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
 }
 
 .completed-badge {
@@ -1530,7 +1530,7 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 
 .surprise-explainer-note {
   font-size: 11px;
-  color: #e11d48;
+  color: #64748b;
   margin: 6px 0 0;
   font-weight: 600;
 }
@@ -1821,9 +1821,9 @@ ion-modal.dn-wishlist-modal {
 }
 
 .vis-choice-btn.surprise.active {
-  border-color: #f43f5e;
+  border-color: #0f172a;
   background: #ffffff;
-  box-shadow: 0 2px 8px rgba(244, 63, 94, 0.18);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
 }
 
 .vis-icon {
@@ -1834,7 +1834,7 @@ ion-modal.dn-wishlist-modal {
 }
 
 .vis-choice-btn.surprise.active .vis-icon {
-  color: #f43f5e;
+  color: #0f172a;
 }
 
 .vis-texts {
@@ -1857,7 +1857,7 @@ ion-modal.dn-wishlist-modal {
 
 .visibility-hint {
   font-size: 11px;
-  color: #be123c;
+  color: #64748b;
   margin: 8px 0 0;
   line-height: 1.3;
 }
