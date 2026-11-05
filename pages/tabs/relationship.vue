@@ -7,7 +7,7 @@
             <span>{{ currentCategory === 'relationship' ? 'Strefa Relacji' : 'Ustawienia Gniazdka' }}</span>
           </div>
           <p class="dn-header-subtitle">
-            {{ currentCategory === 'relationship' ? 'Nastroje, drobne gesty i bliskość' : 'Personalizacja Waszego domu, kolory i para' }}
+            {{ currentCategory === 'relationship' ? 'Nastroje, drobne gesty i Wasza bliskość' : 'Personalizacja Waszego domu, kolory i konto' }}
           </p>
         </div>
       </ion-toolbar>
@@ -47,249 +47,323 @@
       <!-- KATEGORIA 1: STREFA RELACJI                   -->
       <!-- ============================================== -->
       <div v-show="currentCategory === 'relationship'" class="category-content-wrap">
-        <!-- 0A. TWÓJ PROFIL & DANE OSOBOWE -->
-        <div class="dn-card my-profile-card">
+        
+        <!-- 1. KARTA NASZEJ RELACJI (THE COUPLE HUB) -->
+        <div class="dn-card couple-hub-card">
           <div class="card-title-row">
-            <span class="section-tag" :style="{ color: currentUserAccentColor }">TWÓJ PROFIL</span>
-            <span class="active-profile-pill">
-              <span class="pulsing-green-dot"></span>
-              Twój profil
+            <span class="section-tag couple-tag">
+              <ion-icon :icon="ioniconsHeart" />
+              NASZA RELACJA
             </span>
-          </div>
-
-          <div class="profile-hero-row">
-            <div class="profile-avatar-circle" :style="{ backgroundColor: currentUserAccentColor }">
-              <span>{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
-            </div>
-            <div class="profile-name-info">
-              <div class="profile-name-row">
-                <h3>{{ currentUser.name || 'Twój Profil' }}</h3>
-                <span class="me-pill">Ty</span>
-              </div>
-            </div>
-            <button class="edit-profile-btn" @click="openEditProfileModal" title="Edytuj profil">
-              <DuoIcon name="edit" :size="16" />
+            <button class="edit-profile-pill-btn" @click="openEditProfileModal" title="Edytuj swój profil">
+              <DuoIcon name="edit" :size="13" />
               <span>Edytuj profil</span>
             </button>
           </div>
 
-          <!-- Love Note / Motto -->
-          <div class="profile-note-box" v-if="currentUser.love_note && currentUser.love_note.trim()">
-            <DuoIcon name="quote" :size="14" class="quote-icon" />
-            <span class="quote-text">"{{ currentUser.love_note }}"</span>
-          </div>
-
-          <!-- Quick Preferences (Drink & Treat) - no auto-filled mock data -->
-          <div class="profile-prefs-grid">
-            <div class="pref-badge">
-              <DuoIcon name="drink" :size="16" />
-              <div class="pref-texts">
-                <span class="pref-label">Ulubiony napój:</span>
-                <span class="pref-value">{{ currentUser.favorite_drink || 'Nie podano' }}</span>
+          <!-- COUPLE HERO BANNER (AVATARS & HEART BRIDGE) -->
+          <div class="couple-hero-banner">
+            <!-- Left: Current User -->
+            <div class="couple-member-col">
+              <div class="avatar-ring" :style="{ backgroundColor: currentUserAccentColor }">
+                <span class="avatar-initial">{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
+              </div>
+              <div class="member-info">
+                <span class="member-name">{{ currentUser.name || 'Ty' }}</span>
+                <span class="member-badge me-badge">Ty</span>
               </div>
             </div>
-            <div class="pref-badge">
-              <DuoIcon name="treat" :size="16" />
-              <div class="pref-texts">
-                <span class="pref-label">Ulubiona przekąska:</span>
-                <span class="pref-value">{{ currentUser.favorite_treat || 'Nie podano' }}</span>
+
+            <!-- Center: Love Bridge & Days Together -->
+            <div class="couple-bridge-col">
+              <div class="heart-pulse-node">
+                <ion-icon :icon="ioniconsHeart" class="heart-node-icon" />
+              </div>
+              <span class="days-together-pill">
+                <ion-icon :icon="ioniconsSparkles" class="sparkle-mini" />
+                {{ daysTogether }} dni razem
+              </span>
+            </div>
+
+            <!-- Right: Partner User -->
+            <div class="couple-member-col" v-if="partnerUser">
+              <div class="avatar-ring partner-ring" :style="{ backgroundColor: partnerUserAccentColor }">
+                <span class="avatar-initial">{{ (partnerUser.name || 'P').charAt(0).toUpperCase() }}</span>
+              </div>
+              <div class="member-info">
+                <span class="member-name">{{ partnerUser.name || 'Partner' }}</span>
+                <span class="partner-status-pill" :class="{ 'is-online': isPartnerOnline }">
+                  <span class="live-dot" :class="{ 'is-online': isPartnerOnline }"></span>
+                  {{ isPartnerOnline ? 'W aplikacji' : 'Offline' }}
+                </span>
+              </div>
+            </div>
+            <!-- Unpaired Placeholder -->
+            <div class="couple-member-col unpaired-col" v-else @click="currentCategory = 'nest_settings'">
+              <div class="avatar-ring unpaired-ring">
+                <ion-icon :icon="ioniconsPersonOutline" />
+              </div>
+              <div class="member-info">
+                <span class="member-name">Brak pary</span>
+                <span class="pair-now-badge">Połącz teraz</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- LOVE NOTES BUBBLES TRAY -->
+          <div class="couple-notes-tray" v-if="(currentUser.love_note && currentUser.love_note.trim()) || (partnerUser?.love_note && partnerUser.love_note.trim())">
+            <!-- User Note -->
+            <div class="love-bubble user-bubble" v-if="currentUser.love_note && currentUser.love_note.trim()">
+              <div class="bubble-initial" :style="{ backgroundColor: currentUserAccentColor }">
+                {{ (currentUser.name || 'T').charAt(0).toUpperCase() }}
+              </div>
+              <div class="bubble-text-wrap">
+                <span class="bubble-author">{{ currentUser.name || 'Ty' }}:</span>
+                <p class="bubble-quote">"{{ currentUser.love_note }}"</p>
+              </div>
+            </div>
+
+            <!-- Partner Note -->
+            <div class="love-bubble partner-bubble" v-if="partnerUser?.love_note && partnerUser.love_note.trim()">
+              <div class="bubble-initial" :style="{ backgroundColor: partnerUserAccentColor }">
+                {{ (partnerUser.name || 'P').charAt(0).toUpperCase() }}
+              </div>
+              <div class="bubble-text-wrap">
+                <span class="bubble-author">{{ partnerUser.name || 'Partner' }}:</span>
+                <p class="bubble-quote">"{{ partnerUser.love_note }}"</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty Note Invite -->
+          <div
+            class="empty-notes-invite"
+            v-else
+            @click="openEditProfileModal"
+          >
+            <ion-icon :icon="ioniconsSparkles" class="invite-sparkle" />
+            <div class="invite-text">
+              <span class="invite-title">Napisz coś czułego dla partnera!</span>
+              <span class="invite-sub">Kliknij tutaj, aby dodać motto lub ciepłą myśl widoczną w Waszym profilu.</span>
+            </div>
+            <ion-icon :icon="ioniconsChevronForwardOutline" class="invite-arrow" />
+          </div>
+
+          <!-- ŚCIĄGAWKA DLA WAS (ULUBIONE NAPOJE I SMAKOŁYKI) -->
+          <div class="couple-cheatsheet-section">
+            <div class="cheatsheet-header">
+              <div class="cs-header-left">
+                <ion-icon :icon="ioniconsSparkles" class="cs-sparkle-icon" />
+                <span class="cs-title">Ściągawka małych przyjemności</span>
+              </div>
+              <span class="cs-sub">Wiesz, co sprawi uśmiech!</span>
+            </div>
+
+            <div class="cheatsheet-grid">
+              <!-- Ulubiony napój -->
+              <div class="cheatsheet-card">
+                <div class="cs-card-top">
+                  <DuoIcon name="drink" :size="16" />
+                  <span class="cs-card-label">Ulubiony napój</span>
+                </div>
+                <div class="cs-item-row">
+                  <span class="cs-who" :style="{ color: currentUserAccentColor }">Ty:</span>
+                  <span class="cs-val">{{ currentUser.favorite_drink || 'Nie podano' }}</span>
+                </div>
+                <div class="cs-item-row" v-if="partnerUser">
+                  <span class="cs-who" :style="{ color: partnerUserAccentColor }">{{ partnerUser.name || 'Partner' }}:</span>
+                  <span class="cs-val">{{ partnerUser.favorite_drink || 'Nie podano' }}</span>
+                </div>
+              </div>
+
+              <!-- Ulubiona przekąska -->
+              <div class="cheatsheet-card">
+                <div class="cs-card-top">
+                  <DuoIcon name="treat" :size="16" />
+                  <span class="cs-card-label">Ulubiona przekąska</span>
+                </div>
+                <div class="cs-item-row">
+                  <span class="cs-who" :style="{ color: currentUserAccentColor }">Ty:</span>
+                  <span class="cs-val">{{ currentUser.favorite_treat || 'Nie podano' }}</span>
+                </div>
+                <div class="cs-item-row" v-if="partnerUser">
+                  <span class="cs-who" :style="{ color: partnerUserAccentColor }">{{ partnerUser.name || 'Partner' }}:</span>
+                  <span class="cs-val">{{ partnerUser.favorite_treat || 'Nie podano' }}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-        <!-- 0B. PROFIL PARTNERA -->
-        <div class="dn-card partner-profile-card" v-if="partnerUser">
+        <!-- 2. CENTRUM SAMOPOCZUCIA I NASTROJU (MOOD HUB) -->
+        <div class="dn-card mood-hub-card">
           <div class="card-title-row">
-            <span class="section-tag partner-tag" :style="{ color: partnerUserAccentColor }">PROFIL PARTNERA</span>
-            <span class="partner-online-pill" :class="{ 'is-live': isPartnerOnline }">
-              <span class="online-dot" :class="{ 'is-live': isPartnerOnline }"></span>
-              {{ isPartnerOnline ? 'W aplikacji' : 'Offline' }}
+            <span class="section-tag mood-tag">
+              <ion-icon :icon="ioniconsHappyOutline" />
+              SAMOPOCZUCIE
+            </span>
+            <span class="active-mood-badge">
+              <DuoIcon :name="'mood-' + (currentUser.current_mood || 'happy')" :size="14" />
+              <span>Twój nastrój: {{ getMoodLabel(currentUser.current_mood) }}</span>
             </span>
           </div>
 
-          <div class="profile-hero-row">
-            <div class="profile-avatar-circle partner-avatar" :style="{ backgroundColor: partnerUserAccentColor }">
-              <span>{{ (partnerUser.name || 'P').charAt(0).toUpperCase() }}</span>
+          <!-- A. STAN PARTNERA (WIDOCZNY NA PIERWSZYM MIEJSCU) -->
+          <div class="partner-mood-spotlight" v-if="partnerUser">
+            <div class="spotlight-header-row">
+              <div class="spotlight-title-group">
+                <span class="spotlight-mini-tag">STAN PARTNERA</span>
+                <h4>Aktualne samopoczucie: {{ partnerUser.name }}</h4>
+              </div>
+              <span class="spotlight-sync-time">{{ formattedPartnerMoodTime }}</span>
             </div>
-            <div class="profile-name-info">
-              <div class="profile-name-row">
-                <h3>{{ partnerUser.name || 'Partner' }}</h3>
-                <span class="partner-pill">Partner</span>
+
+            <div class="spotlight-content-box">
+              <div class="spotlight-icon-wrap" :style="{ backgroundColor: partnerUserAccentColor }">
+                <DuoIcon :name="'mood-' + (partnerUser.current_mood || 'happy')" :size="28" />
+              </div>
+              <div class="spotlight-texts">
+                <span class="spotlight-mood-name">{{ getMoodLabel(partnerUser.current_mood) }}</span>
+                <p class="spotlight-note" v-if="partnerUser.mood_note">
+                  "{{ partnerUser.mood_note }}"
+                </p>
+                <p class="spotlight-note-empty" v-else>
+                  Partner nie dodał jeszcze dzisiaj notatki.
+                </p>
               </div>
             </div>
           </div>
 
-          <!-- Partner's Love Note -->
-          <div class="profile-note-box partner-note-box" v-if="partnerUser.love_note && partnerUser.love_note.trim()">
-            <DuoIcon name="quote" :size="14" class="quote-icon" />
-            <span class="quote-text">"{{ partnerUser.love_note }}"</span>
-          </div>
+          <!-- B. JAK SIĘ DZIŚ CZUJESZ? (TWOJA AKTUALIZACJA) -->
+          <div class="my-mood-section">
+            <div class="my-mood-header">
+              <h4>Jak się dziś czujesz?</h4>
+              <p class="section-desc">Twój aktualny nastrój i samopoczucie na dziś.</p>
+            </div>
 
-          <!-- Partner's Favorite drink & treat -->
-          <div class="profile-prefs-grid">
-            <div class="pref-badge partner-pref">
-              <DuoIcon name="drink" :size="16" />
-              <div class="pref-texts">
-                <span class="pref-label">Ulubiony napój partnera:</span>
-                <span class="pref-value">{{ partnerUser.favorite_drink || 'Nie podano' }}</span>
+            <!-- Mood Buttons Grid -->
+            <div class="mood-chips-grid">
+              <button
+                type="button"
+                v-for="m in moodChoices"
+                :key="m.id"
+                class="mood-chip-btn"
+                :class="{ active: selectedMood === m.id }"
+                @click="selectedMood = m.id"
+              >
+                <div class="mood-chip-icon">
+                  <DuoIcon :name="'mood-' + m.id" :size="20" />
+                </div>
+                <span class="mood-chip-label">{{ m.label }}</span>
+              </button>
+            </div>
+
+            <!-- Mood Note & Save Button -->
+            <div class="mood-action-box">
+              <div class="input-with-icon-wrap">
+                <ion-icon :icon="ioniconsHeartOutline" class="input-leading-icon" />
+                <ion-input
+                  v-model="moodNote"
+                  placeholder="Krótka notatka dla partnera (np. Chwila relaksu, zmęczenie pracą...)"
+                  class="dn-styled-input"
+                  :clear-input="true"
+                />
               </div>
-            </div>
-            <div class="pref-badge partner-pref">
-              <DuoIcon name="treat" :size="16" />
-              <div class="pref-texts">
-                <span class="pref-label">Ulubiona przekąska partnera:</span>
-                <span class="pref-value">{{ partnerUser.favorite_treat || 'Nie podano' }}</span>
-              </div>
+              <button class="dn-button-sea save-mood-btn" @click="handleSaveMood">
+                <ion-icon :icon="ioniconsCheckmarkOutline" />
+                <span>Zapisz mój nastrój</span>
+              </button>
             </div>
           </div>
         </div>
 
-      <!-- 1. JAK SIĘ DZIŚ CZUJESZ? (UPDATE MY MOOD) -->
-      <div class="dn-card mood-selector-card">
-        <div class="card-title-row">
-          <span class="section-tag">TWÓJ NASTRÓJ</span>
-          <span class="active-mood-badge">
-            <DuoIcon :name="'mood-' + (currentUser.current_mood || 'happy')" :size="16" />
-            <span>{{ getMoodLabel(currentUser.current_mood) }}</span>
-          </span>
-        </div>
-        <h4>Jak się dziś czujesz?</h4>
-        <p class="section-desc">Twój aktualny nastrój i samopoczucie na dziś.</p>
-
-        <div class="moods-grid">
-          <button
-            type="button"
-            v-for="m in moodChoices"
-            :key="m.id"
-            class="mood-btn"
-            :class="{ active: selectedMood === m.id }"
-            @click="selectedMood = m.id"
-          >
-            <div class="mood-icon-circle">
-              <DuoIcon :name="'mood-' + m.id" :size="22" />
-            </div>
-            <span class="mood-title">{{ m.label }}</span>
-          </button>
-        </div>
-
-        <div class="mood-note-input-box">
-          <ion-input
-            v-model="moodNote"
-            placeholder="Dodaj krótką notatkę (np. Potrzebuję dziś chwili ciszy...)"
-            class="custom-note-input"
-            :clear-input="true"
-          />
-          <button class="dn-button-sea save-mood-btn" @click="handleSaveMood">
-            <ion-icon :icon="ioniconsCheckmarkOutline" />
-            <span>Zapisz nastrój</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- 2. PARTNER STATUS & LAST NUDGE -->
-      <div class="dn-card partner-status-card" v-if="partnerUser">
-        <div class="card-title-row">
-          <span class="section-tag partner-tag">STAN PARTNERA</span>
-          <span class="sync-time">{{ formattedPartnerMoodTime }}</span>
-        </div>
-        <h4>Aktualny nastrój: {{ partnerUser.name }}</h4>
-
-        <div class="partner-mood-view">
-          <div class="partner-icon-wrapper">
-            <DuoIcon :name="'mood-' + (partnerUser.current_mood || 'happy')" :size="28" />
-          </div>
-          <div class="partner-text-wrapper">
-            <span class="partner-mood-name">{{ getMoodLabel(partnerUser.current_mood) }}</span>
-            <p class="partner-note-text" v-if="partnerUser.mood_note">
-              "{{ partnerUser.mood_note }}"
-            </p>
-            <p class="partner-empty-note" v-else>
-              Partner nie dodał jeszcze dzisiaj notatki.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- 3. CODZIENNE PUKNIĘCIE (NUDGE / DROBNE GESTY) -->
-      <div class="dn-card daily-nudge-card">
-        <div class="card-title-row">
-          <span class="section-tag love-tag">DROBNE GESTY</span>
-          <span class="limit-badge" :class="{ 'points-done': hasSentDailyNudge }">
-            {{ hasSentDailyNudge ? 'Wysłano dzisiaj' : '1 raz na dobę • +5 pkt' }}
-          </span>
-        </div>
-        <h4>Codzienne puknięcie (Nudge)</h4>
-
-        <!-- STATE A: ALREADY SENT TODAY -->
-        <div v-if="hasSentDailyNudge" class="nudge-already-sent-box">
-          <div class="sent-status-icon-row">
-            <div class="sent-sparkle-badge">
-              <ion-icon :icon="ioniconsCheckmarkCircle" />
-            </div>
-            <div class="sent-status-texts">
-              <span class="sent-title">Wysłano dzisiejsze puknięcie! 💕</span>
-              <span class="sent-subtitle">{{ partnerUser?.name || 'Partner' }} otrzymał Twój ciepły gest.</span>
-            </div>
-          </div>
-
-          <div class="nudge-timer-pill">
-            <ion-icon :icon="ioniconsTimeOutline" class="timer-clock-icon" />
-            <span>Kolejne puknięcie możesz wysłać za: <strong>{{ formattedNextNudgeTime }}</strong></span>
-          </div>
-        </div>
-
-        <!-- STATE B: AVAILABLE TO SEND -->
-        <template v-else>
-          <p class="section-desc">Wyślij ciepły gest, aby przypomnieć o sobie w ciągu dnia.</p>
-
-          <div class="nudge-types-grid">
-            <button
-              type="button"
-              v-for="n in nudgePresets"
-              :key="n.id"
-              class="nudge-preset-btn"
-              :class="{ active: selectedNudgeType === n.id }"
-              @click="selectedNudgeType = n.id"
-            >
-              <div class="nudge-icon-circle">
-                <DuoIcon :name="'nudge-' + n.id" :size="22" />
-              </div>
-              <span class="nudge-name">{{ n.title }}</span>
-            </button>
-          </div>
-
-          <div class="nudge-send-box">
-            <ion-input
-              v-model="customNudgeMessage"
-              placeholder="Opcjonalna czuła wiadomość do gestu..."
-              class="custom-note-input"
-            />
-            <button class="dn-button-sea send-nudge-btn" @click="handleSendNudge">
+        <!-- 3. CODZIENNE PUKNIĘCIE (NUDGE / DROBNE GESTY) -->
+        <div class="dn-card daily-nudge-card">
+          <div class="card-title-row">
+            <span class="section-tag love-tag">
               <ion-icon :icon="ioniconsHeartOutline" />
-              <span>Wyślij puknięcie</span>
-            </button>
+              DROBNE GESTY
+            </span>
+            <span class="limit-badge" :class="{ 'points-done': hasSentDailyNudge }">
+              {{ hasSentDailyNudge ? 'Wysłano dzisiaj • +5 pkt' : '1 raz na dobę • +5 pkt' }}
+            </span>
           </div>
-        </template>
+          <h4>Codzienne puknięcie (Nudge)</h4>
 
-        <!-- RECENT NUDGES LOG -->
-        <div class="recent-nudges-section" v-if="nudgesList.length > 0">
-          <span class="sub-heading">Ostatnie gesty:</span>
-          <div class="nudges-history-list">
-            <div v-for="ndg in nudgesList.slice(0, 3)" :key="ndg.id" class="history-item">
-              <div class="history-icon-bubble">
-                <DuoIcon :name="'nudge-' + ndg.nudge_type" :size="16" />
+          <!-- STATE A: ALREADY SENT TODAY -->
+          <div v-if="hasSentDailyNudge" class="nudge-already-sent-box">
+            <div class="sent-status-icon-row">
+              <div class="sent-sparkle-badge">
+                <ion-icon :icon="ioniconsCheckmarkCircle" />
               </div>
-              <div class="history-text">
-                <span class="history-author">
-                  {{ ndg.sender_id === currentUser.id ? 'Ty' : (partnerUser?.name || 'Partner') }}:
-                </span>
-                <span class="history-msg">{{ ndg.message || ndg.nudge_type }}</span>
+              <div class="sent-status-texts">
+                <span class="sent-title">Wysłano dzisiejsze puknięcie! 💕</span>
+                <span class="sent-subtitle">{{ partnerUser?.name || 'Partner' }} otrzymał Twój ciepły gest.</span>
+              </div>
+            </div>
+
+            <div class="nudge-timer-pill">
+              <ion-icon :icon="ioniconsTimeOutline" class="timer-clock-icon" />
+              <span>Kolejne puknięcie możesz wysłać za: <strong>{{ formattedNextNudgeTime }}</strong></span>
+            </div>
+          </div>
+
+          <!-- STATE B: AVAILABLE TO SEND -->
+          <template v-else>
+            <p class="section-desc">Wyślij ciepły gest, aby przypomnieć o sobie w ciągu dnia.</p>
+
+            <div class="nudge-types-grid">
+              <button
+                type="button"
+                v-for="n in nudgePresets"
+                :key="n.id"
+                class="nudge-preset-btn"
+                :class="{ active: selectedNudgeType === n.id }"
+                @click="selectedNudgeType = n.id"
+              >
+                <div class="nudge-icon-circle">
+                  <DuoIcon :name="'nudge-' + n.id" :size="22" />
+                </div>
+                <span class="nudge-name">{{ n.title }}</span>
+              </button>
+            </div>
+
+            <div class="nudge-send-box">
+              <div class="input-with-icon-wrap">
+                <ion-icon :icon="ioniconsHeartOutline" class="input-leading-icon" />
+                <ion-input
+                  v-model="customNudgeMessage"
+                  placeholder="Opcjonalna czuła wiadomość do gestu..."
+                  class="dn-styled-input"
+                  :clear-input="true"
+                />
+              </div>
+              <button class="dn-button-sea send-nudge-btn" @click="handleSendNudge">
+                <ion-icon :icon="ioniconsHeartOutline" />
+                <span>Wyślij puknięcie (+5 pkt)</span>
+              </button>
+            </div>
+          </template>
+
+          <!-- RECENT NUDGES LOG -->
+          <div class="recent-nudges-section" v-if="nudgesList.length > 0">
+            <span class="sub-heading">Ostatnie gesty:</span>
+            <div class="nudges-history-list">
+              <div v-for="ndg in nudgesList.slice(0, 3)" :key="ndg.id" class="history-item">
+                <div class="history-icon-bubble">
+                  <DuoIcon :name="'nudge-' + ndg.nudge_type" :size="16" />
+                </div>
+                <div class="history-text">
+                  <span class="history-author">
+                    {{ ndg.sender_id === currentUser.id ? 'Ty' : (partnerUser?.name || 'Partner') }}:
+                  </span>
+                  <span class="history-msg">{{ ndg.message || ndg.nudge_type }}</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
+
       </div>
 
       <!-- ============================================== -->
@@ -300,7 +374,10 @@
         <div class="dn-card nest-config-card">
           <!-- Card Header & Status -->
           <div class="card-title-row">
-            <span class="section-tag nest-section-tag">WASZE GNIAZDKO</span>
+            <span class="section-tag nest-section-tag">
+              <ion-icon :icon="ioniconsHeart" />
+              WASZE GNIAZDKO
+            </span>
             <span class="days-together-badge">
               <ion-icon :icon="ioniconsHeart" />
               {{ daysTogether }} dni razem
@@ -795,7 +872,7 @@
                 v-model="inputPartnerCode"
                 placeholder="np. DN-LOVE"
                 class="partner-code-input"
-                maxlength="10"
+                :maxlength="10"
               />
               <button class="join-submit-btn" @click="handlePairWithCode" :disabled="!inputPartnerCode.trim()">
                 Połącz
@@ -805,7 +882,7 @@
           </div>
         </div>
 
-        <!-- 4. KONTO I SESJA -->
+        <!-- 5. KONTO I BEZPIECZEŃSTWO -->
         <div class="dn-card account-card">
           <div class="card-title-row">
             <span class="section-tag">KONTO</span>
@@ -1526,30 +1603,513 @@ const handleRefresh = async (event: any) => {
 </script>
 
 <style scoped>
+/* ========================================================== */
+/* GENERAL CARD & HEADER STRUCTURE                            */
+/* ========================================================== */
 .card-title-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 12px;
 }
 
 .section-tag {
-  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.07em;
   color: #0f172a;
+  text-transform: uppercase;
 }
 
-.partner-tag {
-  color: #0d9488;
-}
-
-.love-tag {
+.section-tag.couple-tag {
   color: #f43f5e;
 }
 
-.pairing-tag {
+.section-tag.mood-tag {
+  color: #0284c7;
+}
+
+.section-tag.love-tag {
+  color: #e11d48;
+}
+
+.section-tag.nest-section-tag {
+  color: #f43f5e;
+}
+
+.section-tag.push-section-tag {
   color: #0f172a;
+}
+
+.section-tag.pairing-tag {
+  color: #0f172a;
+}
+
+.section-desc {
+  font-size: 13px;
+  color: #64748b;
+  margin: 4px 0 12px 0;
+  line-height: 1.4;
+}
+
+/* ========================================================== */
+/* CATEGORY SEGMENTED SELECTOR                                */
+/* ========================================================== */
+.category-toggle-container {
+  display: flex;
+  justify-content: center;
+  padding: 12px 16px 8px 16px;
+}
+
+.category-toggle-pill {
+  display: flex;
+  background: #f1f5f9;
+  padding: 4px;
+  border-radius: 14px;
+  gap: 4px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.cat-toggle-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cat-toggle-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.category-content-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ========================================================== */
+/* KARTA NASZEJ RELACJI (COUPLE HUB CARD)                    */
+/* ========================================================== */
+.couple-hub-card {
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.edit-profile-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.edit-profile-pill-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.edit-profile-pill-btn:active {
+  transform: scale(0.96);
+}
+
+.couple-hero-banner {
+  background: linear-gradient(135deg, #fff5f5 0%, #f0fdfa 100%);
+  border: 1px solid #ffe4e6;
+  border-radius: 18px;
+  padding: 16px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.couple-member-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+
+.avatar-ring {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 800;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  border: 3px solid #ffffff;
+}
+
+.avatar-initial {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.member-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+}
+
+.member-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 105px;
+}
+
+.member-badge.me-badge {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+
+.partner-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #64748b;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+
+.partner-status-pill.is-online {
+  color: #16a34a;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+.live-dot.is-online {
+  background: #16a34a;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.25);
+  animation: pulseLiveDot 1.6s infinite ease-in-out;
+}
+
+@keyframes pulseLiveDot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.6; }
+}
+
+.couple-bridge-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.heart-pulse-node {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 3px 10px rgba(244, 63, 94, 0.35);
+  animation: pulseHeartNode 2s infinite ease-in-out;
+}
+
+@keyframes pulseHeartNode {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+.days-together-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #9f1239;
+  background: #ffe4e6;
+  border: 1px solid #fecdd3;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.sparkle-mini {
+  font-size: 11px;
+  color: #f43f5e;
+}
+
+.unpaired-ring {
+  background: #f1f5f9;
+  color: #94a3b8;
+  font-size: 22px;
+}
+
+.pair-now-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #0284c7;
+  background: #e0f2fe;
+  padding: 1px 7px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+/* Love Notes Tray */
+.couple-notes-tray {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.love-bubble {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.love-bubble.partner-bubble {
+  background: #f0fdfa;
+  border-color: #ccfbf1;
+}
+
+.bubble-initial {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.bubble-text-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.bubble-author {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #64748b;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.bubble-quote {
+  font-size: 12.5px;
+  font-style: italic;
+  color: #1e293b;
+  line-height: 1.4;
+  margin: 0;
+  word-break: break-word;
+}
+
+.empty-notes-invite {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 14px;
+  background: #fffbeb;
+  border: 1px dashed #fcd34d;
+  cursor: pointer;
+  margin-bottom: 14px;
+  transition: all 0.18s ease;
+}
+
+.empty-notes-invite:hover {
+  background: #fef3c7;
+}
+
+.invite-sparkle {
+  font-size: 20px;
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+.invite-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.invite-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.invite-sub {
+  font-size: 11px;
+  color: #b45309;
+  line-height: 1.3;
+}
+
+.invite-arrow {
+  font-size: 16px;
+  color: #d97706;
+  flex-shrink: 0;
+}
+
+/* Cheatsheet section */
+.couple-cheatsheet-section {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 12px;
+}
+
+.cheatsheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.cs-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cs-sparkle-icon {
+  font-size: 15px;
+  color: #f59e0b;
+}
+
+.cs-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.cs-sub {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.cheatsheet-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.cheatsheet-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cs-card-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.cs-card-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #475569;
+  letter-spacing: 0.04em;
+}
+
+.cs-item-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 11.5px;
+  min-width: 0;
+}
+
+.cs-who {
+  font-weight: 800;
+  font-size: 10.5px;
+  flex-shrink: 0;
+}
+
+.cs-val {
+  font-weight: 600;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ========================================================== */
+/* CENTRUM SAMOPOCZUCIA I NASTROJU (MOOD HUB)                 */
+/* ========================================================== */
+.mood-hub-card {
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
 }
 
 .active-mood-badge {
@@ -1561,28 +2121,109 @@ const handleRefresh = async (event: any) => {
   color: #0f172a;
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 999px;
 }
 
-.section-desc {
-  font-size: 13px;
-  color: #64748b;
-  margin: 4px 0 14px 0;
-  line-height: 1.4;
+.partner-mood-spotlight {
+  background: linear-gradient(135deg, #f0fdfa 0%, #f8fafc 100%);
+  border: 1px solid #ccfbf1;
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 16px;
 }
 
-/* MOOD SELECTOR */
-.moods-grid {
+.spotlight-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.spotlight-mini-tag {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  color: #0d9488;
+  text-transform: uppercase;
+  display: block;
+}
+
+.spotlight-title-group h4 {
+  margin: 2px 0 0 0;
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.spotlight-sync-time {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.spotlight-content-box {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.spotlight-icon-wrap {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+}
+
+.spotlight-texts {
+  flex: 1;
+  min-width: 0;
+}
+
+.spotlight-mood-name {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0d9488;
+  display: block;
+}
+
+.spotlight-note {
+  font-size: 12.5px;
+  font-style: italic;
+  color: #334155;
+  margin: 3px 0 0 0;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.spotlight-note-empty {
+  font-size: 11.5px;
+  color: #94a3b8;
+  margin: 3px 0 0 0;
+}
+
+.my-mood-header h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.mood-chips-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-  margin-bottom: 14px;
+  margin: 12px 0 14px 0;
 }
 
-.mood-btn {
+.mood-chip-btn {
   background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  border: 1.5px solid #e2e8f0;
   border-radius: 14px;
   padding: 10px 4px;
   display: flex;
@@ -1590,120 +2231,85 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.mood-btn.active {
-  background: #f8fafc;
+.mood-chip-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.mood-chip-btn.active {
+  background: #0f172a;
   border-color: #0f172a;
-  color: #0f172a;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
 }
 
-.mood-icon-circle {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
+.mood-chip-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
   background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid #e2e8f0;
   color: #0f172a;
+  transition: all 0.2s ease;
 }
 
-.mood-btn.active .mood-icon-circle {
-  border-color: #0f172a;
-  background: #0f172a;
+.mood-chip-btn.active .mood-chip-icon {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: transparent;
   color: #ffffff;
 }
 
-.mood-title {
+.mood-chip-label {
   font-size: 11px;
   font-weight: 700;
   color: #475569;
 }
 
-.mood-note-input-box {
+.mood-chip-btn.active .mood-chip-label {
+  color: #ffffff;
+}
+
+.mood-action-box {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.custom-note-input {
-  --background: #f8fafc;
-  --padding-start: 14px;
-  --border-radius: 12px;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-  font-size: 13px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.custom-note-input:focus-within {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
-}
-
 .save-mood-btn {
   width: 100%;
-}
-
-/* PARTNER MOOD VIEW */
-.partner-mood-view {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  background: #f8fafc;
-  padding: 14px;
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
-}
-
-.partner-icon-wrapper {
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
-  background: #0d9488;
-  color: #ffffff;
+  padding: 13px;
+  font-size: 13.5px;
+  font-weight: 800;
+  border-radius: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 10px rgba(13, 148, 136, 0.25);
+  gap: 6px;
 }
 
-.partner-text-wrapper {
-  flex: 1;
+/* ========================================================== */
+/* CODZIENNE PUKNIĘCIE (DAILY NUDGE)                          */
+/* ========================================================== */
+.daily-nudge-card {
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
 }
 
-.partner-mood-name {
-  font-size: 13px;
-  font-weight: 700;
-  color: #0d9488;
-  display: block;
+.daily-nudge-card h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
 }
 
-.partner-note-text {
-  font-size: 13px;
-  color: #334155;
-  font-style: italic;
-  margin: 2px 0 0 0;
-}
-
-.partner-empty-note {
-  font-size: 12px;
-  color: #94a3b8;
-  margin: 2px 0 0 0;
-}
-
-.sync-time {
-  font-size: 11px;
-  color: #94a3b8;
-  font-weight: 600;
-}
-
-/* DAILY NUDGE */
 .limit-badge {
   font-size: 10px;
   font-weight: 700;
@@ -1724,7 +2330,7 @@ const handleRefresh = async (event: any) => {
   background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
   border: 1px solid #bbf7d0;
   border-radius: 16px;
-  padding: 16px;
+  padding: 14px;
   margin-top: 10px;
   margin-bottom: 12px;
   display: flex;
@@ -1741,15 +2347,14 @@ const handleRefresh = async (event: any) => {
 .sent-sparkle-badge {
   width: 40px;
   height: 40px;
-  border-radius: 50%;
-  background: #dcfce7;
-  color: #16a34a;
+  border-radius: 12px;
+  background: #16a34a;
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 24px;
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.15);
 }
 
 .sent-status-texts {
@@ -1760,7 +2365,7 @@ const handleRefresh = async (event: any) => {
 
 .sent-title {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 800;
   color: #15803d;
 }
 
@@ -1772,11 +2377,11 @@ const handleRefresh = async (event: any) => {
 .nudge-timer-pill {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   background: #ffffff;
   border: 1px solid #86efac;
   border-radius: 999px;
-  padding: 8px 14px;
+  padding: 6px 12px;
   font-size: 12px;
   color: #166534;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
@@ -1792,13 +2397,13 @@ const handleRefresh = async (event: any) => {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 6px;
-  margin-bottom: 12px;
+  margin: 10px 0 12px 0;
 }
 
 .nudge-preset-btn {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 13px;
   padding: 8px 2px;
   display: flex;
   flex-direction: column;
@@ -1841,12 +2446,21 @@ const handleRefresh = async (event: any) => {
 .send-nudge-btn {
   background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
   box-shadow: 0 4px 14px rgba(244, 63, 94, 0.35);
+  width: 100%;
+  padding: 13px;
+  font-size: 13.5px;
+  font-weight: 800;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .recent-nudges-section {
-  margin-top: 16px;
+  margin-top: 14px;
   border-top: 1px solid #f1f5f9;
-  padding-top: 12px;
+  padding-top: 10px;
 }
 
 .sub-heading {
@@ -1854,19 +2468,19 @@ const handleRefresh = async (event: any) => {
   font-weight: 700;
   color: #64748b;
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .nudges-history-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .history-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 6px 10px;
   background: #f8fafc;
   border-radius: 10px;
@@ -1890,7 +2504,729 @@ const handleRefresh = async (event: any) => {
   margin-left: 4px;
 }
 
-/* PAIRING SECTION */
+/* ========================================================== */
+/* SEKCJA INFORMACJI O GNIAZDKU (NEST CONFIG CARD)           */
+/* ========================================================== */
+.nest-config-card {
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.days-together-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #f43f5e;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.nest-hero-banner {
+  background: linear-gradient(135deg, #fff1f2 0%, #f0fdfa 100%);
+  border: 1px solid #ffe4e6;
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 10px 0 16px 0;
+}
+
+.nest-hero-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.35);
+}
+
+.nest-hero-text h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.nest-hero-text p {
+  margin: 2px 0 0 0;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.settings-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.label-with-hint {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.form-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.field-hint {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.input-with-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-leading-icon {
+  position: absolute;
+  left: 12px;
+  font-size: 18px;
+  color: #0f172a;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.input-with-icon-wrap .dn-styled-input {
+  width: 100%;
+  --padding-start: 38px;
+  --padding-end: 14px;
+  --background: #ffffff;
+  --border-radius: 14px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1.5px solid #e2e8f0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  transition: all 0.2s ease;
+}
+
+.input-with-icon-wrap .dn-styled-input:focus-within {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+}
+
+.date-styled-input {
+  cursor: pointer;
+}
+
+.quick-chips-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.chips-mini-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-right: 2px;
+}
+
+.chip-btn {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  padding: 5px 11px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chip-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.chip-btn.active {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+  font-weight: 700;
+}
+
+.anniversary-milestone-box {
+  margin-top: 8px;
+  background: linear-gradient(135deg, #fff1f2 0%, #fffbeb 100%);
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: fadeInMilestone 0.25s ease;
+}
+
+@keyframes fadeInMilestone {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.milestone-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #f43f5e;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  box-shadow: 0 3px 8px rgba(244, 63, 94, 0.3);
+}
+
+.milestone-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.milestone-title {
+  font-size: 12.5px;
+  color: #9a3412;
+}
+
+.milestone-subtitle {
+  font-size: 12px;
+  color: #7c2d12;
+}
+
+.anniversary-empty-hint {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+}
+
+.anniversary-empty-hint ion-icon {
+  color: #f59e0b;
+}
+
+.save-settings-btn {
+  width: 100%;
+  padding: 13px;
+  font-size: 13.5px;
+  font-weight: 800;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+/* ========================================================== */
+/* TWÓJ KOLOR AKCENTU (ACCENT COLOR CARD)                    */
+/* ========================================================== */
+.accent-color-card {
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+}
+
+.accent-color-card h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.active-color-badge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+
+.accent-palette-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  margin: 12px 0 16px 0;
+}
+
+.accent-color-btn {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 18px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.accent-color-btn:active {
+  transform: scale(0.92);
+}
+
+.accent-color-btn.active {
+  transform: scale(1.1);
+  border-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.35), 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.live-preview-box {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.25s ease;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sample-task-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.sample-checkbox {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.sample-task-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sample-task-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.sample-tags-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sample-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid;
+}
+
+.sample-pts-badge {
+  font-size: 10px;
+  font-weight: 800;
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.sample-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.sample-avatar-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 13px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+.sample-avatar-desc {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* ========================================================== */
+/* POWIADOMIENIA PUSH (PUSH SETTINGS CARD)                    */
+/* ========================================================== */
+.push-settings-card {
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+}
+
+.push-settings-card h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.push-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.push-status-pill.is-active {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: #bbf7d0;
+}
+
+.push-status-pill.is-waiting {
+  background: #fefce8;
+  color: #ca8a04;
+  border-color: #fef08a;
+}
+
+.push-status-pill.is-denied {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.push-status-pill.is-disabled {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #e2e8f0;
+}
+
+.push-master-toggle-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.master-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.master-toggle-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+}
+
+.master-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.master-toggle-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.master-toggle-subtitle {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.dn-push-toggle {
+  --track-background-checked: #0f172a;
+  --handle-background-checked: #ffffff;
+}
+
+.push-denied-box {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.denied-icon {
+  font-size: 20px;
+  color: #ea580c;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.denied-content strong {
+  display: block;
+  font-size: 13px;
+  color: #9a3412;
+  margin-bottom: 2px;
+}
+
+.denied-content p {
+  margin: 0;
+  font-size: 12px;
+  color: #7c2d12;
+  line-height: 1.4;
+}
+
+.push-prompt-box {
+  margin-bottom: 16px;
+}
+
+.request-perm-btn {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.push-granularity-section {
+  margin-top: 18px;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 16px;
+}
+
+.group-title-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #0f172a;
+  margin-bottom: 2px;
+}
+
+.group-title-label.mt-label {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.group-sub-desc {
+  font-size: 12.5px;
+  color: #64748b;
+  margin: 0 0 12px 0;
+}
+
+.push-toggles-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.push-toggle-item {
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+  border-radius: 14px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  transition: all 0.15s ease;
+}
+
+.push-toggle-item:hover {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.toggle-item-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.toggle-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.love-icon-bg { background: #ffe4e6; color: #f43f5e; }
+.mood-icon-bg { background: #f3e8ff; color: #8b5cf6; }
+.calendar-icon-bg { background: #eef2ff; color: #6366f1; }
+.shopping-icon-bg { background: #ccfbf1; color: #0d9488; }
+.tasks-icon-bg { background: #f1f5f9; color: #0f172a; }
+.wishlist-icon-bg { background: #fdf2f8; color: #db2777; }
+.online-icon-bg { background: #dcfce7; color: #16a34a; }
+.sound-icon-bg { background: #fef3c7; color: #d97706; }
+.vibrate-icon-bg { background: #f1f5f9; color: #475569; }
+
+.toggle-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.toggle-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.toggle-desc {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.3;
+}
+
+.push-test-action-wrap {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed #e2e8f0;
+  text-align: center;
+}
+
+.push-test-btn {
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-size: 13.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.push-test-btn:hover {
+  background: #1e293b;
+}
+
+.push-test-btn:active {
+  transform: scale(0.98);
+}
+
+.test-hint {
+  display: block;
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 6px;
+}
+
+/* ========================================================== */
+/* POŁĄCZENIE PARY (PAIRING CARD)                             */
+/* ========================================================== */
+.pairing-card {
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+}
+
+.pairing-card h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
 .connected-pill {
   font-size: 11px;
   font-weight: 700;
@@ -1905,18 +3241,18 @@ const handleRefresh = async (event: any) => {
 
 .my-code-box {
   background: #f8fafc;
-  border: 1px dashed #0f172a;
+  border: 1.5px dashed #cbd5e1;
   border-radius: 16px;
   padding: 14px;
   text-align: center;
-  margin-bottom: 16px;
+  margin: 12px 0 16px 0;
 }
 
 .code-label {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.1em;
-  color: #0f172a;
+  color: #64748b;
   display: block;
 }
 
@@ -1925,7 +3261,7 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  margin: 6px 0;
+  margin: 8px 0;
 }
 
 .code-text {
@@ -1948,11 +3284,11 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   gap: 4px;
   cursor: pointer;
+  transition: all 0.18s ease;
 }
 
-.code-help {
-  font-size: 11px;
-  color: #64748b;
+.copy-btn:hover {
+  background: #f1f5f9;
 }
 
 .join-box {
@@ -2010,37 +3346,19 @@ const handleRefresh = async (event: any) => {
   display: block;
 }
 
-.partnership-actions-box {
-  margin-top: 14px;
-  background: #f8fafc;
-  border-radius: 14px;
-  padding: 14px;
-  border: 1px solid #e2e8f0;
-}
-
-.partnership-meta-info {
-  margin-bottom: 10px;
-}
-
-.partner-meta-label {
-  font-size: 11px;
-  color: #64748b;
-  display: block;
-}
-
-.partner-meta-name {
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
+.partnership-buttons-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .disconnect-pair-btn {
   width: 100%;
   background: #fff1f2;
   border: 1px solid #fecdd3;
-  border-radius: 10px;
-  padding: 10px;
-  font-size: 12px;
+  border-radius: 12px;
+  padding: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   color: #e11d48;
   display: flex;
@@ -2048,817 +3366,29 @@ const handleRefresh = async (event: any) => {
   justify-content: center;
   gap: 6px;
   cursor: pointer;
+  transition: all 0.18s ease;
 }
 
 .disconnect-pair-btn:active {
   background: #ffe4e6;
 }
 
-/* CLOUD STATUS */
-.cloud-status-row {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.cloud-icon-box {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: #f1f5f9;
-  color: #64748b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-}
-
-.cloud-icon-box.online {
-  background: #f0fdf4;
-  color: #16a34a;
-}
-
-.cloud-status-text h5 {
-  font-size: 14px;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0;
-}
-
-.cloud-status-text p {
-  font-size: 12px;
-  color: #64748b;
-  margin: 2px 0 0 0;
-  line-height: 1.3;
-}
-
-/* --- PROFILE CARDS & EDITING STYLES --- */
-.my-profile-card {
-  border-left: 4px solid #0f172a;
-}
-
-.partner-profile-card {
-  border-left: 4px solid #0d9488;
-  background: linear-gradient(180deg, #ffffff 0%, #f0fdfa 100%);
-}
-
-.active-profile-pill {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #0f172a;
-  background: #f1f5f9;
-  padding: 3px 10px;
-  border-radius: 999px;
-  border: 1px solid #e2e8f0;
-}
-
-.partner-online-pill {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #64748b;
-  background: #f1f5f9;
-  padding: 3px 10px;
-  border-radius: 999px;
-}
-
-.partner-online-pill.is-live {
-  color: #16a34a;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-}
-
-.online-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #94a3b8;
-}
-
-.online-dot.is-live {
-  background: #16a34a;
-  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.2);
-}
-
-.profile-hero-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 10px;
-  margin-bottom: 12px;
-}
-
-.profile-avatar-circle {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  font-weight: 800;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
-  flex-shrink: 0;
-}
-
-.partner-avatar {
-  border: 2px solid #ffffff;
-}
-
-.profile-name-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.profile-name-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.profile-name-row h3 {
-  font-size: 18px;
-  font-weight: 800;
-  color: #0f172a;
-  margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.me-pill {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  background: #f1f5f9;
-  color: #0f172a;
-  padding: 1px 7px;
-  border-radius: 999px;
-}
-
-.partner-pill {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  background: #ccfbf1;
-  color: #0f766e;
-  padding: 1px 7px;
-  border-radius: 999px;
-}
-
-.profile-code-sub {
-  font-size: 11px;
-  color: #64748b;
-  margin: 2px 0 0 0;
-  font-family: monospace;
-  font-weight: 600;
-}
-
-.edit-profile-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #0f172a;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 7px 12px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.edit-profile-btn:active {
-  background: #f1f5f9;
-  transform: scale(0.97);
-}
-
-.live-synced-badge {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #0d9488;
-  background: #ccfbf1;
-  padding: 5px 9px;
-  border-radius: 10px;
-  flex-shrink: 0;
-}
-
-.profile-note-box {
-  background: #f8fafc;
-  border-radius: 12px;
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  border: 1px solid #f1f5f9;
-  min-width: 0;
-}
-
-.partner-note-box {
-  background: #ffffff;
-  border-color: #e6fffa;
-}
-
-.quote-icon {
-  color: #0f172a;
-  flex-shrink: 0;
-}
-
-.partner-note-box .quote-icon {
-  color: #0d9488;
-}
-
-.quote-text {
-  font-size: 13px;
-  font-style: italic;
-  color: #334155;
-  line-height: 1.4;
-  word-break: break-word;
-  overflow-wrap: break-word;
-  min-width: 0;
-}
-
-.profile-prefs-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.pref-badge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 8px 10px;
-  border-radius: 12px;
-}
-
-.partner-pref {
-  background: #ffffff;
-  border-color: #ccfbf1;
-}
-
-.pref-texts {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.pref-label {
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: #94a3b8;
-  letter-spacing: 0.05em;
-}
-
-.pref-value {
-  font-size: 12px;
-  font-weight: 700;
-  color: #1e293b;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.live-sync-footnote {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #0d9488;
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px dashed #e2e8f0;
-}
-
-/* EDIT PROFILE MODAL */
-.edit-modal-content {
-  --background: #f8fafc;
-}
-
-.modal-form-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding-bottom: 24px;
-}
-
 /* ========================================================== */
-/* SEKCJA INFORMACJI O GNIAZDKU (NEST CONFIG CARD)           */
+/* KONTO I BEZPIECZEŃSTWO (ACCOUNT CARD)                      */
 /* ========================================================== */
-.nest-config-card {
-  border-left: 4px solid #f43f5e;
-  position: relative;
-  overflow: hidden;
-}
-
-.nest-section-tag {
-  color: #f43f5e !important;
-}
-
-.nest-hero-banner {
-  background: linear-gradient(135deg, #fff1f2 0%, #f0fdfa 100%);
-  border: 1px solid #ffe4e6;
-  border-radius: 16px;
-  padding: 14px 16px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin: 12px 0 16px 0;
-}
-
-.nest-hero-icon-wrap {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  flex-shrink: 0;
-  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.35);
-}
-
-.nest-hero-text h4 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.nest-hero-text p {
-  margin: 2px 0 0 0;
-  font-size: 12px;
-  color: #64748b;
-  line-height: 1.35;
-}
-
-.label-with-hint {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 6px;
-}
-
-.field-hint {
-  font-size: 11px;
-  color: #94a3b8;
-  font-weight: 500;
-}
-
-.input-with-icon-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.input-leading-icon {
-  position: absolute;
-  left: 12px;
-  font-size: 18px;
-  color: #0f172a;
-  pointer-events: none;
-  z-index: 2;
-}
-
-.input-with-icon-wrap .dn-styled-input {
-  width: 100%;
-  --padding-start: 38px;
-  --padding-end: 14px;
-  --background: #ffffff;
-  --border-radius: 14px;
-  border-radius: 14px;
-  overflow: hidden;
-  border: 1.5px solid #e2e8f0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #0f172a;
-  transition: all 0.2s ease;
-}
-
-.input-with-icon-wrap .dn-styled-input:focus-within {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
-}
-
-.textarea-with-icon-wrap {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-}
-
-.textarea-leading-icon {
-  position: absolute;
-  left: 12px;
-  top: 14px;
-  color: #f43f5e;
-  pointer-events: none;
-  z-index: 2;
-}
-
-.textarea-with-icon-wrap .dn-styled-textarea {
-  width: 100%;
-  --padding-start: 38px;
-  --padding-end: 14px;
-  --background: #ffffff;
-  --border-radius: 14px;
-  border-radius: 14px;
-  overflow: hidden;
-  border: 1.5px solid #e2e8f0;
-  font-size: 13.5px;
-  color: #0f172a;
-  line-height: 1.45;
-  transition: all 0.2s ease;
-}
-
-.textarea-with-icon-wrap .dn-styled-textarea:focus-within {
-  border-color: #f43f5e;
-  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.14);
-}
-
-/* Chips styling */
-.quick-chips-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-top: 8px;
-}
-
-.chips-mini-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #94a3b8;
-  margin-right: 2px;
-}
-
-.chip-btn {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 9999px;
-  padding: 5px 11px;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #475569;
-  cursor: pointer;
-  transition: all 0.18s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.chip-btn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
-  border-color: #cbd5e1;
-}
-
-.chip-btn.active {
-  background: #0f172a;
-  color: #ffffff;
-  border-color: #0f172a;
-  font-weight: 700;
-}
-
-.chip-btn.love-chip:hover {
-  background: #fff1f2;
-  border-color: #fecdd3;
-  color: #e11d48;
-}
-
-.chip-btn.love-chip.active {
-  background: #ffe4e6;
-  color: #e11d48;
-  border-color: #fda4af;
-}
-
-/* Milestone Preview Box */
-.anniversary-milestone-box {
-  margin-top: 10px;
-  background: linear-gradient(135deg, #fff1f2 0%, #fffbeb 100%);
-  border: 1px solid #fed7aa;
-  border-radius: 14px;
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  animation: fadeInMilestone 0.25s ease;
-}
-
-@keyframes fadeInMilestone {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.milestone-icon-wrap {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: #f43f5e;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
-  box-shadow: 0 3px 8px rgba(244, 63, 94, 0.3);
-}
-
-.milestone-content {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.milestone-title {
-  font-size: 12.5px;
-  color: #9a3412;
-}
-
-.milestone-subtitle {
-  font-size: 12px;
-  color: #7c2d12;
-}
-
-.anniversary-empty-hint {
-  margin-top: 8px;
-  font-size: 11.5px;
-  color: #64748b;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
-}
-
-.anniversary-empty-hint ion-icon {
-  color: #f59e0b;
-}
-
-/* ========================================================== */
-/* MODAL EDYCJI PROFILU (EDIT PROFILE MODAL)                  */
-/* ========================================================== */
-ion-modal.dn-edit-profile-modal {
-  --border-radius: 28px 28px 0 0;
-  --background: #ffffff;
-  --box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
-}
-
-.modal-custom-header ion-toolbar {
-  --background: #ffffff;
-  --border-width: 0;
-  padding: 4px 8px;
-}
-
-.modal-header-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 0 4px;
-}
-
-.modal-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.modal-title-icon {
-  font-size: 20px;
-  color: #0f172a;
-}
-
-.modal-title-wrap ion-title {
-  font-size: 17px;
-  font-weight: 800;
-  color: #0f172a;
-  padding: 0;
-}
-
-.modal-close-icon-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: none;
-  background: #f1f5f9;
-  color: #64748b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.modal-close-icon-btn:hover {
-  background: #e2e8f0;
-  color: #0f172a;
-}
-
-.edit-modal-content {
-  --background: #f8fafc;
-}
-
-.modal-form-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding-bottom: 24px;
-}
-
-/* Profile Modal Hero Banner */
-.profile-modal-hero {
-  background: #ffffff;
+.account-card {
   border-radius: 20px;
-  border: 1px solid #e2e8f0;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
-}
-
-.profile-modal-avatar {
-  position: relative;
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  font-weight: 800;
-  flex-shrink: 0;
-}
-
-.avatar-star-badge {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 22px;
-  height: 22px;
   background: #ffffff;
-  color: #0f172a;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
 }
 
-.profile-modal-hero-text h3 {
+.account-card h4 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.live-sync-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #0d9488;
-  background: #ccfbf1;
-  border: 1px solid #99f6e4;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  margin-top: 4px;
-}
-
-.live-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #0d9488;
-  animation: pulseLive 1.5s infinite;
-}
-
-@keyframes pulseLive {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.8); }
-}
-
-/* Modal Section Card */
-.modal-section-card {
-  background: #ffffff;
-  border-radius: 18px;
-  border: 1px solid #e2e8f0;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-}
-
-.section-card-header {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-bottom: 8px;
-}
-
-.mini-section-tag {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #0f172a;
-}
-
-.mini-section-tag.tag-love {
-  color: #f43f5e;
-}
-
-.mini-section-tag.tag-prefs {
-  color: #0d9488;
-}
-
-.section-micro-desc {
-  margin: 0 0 10px 0;
-  font-size: 11.5px;
-  color: #64748b;
-  line-height: 1.35;
-}
-
-.mt-chips {
-  margin-top: 10px;
-}
-
-.pref-subfield {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.pref-subfield.mt-subfield {
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px dashed #e2e8f0;
-}
-
-.subfield-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #1e293b;
-}
-
-/* Save Button */
-.save-all-profile-btn {
-  width: 100%;
-  padding: 15px 20px;
-  border-radius: 16px;
   font-size: 15px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.15);
-}
-
-.save-all-profile-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.save-all-profile-btn {
-  width: 100%;
-  padding: 14px;
-  font-size: 14px;
   font-weight: 800;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  color: #0f172a;
 }
-
-
-
-
 
 .account-actions-box {
   display: flex;
@@ -3081,25 +3611,21 @@ ion-modal.dn-edit-profile-modal {
   color: #ffffff;
 }
 
-.partnership-buttons-row {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
 .signout-app-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 14px;
+  padding: 10px 16px;
   background: #f8fafc;
   color: #475569;
   border: 1px solid #cbd5e1;
   border-radius: 12px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
+  width: 100%;
+  justify-content: center;
 }
 
 .signout-app-btn:hover {
@@ -3107,525 +3633,269 @@ ion-modal.dn-edit-profile-modal {
   color: #0f172a;
 }
 
-/* CATEGORY SEGMENTED SELECTOR */
-.category-toggle-container {
-  display: flex;
-  justify-content: center;
-  padding: 12px 16px 8px 16px;
-}
-
-.category-toggle-pill {
-  display: flex;
-  background: #f1f5f9;
-  padding: 4px;
-  border-radius: 14px;
-  gap: 4px;
-  width: 100%;
-  max-width: 380px;
-}
-
-.cat-toggle-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border: none;
-  background: transparent;
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 700;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.cat-toggle-btn.active {
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.category-content-wrap {
-  display: flex;
-  flex-direction: column;
-}
-
-/* NEST SETTINGS SPECIFIC */
-.days-together-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #f43f5e;
-  background: #fff1f2;
-  border: 1px solid #fecdd3;
-  padding: 2px 8px;
-  border-radius: 999px;
-}
-
-.settings-form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-
-.save-settings-btn {
-  width: 100%;
-  padding: 12px;
-  font-size: 13px;
-  font-weight: 700;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 6px;
-}
-
-/* ACCENT COLOR PALETTE */
-.active-color-badge {
-  font-size: 11px;
-  font-weight: 800;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid currentColor;
-}
-
-.accent-palette-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
-  margin: 12px 0 16px 0;
-}
-
-.accent-color-btn {
-  width: 100%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  border: 3px solid transparent;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  font-size: 20px;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-.accent-color-btn:active {
-  transform: scale(0.92);
-}
-
-.accent-color-btn.active {
-  transform: scale(1.1);
-  border-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.4), 0 4px 10px rgba(0, 0, 0, 0.2);
-}
-
-/* LIVE ACCENT PREVIEW BOX */
-.live-preview-box {
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  transition: border-color 0.25s ease;
-}
-
-.preview-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 800;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.sample-task-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: #ffffff;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  transition: all 0.2s ease;
-}
-
-.sample-checkbox {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.sample-task-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.sample-task-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.sample-tags-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sample-pill {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 6px;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  border: 1px solid;
-}
-
-.sample-pts-badge {
-  font-size: 10px;
-  font-weight: 800;
-  background: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
-  padding: 1px 6px;
-  border-radius: 999px;
-}
-
-.sample-avatar-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-top: 4px;
-}
-
-.sample-avatar-circle {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  font-weight: 800;
-  font-size: 13px;
-  flex-shrink: 0;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
-}
-
-.sample-avatar-desc {
-  font-size: 12px;
-  color: #64748b;
-}
-
 /* ========================================================== */
-/* PUSH NOTIFICATIONS SETTINGS CARD STYLING                   */
+/* MODAL EDYCJI PROFILU (EDIT PROFILE MODAL)                  */
 /* ========================================================== */
-.push-settings-card {
-  border-left: 4px solid #0f172a;
+ion-modal.dn-edit-profile-modal {
+  --border-radius: 28px 28px 0 0;
+  --background: #ffffff;
+  --box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
 }
 
-.push-section-tag {
-  color: #0f172a !important;
+.modal-custom-header ion-toolbar {
+  --background: #ffffff;
+  --border-width: 0;
+  padding: 4px 8px;
 }
 
-.push-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 700;
-  border: 1px solid transparent;
-}
-
-.push-status-pill.is-active {
-  background: #f0fdf4;
-  color: #16a34a;
-  border-color: #bbf7d0;
-}
-
-.push-status-pill.is-waiting {
-  background: #fefce8;
-  color: #ca8a04;
-  border-color: #fef08a;
-}
-
-.push-status-pill.is-denied {
-  background: #fef2f2;
-  color: #dc2626;
-  border-color: #fecaca;
-}
-
-.push-status-pill.is-disabled {
-  background: #f1f5f9;
-  color: #64748b;
-  border-color: #e2e8f0;
-}
-
-/* Master toggle box */
-.push-master-toggle-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 14px 16px;
+.modal-header-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin: 14px 0;
+  width: 100%;
+  padding: 0 4px;
 }
 
-.master-toggle-left {
+.modal-title-wrap {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex: 1;
+  gap: 8px;
 }
 
-.master-toggle-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+.modal-title-icon {
+  font-size: 20px;
+  color: #0f172a;
+}
+
+.modal-title-wrap ion-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+  padding: 0;
+}
+
+.modal-close-icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: #f1f5f9;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.modal-close-icon-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.edit-modal-content {
+  --background: #f8fafc;
+}
+
+.modal-form-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 24px;
+}
+
+.profile-modal-hero {
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.profile-modal-avatar {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: 24px;
+  font-weight: 800;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
 }
 
-.master-toggle-text {
+.avatar-star-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 22px;
+  height: 22px;
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 50%;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
-.master-toggle-title {
-  font-size: 14px;
-  font-weight: 700;
+.profile-modal-hero-text h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
   color: #0f172a;
 }
 
-.master-toggle-subtitle {
-  font-size: 12px;
+.live-sync-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0d9488;
+  background: #ccfbf1;
+  border: 1px solid #99f6e4;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  margin-top: 4px;
+}
+
+.modal-section-card {
+  background: #ffffff;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.section-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.mini-section-tag {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #0f172a;
+}
+
+.mini-section-tag.tag-love {
+  color: #f43f5e;
+}
+
+.mini-section-tag.tag-prefs {
+  color: #0d9488;
+}
+
+.section-micro-desc {
+  margin: 0 0 10px 0;
+  font-size: 11.5px;
   color: #64748b;
   line-height: 1.35;
 }
 
-.dn-push-toggle {
-  --track-background-checked: #0f172a;
-  --handle-background-checked: #ffffff;
-}
-
-/* Denied Alert */
-.push-denied-box {
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  border-radius: 14px;
-  padding: 12px 14px;
+.textarea-with-icon-wrap {
+  position: relative;
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 14px;
 }
 
-.denied-icon {
-  font-size: 20px;
-  color: #ea580c;
-  flex-shrink: 0;
-  margin-top: 2px;
+.textarea-leading-icon {
+  position: absolute;
+  left: 12px;
+  top: 14px;
+  color: #f43f5e;
+  pointer-events: none;
+  z-index: 2;
 }
 
-.denied-content strong {
-  display: block;
-  font-size: 13px;
-  color: #9a3412;
-  margin-bottom: 2px;
-}
-
-.denied-content p {
-  margin: 0;
-  font-size: 12px;
-  color: #7c2d12;
-  line-height: 1.4;
-}
-
-/* Prompt Box */
-.push-prompt-box {
-  margin-bottom: 16px;
-}
-
-.request-perm-btn {
+.textarea-with-icon-wrap .dn-styled-textarea {
   width: 100%;
-  padding: 12px 16px;
+  --padding-start: 38px;
+  --padding-end: 14px;
+  --background: #ffffff;
+  --border-radius: 14px;
   border-radius: 14px;
+  overflow: hidden;
+  border: 1.5px solid #e2e8f0;
   font-size: 13.5px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-/* Granular Section */
-.push-granularity-section {
-  margin-top: 18px;
-  border-top: 1px dashed #e2e8f0;
-  padding-top: 16px;
-}
-
-.group-title-label {
-  display: block;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
   color: #0f172a;
-  margin-bottom: 2px;
-}
-
-.group-title-label.mt-label {
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid #f1f5f9;
-}
-
-.group-sub-desc {
-  font-size: 12.5px;
-  color: #64748b;
-  margin: 0 0 12px 0;
-}
-
-.push-toggles-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.push-toggle-item {
-  background: #ffffff;
-  border: 1px solid #f1f5f9;
-  border-radius: 14px;
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  transition: all 0.15s ease;
-}
-
-.push-toggle-item:hover {
-  background: #f8fafc;
-  border-color: #e2e8f0;
-}
-
-.toggle-item-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-}
-
-.toggle-icon-wrap {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-.love-icon-bg { background: #ffe4e6; color: #f43f5e; }
-.mood-icon-bg { background: #f3e8ff; color: #8b5cf6; }
-.calendar-icon-bg { background: #eef2ff; color: #6366f1; }
-.shopping-icon-bg { background: #ccfbf1; color: #0d9488; }
-.tasks-icon-bg { background: #f1f5f9; color: #0f172a; }
-.wishlist-icon-bg { background: #fdf2f8; color: #db2777; }
-.online-icon-bg { background: #dcfce7; color: #16a34a; }
-.sound-icon-bg { background: #fef3c7; color: #d97706; }
-.vibrate-icon-bg { background: #f1f5f9; color: #475569; }
-
-.toggle-item-info {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.toggle-name {
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.toggle-desc {
-  font-size: 11px;
-  color: #64748b;
-  line-height: 1.3;
-}
-
-/* Test Button */
-.push-test-action-wrap {
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px dashed #e2e8f0;
-  text-align: center;
-}
-
-.push-test-btn {
-  background: #0f172a;
-  color: #ffffff;
-  border: none;
-  border-radius: 14px;
-  padding: 12px 18px;
-  font-size: 13.5px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  cursor: pointer;
+  line-height: 1.45;
   transition: all 0.2s ease;
+}
+
+.textarea-with-icon-wrap .dn-styled-textarea:focus-within {
+  border-color: #f43f5e;
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.14);
+}
+
+.mt-chips {
+  margin-top: 10px;
+}
+
+.chip-btn.love-chip:hover {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #e11d48;
+}
+
+.chip-btn.love-chip.active {
+  background: #ffe4e6;
+  color: #e11d48;
+  border-color: #fda4af;
+}
+
+.pref-subfield {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pref-subfield.mt-subfield {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.subfield-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.modal-actions-row {
+  margin-top: 10px;
+}
+
+.save-all-profile-btn {
   width: 100%;
+  padding: 14px;
+  font-size: 14px;
+  font-weight: 800;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.15);
 }
 
-.push-test-btn:hover {
-  background: #1e293b;
-}
-
-.push-test-btn:active {
-  transform: scale(0.98);
-}
-
-.test-hint {
-  display: block;
-  font-size: 11px;
-  color: #94a3b8;
-  margin-top: 6px;
+.save-all-profile-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>
