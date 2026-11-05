@@ -40,9 +40,9 @@
         <div class="hero-ambient-glow glow-top-right"></div>
         <div class="hero-ambient-glow glow-bottom-left"></div>
         <div class="hero-decor-stars">
-          <span class="decor-star star-1">✦</span>
-          <span class="decor-star star-2">✧</span>
-          <span class="decor-star star-3">✦</span>
+          <ion-icon :icon="ioniconsSparkles" class="decor-star star-1" />
+          <ion-icon :icon="ioniconsSparkles" class="decor-star star-2" />
+          <ion-icon :icon="ioniconsSparkles" class="decor-star star-3" />
         </div>
 
         <!-- TOP: AVATARS & ANNIVERSARY BADGE -->
@@ -78,7 +78,7 @@
             
             <div class="hero-stage-badge-wrap">
               <span class="hero-stage-pill">
-                <span class="stage-icon-emoji">{{ getStageIcon(nestLevel) }}</span>
+                <ion-icon :icon="getStageIcon(nestLevel)" class="stage-icon-svg" />
                 <span>Poziom {{ nestLevel }} • {{ currentStageName }}</span>
               </span>
               <button class="hero-celebrate-btn" @click="celebrateWithConfetti" title="Świętuj">
@@ -90,11 +90,45 @@
             <p class="hero-stage-desc" v-if="currentStageDescription">{{ currentStageDescription }}</p>
           </div>
 
-          <!-- RIGHT: NEST MASCOT / EMBLEM WITH FLOATING MICRO-BADGES -->
+          <!-- RIGHT: PURE SVG NEST EMBLEM WITH FLOATING MICRO-BADGES -->
           <div class="hero-mascot-col" @click="celebrateWithConfetti" title="Wasze Gniazdko - kliknij, aby świętować!">
             <div class="nest-avatar-aura"></div>
-            <div class="nest-mascot-wrapper">
-              <img src="/icon.png" alt="Wasze Gniazdko" class="nest-mascot-img" />
+            <div class="nest-svg-wrapper">
+              <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" class="nest-vector-svg">
+                <defs>
+                  <linearGradient id="nestShieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#1e293b" />
+                    <stop offset="100%" stop-color="#0f172a" />
+                  </linearGradient>
+                  <linearGradient id="nestTwigGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#34d399" />
+                    <stop offset="100%" stop-color="#059669" />
+                  </linearGradient>
+                  <linearGradient id="nestHeartGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#fb7185" />
+                    <stop offset="100%" stop-color="#f43f5e" />
+                  </linearGradient>
+                </defs>
+                <!-- Shield Base -->
+                <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#nestShieldGrad)" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>
+                
+                <!-- Nest Twigs Base -->
+                <path d="M12 36C14 47 22 51 32 51C42 51 50 47 52 36" stroke="url(#nestTwigGrad)" stroke-width="3.5" stroke-linecap="round"/>
+                <path d="M15 41C20 48 26 50 32 50C38 50 44 48 49 41" stroke="#047857" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+                <path d="M14 34C19 40 26 42 32 42C38 42 45 40 50 34" stroke="url(#nestTwigGrad)" stroke-width="2.5" stroke-linecap="round"/>
+
+                <!-- Left User Nest Egg -->
+                <ellipse cx="26" cy="27" rx="7.5" ry="9.5" :fill="currentUserAccentColor" stroke="#ffffff" stroke-width="1.5" transform="rotate(-10 26 27)"/>
+                <!-- Right Partner Nest Egg -->
+                <ellipse cx="38" cy="27" rx="7.5" ry="9.5" :fill="partnerUserAccentColor" stroke="#ffffff" stroke-width="1.5" transform="rotate(10 38 27)"/>
+
+                <!-- Central Loving Heart -->
+                <path d="M32 23C32 23 27 18 27 15C27 13 28.5 11.5 30.5 11.5C31.5 11.5 32 12.2 32 12.2C32 12.2 32.5 11.5 33.5 11.5C35.5 11.5 37 13 37 15C37 18 32 23 32 23Z" fill="url(#nestHeartGrad)" stroke="#ffffff" stroke-width="1"/>
+
+                <!-- Little Green Sprout Nodes -->
+                <circle cx="12" cy="36" r="2" fill="#34d399"/>
+                <circle cx="52" cy="36" r="2" fill="#34d399"/>
+              </svg>
               <div class="nest-micro-badge badge-top">
                 <ion-icon :icon="ioniconsHeart" class="micro-heart" />
               </div>
@@ -167,7 +201,7 @@
               <ion-icon :icon="ioniconsCheckmarkCircle" />
             </div>
             <div class="sent-status-texts">
-              <span class="sent-title">Wysłano dzisiejsze puknięcie! 💕</span>
+              <span class="sent-title">Wysłano dzisiejsze puknięcie!</span>
               <span class="sent-subtitle">{{ partnerUser?.name || 'Partner' }} otrzymał Twój ciepły gest.</span>
             </div>
           </div>
@@ -494,7 +528,7 @@
                     {{ goal.is_completed ? 'Cel zrealizowany' : `${Math.min(getGoalCurrentPoints(goal), goal.target_points)} / ${goal.target_points} pkt` }}
                   </span>
                   <span class="milestone-pct-badge" v-if="!goal.is_completed">
-                    {{ isGoalReady(goal) ? 'Gotowe do odebrania! 🎉' : `${getGoalProgressPct(goal)}%` }}
+                    {{ isGoalReady(goal) ? 'Gotowe do odebrania!' : `${getGoalProgressPct(goal)}%` }}
                   </span>
                   <span class="milestone-claimed-badge" v-else>
                     <ion-icon :icon="ioniconsCheckmarkCircle" />
@@ -507,7 +541,7 @@
               <div class="milestone-claim-action" v-if="isGoalReady(goal)">
                 <button class="claim-reward-btn" @click="handleClaimMilestone(goal)">
                   <ion-icon :icon="ioniconsGiftOutline" />
-                  <span>Świętujcie & Odbierzcie nagrodę! 🎁</span>
+                  <span>Świętujcie i odbierzcie nagrodę!</span>
                 </button>
               </div>
 
@@ -518,7 +552,8 @@
                   <span>Nagroda zrealizowana!</span>
                 </span>
                 <button class="reactivate-goal-link" @click="handleReactivateMilestone(goal)">
-                  <span>Ustaw cel ponownie ↺</span>
+                  <ion-icon :icon="ioniconsRefreshOutline" class="reactivate-icon" />
+                  <span>Ustaw cel ponownie</span>
                 </button>
               </div>
             </div>
@@ -779,15 +814,15 @@ const currentStageDescription = computed(() => {
 })
 
 const getStageIcon = (level: number) => {
-  const icons: Record<number, string> = {
-    1: '🌱',
-    2: '🪶',
-    3: '⛺',
-    4: '🌟',
-    5: '🏰'
+  const icons: Record<number, any> = {
+    1: ioniconsLeafOutline,
+    2: ioniconsSparklesOutline,
+    3: ioniconsHomeOutline,
+    4: ioniconsStarOutline,
+    5: ioniconsHeartOutline
   }
   const lvl = Math.min(Math.max(level, 1), 5)
-  return icons[lvl] || '🌱'
+  return icons[lvl] || ioniconsLeafOutline
 }
 
 const pendingChores = computed(() => {
@@ -1470,8 +1505,10 @@ const handleRefresh = async (event: any) => {
   color: #ffffff;
 }
 
-.stage-icon-emoji {
-  font-size: 12px;
+.stage-icon-svg {
+  font-size: 13.5px;
+  color: #34d399;
+  flex-shrink: 0;
 }
 
 .hero-celebrate-btn {
@@ -1527,7 +1564,7 @@ const handleRefresh = async (event: any) => {
   animation: auraPulse 3s infinite ease-in-out;
 }
 
-.nest-mascot-wrapper {
+.nest-svg-wrapper {
   position: relative;
   width: 62px;
   height: 62px;
@@ -1537,21 +1574,21 @@ const handleRefresh = async (event: any) => {
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.hero-mascot-col:hover .nest-mascot-wrapper {
+.hero-mascot-col:hover .nest-svg-wrapper {
   transform: scale(1.08) rotate(3deg);
 }
 
-.hero-mascot-col:active .nest-mascot-wrapper {
+.hero-mascot-col:active .nest-svg-wrapper {
   transform: scale(0.94);
 }
 
-.nest-mascot-img {
+.nest-vector-svg {
   width: 58px;
   height: 58px;
   border-radius: 17px;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
-  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.3));
   animation: floatUp 3.5s ease-in-out infinite;
+  display: block;
 }
 
 .nest-micro-badge {
@@ -2637,6 +2674,13 @@ const handleRefresh = async (event: any) => {
   border-radius: 6px;
   text-decoration: underline;
   transition: color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.reactivate-icon {
+  font-size: 13px;
 }
 
 .reactivate-goal-link:hover {
