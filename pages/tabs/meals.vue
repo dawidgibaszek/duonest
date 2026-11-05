@@ -495,9 +495,13 @@
       <!-- ============================================== -->
       <div v-else class="meals-explore-wrapper">
         <!-- Compact modern surprise bar -->
-        <div class="surprise-hero-bar dn-card" @click="handleSurpriseMe">
+        <div
+          class="surprise-hero-bar dn-card"
+          :class="{ 'is-rolling': isLoadingRandom }"
+          @click="handleSurpriseMe"
+        >
           <div class="surprise-left-content">
-            <div class="surprise-icon-orb">
+            <div class="surprise-icon-orb" :class="{ 'is-spinning': isLoadingRandom }">
               <ion-icon :icon="ioniconsShuffleOutline" />
             </div>
             <div class="surprise-texts">
@@ -508,12 +512,26 @@
           <button
             type="button"
             class="surprise-pill-btn"
+            :class="{ 'is-loading': isLoadingRandom }"
             :disabled="isLoadingRandom"
             @click.stop="handleSurpriseMe"
+            aria-label="Wylosuj obiad"
           >
-            <ion-spinner v-if="isLoadingRandom" name="crescent" class="btn-spinner" />
-            <span v-else>Wylosuj</span>
-            <ion-icon v-if="!isLoadingRandom" :icon="ioniconsArrowForwardOutline" />
+            <template v-if="isLoadingRandom">
+              <div class="dice-roll-wrap">
+                <ion-icon :icon="ioniconsShuffleOutline" class="rolling-shuffle-icon" />
+              </div>
+              <span class="btn-rolling-text">Losuję</span>
+              <span class="loading-dots">
+                <span class="dot d1">.</span>
+                <span class="dot d2">.</span>
+                <span class="dot d3">.</span>
+              </span>
+            </template>
+            <template v-else>
+              <span>Wylosuj</span>
+              <ion-icon :icon="ioniconsArrowForwardOutline" class="btn-arrow-icon" />
+            </template>
           </button>
         </div>
 
@@ -735,8 +753,8 @@
           <!-- Recipe Title & Quick Meta -->
           <div class="recipe-title-section">
             <h2 class="recipe-display-title">{{ formatMealTitlePl(activeSelectedMeal.titlePl || activeSelectedMeal.title) }}</h2>
-            <p v-if="activeSelectedMeal.title && formatMealTitlePl(activeSelectedMeal.titlePl || activeSelectedMeal.title) !== activeSelectedMeal.title" class="recipe-original-name">
-              {{ activeSelectedMeal.title }}
+            <p v-if="(activeSelectedMeal.originalTitle || activeSelectedMeal.title) && formatMealTitlePl(activeSelectedMeal.titlePl || activeSelectedMeal.title) !== (activeSelectedMeal.originalTitle || activeSelectedMeal.title)" class="recipe-original-name">
+              {{ activeSelectedMeal.originalTitle || activeSelectedMeal.title }}
             </p>
 
             <div class="recipe-quick-chips">
@@ -857,7 +875,7 @@
               </div>
               <div class="video-meta">
                 <span class="video-title">Wideo z przygotowania</span>
-                <span class="video-sub">Zobacz przygotowanie tego dania krok po kroku</span>
+                <span class="video-sub">Zobacz jak przygotować</span>
               </div>
               <ion-icon :icon="ioniconsChevronForwardOutline" class="video-arrow" />
             </a>
@@ -1730,7 +1748,7 @@ const pagination = ref({
 })
 
 const curatedFilterPills = [
-  { id: 'all', label: 'Wszystkie (790+)', type: 'all', value: '' },
+  { id: 'all', label: 'Wszystkie (793)', type: 'all', value: '' },
   { id: 'pasta', label: 'Makarony', type: 'category', value: 'Pasta' },
   { id: 'chicken', label: 'Drób & Kurczak', type: 'category', value: 'Chicken' },
   { id: 'beef', label: 'Wołowina', type: 'category', value: 'Beef' },
@@ -1743,9 +1761,13 @@ const curatedFilterPills = [
   { id: 'soup', label: 'Zupy & Dodatki', type: 'category', value: 'Side' },
   { id: 'starter', label: 'Przekąski', type: 'category', value: 'Starter' },
   { id: 'dessert', label: 'Desery', type: 'category', value: 'Dessert' },
+  { id: 'misc', label: 'Różne dania', type: 'category', value: 'Miscellaneous' },
   { id: 'italian', label: 'Włoska', type: 'area', value: 'Italian' },
   { id: 'asian', label: 'Azjatycka', type: 'area', value: 'Asian' },
-  { id: 'mexican', label: 'Meksykańska', type: 'area', value: 'Mexican' }
+  { id: 'mexican', label: 'Meksykańska', type: 'area', value: 'Mexican' },
+  { id: 'french', label: 'Francuska', type: 'area', value: 'French' },
+  { id: 'greek', label: 'Grecka', type: 'area', value: 'Greek' },
+  { id: 'polish', label: 'Polska', type: 'area', value: 'Polish' }
 ]
 
 const visiblePageNumbers = computed<(number | string)[]>(() => {
@@ -1846,9 +1868,14 @@ const goToPage = (page: number | string) => {
 }
 
 const handleSurpriseMe = async () => {
+  if (isLoadingRandom.value) return
   isLoadingRandom.value = true
+  const minSuspenseDelay = new Promise(resolve => setTimeout(resolve, 650))
   try {
-    const res = await $fetch<{ success: boolean; meals: any[] }>('/api/meals/search?random=true')
+    const [res] = await Promise.all([
+      $fetch<{ success: boolean; meals: any[] }>('/api/meals/search?random=true'),
+      minSuspenseDelay
+    ])
     if (res && res.meals && res.meals.length > 0) {
       openApiMealPreview(res.meals[0])
     }
@@ -2566,11 +2593,24 @@ onMounted(() => {
   border: 1px solid #e2e8f0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.surprise-hero-bar:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 
 .surprise-hero-bar:active {
   transform: scale(0.99);
+}
+
+.surprise-hero-bar.is-rolling {
+  border-color: #38bdf8;
+  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.15);
+  background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
 }
 
 .surprise-left-content {
@@ -2591,6 +2631,13 @@ onMounted(() => {
   justify-content: center;
   font-size: 18px;
   flex-shrink: 0;
+  transition: all 0.25s ease;
+}
+
+.surprise-icon-orb.is-spinning {
+  background: #0284c7;
+  box-shadow: 0 0 14px rgba(2, 132, 199, 0.5);
+  animation: orbSpinPulse 0.8s ease-in-out infinite alternate;
 }
 
 .surprise-texts {
@@ -2620,16 +2667,128 @@ onMounted(() => {
 .surprise-pill-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  gap: 6px;
   background: #0f172a;
   color: #ffffff;
   border: none;
-  padding: 6px 12px;
+  min-width: 88px;
+  height: 32px;
+  padding: 0 14px;
   border-radius: 999px;
   font-size: 11.5px;
   font-weight: 700;
   flex-shrink: 0;
   cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  user-select: none;
+}
+
+.surprise-pill-btn:hover:not(:disabled) {
+  background: #1e293b;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.18);
+}
+
+.surprise-pill-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.surprise-pill-btn .btn-arrow-icon {
+  font-size: 13px;
+  transition: transform 0.2s ease;
+}
+
+.surprise-pill-btn:hover .btn-arrow-icon {
+  transform: translateX(2px);
+}
+
+/* Dynamic Loading Animation State */
+.surprise-pill-btn.is-loading {
+  background: linear-gradient(90deg, #0f172a 0%, #0369a1 28%, #0284c7 50%, #38bdf8 72%, #0f172a 100%);
+  background-size: 240% 100%;
+  animation: surpriseShimmer 1.4s ease-in-out infinite;
+  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.42);
+  cursor: wait;
+}
+
+.dice-roll-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rolling-shuffle-icon {
+  font-size: 14px;
+  animation: rollIconSpin 0.7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.btn-rolling-text {
+  font-weight: 800;
+  letter-spacing: 0.3px;
+}
+
+.loading-dots {
+  display: inline-flex;
+  margin-left: -2px;
+}
+
+.loading-dots .dot {
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1;
+  display: inline-block;
+  animation: dotBounce 1.2s infinite ease-in-out;
+}
+
+.loading-dots .d1 { animation-delay: 0s; }
+.loading-dots .d2 { animation-delay: 0.2s; }
+.loading-dots .d3 { animation-delay: 0.4s; }
+
+@keyframes surpriseShimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes rollIconSpin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.15);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes orbSpinPulse {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  100% {
+    transform: rotate(180deg) scale(1.08);
+  }
+}
+
+@keyframes dotBounce {
+  0%, 80%, 100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
 }
 
 /* SEARCH FIELD */
@@ -3687,7 +3846,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   width: 44px;
   height: 5px;
   border-radius: 9999px;
-  margin-top: 8px;
+  margin-top: 10px;
   margin-bottom: 2px;
 }
 
@@ -3701,7 +3860,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 28px 16px 13px 16px;
+  padding: 42px 18px 14px 18px;
   background: #ffffff;
   width: 100%;
   box-sizing: border-box;

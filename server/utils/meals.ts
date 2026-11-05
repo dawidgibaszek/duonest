@@ -27,6 +27,7 @@ export interface MealRecipe {
   id: string
   title: string
   titlePl?: string
+  originalTitle?: string
   category: string
   categoryPl: string
   area: string
@@ -165,26 +166,72 @@ export async function translateTextToPolish(text: string): Promise<string> {
 }
 
 export function splitInstructionsIntoSteps(rawInstructions: string): string[] {
-  if (!rawInstructions) return []
+  if (!rawInstructions || !rawInstructions.trim()) return []
 
-  // Clean line endings
-  const clean = rawInstructions.replace(/\r\n/g, '\n').trim()
+  // Clean and normalize line endings
+  const clean = rawInstructions.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim()
 
-  // First check if there are paragraphs separated by double newlines or single newlines
-  const paragraphs = clean.split(/\n+/).map(p => p.trim()).filter(p => p.length > 5)
+  const lines = clean.split('\n').map(l => l.trim()).filter(Boolean)
+  const mergedLines: string[] = []
+  let current = ''
 
-  if (paragraphs.length >= 2) {
-    return paragraphs.map(p => p.replace(/^(step\s*\d+[:.]?|\d+[\.\)]\s*)/i, '').trim())
+  for (const line of lines) {
+    // If line is just a solitary step header like 'STEP 1' or 'Step 2:' without instructions
+    if (/^(step\s*\d+[:.-]?|\d+[:.-])$/i.test(line)) {
+      if (current) {
+        mergedLines.push(current)
+        current = ''
+      }
+      continue
+    }
+    // If line starts with 'STEP 1:' or '1. '
+    if (/^(step\s*\d+[:.-]?|\d+[\.\)]\s+)/i.test(line)) {
+      if (current) {
+        mergedLines.push(current)
+      }
+      current = line
+    } else {
+      if (current) {
+        current += ' ' + line
+      } else {
+        current = line
+      }
+    }
+  }
+  if (current) {
+    mergedLines.push(current)
   }
 
-  // If only 1 long block of text, split by sentence endings
-  const sentences = clean
-    .split(/(?<=[.!?])\s+(?=[A-Z0-9ĄĆĘŁŃÓŚŹŻ])/)
+  const cleanedSteps: string[] = []
+  for (const s of mergedLines) {
+    const sClean = s.replace(/^(step\s*\d+[:.-]?\s*|\d+[\.\)]\s*)/i, '').trim()
+    if (sClean.length > 3) {
+      cleanedSteps.push(sClean)
+    }
+  }
+
+  if (cleanedSteps.length >= 2) {
+    return cleanedSteps
+  }
+
+  // Fallback 1: inline numbered steps "1. ... 2. ..."
+  const inlineNumbered = clean
+    .split(/(?:^|\s+)(?:\d+[\.\)]|step\s+\d+[:.-]?)\s+/i)
     .map(s => s.trim())
     .filter(s => s.length > 10)
 
-  if (sentences.length > 1) {
-    return sentences.map(s => s.replace(/^(step\s*\d+[:.]?|\d+[\.\)]\s*)/i, '').trim())
+  if (inlineNumbered.length >= 2) {
+    return inlineNumbered
+  }
+
+  // Fallback 2: split by sentences
+  const sentences = clean
+    .split(/(?<=[.!?])\s+(?=[A-Z0-9ĄĆĘŁŃÓŚŹŻ])/)
+    .map(s => s.trim())
+    .filter(s => s.length > 8)
+
+  if (sentences.length >= 2) {
+    return sentences
   }
 
   return [clean]
@@ -196,19 +243,23 @@ export async function translateRecipeInstructionsAsync(rawInstructions: string):
   }
 
   const rawSteps = splitInstructionsIntoSteps(rawInstructions)
+  if (rawSteps.length === 0) {
+    return { instructionsPl: '', stepsPl: [] }
+  }
+
   const translatedSteps: string[] = []
 
-  // Translate up to 10 steps in parallel
-  const stepPromises = rawSteps.slice(0, 12).map(async (step) => {
-    return await translateTextToPolish(step)
-  })
-
+  // Translate all steps without truncation
   try {
+    const stepPromises = rawSteps.map(async (step) => {
+      return await translateTextToPolish(step)
+    })
     const results = await Promise.all(stepPromises)
-    for (let i = 0; i < results.length; i++) {
+    for (let i = 0; i < rawSteps.length; i++) {
       translatedSteps.push(results[i] || rawSteps[i])
     }
   } catch (_) {
+    translatedSteps.length = 0
     translatedSteps.push(...rawSteps)
   }
 
@@ -248,8 +299,9 @@ export function normalizeMealDbItem(raw: any): MealRecipe {
 
   return {
     id: String(raw.idMeal || ''),
-    title: rawTitle,
-    titlePl,
+    title: titlePl || rawTitle,
+    titlePl: titlePl || rawTitle,
+    originalTitle: rawTitle,
     category,
     categoryPl: translateCategoryToPl(category),
     area,
@@ -264,105 +316,30 @@ export function normalizeMealDbItem(raw: any): MealRecipe {
   }
 }
 
+import STATIC_MEALS_CATALOG from './mealsCatalogData.json'
+
 // ------------------------------------------------------------------
-// FULL MEALS CATALOG CACHE (793 RECIPES ACROSS ALL CATEGORIES)
+// FULL MEALS CATALOG (COMPLETE THEMEALDB 793-RECIPE CATALOG)
 // ------------------------------------------------------------------
 let cachedAllMealsCatalog: MealRecipe[] | null = null
-let catalogLastFetched = 0
-const CATALOG_TTL = 1000 * 60 * 60 * 24 // 24 hours
 
 export async function getAllMealsCatalog(): Promise<MealRecipe[]> {
-  const now = Date.now()
-  if (cachedAllMealsCatalog && cachedAllMealsCatalog.length > 0 && now - catalogLastFetched < CATALOG_TTL) {
+  if (cachedAllMealsCatalog && cachedAllMealsCatalog.length > 0) {
     return cachedAllMealsCatalog
   }
 
-  const categories = [
-    'Beef', 'Breakfast', 'Chicken', 'Dessert', 'Goat', 'Lamb',
-    'Miscellaneous', 'Pasta', 'Pork', 'Seafood', 'Side', 'Starter',
-    'Vegan', 'Vegetarian'
-  ]
-
-  const areasToTag = [
-    'Italian', 'Mexican', 'Chinese', 'Japanese', 'Thai', 'Spanish',
-    'Greek', 'British', 'French', 'Vietnamese', 'Malaysian', 'Filipino'
-  ]
-
-  try {
-    const areaPromises = areasToTag.map(async (a) => {
-      try {
-        const res = await fetch(`https://www.themealdb.com/api/json/v1/1/filter.php?a=${encodeURIComponent(a)}`, {
-          signal: AbortSignal.timeout(4500)
-        })
-        const data = await res.json()
-        return {
-          area: a,
-          ids: new Set<string>((data.meals || []).map((m: any) => String(m.idMeal)))
-        }
-      } catch (_) {
-        return { area: a, ids: new Set<string>() }
-      }
-    })
-
-    const catPromises = categories.map(async (c) => {
-      try {
-        const res = await fetch(`https://www.themealdb.com/api/json/v1/1/filter.php?c=${encodeURIComponent(c)}`, {
-          signal: AbortSignal.timeout(6000)
-        })
-        const data = await res.json()
-        return (data.meals || []).map((m: any) => ({ ...m, category: c }))
-      } catch (_) {
-        return []
-      }
-    })
-
-    const [catResults, areaResults] = await Promise.all([
-      Promise.all(catPromises),
-      Promise.all(areaPromises)
-    ])
-
-    const areaLookup = new Map<string, string>()
-    for (const ar of areaResults) {
-      for (const id of ar.ids) {
-        areaLookup.set(id, ar.area)
-      }
+  // Pre-compiled complete dataset with all 793 recipes from TheMealDB
+  const catalog = (STATIC_MEALS_CATALOG as MealRecipe[]).map(m => {
+    const titlePl = formatMealTitlePl(m.titlePl || m.title)
+    return {
+      ...m,
+      title: titlePl || m.title,
+      titlePl: titlePl || m.title,
+      originalTitle: m.originalTitle || m.title
     }
+  })
 
-    const flatMeals = catResults.flat()
-    const map = new Map<string, MealRecipe>()
-
-    for (const m of flatMeals) {
-      const id = String(m.idMeal || '')
-      if (!id || map.has(id)) continue
-
-      const area = areaLookup.get(id) || 'Międzynarodowa'
-      const category = m.category || 'Inne'
-      const rawTitle = String(m.strMeal || 'Bez nazwy')
-      const titlePl = formatMealTitlePl(rawTitle)
-
-      map.set(id, {
-        id,
-        title: rawTitle,
-        titlePl,
-        category,
-        categoryPl: translateCategoryToPl(category),
-        area,
-        areaPl: translateAreaToPl(area),
-        instructions: '',
-        thumbnail: String(m.strMealThumb || ''),
-        tags: [],
-        youtubeUrl: null,
-        sourceUrl: null,
-        ingredients: []
-      })
-    }
-
-    cachedAllMealsCatalog = Array.from(map.values())
-    catalogLastFetched = now
-    return cachedAllMealsCatalog
-  } catch (err) {
-    console.warn('Failed to build meals catalog:', err)
-    return cachedAllMealsCatalog || []
-  }
+  cachedAllMealsCatalog = catalog
+  return cachedAllMealsCatalog
 }
 

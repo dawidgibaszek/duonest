@@ -57,13 +57,35 @@ export default defineEventHandler(async (event) => {
     const allCatalog = await getAllMealsCatalog()
     let filtered = allCatalog
 
-    // A. Filter by Category
+    // A. Filter by Category (with semantic culinary keyword enrichment)
     if (category && category.toLowerCase() !== 'all' && category.toLowerCase() !== 'wszystkie') {
       const lowerCat = category.toLowerCase()
-      filtered = filtered.filter(m =>
-        m.category.toLowerCase() === lowerCat ||
-        m.categoryPl.toLowerCase() === lowerCat
-      )
+      const SEMANTIC_KEYWORDS: Record<string, string[]> = {
+        pasta: ['makaron', 'spaghetti', 'linguine', 'penne', 'lasagne', 'lasagna', 'noodle', 'fettuccine', 'cannelloni', 'rotolo', 'udon', 'lo mein', 'chow fun', 'pad thai', 'ramen', 'macaroni', 'mac and cheese', 'fideuà'],
+        breakfast: ['śniadani', 'pancake', 'naleśnik', 'omlet', 'omelette', 'szakszuka', 'shakshuka', 'jajka', 'egg', 'tost', 'toast', 'chałka', 'porridge', 'owsianka', 'gohan', 'frittata'],
+        side: ['soup', 'zupa', 'chłodnik', 'krem', 'rosół', 'barszcz', 'bulion', 'broth', 'chowder', 'bisque', 'ramen', 'pho'],
+        soup: ['soup', 'zupa', 'chłodnik', 'krem', 'rosół', 'barszcz', 'bulion', 'broth', 'chowder', 'bisque', 'ramen', 'pho', 'goulash', 'gulasz', 'stew', 'czorba', 'chorba'],
+        chicken: ['kurczak', 'chicken', 'indyk', 'turkey', 'kaczka', 'duck'],
+        beef: ['wołowina', 'beef', 'stek', 'steak', 'burger', 'polędwica'],
+        pork: ['wieprzowina', 'pork', 'boczek', 'bacon', 'szynka', 'ham', 'schab', 'kiełbas', 'sausage', 'chorizo'],
+        seafood: ['ryba', 'fish', 'łosoś', 'salmon', 'krewetk', 'prawn', 'shrimp', 'tuńczyk', 'tuna', 'kalmar', 'squid', 'małże', 'mussels', 'dorsz', 'cod', 'okoń', 'bass'],
+        vegetarian: ['wegetariańsk', 'tofu', 'hummus', 'falafel', 'bakłażan', 'aubergine', 'eggplant', 'cukinia', 'zucchini', 'dynia', 'pumpkin', 'fasola', 'bean', 'ciecierzyca', 'chickpea', 'soczewica', 'lentil'],
+        vegan: ['wegańsk', 'vegan', 'tofu', 'hummus', 'falafel', 'ratatouille', 'fasolka', 'açaí']
+      }
+      const extraKeywords = SEMANTIC_KEYWORDS[lowerCat] || []
+
+      filtered = filtered.filter(m => {
+        const matchesCategory =
+          m.category.toLowerCase() === lowerCat ||
+          m.categoryPl.toLowerCase() === lowerCat
+        if (matchesCategory) return true
+
+        if (extraKeywords.length > 0) {
+          const combined = `${m.title} ${m.originalTitle || ''} ${m.category}`.toLowerCase()
+          return extraKeywords.some(kw => combined.includes(kw))
+        }
+        return false
+      })
     }
 
     // B. Filter by Area / Cuisine
@@ -80,30 +102,25 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // C. Filter by Search Query
+    // C. Multi-Word Smart Search Query
     if (searchQuery) {
-      const qLower = searchQuery.toLowerCase()
-      const enTerm = POLISH_TO_ENGLISH_SEARCH[qLower] || qLower
+      const qLower = searchQuery.toLowerCase().trim()
+      const searchWords = qLower.split(/\s+/).filter(Boolean)
 
       filtered = filtered.filter(m => {
         const title = m.title.toLowerCase()
         const titlePl = (m.titlePl || '').toLowerCase()
+        const origTitle = (m.originalTitle || '').toLowerCase()
         const cat = m.category.toLowerCase()
         const catPl = m.categoryPl.toLowerCase()
         const ar = m.area.toLowerCase()
         const arPl = m.areaPl.toLowerCase()
+        const combined = `${title} ${titlePl} ${origTitle} ${cat} ${catPl} ${ar} ${arPl}`
 
-        return (
-          title.includes(qLower) ||
-          title.includes(enTerm) ||
-          titlePl.includes(qLower) ||
-          cat.includes(qLower) ||
-          cat.includes(enTerm) ||
-          catPl.includes(qLower) ||
-          ar.includes(qLower) ||
-          ar.includes(enTerm) ||
-          arPl.includes(qLower)
-        )
+        return searchWords.every(word => {
+          const enTerm = POLISH_TO_ENGLISH_SEARCH[word] || word
+          return combined.includes(word) || combined.includes(enTerm)
+        })
       })
     }
 

@@ -1,8 +1,8 @@
 import { defineEventHandler, getQuery } from 'h3'
 import {
+  getAllMealsCatalog,
   normalizeMealDbItem,
-  translateRecipeInstructionsAsync,
-  translateTextToPolish
+  translateRecipeInstructionsAsync
 } from '../../utils/meals'
 
 export default defineEventHandler(async (event) => {
@@ -14,6 +14,14 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
+    // 1. First check our pre-compiled rich catalog (instant response with full ingredients & steps)
+    const catalog = await getAllMealsCatalog()
+    const foundInCatalog = catalog.find(m => String(m.id) === id)
+    if (foundInCatalog) {
+      return { success: true, meal: foundInCatalog }
+    }
+
+    // 2. Fallback to live TheMealDB API if ID is not in static catalog
     const url = `https://www.themealdb.com/api/json/v1/1/lookup.php?i=${encodeURIComponent(id)}`
     const response = await fetch(url, { headers: { 'Accept': 'application/json' } })
     if (!response.ok) {
@@ -28,18 +36,12 @@ export default defineEventHandler(async (event) => {
 
     const meal = normalizeMealDbItem(rawMeals[0])
 
-    // Translate instructions & title to Polish
+    // Translate instructions to Polish
     try {
-      const [transResult, transTitle] = await Promise.all([
-        translateRecipeInstructionsAsync(meal.instructions),
-        translateTextToPolish(meal.title)
-      ])
+      const transResult = await translateRecipeInstructionsAsync(meal.instructions)
       if (transResult.instructionsPl) {
         meal.instructions = transResult.instructionsPl
         meal.instructionsSteps = transResult.stepsPl
-      }
-      if (transTitle && transTitle.length > 2) {
-        meal.titlePl = transTitle
       }
     } catch (_) {}
 
