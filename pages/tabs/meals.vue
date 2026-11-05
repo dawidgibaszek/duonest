@@ -19,7 +19,7 @@
                 aria-label="Dodaj własny obiad"
               >
                 <ion-icon :icon="ioniconsAddOutline" />
-                <span style="text-wrap: nowrap;">Nowe</span>
+                <span style="text-wrap: nowrap;">Własne</span>
               </button>
             </div>
           </div>
@@ -403,17 +403,43 @@
     <!-- ============================================== -->
     <!-- MODAL 1: SZCZEGÓŁY OBIADU / PRZEPIS           -->
     <!-- ============================================== -->
-    <ion-modal :is-open="showDetailsModal" @didDismiss="showDetailsModal = false">
-      <ion-header>
+    <ion-modal
+      :is-open="showDetailsModal"
+      @didDismiss="showDetailsModal = false"
+      class="dn-meal-sheet-modal"
+      :breakpoints="[0, 0.88, 1]"
+      :initial-breakpoint="0.88"
+      :handle="true"
+      handle-behavior="cycle"
+      data-no-swipe="true"
+    >
+      <ion-header class="modal-custom-header">
         <ion-toolbar>
-          <ion-title>Szczegóły Przepisu</ion-title>
-          <ion-buttons slot="end">
-            <ion-button @click="showDetailsModal = false">Zamknij</ion-button>
-          </ion-buttons>
+          <div class="modal-header-inner">
+            <div class="modal-title-wrap">
+              <div class="modal-title-icon-badge">
+                <ion-icon :icon="ioniconsBookOutline" class="modal-title-icon" />
+              </div>
+              <div class="modal-title-text-group">
+                <ion-title class="modal-main-title">Szczegóły Przepisu</ion-title>
+                <span class="modal-sub-title">Składniki i przygotowanie dania</span>
+              </div>
+            </div>
+            <ion-buttons slot="end">
+              <button
+                type="button"
+                class="modal-close-icon-btn"
+                @click="showDetailsModal = false"
+                aria-label="Zamknij"
+              >
+                <ion-icon :icon="ioniconsCloseOutline" />
+              </button>
+            </ion-buttons>
+          </div>
         </ion-toolbar>
       </ion-header>
 
-      <ion-content class="ion-padding" v-if="activeSelectedMeal">
+      <ion-content class="ion-padding custom-meal-modal-content" v-if="activeSelectedMeal">
         <div class="modal-recipe-content">
           <div
             v-if="activeSelectedMeal.image_url || activeSelectedMeal.thumbnail"
@@ -490,52 +516,90 @@
     <!-- ============================================== -->
     <!-- MODAL 2: WYBÓR DNIA I KUCHARZA DLA DANIA       -->
     <!-- ============================================== -->
-    <ion-modal :is-open="showAssignModal" @didDismiss="showAssignModal = false">
-      <ion-header>
+    <ion-modal
+      :is-open="showAssignModal"
+      @didDismiss="showAssignModal = false"
+      class="dn-meal-sheet-modal"
+      :breakpoints="[0, 0.75, 0.94]"
+      :initial-breakpoint="0.75"
+      :handle="true"
+      handle-behavior="cycle"
+      data-no-swipe="true"
+    >
+      <ion-header class="modal-custom-header">
         <ion-toolbar>
-          <ion-title>Zaplanuj ten obiad</ion-title>
-          <ion-buttons slot="end">
-            <ion-button @click="showAssignModal = false">Anuluj</ion-button>
-          </ion-buttons>
+          <div class="modal-header-inner">
+            <div class="modal-title-wrap">
+              <div class="modal-title-icon-badge">
+                <ion-icon :icon="ioniconsCalendarOutline" class="modal-title-icon" />
+              </div>
+              <div class="modal-title-text-group">
+                <ion-title class="modal-main-title">Zaplanuj ten obiad</ion-title>
+                <span class="modal-sub-title">Wybierz dzień i kucharza dla przepisu</span>
+              </div>
+            </div>
+            <ion-buttons slot="end">
+              <button
+                type="button"
+                class="modal-close-icon-btn"
+                @click="showAssignModal = false"
+                aria-label="Zamknij"
+              >
+                <ion-icon :icon="ioniconsCloseOutline" />
+              </button>
+            </ion-buttons>
+          </div>
         </ion-toolbar>
       </ion-header>
 
-      <ion-content class="ion-padding" v-if="assignTargetMeal">
+      <ion-content class="ion-padding custom-meal-modal-content" v-if="assignTargetMeal">
         <div class="assign-form">
           <div class="assign-meal-preview dn-card">
             <div
               class="assign-thumb"
               :style="{ backgroundImage: `url(${assignTargetMeal.thumbnail || assignTargetMeal.image_url})` }"
             />
-            <div>
+            <div class="assign-meal-info">
               <h4 class="assign-meal-name">{{ assignTargetMeal.title }}</h4>
               <p class="assign-meal-meta">{{ assignTargetMeal.categoryPl || assignTargetMeal.category }} • {{ assignTargetMeal.areaPl || assignTargetMeal.area }}</p>
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Wybierz dzień tygodnia *</label>
+            <div class="label-between-row">
+              <label class="form-label">
+                <ion-icon :icon="ioniconsCalendarOutline" class="label-icon" />
+                <span>Wybierz dzień tygodnia *</span>
+              </label>
+              <span class="selected-day-badge" v-if="selectedAssignDayLabel">
+                {{ selectedAssignDayLabel }}
+              </span>
+            </div>
             <div class="days-select-grid">
               <button
                 v-for="d in weekDays"
                 :key="d.dateStr"
                 type="button"
                 class="day-select-btn"
-                :class="{ active: assignDate === d.dateStr }"
+                :class="{ active: assignDate === d.dateStr, 'has-meal': !!d.meal, 'is-today': d.isToday }"
                 @click="assignDate = d.dateStr"
               >
                 <span class="btn-day-name">{{ d.shortDay }}</span>
-                <span class="btn-day-date">{{ d.displayDate }}</span>
+                <span class="btn-day-date">{{ d.displayDate.split(' ')[0] }}</span>
+                <span v-if="d.meal" class="btn-day-indicator" title="Zaplanowano obiad"></span>
               </button>
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Kto gotuje? *</label>
-            <div class="cook-select-row">
+            <label class="form-label">
+              <ion-icon :icon="ioniconsPersonOutline" class="label-icon" />
+              <span>Kto gotuje? *</span>
+            </label>
+            <div class="cook-chips-grid">
               <button
                 type="button"
-                class="cook-btn"
+                class="cook-chip-btn"
                 :class="{ active: assignCook === 'me' }"
                 @click="assignCook = 'me'"
               >
@@ -545,7 +609,7 @@
 
               <button
                 type="button"
-                class="cook-btn"
+                class="cook-chip-btn"
                 :class="{ active: assignCook === 'partner' }"
                 @click="assignCook = 'partner'"
               >
@@ -555,7 +619,7 @@
 
               <button
                 type="button"
-                class="cook-btn"
+                class="cook-chip-btn"
                 :class="{ active: assignCook === 'both' }"
                 @click="assignCook = 'both'"
               >
@@ -565,7 +629,7 @@
 
               <button
                 type="button"
-                class="cook-btn"
+                class="cook-chip-btn"
                 :class="{ active: assignCook === 'restaurant' }"
                 @click="assignCook = 'restaurant'"
               >
@@ -575,7 +639,7 @@
 
               <button
                 type="button"
-                class="cook-btn"
+                class="cook-chip-btn"
                 :class="{ active: assignCook === 'takeout' }"
                 @click="assignCook = 'takeout'"
               >
@@ -585,15 +649,17 @@
             </div>
           </div>
 
-          <button
-            type="button"
-            class="dn-button-primary submit-assign-btn"
-            :disabled="!assignDate"
-            @click="confirmAssignMeal"
-          >
-            <ion-icon :icon="ioniconsCheckmarkOutline" />
-            <span>Zaplanuj obiad</span>
-          </button>
+          <div class="modal-submit-bar">
+            <button
+              type="button"
+              class="dn-button-primary submit-custom-meal-btn"
+              :disabled="!assignDate"
+              @click="confirmAssignMeal"
+            >
+              <ion-icon :icon="ioniconsCheckmarkOutline" />
+              <span>Zaplanuj ten obiad</span>
+            </button>
+          </div>
         </div>
       </ion-content>
     </ion-modal>
@@ -601,59 +667,106 @@
     <!-- ============================================== -->
     <!-- MODAL 3: DODAWANIE WŁASNEGO OBIADU             -->
     <!-- ============================================== -->
-    <ion-modal :is-open="showAddCustomModal" @didDismiss="showAddCustomModal = false">
-      <ion-header>
+    <ion-modal
+      :is-open="showAddCustomModal"
+      @didDismiss="showAddCustomModal = false"
+      class="dn-meal-sheet-modal dn-custom-meal-modal"
+      :breakpoints="[0, 0.82, 0.95]"
+      :initial-breakpoint="0.82"
+      :handle="true"
+      handle-behavior="cycle"
+      data-no-swipe="true"
+    >
+      <ion-header class="modal-custom-header">
         <ion-toolbar>
-          <ion-title>Nowy Własny Obiad</ion-title>
-          <ion-buttons slot="end">
-            <ion-button @click="showAddCustomModal = false">Anuluj</ion-button>
-          </ion-buttons>
+          <div class="modal-header-inner">
+            <div class="modal-title-wrap">
+              <div class="modal-title-icon-badge">
+                <ion-icon :icon="ioniconsRestaurantOutline" class="modal-title-icon" />
+              </div>
+              <div class="modal-title-text-group">
+                <ion-title class="modal-main-title">Dodaj Własny Obiad</ion-title>
+                <span class="modal-sub-title">Zaplanuj domowy posiłek dla Was</span>
+              </div>
+            </div>
+            <ion-buttons slot="end">
+              <button
+                type="button"
+                class="modal-close-icon-btn"
+                @click="showAddCustomModal = false"
+                aria-label="Zamknij"
+              >
+                <ion-icon :icon="ioniconsCloseOutline" />
+              </button>
+            </ion-buttons>
+          </div>
         </ion-toolbar>
       </ion-header>
 
-      <ion-content class="ion-padding">
+      <ion-content class="ion-padding custom-meal-modal-content">
         <form @submit.prevent="handleCreateCustomMeal" class="custom-meal-form">
+          <!-- Nazwa obiadu -->
           <div class="form-group">
-            <label class="form-label">Nazwa obiadu *</label>
-            <ion-input
-              v-model="customTitle"
-              placeholder="np. Kotlety schabowe z ziemniaczkami, Domowa lasagne..."
-              class="modal-input"
-            />
+            <label class="form-label">
+              <ion-icon :icon="ioniconsFastFoodOutline" class="label-icon" />
+              <span>Nazwa obiadu *</span>
+            </label>
+            <div class="input-container-box">
+              <ion-input
+                v-model="customTitle"
+                placeholder="np. Kotlety schabowe z ziemniaczkami, Domowa lasagne..."
+                class="modal-input"
+                :clear-input="true"
+              />
+            </div>
           </div>
 
+          <!-- Dzień tygodnia -->
           <div class="form-group">
-            <label class="form-label">Dzień *</label>
+            <div class="label-between-row">
+              <label class="form-label">
+                <ion-icon :icon="ioniconsCalendarOutline" class="label-icon" />
+                <span>Wybierz dzień *</span>
+              </label>
+              <span class="selected-day-badge" v-if="selectedCustomDayLabel">
+                {{ selectedCustomDayLabel }}
+              </span>
+            </div>
             <div class="days-select-grid">
               <button
                 v-for="d in weekDays"
                 :key="d.dateStr"
                 type="button"
                 class="day-select-btn"
-                :class="{ active: customDate === d.dateStr }"
+                :class="{ active: customDate === d.dateStr, 'has-meal': !!d.meal, 'is-today': d.isToday }"
                 @click="customDate = d.dateStr"
               >
                 <span class="btn-day-name">{{ d.shortDay }}</span>
-                <span class="btn-day-date">{{ d.displayDate }}</span>
+                <span class="btn-day-date">{{ d.displayDate.split(' ')[0] }}</span>
+                <span v-if="d.meal" class="btn-day-indicator" title="Zaplanowano obiad"></span>
               </button>
             </div>
           </div>
 
+          <!-- Kto gotuje -->
           <div class="form-group">
-            <label class="form-label">Kto gotuje?</label>
-            <div class="cook-select-row">
+            <label class="form-label">
+              <ion-icon :icon="ioniconsPersonOutline" class="label-icon" />
+              <span>Kto przygotowuje?</span>
+            </label>
+            <div class="cook-chips-grid">
               <button
                 type="button"
-                class="cook-btn"
+                class="cook-chip-btn"
                 :class="{ active: customCook === 'me' }"
                 @click="customCook = 'me'"
               >
                 <ion-icon :icon="ioniconsPersonOutline" />
-                <span>Ja</span>
+                <span>Ja ({{ currentUser?.name || 'Mnie' }})</span>
               </button>
               <button
                 type="button"
-                class="cook-btn"
+                class="cook-chip-btn"
                 :class="{ active: customCook === 'partner' }"
                 @click="customCook = 'partner'"
               >
@@ -662,7 +775,7 @@
               </button>
               <button
                 type="button"
-                class="cook-btn"
+                class="cook-chip-btn"
                 :class="{ active: customCook === 'both' }"
                 @click="customCook = 'both'"
               >
@@ -671,7 +784,7 @@
               </button>
               <button
                 type="button"
-                class="cook-btn"
+                class="cook-chip-btn"
                 :class="{ active: customCook === 'restaurant' }"
                 @click="customCook = 'restaurant'"
               >
@@ -680,7 +793,7 @@
               </button>
               <button
                 type="button"
-                class="cook-btn"
+                class="cook-chip-btn"
                 :class="{ active: customCook === 'takeout' }"
                 @click="customCook = 'takeout'"
               >
@@ -690,34 +803,61 @@
             </div>
           </div>
 
+          <!-- Składniki -->
           <div class="form-group">
-            <label class="form-label">Składniki (opcjonalnie, po przecinku lub w nowej linii)</label>
-            <ion-textarea
-              v-model="customIngredientsText"
-              placeholder="np. schab, bułka tarta, jajka, ziemniaki..."
-              class="modal-input modal-textarea"
-              :rows="3"
-            />
+            <div class="label-between-row">
+              <label class="form-label">
+                <ion-icon :icon="ioniconsCartOutline" class="label-icon" />
+                <span>Składniki</span>
+              </label>
+              <span class="label-badge-optional">opcjonalnie</span>
+            </div>
+            <div class="textarea-container-box">
+              <ion-textarea
+                v-model="customIngredientsText"
+                placeholder="Wpisz składniki po przecinku lub od nowej linii, np.:&#10;schab, bułka tarta, jajka, ziemniaki..."
+                class="modal-textarea"
+                :rows="3"
+                :auto-grow="true"
+              />
+            </div>
+            <div class="field-subtext-row">
+              <ion-icon :icon="ioniconsInformationCircleOutline" />
+              <span>Możesz przenieść te składniki do Listy Zakupów jednym kliknięciem.</span>
+            </div>
           </div>
 
+          <!-- Notatka lub przepis -->
           <div class="form-group">
-            <label class="form-label">Notatka lub przepis (opcjonalnie)</label>
-            <ion-textarea
-              v-model="customInstructions"
-              placeholder="np. Smażyć na maśle klarowanym..."
-              class="modal-input modal-textarea"
-              :rows="2"
-            />
+            <div class="label-between-row">
+              <label class="form-label">
+                <ion-icon :icon="ioniconsBookOutline" class="label-icon" />
+                <span>Notatka lub przepis</span>
+              </label>
+              <span class="label-badge-optional">opcjonalnie</span>
+            </div>
+            <div class="textarea-container-box">
+              <ion-textarea
+                v-model="customInstructions"
+                placeholder="np. Smażyć na maśle klarowanym, dodać świeży koperek..."
+                class="modal-textarea"
+                :rows="2"
+                :auto-grow="true"
+              />
+            </div>
           </div>
 
-          <button
-            type="submit"
-            class="dn-button-primary submit-assign-btn"
-            :disabled="!customTitle.trim() || !customDate"
-          >
-            <ion-icon :icon="ioniconsCheckmarkOutline" />
-            <span>Dodaj do Planera</span>
-          </button>
+          <!-- Przycisk zapisu -->
+          <div class="modal-submit-bar">
+            <button
+              type="submit"
+              class="dn-button-primary submit-custom-meal-btn"
+              :disabled="!customTitle.trim() || !customDate"
+            >
+              <ion-icon :icon="ioniconsCheckmarkOutline" />
+              <span>Dodaj do Planera Tygodnia</span>
+            </button>
+          </div>
         </form>
       </ion-content>
     </ion-modal>
@@ -1029,6 +1169,12 @@ const assignTargetMeal = ref<any>(null)
 const assignDate = ref('')
 const assignCook = ref<'me' | 'partner' | 'both' | 'restaurant' | 'takeout'>('me')
 
+const selectedAssignDayLabel = computed(() => {
+  if (!assignDate.value) return ''
+  const d = weekDays.value.find(item => item.dateStr === assignDate.value)
+  return d ? `${d.dayName}, ${d.displayDate}` : ''
+})
+
 const openAssignModal = async (meal: any, defaultDate?: string) => {
   let fullMeal = meal
   if (!meal.ingredients || meal.ingredients.length === 0) {
@@ -1084,6 +1230,12 @@ const customDate = ref('')
 const customCook = ref<'me' | 'partner' | 'both' | 'restaurant' | 'takeout'>('me')
 const customIngredientsText = ref('')
 const customInstructions = ref('')
+
+const selectedCustomDayLabel = computed(() => {
+  if (!customDate.value) return ''
+  const d = weekDays.value.find(item => item.dateStr === customDate.value)
+  return d ? `${d.dayName}, ${d.displayDate}` : ''
+})
 
 const openAddCustomModal = (defaultDate?: string) => {
   customTitle.value = ''
@@ -1952,30 +2104,157 @@ onMounted(() => {
   text-decoration: none;
 }
 
-/* ASSIGN MODAL */
+/* ======================================================= */
+/* BOTTOM SHEET MODALS (CUSTOM MEAL, ASSIGN & DETAILS)     */
+/* ======================================================= */
+ion-modal.dn-meal-sheet-modal {
+  --border-radius: 28px 28px 0 0;
+  --background: #ffffff;
+  --box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.16);
+}
+
+ion-modal.dn-meal-sheet-modal::part(handle) {
+  background: #94a3b8;
+  width: 44px;
+  height: 5px;
+  border-radius: 9999px;
+  margin-top: 10px;
+  margin-bottom: 2px;
+}
+
+.dn-meal-sheet-modal .modal-custom-header ion-toolbar {
+  --background: #ffffff;
+  --border-width: 0;
+  padding: 4px 14px 8px;
+}
+
+.dn-meal-sheet-modal .modal-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 2px;
+}
+
+.dn-meal-sheet-modal .modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dn-meal-sheet-modal .modal-title-icon-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0f172a;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.dn-meal-sheet-modal .modal-title-text-group {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.dn-meal-sheet-modal .modal-main-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  padding: 0;
+  line-height: 1.25;
+}
+
+.dn-meal-sheet-modal .modal-sub-title {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+.dn-meal-sheet-modal .modal-close-icon-btn {
+  background: #f1f5f9;
+  border: none;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 22px;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+  padding: 0;
+}
+
+.dn-meal-sheet-modal .modal-close-icon-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.dn-meal-sheet-modal .modal-close-icon-btn:active {
+  transform: scale(0.92);
+}
+
+.custom-meal-modal-content {
+  --background: #ffffff;
+  --padding-top: 6px;
+  --padding-bottom: 32px;
+  --padding-start: 16px;
+  --padding-end: 16px;
+}
+
+.custom-meal-form,
+.assign-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 24px;
+}
+
+/* Assign Preview Card */
 .assign-meal-preview {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px;
-  border-radius: 12px;
-  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 4px;
 }
 
 .assign-thumb {
-  width: 54px;
-  height: 54px;
-  border-radius: 10px;
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
   background-size: cover;
   background-position: center;
   background-color: #f1f5f9;
+  flex-shrink: 0;
+}
+
+.assign-meal-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .assign-meal-name {
   font-size: 14px;
   font-weight: 800;
   color: #0f172a;
-  margin: 0 0 2px;
+  margin: 0 0 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .assign-meal-meta {
@@ -1984,95 +2263,259 @@ onMounted(() => {
   margin: 0;
 }
 
+/* Form Groups & Labels */
 .form-group {
-  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+}
+
+.label-between-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
 
 .form-label {
-  display: block;
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
   font-weight: 700;
-  color: #475569;
-  margin-bottom: 6px;
+  color: #1e293b;
+  margin-bottom: 8px;
 }
 
+.label-between-row .form-label {
+  margin-bottom: 0;
+}
+
+.label-icon {
+  font-size: 15px;
+  color: #64748b;
+}
+
+.label-badge-optional {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.selected-day-badge {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #0f172a;
+  background: #f1f5f9;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
+}
+
+/* Inputs & Textareas */
+.input-container-box,
+.textarea-container-box {
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 14px;
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.input-container-box:focus-within,
+.textarea-container-box:focus-within {
+  background: #ffffff;
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+}
+
+.modal-input {
+  --background: transparent;
+  --padding-start: 14px;
+  --padding-end: 14px;
+  --padding-top: 10px;
+  --padding-bottom: 10px;
+  --color: #0f172a;
+  --placeholder-color: #94a3b8;
+  --placeholder-opacity: 1;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+}
+
+.modal-textarea {
+  --background: transparent;
+  --padding-start: 14px;
+  --padding-end: 14px;
+  --padding-top: 10px;
+  --padding-bottom: 10px;
+  --color: #0f172a;
+  --placeholder-color: #94a3b8;
+  --placeholder-opacity: 1;
+  font-size: 13.5px;
+  line-height: 1.45;
+  border: none;
+  min-height: 75px;
+}
+
+.field-subtext-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.field-subtext-row ion-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  color: #94a3b8;
+}
+
+/* 7-Day Select Grid */
 .days-select-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  width: 100%;
 }
 
 .day-select-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 6px 4px;
-  border-radius: 10px;
-  border: 1px solid #cbd5e1;
+  justify-content: center;
+  padding: 8px 2px;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
   background: #ffffff;
   cursor: pointer;
   transition: all 0.15s ease;
+  position: relative;
+  touch-action: manipulation;
+  min-width: 0;
+}
+
+.day-select-btn:active {
+  transform: scale(0.95);
+}
+
+.day-select-btn.is-today:not(.active) {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.05);
 }
 
 .day-select-btn.active {
   background: #0f172a;
   color: #ffffff;
   border-color: #0f172a;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
 }
 
 .btn-day-name {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
 }
 
 .btn-day-date {
-  font-size: 10px;
-  opacity: 0.8;
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-top: 2px;
+  line-height: 1.2;
 }
 
-.cook-select-row {
+.btn-day-indicator {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #10b981;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+.day-select-btn.active .btn-day-indicator {
+  background: #34d399;
+}
+
+/* Cook chips */
+.cook-chips-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.cook-btn {
+.cook-chip-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
   background: #ffffff;
   color: #475569;
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
+  touch-action: manipulation;
 }
 
-.cook-btn.active {
+.cook-chip-btn ion-icon {
+  font-size: 15px;
+}
+
+.cook-chip-btn:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.cook-chip-btn:active {
+  transform: scale(0.96);
+}
+
+.cook-chip-btn.active {
   background: #0f172a;
   color: #ffffff;
   border-color: #0f172a;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
 }
 
-.submit-assign-btn {
+.cook-chip-btn.active ion-icon {
+  color: #ffffff;
+}
+
+/* Modal Submit Bar */
+.modal-submit-bar {
+  margin-top: 6px;
+}
+
+.submit-custom-meal-btn {
   width: 100%;
-  padding: 11px;
-  font-size: 13.5px;
-  margin-top: 10px;
+  padding: 13px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  touch-action: manipulation;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
 }
 
-.modal-input {
-  --background: #f8fafc;
-  --padding-start: 12px;
-  --padding-end: 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-}
-
-.modal-textarea {
-  min-height: 70px;
+.submit-custom-meal-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 </style>
