@@ -210,7 +210,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { useDuoState, getSupabaseClient, clearStaleSupabaseCookies, sanitizeEmail } from '~/composables/useDuoState'
+import { useDuoState, getSupabaseClient, clearSupabaseSessionStorage, sanitizeEmail } from '~/composables/useDuoState'
 
 const route = useRoute()
 const {
@@ -305,8 +305,8 @@ onMounted(async () => {
     mode.value = 'forgot'
   }
 
-  // 3. Clear any leftover stale recovery cookies
-  clearStaleSupabaseCookies()
+  // 3. Clear any leftover stale recovery tokens and storage
+  clearSupabaseSessionStorage()
 
   if (urlParams.get('email')) {
     emailInput.value = sanitizeEmail(urlParams.get('email'))

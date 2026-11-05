@@ -445,6 +445,24 @@ export const clearStaleSupabaseCookies = () => {
   } catch (_) {}
 }
 
+export const clearSupabaseSessionStorage = () => {
+  clearStaleSupabaseCookies()
+  if (typeof window !== 'undefined') {
+    try {
+      const keysToRemove: string[] = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+          keysToRemove.push(key)
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k))
+    } catch (_) {}
+  }
+  globalSupabaseClient = null
+  cleanDbClient = null
+}
+
 export const getCleanDbClient = () => {
   if (cleanDbClient) return cleanDbClient
   try {
@@ -686,14 +704,15 @@ export const useDuoState = () => {
   }
 
   const syncUserProfileWithAuth = async (user: any) => {
-    if (!user || !supabase) return
+    const client = getCleanDbClient() || supabase
+    if (!user || !client) return
 
     try {
-      const cleanEmail = (user.email || '').trim().toLowerCase()
+      const cleanEmail = sanitizeEmail(user.email)
       let dbProfile: any = null
 
       if (cleanEmail) {
-        const { data } = await supabase
+        const { data } = await client
           .from('profiles')
           .select('*')
           .ilike('email', cleanEmail)
@@ -704,7 +723,7 @@ export const useDuoState = () => {
       }
 
       if (!dbProfile && user.id) {
-        const { data } = await supabase
+        const { data } = await client
           .from('profiles')
           .select('*')
           .eq('id', user.id)
@@ -751,9 +770,10 @@ export const useDuoState = () => {
   }
 
   const loadPartnershipAndPartner = async (partnershipId: string, currentUserId: string) => {
-    if (!supabase) return
+    const client = getCleanDbClient() || supabase
+    if (!client) return
     try {
-      const { data: pData } = await supabase
+      const { data: pData } = await client
         .from('partnerships')
         .select('*')
         .eq('id', partnershipId)
@@ -772,7 +792,7 @@ export const useDuoState = () => {
           ? pData.partner2_id
           : ((myId && pData.partner2_id === myId) ? pData.partner1_id : (pData.partner1_id || pData.partner2_id))
         if (partnerId) {
-          const { data: pUser } = await supabase
+          const { data: pUser } = await client
             .from('profiles')
             .select('*')
             .eq('id', partnerId)
@@ -865,10 +885,14 @@ export const useDuoState = () => {
     if (!cleanEmail) return { data: null, error: new Error('Wprowadź adres e-mail') }
 
     try {
-      clearStaleSupabaseCookies()
+      clearSupabaseSessionStorage()
 
-      // Direct query to Supabase profiles by email using clean DB client
-      let { data: dbProfile, error: fetchErr } = await dbClient
+      // Direct multi-strategy query to Supabase profiles by email using clean DB client
+      let dbProfile: any = null
+      let fetchErr: any = null
+
+      // Strategy 1: Case-insensitive ilike on email
+      const res1 = await dbClient
         .from('profiles')
         .select('*')
         .ilike('email', cleanEmail)
@@ -876,7 +900,61 @@ export const useDuoState = () => {
         .limit(1)
         .maybeSingle()
 
-      // Resilient fallback: If not found or error, try fallback via global client with exact match
+      if (res1.data) {
+        dbProfile = res1.data
+      } else {
+        fetchErr = res1.error
+      }
+
+      // Strategy 2: Exact eq match
+      if (!dbProfile) {
+        const res2 = await dbClient
+          .from('profiles')
+          .select('*')
+          .eq('email', cleanEmail)
+          .limit(1)
+          .maybeSingle()
+        if (res2.data) {
+          dbProfile = res2.data
+          fetchErr = null
+        }
+      }
+
+      // Strategy 3: Substring ilike match
+      if (!dbProfile) {
+        const res3 = await dbClient
+          .from('profiles')
+          .select('*')
+          .ilike('email', `%${cleanEmail}%`)
+          .limit(1)
+          .maybeSingle()
+        if (res3.data) {
+          dbProfile = res3.data
+          fetchErr = null
+        }
+      }
+
+      // Strategy 4: In-memory normalized scan over all profiles (bulletproof against invisible Unicode / formatting)
+      if (!dbProfile) {
+        const res4 = await dbClient
+          .from('profiles')
+          .select('*')
+        if (res4.data && res4.data.length > 0) {
+          const strippedTarget = cleanEmail.replace(/[^a-zA-Z0-9@.]/g, '').toLowerCase()
+          const matched = res4.data.find((p: any) => {
+            if (!p.email) return false
+            const pClean = sanitizeEmail(p.email)
+            if (pClean === cleanEmail) return true
+            return pClean.replace(/[^a-zA-Z0-9@.]/g, '').toLowerCase() === strippedTarget
+          })
+          if (matched) {
+            dbProfile = matched
+            fetchErr = null
+          }
+        }
+      }
+
+      // Strategy 5: Resilient fallback via global client
       if (!dbProfile) {
         const authClient = getSupabaseClient()
         if (authClient) {
@@ -1207,7 +1285,10 @@ export const useDuoState = () => {
       const modernHash = await hashPassword(newPassword)
 
       // 4. Find the profile matching the VERIFIED email ONLY
-      const { data: dbProfile, error: profileErr } = await dbClient
+      let dbProfile: any = null
+      let profileErr: any = null
+
+      const res1 = await dbClient
         .from('profiles')
         .select('*')
         .ilike('email', cleanEmail)
@@ -1215,7 +1296,43 @@ export const useDuoState = () => {
         .limit(1)
         .maybeSingle()
 
-      if (profileErr) {
+      if (res1.data) {
+        dbProfile = res1.data
+      } else {
+        profileErr = res1.error
+      }
+
+      if (!dbProfile) {
+        const res2 = await dbClient
+          .from('profiles')
+          .select('*')
+          .eq('email', cleanEmail)
+          .limit(1)
+          .maybeSingle()
+        if (res2.data) {
+          dbProfile = res2.data
+          profileErr = null
+        }
+      }
+
+      if (!dbProfile) {
+        const { data: allProfiles } = await dbClient.from('profiles').select('*')
+        if (allProfiles && allProfiles.length > 0) {
+          const strippedTarget = cleanEmail.replace(/[^a-zA-Z0-9@.]/g, '').toLowerCase()
+          const matched = allProfiles.find((p: any) => {
+            if (!p.email) return false
+            const pClean = sanitizeEmail(p.email)
+            if (pClean === cleanEmail) return true
+            return pClean.replace(/[^a-zA-Z0-9@.]/g, '').toLowerCase() === strippedTarget
+          })
+          if (matched) {
+            dbProfile = matched
+            profileErr = null
+          }
+        }
+      }
+
+      if (profileErr && !dbProfile) {
         console.error('Error fetching profile for password reset:', profileErr)
         return { data: null, error: new Error('Błąd odczytu profilu: ' + (profileErr.message || profileErr)) }
       }
@@ -1256,13 +1373,13 @@ export const useDuoState = () => {
         }).eq('id', dbProfile.id)
       }
 
-      // 6. Clean up temporary recovery session from cookies
+      // 6. Clean up temporary recovery session and poisoned localStorage
       if (authClient) {
         try {
           await authClient.auth.signOut({ scope: 'local' })
         } catch (_) {}
       }
-      clearStaleSupabaseCookies()
+      clearSupabaseSessionStorage()
 
       // 7. Clear old storage items to ensure clean switch
       if (typeof window !== 'undefined') {
@@ -1299,7 +1416,12 @@ export const useDuoState = () => {
         ...createInitialProfile(),
         ...dbProfile,
         partnership_id: effectivePartnershipId,
-        avatar_color: displayColor
+        avatar_color: displayColor,
+        name: dbProfile.name || '',
+        points: Number(dbProfile.points) || 0,
+        love_note: (dbProfile.love_note === 'Budujemy nasze wspólne gniazdko!' || dbProfile.love_note === 'Cieszę się, że jesteśmy razem!') ? '' : (dbProfile.love_note || ''),
+        favorite_drink: dbProfile.favorite_drink === 'Kawa z mlekiem' ? '' : (dbProfile.favorite_drink || ''),
+        favorite_treat: dbProfile.favorite_treat === 'Czekolada' ? '' : (dbProfile.favorite_treat || '')
       }
 
       if (effectivePartnershipId) {
@@ -1421,7 +1543,7 @@ export const useDuoState = () => {
         await supabase.auth.signOut()
       } catch (_) {}
     }
-    clearStaleSupabaseCookies()
+    clearSupabaseSessionStorage()
     authUser.value = null
     authSession.value = null
     clearAllDuoState()
@@ -1690,7 +1812,7 @@ export const useDuoState = () => {
       return true
     }
 
-    const client = getSupabaseClient()
+    const client = getCleanDbClient() || getSupabaseClient()
     if (!client) return true
 
     const userId = authUser.value.id
@@ -1712,7 +1834,7 @@ export const useDuoState = () => {
         .maybeSingle()
 
       if (profileErr) {
-        if (profileErr.code === '42P01' || profileErr.message?.includes('fetch') || profileErr.message?.includes('network')) {
+        if (profileErr.code === '42P01' || profileErr.code === 'PGRST301' || profileErr.message?.includes('fetch') || profileErr.message?.includes('network') || profileErr.message?.includes('JWT')) {
           return true
         }
       }
@@ -1775,7 +1897,7 @@ export const useDuoState = () => {
           .maybeSingle()
 
         if (partErr) {
-          if (partErr.code === '42P01' || partErr.message?.includes('fetch') || partErr.message?.includes('network')) {
+          if (partErr.code === '42P01' || partErr.code === 'PGRST301' || partErr.message?.includes('fetch') || partErr.message?.includes('network') || partErr.message?.includes('JWT')) {
             return true
           }
         }
@@ -2599,7 +2721,7 @@ export const useDuoState = () => {
   // Check and sync with Supabase tables if active session/tables exist
   const initSupabaseSync = async () => {
     initializeClientState()
-    const client = getSupabaseClient()
+    const client = getCleanDbClient() || getSupabaseClient()
     if (!client) return
 
     if (currentUser.value?.id && authUser.value) {
@@ -2646,32 +2768,17 @@ export const useDuoState = () => {
           const effectivePartnershipId = dbProfile?.partnership_id || partnership.value?.id
           if (effectivePartnershipId) {
             await loadPartnershipAndPartner(effectivePartnershipId, currentUser.value.id)
+            subscribeToPartnershipRealtime(effectivePartnershipId)
+          } else if (currentUser.value?.pairing_code) {
+            subscribeToPairingChannel(currentUser.value.pairing_code)
           }
 
-          // Sync our profile metadata to Supabase profiles table without overriding database points
-          try {
-            const currentHash = currentUserPasswordHash.value || ''
-            const cleanColor = getCleanAccentColor(currentUser.value.avatar_color, '#0284c7')
-            const colorToSave = currentHash ? `${cleanColor}|${currentHash}` : cleanColor
-            await client.from('profiles').update({
-              name: currentUser.value.name,
-              avatar_color: colorToSave,
-              pairing_code: currentUser.value.pairing_code,
-              partnership_id: partnership.value?.id || currentUser.value.partnership_id || null,
-              current_mood: currentUser.value.current_mood,
-              mood_note: currentUser.value.mood_note,
-              love_note: currentUser.value.love_note,
-              favorite_drink: currentUser.value.favorite_drink,
-              favorite_treat: currentUser.value.favorite_treat
-            }).eq('id', currentUser.value.id)
-          } catch (_) {}
+          if (currentUser.value?.id) {
+            subscribeToSecurityChannel(currentUser.value.id, effectivePartnershipId)
+          }
         } else if (partnership.value?.id) {
           await loadPartnershipAndPartner(partnership.value.id, currentUser.value?.id || '')
-        }
-
-        // Load partnership data from database if available
-        if (partnership.value?.id) {
-          await loadPartnershipAndPartner(partnership.value.id, currentUser.value?.id || '')
+          subscribeToPartnershipRealtime(partnership.value.id)
         }
       }
     } catch (err) {
@@ -2680,7 +2787,7 @@ export const useDuoState = () => {
   }
 
   const loadSupabaseData = async (partnershipId: string) => {
-    const client = getSupabaseClient()
+    const client = getCleanDbClient() || getSupabaseClient()
     if (!client) return
     try {
       const [shops, tasks, evts, ndgs, wshs, movs, mls] = await Promise.all([
@@ -3814,7 +3921,7 @@ export const useDuoState = () => {
       return
     }
 
-    const client = getSupabaseClient()
+    const client = getCleanDbClient() || getSupabaseClient()
     const pId = partnership.value?.id || currentUser.value?.partnership_id
     if (!client || !pId) return
 
@@ -3942,7 +4049,7 @@ export const useDuoState = () => {
 
     broadcastToPartner('MOVIE_UPDATE', updated)
 
-    const client = getSupabaseClient()
+    const client = getCleanDbClient() || getSupabaseClient()
     const pId = partnership.value?.id || currentUser.value?.partnership_id
     if (client && pId) {
       safeDb(client.from('movies').update(updates).eq('id', id))
@@ -3958,7 +4065,7 @@ export const useDuoState = () => {
 
     broadcastToPartner('MOVIE_DELETE', { id })
 
-    const client = getSupabaseClient()
+    const client = getCleanDbClient() || getSupabaseClient()
     const pId = partnership.value?.id || currentUser.value?.partnership_id
     if (client && pId) {
       safeDb(client.from('movies').delete().eq('id', id))
@@ -3987,7 +4094,7 @@ export const useDuoState = () => {
 
     broadcastToPartner('MOVIE_TOGGLE_WATCHED', { id, status: newStatus, watched_at: watchedAt })
 
-    const client = getSupabaseClient()
+    const client = getCleanDbClient() || getSupabaseClient()
     const pId = partnership.value?.id || currentUser.value?.partnership_id
     if (client && pId) {
       safeDb(client.from('movies').update({ status: newStatus, watched_at: watchedAt }).eq('id', id))
@@ -4029,7 +4136,7 @@ export const useDuoState = () => {
 
     broadcastToPartner('MOVIE_UPDATE', { id: movieId, reviews, last_reviewer_id: myId })
 
-    const client = getSupabaseClient()
+    const client = getCleanDbClient() || getSupabaseClient()
     const pId = partnership.value?.id || currentUser.value?.partnership_id
     if (client && pId) {
       safeDb(client.from('movies').update({ reviews }).eq('id', movieId))
@@ -4063,7 +4170,7 @@ export const useDuoState = () => {
       updated_at: updated.updated_at
     })
 
-    const client = getSupabaseClient()
+    const client = getCleanDbClient() || getSupabaseClient()
     const pId = partnership.value?.id || currentUser.value?.partnership_id
     if (client && pId) {
       safeDb(client.from('movies').update({
@@ -4080,7 +4187,7 @@ export const useDuoState = () => {
   }
 
   const refreshMovies = async () => {
-    const client = getSupabaseClient()
+    const client = getCleanDbClient() || getSupabaseClient()
     const pId = partnership.value?.id || currentUser.value?.partnership_id
     if (!client || !pId) return
     try {

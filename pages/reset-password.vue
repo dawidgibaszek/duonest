@@ -179,7 +179,7 @@ import {
   alertCircleOutline as ioniconsAlertCircleOutline,
   arrowForwardOutline as ioniconsArrowForwardOutline
 } from 'ionicons/icons'
-import { useDuoState, getSupabaseClient, clearStaleSupabaseCookies, sanitizeEmail } from '~/composables/useDuoState'
+import { useDuoState, getSupabaseClient, clearSupabaseSessionStorage, sanitizeEmail } from '~/composables/useDuoState'
 
 const { completePasswordReset, isPaired, currentUser, partnership } = useDuoState()
 
@@ -213,8 +213,8 @@ const goToLogin = () => {
 onMounted(async () => {
   if (typeof window === 'undefined') return
 
-  // 1. Clear any conflicting cookie session from storage so recovery is isolated
-  clearStaleSupabaseCookies()
+  // 1. Clear any conflicting tokens from storage so recovery is isolated
+  clearSupabaseSessionStorage()
 
   const hash = window.location.hash || ''
   const search = window.location.search || ''
