@@ -39,10 +39,23 @@
         <!-- BACKGROUND AMBIENT GLOWS & FLOATING SPARKLES -->
         <div class="hero-ambient-glow glow-top-right"></div>
         <div class="hero-ambient-glow glow-bottom-left"></div>
-        <div class="hero-decor-stars">
+        <div class="hero-decor-stars" aria-hidden="true">
+          <!-- Sparkle Glyphs -->
           <ion-icon :icon="ioniconsSparkles" class="decor-star star-1" />
           <ion-icon :icon="ioniconsSparkles" class="decor-star star-2" />
           <ion-icon :icon="ioniconsSparkles" class="decor-star star-3" />
+          <ion-icon :icon="ioniconsSparkles" class="decor-star star-4" />
+          <ion-icon :icon="ioniconsSparkles" class="decor-star star-5" />
+          <ion-icon :icon="ioniconsSparkles" class="decor-star star-6" />
+
+          <!-- Realistic Night Sky Micro Star Dots -->
+          <span class="decor-star-dot dot-1"></span>
+          <span class="decor-star-dot dot-2"></span>
+          <span class="decor-star-dot dot-3"></span>
+          <span class="decor-star-dot dot-4"></span>
+          <span class="decor-star-dot dot-5"></span>
+          <span class="decor-star-dot dot-6"></span>
+          <span class="decor-star-dot dot-7"></span>
         </div>
 
         <!-- TOP: AVATARS & ANNIVERSARY BADGE -->
@@ -1259,7 +1272,7 @@ const handleRefresh = async (event: any) => {
   background: radial-gradient(circle, rgba(16, 185, 129, 0.18) 0%, transparent 70%);
 }
 
-/* Ambient Constellation Stars */
+/* Ambient Constellation Stars (Night Sky Effect) */
 .hero-decor-stars {
   position: absolute;
   top: 0;
@@ -1268,36 +1281,124 @@ const handleRefresh = async (event: any) => {
   bottom: 0;
   pointer-events: none;
   z-index: 1;
+  overflow: hidden;
 }
 
 .decor-star {
   position: absolute;
-  color: #fef08a;
-  font-size: 11px;
-  animation: twinkle 3.5s ease-in-out infinite;
+  filter: drop-shadow(0 0 3px rgba(254, 240, 138, 0.45));
 }
 
 .star-1 {
-  top: 14px;
-  left: 45%;
-  animation-delay: 0s;
-  opacity: 0.45;
+  top: 9%;
+  left: 42%;
+  font-size: 11px;
+  color: #fef08a;
+  animation: starBlinkFast 3.4s ease-in-out infinite 0.2s;
 }
 
 .star-2 {
-  top: 48px;
-  left: 56%;
+  top: 18%;
+  left: 69%;
   font-size: 8px;
-  animation-delay: 1.2s;
-  opacity: 0.35;
+  color: #fde047;
+  animation: starFlickerShimmer 4.1s ease-in-out infinite 1.5s;
 }
 
 .star-3 {
-  bottom: 34px;
-  right: 28%;
+  top: 42%;
+  left: 86%;
+  font-size: 10px;
+  color: #fef08a;
+  animation: starGlowSlow 5.2s ease-in-out infinite 0.8s;
+}
+
+.star-4 {
+  top: 50%;
+  left: 12%;
+  font-size: 8px;
+  color: #e2e8f0;
+  animation: starBlinkFast 2.8s ease-in-out infinite 2.1s;
+}
+
+.star-5 {
+  top: 76%;
+  left: 64%;
   font-size: 9px;
-  animation-delay: 2.1s;
-  opacity: 0.4;
+  color: #fef08a;
+  animation: starFlickerShimmer 3.9s ease-in-out infinite 0.6s;
+}
+
+.star-6 {
+  top: 86%;
+  left: 26%;
+  font-size: 8px;
+  color: #fde047;
+  animation: starGlowSlow 4.7s ease-in-out infinite 2.8s;
+}
+
+/* Micro Star Dust Dots */
+.decor-star-dot {
+  position: absolute;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 4px rgba(254, 240, 138, 0.85);
+}
+
+.dot-1 {
+  top: 7%;
+  left: 18%;
+  width: 2.5px;
+  height: 2.5px;
+  animation: starBlinkFast 3.1s ease-in-out infinite 1.1s;
+}
+
+.dot-2 {
+  top: 14%;
+  left: 84%;
+  width: 3px;
+  height: 3px;
+  animation: starGlowSlow 4.4s ease-in-out infinite 0.4s;
+}
+
+.dot-3 {
+  top: 34%;
+  left: 36%;
+  width: 2px;
+  height: 2px;
+  animation: starFlickerShimmer 3.6s ease-in-out infinite 2.3s;
+}
+
+.dot-4 {
+  top: 62%;
+  left: 49%;
+  width: 2.5px;
+  height: 2.5px;
+  animation: starBlinkFast 4.8s ease-in-out infinite 1.7s;
+}
+
+.dot-5 {
+  top: 70%;
+  left: 91%;
+  width: 3px;
+  height: 3px;
+  animation: starGlowSlow 3.2s ease-in-out infinite 0.9s;
+}
+
+.dot-6 {
+  top: 82%;
+  left: 7%;
+  width: 2px;
+  height: 2px;
+  animation: starFlickerShimmer 4.3s ease-in-out infinite 3.1s;
+}
+
+.dot-7 {
+  top: 91%;
+  left: 76%;
+  width: 2.5px;
+  height: 2.5px;
+  animation: starBlinkFast 2.6s ease-in-out infinite 0.5s;
 }
 
 /* Top Row: Avatars & Days Together */
@@ -1643,14 +1744,60 @@ const handleRefresh = async (event: any) => {
   }
 }
 
-@keyframes twinkle {
+@keyframes starBlinkFast {
   0%, 100% {
-    opacity: 0.2;
-    transform: scale(0.85);
+    opacity: 0.12;
+    transform: scale(0.65);
   }
-  50% {
+  30% {
+    opacity: 0.18;
+    transform: scale(0.7);
+  }
+  36% {
+    opacity: 0.95;
+    transform: scale(1.25);
+  }
+  44% {
+    opacity: 0.25;
+    transform: scale(0.75);
+  }
+  75% {
+    opacity: 0.65;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes starFlickerShimmer {
+  0%, 100% {
+    opacity: 0.15;
+    transform: scale(0.75);
+  }
+  18% {
     opacity: 0.85;
     transform: scale(1.15);
+  }
+  26% {
+    opacity: 0.22;
+    transform: scale(0.8);
+  }
+  38% {
+    opacity: 0.92;
+    transform: scale(1.2);
+  }
+  65% {
+    opacity: 0.15;
+    transform: scale(0.7);
+  }
+}
+
+@keyframes starGlowSlow {
+  0%, 100% {
+    opacity: 0.15;
+    transform: scale(0.75);
+  }
+  50% {
+    opacity: 0.78;
+    transform: scale(1.12);
   }
 }
 

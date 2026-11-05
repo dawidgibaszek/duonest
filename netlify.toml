@@ -11,6 +11,27 @@
 [functions]
   directory = "netlify/functions"
 
+# API Redirects for Serverless Functions (placed before SPA catch-all)
+[[redirects]]
+  from = "/api/movies/search"
+  to = "/.netlify/functions/movies-search"
+  status = 200
+
+[[redirects]]
+  from = "/api/movies/trending"
+  to = "/.netlify/functions/movies-trending"
+  status = 200
+
+[[redirects]]
+  from = "/api/movies/random"
+  to = "/.netlify/functions/movies-random"
+  status = 200
+
+[[redirects]]
+  from = "/api/wishlist/preview"
+  to = "/.netlify/functions/wishlist-preview"
+  status = 200
+
 # PWA & SPA Routing Fallback for Netlify
 [[redirects]]
   from = "/*"

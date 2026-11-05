@@ -1987,6 +1987,34 @@ const onSearchInput = () => {
   }, 400)
 }
 
+const fetchTmdbApi = async (path: string, params: URLSearchParams): Promise<any> => {
+  const customKey = getStoredTmdbApiKey()
+  if (customKey) params.set('apiKey', customKey)
+  const queryString = params.toString() ? `?${params.toString()}` : ''
+
+  const funcName = path.replace('/api/movies/', 'movies-')
+  const endpoints = [
+    `${path}${queryString}`,
+    `/.netlify/functions/${funcName}${queryString}`
+  ]
+
+  for (const ep of endpoints) {
+    try {
+      const resp = await fetch(ep, {
+        headers: { Accept: 'application/json' }
+      })
+      const contentType = resp.headers.get('content-type') || ''
+      if (resp.ok && contentType.includes('application/json')) {
+        const data = await resp.json()
+        if (data && typeof data === 'object') {
+          return data
+        }
+      }
+    } catch (_) {}
+  }
+  return null
+}
+
 const executeSearch = async () => {
   const query = tmdbSearchQuery.value.trim()
   if (!query) return
@@ -1996,21 +2024,19 @@ const executeSearch = async () => {
   apiKeyWarning.value = ''
 
   try {
-    const customKey = getStoredTmdbApiKey()
     const params = new URLSearchParams({
       q: query,
       type: searchCategory.value
     })
-    if (customKey) params.set('apiKey', customKey)
 
-    const res = await $fetch<any>(`/api/movies/search?${params.toString()}`)
-    if (res.success) {
+    const res = await fetchTmdbApi('/api/movies/search', params)
+    if (res && res.success) {
       searchResults.value = res.results || []
     } else {
-      if (res.error === 'NO_API_KEY') {
+      if (res?.error === 'NO_API_KEY') {
         apiKeyWarning.value = 'Aby wyszukiwać automatycznie w TMDB, wpisz darmowy klucz TMDB API.'
       } else {
-        searchError.value = res.message || 'Wystąpił błąd podczas wyszukiwania.'
+        searchError.value = res?.message || 'Wystąpił błąd podczas wyszukiwania.'
       }
       searchResults.value = []
     }
@@ -2029,11 +2055,8 @@ const loadTrendingForCategory = async (catId: 'all' | 'movie' | 'tv' | 'anime' =
 
   isTrendingLoading.value = true
   try {
-    const customKey = getStoredTmdbApiKey()
     const params = new URLSearchParams({ type: catId })
-    if (customKey) params.set('apiKey', customKey)
-
-    const res = await $fetch<any>(`/api/movies/trending?${params.toString()}`)
+    const res = await fetchTmdbApi('/api/movies/trending', params)
     if (res?.success && res.results) {
       trendingCache.value[catId] = res.results
       if (searchCategory.value === catId) {
@@ -2324,20 +2347,18 @@ const spinRandomMovie = async () => {
     }, 250)
 
     try {
-      const customKey = getStoredTmdbApiKey()
       const params = new URLSearchParams({
         type: randomFilterType.value,
         genre: randomGenre.value,
         minRating: String(randomMinRating.value)
       })
-      if (customKey) params.set('apiKey', customKey)
 
-      const res = await $fetch<any>(`/api/movies/random?${params.toString()}`)
+      const res = await fetchTmdbApi('/api/movies/random', params)
       clearInterval(fetchInterval)
 
-      if (!res.success || !res.winner) {
+      if (!res || !res.success || !res.winner) {
         isSpinning.value = false
-        randomError.value = res.message || 'Nie udało się wylosować seansu z bazy TMDB.'
+        randomError.value = res?.message || 'Nie udało się wylosować seansu z bazy TMDB.'
         return
       }
 
