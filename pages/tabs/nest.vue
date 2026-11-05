@@ -247,211 +247,256 @@
           </button>
         </div>
 
-        <!-- 1. PODZIAŁ PUNKTÓW PER OSOBA -->
-        <div class="duo-points-box">
-          <div class="duo-points-header">
-            <!-- USER 1 (TY) -->
-            <div class="user-score-col score-mine">
-              <div class="score-avatar-ring" :style="{ backgroundColor: currentUserAccentColor }">
-                <span>{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
+        <!-- 1. PODZIAŁ PUNKTÓW I HARMONIA DUETU -->
+        <div class="duo-balance-section">
+          <!-- 2-COLUMNS CARDS: TY vs PARTNER -->
+          <div class="duo-players-grid">
+            <!-- GRACZ 1: TY -->
+            <div class="player-stat-card mine-stat-card">
+              <div class="player-card-header">
+                <div class="player-avatar-circle" :style="{ backgroundColor: currentUserAccentColor }">
+                  <span>{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
+                </div>
+                <div class="player-identity">
+                  <span class="player-label-tag">Ty</span>
+                  <span class="player-full-name">{{ currentUser.name || 'Ty' }}</span>
+                </div>
               </div>
-              <div class="score-user-meta">
-                <span class="score-user-name">{{ currentUser.name || 'Ty' }}</span>
-                <span class="score-user-pts" :style="{ color: currentUserAccentColor }">{{ userPoints }} pkt</span>
-                <span class="score-user-tasks">{{ userCompletedTasksCount }} zrobionych zadań</span>
+              <div class="player-points-display">
+                <span class="player-points-num" :style="{ color: currentUserAccentColor }">{{ userPoints }}</span>
+                <span class="player-points-unit">pkt</span>
+              </div>
+              <div class="player-tasks-pill">
+                <ion-icon :icon="ioniconsCheckmarkOutline" />
+                <span>{{ userCompletedTasksCount }} zadań</span>
               </div>
             </div>
 
-            <!-- VS / DUET BADGE -->
-            <div class="score-vs-badge">
-              <span class="vs-label">DUET</span>
-              <span class="score-total-val">{{ nestPoints }}</span>
-              <span class="score-total-sub">pkt razem</span>
-            </div>
-
-            <!-- USER 2 (PARTNER) -->
-            <div class="user-score-col score-theirs">
-              <div class="score-avatar-ring" :style="{ backgroundColor: partnerUserAccentColor }">
-                <span>{{ partnerUser ? (partnerUser.name || 'P').charAt(0).toUpperCase() : '?' }}</span>
+            <!-- GRACZ 2: PARTNER -->
+            <div class="player-stat-card theirs-stat-card">
+              <div class="player-card-header">
+                <div class="player-avatar-circle" :style="{ backgroundColor: partnerUserAccentColor }">
+                  <span>{{ partnerUser ? (partnerUser.name || 'P').charAt(0).toUpperCase() : '?' }}</span>
+                </div>
+                <div class="player-identity">
+                  <span class="player-label-tag">Partner</span>
+                  <span class="player-full-name">{{ partnerUser?.name || 'Partner' }}</span>
+                </div>
               </div>
-              <div class="score-user-meta score-meta-right">
-                <span class="score-user-name">{{ partnerUser?.name || 'Partner' }}</span>
-                <span class="score-user-pts" :style="{ color: partnerUserAccentColor }">{{ partnerPoints }} pkt</span>
-                <span class="score-user-tasks">{{ partnerCompletedTasksCount }} zrobionych zadań</span>
+              <div class="player-points-display">
+                <span class="player-points-num" :style="{ color: partnerUserAccentColor }">{{ partnerPoints }}</span>
+                <span class="player-points-unit">pkt</span>
+              </div>
+              <div class="player-tasks-pill">
+                <ion-icon :icon="ioniconsCheckmarkOutline" />
+                <span>{{ partnerCompletedTasksCount }} zadań</span>
               </div>
             </div>
           </div>
 
-          <!-- VISUAL TWO-COLOR RATIO BAR -->
-          <div class="duo-split-bar-track">
-            <div
-              class="duo-split-segment left-segment"
-              :style="{
-                width: userPointsPct + '%',
-                backgroundColor: currentUserAccentColor
-              }"
-            >
-              <span class="split-pct-label" v-if="userPointsPct >= 16">{{ userPointsPct }}%</span>
+          <!-- HARMONY BALANCE BAR & METRICS -->
+          <div class="duo-ratio-container">
+            <div class="duo-ratio-meta-row">
+              <div class="ratio-user-side" :style="{ color: currentUserAccentColor }">
+                <span class="ratio-dot" :style="{ backgroundColor: currentUserAccentColor }"></span>
+                <span class="ratio-text">{{ userPointsPct }}% wkładu</span>
+              </div>
+              <div class="ratio-total-center-badge">
+                <ion-icon :icon="ioniconsSparkles" class="center-sparkle" />
+                <span>Razem: <strong>{{ nestPoints }}</strong> pkt</span>
+              </div>
+              <div class="ratio-partner-side" :style="{ color: partnerUserAccentColor }">
+                <span class="ratio-text">{{ partnerPointsPct }}% wkładu</span>
+                <span class="ratio-dot" :style="{ backgroundColor: partnerUserAccentColor }"></span>
+              </div>
             </div>
-            <div
-              class="duo-split-segment right-segment"
-              :style="{
-                width: partnerPointsPct + '%',
-                backgroundColor: partnerUserAccentColor
-              }"
-            >
-              <span class="split-pct-label" v-if="partnerPointsPct >= 16">{{ partnerPointsPct }}%</span>
-            </div>
-          </div>
 
-          <!-- HARMONY INSIGHT COMMENT -->
-          <div class="duo-harmony-hint">
-            <ion-icon :icon="ioniconsSparkles" class="harmony-icon" />
-            <span>{{ duoHarmonyMessage }}</span>
-          </div>
-        </div>
-
-        <!-- 2. KAMIENIE MILOWE (WSPÓLNE & INDYWIDUALNE) -->
-        <div class="milestones-section-header">
-          <div class="milestones-title-group">
-            <span class="milestones-section-title">Kamienie milowe & nagrody</span>
-            <span class="milestones-count-pill">{{ completedMilestonesCount }} / {{ milestonesList.length }} zrealizowanych</span>
-          </div>
-          <span class="milestones-hint-text">Wyznaczajcie cele wspólne lub nagrody dla każdego z Was!</span>
-        </div>
-
-        <!-- SCOPE FILTER CHIPS -->
-        <div class="milestones-filter-scroll">
-          <button
-            type="button"
-            class="filter-chip"
-            :class="{ active: activeMilestoneFilter === 'all' }"
-            @click="activeMilestoneFilter = 'all'"
-          >
-            <span>Wszystkie</span>
-            <span class="chip-count">{{ milestonesList.length }}</span>
-          </button>
-          <button
-            type="button"
-            class="filter-chip"
-            :class="{ active: activeMilestoneFilter === 'shared' }"
-            @click="activeMilestoneFilter = 'shared'"
-          >
-            <span>Wspólne</span>
-            <span class="chip-count">{{ sharedCount }}</span>
-          </button>
-          <button
-            type="button"
-            class="filter-chip"
-            :class="{ active: activeMilestoneFilter === 'mine' }"
-            @click="activeMilestoneFilter = 'mine'"
-          >
-            <span>Dla Ciebie</span>
-            <span class="chip-count">{{ mineCount }}</span>
-          </button>
-          <button
-            type="button"
-            class="filter-chip"
-            :class="{ active: activeMilestoneFilter === 'theirs' }"
-            @click="activeMilestoneFilter = 'theirs'"
-            v-if="partnerUser"
-          >
-            <span>Dla {{ partnerUser.name || 'Partnera' }}</span>
-            <span class="chip-count">{{ theirsCount }}</span>
-          </button>
-        </div>
-
-        <!-- MILESTONES CARDS (CLEAN & MINIMALIST - NO EMOJIS) -->
-        <div class="milestones-grid" v-if="filteredMilestones.length > 0">
-          <div
-            v-for="goal in filteredMilestones"
-            :key="goal.id"
-            class="milestone-card-item"
-            :class="{
-              'is-ready': isGoalReady(goal),
-              'is-claimed': goal.is_completed
-            }"
-          >
-            <!-- TOP BADGES & ACTIONS -->
-            <div class="milestone-header-row">
-              <span
-                class="goal-scope-pill"
+            <!-- THE MODERN SPLIT PROGRESS BAR -->
+            <div class="duo-modern-bar-track">
+              <div
+                class="duo-modern-bar-fill left-fill"
                 :style="{
-                  color: getGoalScopeInfo(goal).color,
-                  backgroundColor: getGoalScopeInfo(goal).bg,
-                  borderColor: getGoalScopeInfo(goal).border
+                  width: userPointsPct + '%',
+                  backgroundColor: currentUserAccentColor
                 }"
-              >
-                {{ getGoalScopeInfo(goal).label }}
-              </span>
+              ></div>
+              <div
+                class="duo-modern-bar-fill right-fill"
+                :style="{
+                  width: partnerPointsPct + '%',
+                  backgroundColor: partnerUserAccentColor
+                }"
+              ></div>
+            </div>
+          </div>
 
-              <div class="milestone-top-right">
-                <span class="goal-pts-tag">{{ goal.target_points }} pkt</span>
-                <button class="goal-edit-btn" @click.stop="openEditMilestoneModal(goal)" title="Edytuj cel">
-                  <ion-icon :icon="ioniconsCreateOutline" />
+          <!-- HARMONY CALLOUT MESSAGE -->
+          <div class="duo-harmony-card">
+            <div class="harmony-icon-bubble">
+              <ion-icon :icon="ioniconsSparkles" />
+            </div>
+            <p class="harmony-message-text">{{ duoHarmonyMessage }}</p>
+          </div>
+        </div>
+
+        <!-- 2. KAMIENIE MILOWE & CELE -->
+        <div class="milestones-unified-section">
+          <div class="milestones-section-header">
+            <div class="milestones-title-group">
+              <h5 class="milestones-heading">Wspólne cele & nagrody</h5>
+              <span class="milestones-count-pill">{{ completedMilestonesCount }} / {{ milestonesList.length }} zrealizowane</span>
+            </div>
+            <p class="milestones-sub-desc">Zdobywajcie punkty, by odbierać zaplanowane nagrody i cele.</p>
+          </div>
+
+          <!-- SCOPE FILTER CHIPS -->
+          <div class="milestones-filter-scroll">
+            <button
+              type="button"
+              class="filter-chip"
+              :class="{ active: activeMilestoneFilter === 'all' }"
+              @click="activeMilestoneFilter = 'all'"
+            >
+              <span>Wszystkie</span>
+              <span class="chip-count">{{ milestonesList.length }}</span>
+            </button>
+            <button
+              type="button"
+              class="filter-chip"
+              :class="{ active: activeMilestoneFilter === 'shared' }"
+              @click="activeMilestoneFilter = 'shared'"
+            >
+              <ion-icon :icon="ioniconsPeopleOutline" class="chip-icon" />
+              <span>Wspólne</span>
+              <span class="chip-count">{{ sharedCount }}</span>
+            </button>
+            <button
+              type="button"
+              class="filter-chip"
+              :class="{ active: activeMilestoneFilter === 'mine' }"
+              @click="activeMilestoneFilter = 'mine'"
+            >
+              <ion-icon :icon="ioniconsPersonOutline" class="chip-icon" />
+              <span>Dla Ciebie</span>
+              <span class="chip-count">{{ mineCount }}</span>
+            </button>
+            <button
+              type="button"
+              class="filter-chip"
+              :class="{ active: activeMilestoneFilter === 'theirs' }"
+              @click="activeMilestoneFilter = 'theirs'"
+              v-if="partnerUser"
+            >
+              <ion-icon :icon="ioniconsHeartOutline" class="chip-icon" />
+              <span>Dla {{ partnerUser.name || 'Partnera' }}</span>
+              <span class="chip-count">{{ theirsCount }}</span>
+            </button>
+          </div>
+
+          <!-- MILESTONES LIST -->
+          <div class="milestones-grid" v-if="filteredMilestones.length > 0">
+            <div
+              v-for="goal in filteredMilestones"
+              :key="goal.id"
+              class="milestone-card-item"
+              :class="{
+                'is-ready': isGoalReady(goal),
+                'is-claimed': goal.is_completed
+              }"
+            >
+              <!-- TOP: SCOPE BADGE & POINTS TAG & ACTIONS -->
+              <div class="milestone-card-top">
+                <span
+                  class="goal-scope-pill"
+                  :style="{
+                    color: getGoalScopeInfo(goal).color,
+                    backgroundColor: getGoalScopeInfo(goal).bg,
+                    borderColor: getGoalScopeInfo(goal).border
+                  }"
+                >
+                  <ion-icon
+                    :icon="!goal.assigned_to ? ioniconsPeopleOutline : (goal.assigned_to === currentUser.id ? ioniconsPersonOutline : ioniconsHeartOutline)"
+                    class="scope-mini-icon"
+                  />
+                  <span>{{ getGoalScopeInfo(goal).label }}</span>
+                </span>
+
+                <div class="milestone-top-right">
+                  <span class="goal-pts-pill">
+                    <ion-icon :icon="ioniconsTrophyOutline" class="trophy-icon" />
+                    <span>{{ goal.target_points }} pkt</span>
+                  </span>
+                  <button class="goal-edit-btn" @click.stop="openEditMilestoneModal(goal)" title="Edytuj cel">
+                    <ion-icon :icon="ioniconsCreateOutline" />
+                  </button>
+                </div>
+              </div>
+
+              <!-- TITLE & DESCRIPTION -->
+              <div class="milestone-text-block">
+                <h5 class="milestone-title">{{ goal.title }}</h5>
+                <p class="milestone-desc" v-if="goal.description">{{ goal.description }}</p>
+              </div>
+
+              <!-- PROGRESS BAR -->
+              <div class="milestone-progress-wrap">
+                <div class="milestone-progress-bar-bg">
+                  <div
+                    class="milestone-progress-bar-fill"
+                    :class="{ 'fill-ready': isGoalReady(goal), 'fill-claimed': goal.is_completed }"
+                    :style="{
+                      width: getGoalProgressPct(goal) + '%',
+                      backgroundColor: isGoalReady(goal) ? undefined : getGoalScopeInfo(goal).color
+                    }"
+                  ></div>
+                </div>
+                <div class="milestone-progress-labels">
+                  <span class="milestone-current-pts">
+                    {{ goal.is_completed ? 'Cel zrealizowany' : `${Math.min(getGoalCurrentPoints(goal), goal.target_points)} / ${goal.target_points} pkt` }}
+                  </span>
+                  <span class="milestone-pct-badge" v-if="!goal.is_completed">
+                    {{ isGoalReady(goal) ? 'Gotowe do odebrania! 🎉' : `${getGoalProgressPct(goal)}%` }}
+                  </span>
+                  <span class="milestone-claimed-badge" v-else>
+                    <ion-icon :icon="ioniconsCheckmarkCircle" />
+                    <span>Odebrano</span>
+                  </span>
+                </div>
+              </div>
+
+              <!-- CELEBRATE & CLAIM CTA -->
+              <div class="milestone-claim-action" v-if="isGoalReady(goal)">
+                <button class="claim-reward-btn" @click="handleClaimMilestone(goal)">
+                  <ion-icon :icon="ioniconsGiftOutline" />
+                  <span>Świętujcie & Odbierzcie nagrodę! 🎁</span>
+                </button>
+              </div>
+
+              <!-- CLAIMED COMPLETED FOOTER -->
+              <div class="milestone-claimed-action" v-if="goal.is_completed">
+                <span class="claimed-note">
+                  <ion-icon :icon="ioniconsHeart" class="heart-mini" />
+                  <span>Nagroda zrealizowana!</span>
+                </span>
+                <button class="reactivate-goal-link" @click="handleReactivateMilestone(goal)">
+                  <span>Ustaw cel ponownie ↺</span>
                 </button>
               </div>
             </div>
-
-            <!-- TITLE & DESCRIPTION -->
-            <div class="milestone-text-block">
-              <h5 class="milestone-title">{{ goal.title }}</h5>
-              <p class="milestone-desc" v-if="goal.description">{{ goal.description }}</p>
-            </div>
-
-            <!-- PROGRESS & STATUS -->
-            <div class="milestone-progress-wrap">
-              <div class="milestone-progress-bar-bg">
-                <div
-                  class="milestone-progress-bar-fill"
-                  :class="{ 'fill-ready': isGoalReady(goal), 'fill-claimed': goal.is_completed }"
-                  :style="{
-                    width: getGoalProgressPct(goal) + '%',
-                    backgroundColor: isGoalReady(goal) ? undefined : getGoalScopeInfo(goal).color
-                  }"
-                ></div>
-              </div>
-              <div class="milestone-progress-labels">
-                <span class="milestone-current-pts">
-                  {{ goal.is_completed ? 'Zrealizowany cel ✨' : `${Math.min(getGoalCurrentPoints(goal), goal.target_points)} / ${goal.target_points} pkt` }}
-                </span>
-                <span class="milestone-pct-badge" v-if="!goal.is_completed">
-                  {{ isGoalReady(goal) ? 'Gotowe do odebrania! 🎉' : `${getGoalProgressPct(goal)}%` }}
-                </span>
-                <span class="milestone-claimed-badge" v-else>
-                  <ion-icon :icon="ioniconsCheckmarkCircle" />
-                  Odebrano
-                </span>
-              </div>
-            </div>
-
-            <!-- CLAIM REWARD ACTION (WHEN READY) -->
-            <div class="milestone-claim-action" v-if="isGoalReady(goal)">
-              <button class="claim-reward-btn" @click="handleClaimMilestone(goal)">
-                <ion-icon :icon="ioniconsGiftOutline" />
-                <span>Świętujcie & Odbierzcie nagrodę! 🎁</span>
-              </button>
-            </div>
-
-            <!-- REACTIVATE OPTION (WHEN CLAIMED) -->
-            <div class="milestone-claimed-action" v-if="goal.is_completed">
-              <span class="claimed-note">Nagroda zrealizowana! ❤️</span>
-              <button class="reactivate-goal-link" @click="handleReactivateMilestone(goal)">
-                Ustaw ten cel ponownie
-              </button>
-            </div>
           </div>
-        </div>
 
-        <!-- EMPTY STATE -->
-        <div class="empty-milestones-box" v-else>
-          <ion-icon :icon="ioniconsSparklesOutline" class="empty-sparkle-icon" />
-          <h6>Brak celów w tej kategorii</h6>
-          <p>Dodajcie wspólny cel lub wyznaczcie nagrodę za punkty dla siebie nawzajem.</p>
-          <button class="add-first-goal-btn dn-button-sea" @click="openCreateMilestoneModal">
-            <ion-icon :icon="ioniconsAddOutline" />
-            <span>Dodaj cel</span>
-          </button>
+          <!-- EMPTY STATE -->
+          <div class="empty-milestones-box" v-else>
+            <div class="empty-icon-circle">
+              <ion-icon :icon="ioniconsSparklesOutline" />
+            </div>
+            <h6>Brak celów w tej kategorii</h6>
+            <p>Wyznaczcie wspólny cel lub nagrodę za punkty dla siebie nawzajem.</p>
+            <button class="add-first-goal-btn" @click="openCreateMilestoneModal">
+              <ion-icon :icon="ioniconsAddOutline" />
+              <span>Dodaj cel</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1636,198 +1681,284 @@ const handleRefresh = async (event: any) => {
 .points-milestones-card {
   position: relative;
   overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #f1f5f9;
+  border-radius: 22px;
+  padding: 18px;
 }
 
 .points-badge {
   color: #0f172a;
-  font-weight: 900;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  font-size: 10px;
+  background: #f1f5f9;
+  padding: 3px 9px;
+  border-radius: 999px;
 }
 
 .add-goal-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   background: #0f172a;
   border: 1px solid #0f172a;
   color: #ffffff;
   font-size: 12px;
   font-weight: 700;
-  padding: 6px 12px;
-  border-radius: 10px;
+  padding: 6px 14px;
+  border-radius: 999px;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
-  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .add-goal-btn:hover {
   background: #1e293b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.22);
 }
 
 .add-goal-btn:active {
   transform: scale(0.96);
 }
 
-/* Duo Points Box */
-.duo-points-box {
-  background: #f8fafc;
+/* 1. DUO BALANCE & POINTS SECTION */
+.duo-balance-section {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 14px;
-  margin-bottom: 16px;
+  margin-top: 14px;
 }
 
-.duo-points-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.user-score-col {
-  display: flex;
-  align-items: center;
+.duo-players-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
-  flex: 1;
 }
 
-.score-mine {
-  justify-content: flex-start;
+.player-stat-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  min-width: 0;
 }
 
-.score-theirs {
-  justify-content: flex-end;
-  text-align: right;
-  flex-direction: row-reverse;
+.player-stat-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.04);
 }
 
-.score-avatar-ring {
-  width: 40px;
-  height: 40px;
+.player-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.player-avatar-circle {
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  font-size: 16px;
-  flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.score-user-meta {
-  display: flex;
-  flex-direction: column;
-}
-
-.score-user-name {
   font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
-.score-user-pts {
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-}
-
-.score-user-tasks {
-  font-size: 10.5px;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.score-vs-badge {
+.player-identity {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 10px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
-  min-width: 60px;
+  min-width: 0;
 }
 
-.vs-label {
-  font-size: 9px;
+.player-label-tag {
+  font-size: 9.5px;
   font-weight: 800;
+  text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #94a3b8;
 }
 
-.score-total-val {
-  font-size: 15px;
-  font-weight: 800;
+.player-full-name {
+  font-size: 13px;
+  font-weight: 700;
   color: #0f172a;
-  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.score-total-sub {
-  font-size: 9px;
+.player-points-display {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  margin-top: -2px;
+}
+
+.player-points-num {
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.player-points-unit {
+  font-size: 11.5px;
+  font-weight: 700;
   color: #64748b;
-  font-weight: 600;
 }
 
-/* Split Ratio Bar */
-.duo-split-bar-track {
-  height: 12px;
+.player-tasks-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  width: fit-content;
+}
+
+/* Duo Ratio & Balance Bar */
+.duo-ratio-container {
+  margin-top: 14px;
+  padding: 0 2px;
+}
+
+.duo-ratio-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 7px;
+}
+
+.ratio-user-side,
+.ratio-partner-side {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ratio-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.ratio-text {
+  letter-spacing: -0.01em;
+}
+
+.ratio-total-center-badge {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  color: #334155;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.center-sparkle {
+  color: #f59e0b;
+  font-size: 12px;
+}
+
+.duo-modern-bar-track {
+  height: 8px;
   background: #e2e8f0;
   border-radius: 999px;
   overflow: hidden;
   display: flex;
-  margin: 12px 0 8px 0;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+  gap: 2px;
 }
 
-.duo-split-segment {
+.duo-modern-bar-fill {
   height: 100%;
+  border-radius: 999px;
   transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Harmony Callout Card */
+.duo-harmony-card {
+  margin-top: 12px;
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.harmony-icon-bubble {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #d97706;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.split-pct-label {
-  font-size: 9px;
-  font-weight: 800;
-  color: #ffffff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-}
-
-.duo-harmony-hint {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11.5px;
-  color: #475569;
-  font-weight: 500;
-  margin-top: 4px;
-}
-
-.harmony-icon {
-  color: #f59e0b;
-  font-size: 14px;
+  font-size: 13px;
   flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(217, 119, 6, 0.15);
 }
 
-/* Milestones Subheader */
+.harmony-message-text {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #92400e;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* 2. MILESTONES & REWARDS SECTION */
+.milestones-unified-section {
+  margin-top: 20px;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 16px;
+}
+
 .milestones-section-header {
-  margin: 16px 0 10px 0;
+  margin-bottom: 12px;
 }
 
 .milestones-title-group {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 2px;
+  gap: 8px;
 }
 
-.milestones-section-title {
-  font-size: 13.5px;
-  font-weight: 700;
+.milestones-heading {
+  font-size: 15px;
+  font-weight: 800;
   color: #0f172a;
+  margin: 0;
 }
 
 .milestones-count-pill {
@@ -1838,20 +1969,22 @@ const handleRefresh = async (event: any) => {
   border: 1px solid #e2e8f0;
   padding: 2px 8px;
   border-radius: 999px;
+  white-space: nowrap;
 }
 
-.milestones-hint-text {
-  font-size: 11.5px;
+.milestones-sub-desc {
+  font-size: 12px;
   color: #64748b;
-  display: block;
+  margin: 3px 0 0 0;
+  line-height: 1.4;
 }
 
-/* Milestones Filter Scroll */
+/* Filter Chips Scroll */
 .milestones-filter-scroll {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   overflow-x: auto;
-  padding: 4px 2px 12px 2px;
+  padding: 4px 2px 10px 2px;
   scrollbar-width: none;
 }
 
@@ -1862,31 +1995,40 @@ const handleRefresh = async (event: any) => {
 .filter-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background: #f1f5f9;
+  gap: 5px;
+  background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 12px;
+  padding: 5px 12px;
+  font-size: 11.5px;
   font-weight: 600;
   color: #64748b;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.2s ease;
+  transition: all 0.18s ease;
   flex-shrink: 0;
+}
+
+.filter-chip:hover {
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 .filter-chip.active {
   background: #0f172a;
   border-color: #0f172a;
   color: #ffffff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
+}
+
+.chip-icon {
+  font-size: 13px;
 }
 
 .chip-count {
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 800;
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.06);
   padding: 1px 6px;
   border-radius: 999px;
 }
@@ -1896,35 +2038,43 @@ const handleRefresh = async (event: any) => {
   color: #ffffff;
 }
 
-/* Milestones Grid & Clean Cards */
+/* Milestones Grid */
 .milestones-grid {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-top: 4px;
 }
 
 .milestone-card-item {
   background: #ffffff;
-  border: 1.5px solid #e2e8f0;
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
   padding: 14px;
   transition: all 0.2s ease;
   min-width: 0;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.milestone-card-item:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
 }
 
 .milestone-card-item.is-ready {
-  border-color: #0f172a;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  box-shadow: var(--dn-card-shadow);
+  border-color: #10b981;
+  background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.12);
 }
 
 .milestone-card-item.is-claimed {
-  border-color: #86efac;
-  background: #f0fdf4;
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  opacity: 0.95;
 }
 
-.milestone-header-row {
+.milestone-card-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1933,6 +2083,9 @@ const handleRefresh = async (event: any) => {
 }
 
 .goal-scope-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
   font-weight: 700;
   padding: 3px 9px;
@@ -1943,6 +2096,10 @@ const handleRefresh = async (event: any) => {
   flex-shrink: 0;
 }
 
+.scope-mini-icon {
+  font-size: 13px;
+}
+
 .milestone-top-right {
   display: flex;
   align-items: center;
@@ -1950,8 +2107,11 @@ const handleRefresh = async (event: any) => {
   flex-shrink: 0;
 }
 
-.goal-pts-tag {
-  font-size: 12px;
+.goal-pts-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
   font-weight: 800;
   color: #0f172a;
   background: #f1f5f9;
@@ -1960,18 +2120,23 @@ const handleRefresh = async (event: any) => {
   border-radius: 999px;
 }
 
+.trophy-icon {
+  font-size: 13px;
+  color: #f59e0b;
+}
+
 .goal-edit-btn {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   color: #64748b;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 13px;
   transition: all 0.15s ease;
   padding: 0;
 }
@@ -2001,7 +2166,7 @@ const handleRefresh = async (event: any) => {
 .milestone-desc {
   font-size: 12px;
   color: #64748b;
-  margin: 4px 0 0 0;
+  margin: 3px 0 0 0;
   line-height: 1.4;
   word-break: break-word;
   overflow-wrap: break-word;
@@ -2014,8 +2179,9 @@ const handleRefresh = async (event: any) => {
 }
 
 .milestone-progress-bar-bg {
-  height: 6px;
-  background: #e2e8f0;
+  height: 6.5px;
+  background: #f1f5f9;
+  border: 1px solid #edf2f7;
   border-radius: 999px;
   overflow: hidden;
 }
@@ -2028,7 +2194,7 @@ const handleRefresh = async (event: any) => {
 }
 
 .milestone-progress-bar-fill.fill-ready {
-  background: linear-gradient(90deg, #0f172a, #10b981) !important;
+  background: linear-gradient(90deg, #10b981 0%, #059669 100%) !important;
 }
 
 .milestone-progress-bar-fill.fill-claimed {
@@ -2039,7 +2205,7 @@ const handleRefresh = async (event: any) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 6px;
+  margin-top: 5px;
   font-size: 11px;
 }
 
@@ -2070,7 +2236,7 @@ const handleRefresh = async (event: any) => {
 .milestone-claim-action {
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px dashed #e2e8f0;
+  border-top: 1px dashed #bbf7d0;
 }
 
 .claim-reward-btn {
@@ -2088,21 +2254,24 @@ const handleRefresh = async (event: any) => {
   justify-content: center;
   gap: 8px;
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.28);
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .claim-reward-btn:hover {
   filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
 }
 
 .claim-reward-btn:active {
   transform: scale(0.98);
 }
 
+/* Claimed State Footer */
 .milestone-claimed-action {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px dashed #bbf7d0;
+  border-top: 1px dashed #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2112,6 +2281,14 @@ const handleRefresh = async (event: any) => {
   font-size: 11.5px;
   color: #16a34a;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.heart-mini {
+  color: #f43f5e;
+  font-size: 12px;
 }
 
 .reactivate-goal-link {
@@ -2123,25 +2300,37 @@ const handleRefresh = async (event: any) => {
   cursor: pointer;
   padding: 2px 6px;
   border-radius: 6px;
+  text-decoration: underline;
+  transition: color 0.15s ease;
 }
 
 .reactivate-goal-link:hover {
-  text-decoration: underline;
+  color: #334155;
 }
 
 /* Empty Milestones State */
 .empty-milestones-box {
   text-align: center;
-  padding: 28px 16px;
+  padding: 26px 16px;
   background: #f8fafc;
   border: 1.5px dashed #cbd5e1;
   border-radius: 16px;
+  margin-top: 6px;
 }
 
-.empty-sparkle-icon {
-  font-size: 32px;
+.empty-icon-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 10px auto;
   color: #0f172a;
-  margin-bottom: 8px;
+  font-size: 20px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
 }
 
 .empty-milestones-box h6 {
@@ -2159,9 +2348,28 @@ const handleRefresh = async (event: any) => {
 }
 
 .add-first-goal-btn {
-  font-size: 13px;
-  padding: 8px 16px;
-  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 7px 16px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+  transition: all 0.2s ease;
+}
+
+.add-first-goal-btn:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+}
+
+.add-first-goal-btn:active {
+  transform: scale(0.96);
 }
 
 /* ========================================================== */
