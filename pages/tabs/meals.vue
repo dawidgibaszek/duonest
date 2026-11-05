@@ -406,9 +406,9 @@
     <ion-modal
       :is-open="showDetailsModal"
       @didDismiss="showDetailsModal = false"
-      class="dn-meal-sheet-modal"
-      :breakpoints="[0, 0.88, 1]"
-      :initial-breakpoint="0.88"
+      class="dn-meal-sheet-modal dn-recipe-details-modal"
+      :breakpoints="[0, 0.9, 1]"
+      :initial-breakpoint="0.9"
       :handle="true"
       handle-behavior="cycle"
       data-no-swipe="true"
@@ -418,11 +418,11 @@
           <div class="modal-header-inner">
             <div class="modal-title-wrap">
               <div class="modal-title-icon-badge">
-                <ion-icon :icon="ioniconsBookOutline" class="modal-title-icon" />
+                <ion-icon :icon="ioniconsRestaurantOutline" class="modal-title-icon" />
               </div>
               <div class="modal-title-text-group">
-                <ion-title class="modal-main-title">Szczegóły Przepisu</ion-title>
-                <span class="modal-sub-title">Składniki i przygotowanie dania</span>
+                <ion-title class="modal-main-title">Przepis i Składniki</ion-title>
+                <span class="modal-sub-title">Inspiracja kulinarna dla Was</span>
               </div>
             </div>
             <ion-buttons slot="end">
@@ -439,48 +439,91 @@
         </ion-toolbar>
       </ion-header>
 
-      <ion-content class="ion-padding custom-meal-modal-content" v-if="activeSelectedMeal">
-        <div class="modal-recipe-content">
+      <ion-content class="ion-padding recipe-modal-content" v-if="activeSelectedMeal">
+        <div class="modal-recipe-body">
+          <!-- Hero Image Banner with Glass Badges -->
           <div
             v-if="activeSelectedMeal.image_url || activeSelectedMeal.thumbnail"
-            class="modal-recipe-hero"
+            class="recipe-hero-card"
             :style="{ backgroundImage: `url(${activeSelectedMeal.image_url || activeSelectedMeal.thumbnail})` }"
-          />
-
-          <div class="modal-recipe-header">
-            <h2 class="modal-recipe-title">{{ activeSelectedMeal.title }}</h2>
-            <div class="modal-recipe-tags">
-              <span v-if="activeSelectedMeal.categoryPl || activeSelectedMeal.category" class="tag-pill category-pill">
-                {{ activeSelectedMeal.categoryPl || activeSelectedMeal.category }}
-              </span>
-              <span v-if="activeSelectedMeal.areaPl || activeSelectedMeal.area" class="tag-pill area-pill">
+          >
+            <div class="recipe-hero-overlay"></div>
+            <div class="recipe-hero-badges-row">
+              <span v-if="activeSelectedMeal.areaPl || activeSelectedMeal.area" class="hero-glass-pill cuisine-pill">
                 {{ activeSelectedMeal.areaPl || activeSelectedMeal.area }}
+              </span>
+              <span v-if="activeSelectedMeal.categoryPl || activeSelectedMeal.category" class="hero-glass-pill category-pill">
+                {{ activeSelectedMeal.categoryPl || activeSelectedMeal.category }}
               </span>
             </div>
           </div>
 
-          <!-- Ingredients section -->
-          <div class="recipe-section" v-if="activeSelectedMeal.ingredients?.length">
-            <div class="section-title-row">
-              <ion-icon :icon="ioniconsNutritionOutline" />
-              <h3>Składniki ({{ activeSelectedMeal.ingredients.length }})</h3>
+          <!-- Recipe Title & Quick Meta -->
+          <div class="recipe-title-section">
+            <h2 class="recipe-display-title">{{ activeSelectedMeal.titlePl || activeSelectedMeal.title }}</h2>
+            <p v-if="activeSelectedMeal.titlePl && activeSelectedMeal.titlePl !== activeSelectedMeal.title" class="recipe-original-name">
+              {{ activeSelectedMeal.title }}
+            </p>
+
+            <div class="recipe-quick-chips">
+              <div class="quick-chip" v-if="activeSelectedMeal.ingredients?.length">
+                <ion-icon :icon="ioniconsListOutline" />
+                <span>{{ activeSelectedMeal.ingredients.length }} składników</span>
+              </div>
+              <div class="quick-chip" v-if="activeSelectedMeal.instructionsSteps?.length">
+                <ion-icon :icon="ioniconsCheckmarkCircleOutline" />
+                <span>{{ activeSelectedMeal.instructionsSteps.length }} kroków</span>
+              </div>
+              <div class="quick-chip" v-if="activeSelectedMeal.areaPl">
+                <ion-icon :icon="ioniconsGlobeOutline" />
+                <span>Kuchnia {{ activeSelectedMeal.areaPl.toLowerCase() }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Primary CTA Button: Plan this meal -->
+          <div class="recipe-plan-cta-box">
+            <button
+              type="button"
+              class="dn-button-primary recipe-plan-btn"
+              @click="openAssignFromDetails(activeSelectedMeal)"
+            >
+              <ion-icon :icon="ioniconsCalendarOutline" />
+              <span>Zaplanuj ten obiad na ten tydzień</span>
+            </button>
+          </div>
+
+          <!-- Ingredients Section -->
+          <div class="recipe-detail-section" v-if="activeSelectedMeal.ingredients?.length">
+            <div class="section-heading-row">
+              <div class="section-title-group">
+                <div class="heading-icon-orb">
+                  <ion-icon :icon="ioniconsCartOutline" />
+                </div>
+                <h3>Potrzebne składniki</h3>
+              </div>
+              <span class="count-tag">{{ activeSelectedMeal.ingredients.length }}</span>
             </div>
 
-            <div class="ingredients-list">
+            <div class="ingredients-modern-grid">
               <div
                 v-for="(ing, idx) in activeSelectedMeal.ingredients"
                 :key="idx"
-                class="ingredient-item"
+                class="ingredient-pill-card"
               >
-                <ion-icon :icon="ioniconsCheckmarkOutline" class="ing-bullet-icon" />
-                <span class="ing-name">{{ ing.name }}</span>
-                <span v-if="ing.measure" class="ing-measure">{{ ing.measure }}</span>
+                <div class="ing-bullet-orb">
+                  <ion-icon :icon="ioniconsCheckmarkOutline" />
+                </div>
+                <div class="ing-info-col">
+                  <span class="ing-title">{{ ing.name }}</span>
+                  <span v-if="ing.measure" class="ing-quantity">{{ ing.measure }}</span>
+                </div>
               </div>
             </div>
 
             <button
               type="button"
-              class="dn-button-primary add-all-shopping-btn"
+              class="dn-button-primary add-shopping-action-btn"
               @click="handleAddIngredientsFromDetails"
             >
               <ion-icon :icon="ioniconsCartOutline" />
@@ -488,26 +531,74 @@
             </button>
           </div>
 
-          <!-- Instructions section -->
-          <div class="recipe-section" v-if="activeSelectedMeal.instructions">
-            <div class="section-title-row">
-              <ion-icon :icon="ioniconsBookOutline" />
-              <h3>Sposób przygotowania</h3>
+          <!-- Step-by-Step Preparation Instructions Section -->
+          <div class="recipe-detail-section" v-if="activeSelectedMeal.instructions">
+            <div class="section-heading-row">
+              <div class="section-title-group">
+                <div class="heading-icon-orb">
+                  <ion-icon :icon="ioniconsBookOutline" />
+                </div>
+                <h3>Sposób przygotowania</h3>
+              </div>
+              <div v-if="isTranslatingRecipe" class="translating-indicator">
+                <ion-spinner name="dots" class="mini-spinner" />
+                <span>Tłumaczenie...</span>
+              </div>
             </div>
-            <p class="recipe-instructions-text">{{ activeSelectedMeal.instructions }}</p>
+
+            <!-- Numbered Steps -->
+            <div
+              v-if="activeSelectedMeal.instructionsSteps && activeSelectedMeal.instructionsSteps.length > 1"
+              class="recipe-steps-list"
+            >
+              <div
+                v-for="(step, sIdx) in activeSelectedMeal.instructionsSteps"
+                :key="sIdx"
+                class="recipe-step-card"
+              >
+                <div class="step-badge-number">{{ sIdx + 1 }}</div>
+                <div class="step-card-body">
+                  <span class="step-counter-label">Krok {{ sIdx + 1 }}</span>
+                  <p class="step-instruction-text">{{ step }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Single paragraph fallback -->
+            <div v-else class="single-instruction-box">
+              <p class="recipe-instructions-text">{{ activeSelectedMeal.instructions }}</p>
+            </div>
           </div>
 
-          <!-- YouTube Video Link -->
-          <div class="recipe-section" v-if="activeSelectedMeal.youtube_url || activeSelectedMeal.youtubeUrl">
+          <!-- Video / External Recipe Link -->
+          <div class="recipe-detail-section" v-if="activeSelectedMeal.youtube_url || activeSelectedMeal.youtubeUrl">
             <a
               :href="activeSelectedMeal.youtube_url || activeSelectedMeal.youtubeUrl"
               target="_blank"
               rel="noopener noreferrer"
-              class="dn-button-sea video-link-btn"
+              class="video-recipe-card"
             >
-              <ion-icon :icon="ioniconsPlayCircleOutline" />
-              <span>Zobacz wideo z przygotowania</span>
+              <div class="video-icon-circle">
+                <ion-icon :icon="ioniconsPlayCircleOutline" />
+              </div>
+              <div class="video-meta">
+                <span class="video-title">Wideo z przygotowania</span>
+                <span class="video-sub">Zobacz przygotowanie tego dania krok po kroku</span>
+              </div>
+              <ion-icon :icon="ioniconsChevronForwardOutline" class="video-arrow" />
             </a>
+          </div>
+
+          <!-- Bottom Floating Action Bar -->
+          <div class="recipe-bottom-floating-bar">
+            <button
+              type="button"
+              class="dn-button-primary bottom-plan-btn"
+              @click="openAssignFromDetails(activeSelectedMeal)"
+            >
+              <ion-icon :icon="ioniconsCalendarOutline" />
+              <span>Wybierz na obiad</span>
+            </button>
           </div>
         </div>
       </ion-content>
@@ -1137,6 +1228,7 @@ const handleSurpriseMe = async () => {
 // --- MODALS & DETAILS ---
 const showDetailsModal = ref(false)
 const activeSelectedMeal = ref<any>(null)
+const isTranslatingRecipe = ref(false)
 
 const openMealDetailsModal = (meal: any) => {
   activeSelectedMeal.value = meal
@@ -1144,18 +1236,30 @@ const openMealDetailsModal = (meal: any) => {
 }
 
 const openApiMealPreview = async (meal: any) => {
-  if (!meal.ingredients || meal.ingredients.length === 0) {
+  activeSelectedMeal.value = meal
+  showDetailsModal.value = true
+
+  // If steps or translated ingredients are not yet populated, fetch lookup
+  if (!meal.instructionsSteps || meal.instructionsSteps.length === 0 || !meal.ingredients || meal.ingredients.length === 0) {
+    isTranslatingRecipe.value = true
     try {
       const res = await $fetch<{ success: boolean; meal: any }>(`/api/meals/lookup?id=${meal.id}`)
       if (res && res.meal) {
         activeSelectedMeal.value = res.meal
-        showDetailsModal.value = true
-        return
       }
-    } catch (_) {}
+    } catch (e) {
+      console.warn('lookup error:', e)
+    } finally {
+      isTranslatingRecipe.value = false
+    }
   }
-  activeSelectedMeal.value = meal
-  showDetailsModal.value = true
+}
+
+const openAssignFromDetails = (meal: any) => {
+  showDetailsModal.value = false
+  setTimeout(() => {
+    openAssignModal(meal)
+  }, 220)
 }
 
 const handleAddIngredientsFromDetails = async () => {
@@ -2009,99 +2113,405 @@ onMounted(() => {
   padding: 40px 20px;
 }
 
-/* MODALS */
-.modal-recipe-hero {
+/* ======================================================= */
+/* RECIPE DETAILS MODAL (PREVIEW & STEPS)                  */
+/* ======================================================= */
+.recipe-modal-content {
+  --background: #ffffff;
+  --padding-top: 4px;
+  --padding-bottom: 40px;
+  --padding-start: 16px;
+  --padding-end: 16px;
+}
+
+.modal-recipe-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-bottom: 24px;
+}
+
+/* Hero Image Card with Glass Tags */
+.recipe-hero-card {
+  position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 16 / 10;
+  border-radius: 18px;
   background-size: cover;
   background-position: center;
-  border-radius: 14px;
-  margin-bottom: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.1);
 }
 
-.modal-recipe-title {
-  font-size: 20px;
-  font-weight: 800;
-  color: #0f172a;
-  margin: 0 0 8px;
+.recipe-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.35) 0%, rgba(15, 23, 42, 0.05) 50%, rgba(15, 23, 42, 0.6) 100%);
 }
 
-.modal-recipe-tags {
+.recipe-hero-badges-row {
+  position: absolute;
+  top: 12px;
+  left: 12px;
   display: flex;
   gap: 6px;
-  margin-bottom: 16px;
+  z-index: 2;
 }
 
-.recipe-section {
-  margin-bottom: 20px;
+.hero-glass-pill {
+  padding: 5px 11px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.section-title-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 10px;
-  color: #0f172a;
+.hero-glass-pill.cuisine-pill {
+  background: rgba(14, 165, 233, 0.85);
 }
 
-.section-title-row h3 {
-  font-size: 15px;
-  font-weight: 800;
-  margin: 0;
-}
-
-.ingredients-list {
+/* Title Section */
+.recipe-title-section {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: #f8fafc;
-  padding: 12px;
-  border-radius: 12px;
-  margin-bottom: 12px;
+  margin-top: -2px;
 }
 
-.ingredient-item {
+.recipe-display-title {
+  font-size: 21px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.recipe-original-name {
+  font-size: 12px;
+  color: #64748b;
+  font-style: italic;
+  margin: 0;
+}
+
+.recipe-quick-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.quick-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.quick-chip ion-icon {
+  font-size: 13px;
+  color: #0284c7;
+}
+
+/* Top Action Box */
+.recipe-plan-cta-box {
+  margin: 2px 0 4px;
+}
+
+.recipe-plan-btn {
+  width: 100%;
+  padding: 13px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  touch-action: manipulation;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
+}
+
+/* Sections */
+.recipe-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-title-group {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
 }
 
-.ing-bullet-icon {
+.heading-icon-orb {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.section-title-group h3 {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+.count-tag {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.translating-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.mini-spinner {
+  width: 14px;
+  height: 14px;
+}
+
+/* Modern Ingredients Grid */
+.ingredients-modern-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+  gap: 8px;
+}
+
+.ingredient-pill-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 11px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.ing-bullet-orb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.14);
   color: #059669;
-  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
   flex-shrink: 0;
 }
 
-.ing-name {
-  color: #0f172a;
-  font-weight: 600;
-  flex: 1;
+.ing-info-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
-.ing-measure {
-  color: #64748b;
+.ing-title {
+  font-size: 12.5px;
   font-weight: 700;
+  color: #0f172a;
+  line-height: 1.25;
 }
 
-.add-all-shopping-btn {
+.ing-quantity {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+.add-shopping-action-btn {
   width: 100%;
-  padding: 10px;
+  padding: 11px;
+  border-radius: 12px;
   font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 4px;
+  touch-action: manipulation;
+}
+
+/* Step-by-Step Instructions */
+.recipe-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.recipe-step-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.step-badge-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.step-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.step-counter-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+}
+
+.step-instruction-text {
+  font-size: 13.5px;
+  color: #1e293b;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.single-instruction-box {
+  padding: 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
 }
 
 .recipe-instructions-text {
   font-size: 13.5px;
-  color: #334155;
+  color: #1e293b;
   line-height: 1.6;
   white-space: pre-line;
+  margin: 0;
 }
 
-.video-link-btn {
-  width: 100%;
-  padding: 10px;
-  font-size: 13px;
+/* Video Recipe Card */
+.video-recipe-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
   text-decoration: none;
+  color: inherit;
+  transition: all 0.2s ease;
+  touch-action: manipulation;
+}
+
+.video-recipe-card:active {
+  transform: scale(0.98);
+  background: #f1f5f9;
+}
+
+.video-icon-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.video-meta {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.video-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.video-sub {
+  font-size: 11.5px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.video-arrow {
+  font-size: 18px;
+  color: #94a3b8;
+}
+
+/* Bottom Plan Button */
+.recipe-bottom-floating-bar {
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.bottom-plan-btn {
+  width: 100%;
+  padding: 13px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  touch-action: manipulation;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
 }
 
 /* ======================================================= */

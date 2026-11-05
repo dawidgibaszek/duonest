@@ -1,6 +1,7 @@
 import { defineEventHandler, getQuery } from 'h3'
 import {
   normalizeMealDbItem,
+  translateRecipeInstructionsAsync,
   POLISH_TO_ENGLISH_SEARCH,
   translateCategoryToPl,
   translateAreaToPl,
@@ -26,6 +27,17 @@ export default defineEventHandler(async (event) => {
       const data = await response.json()
       const rawMeals = Array.isArray(data?.meals) ? data.meals : []
       const meals: MealRecipe[] = rawMeals.map(normalizeMealDbItem)
+
+      if (meals[0]?.instructions) {
+        try {
+          const trans = await translateRecipeInstructionsAsync(meals[0].instructions)
+          if (trans.instructionsPl) {
+            meals[0].instructions = trans.instructionsPl
+            meals[0].instructionsSteps = trans.stepsPl
+          }
+        } catch (_) {}
+      }
+
       return { success: true, meals }
     }
 
