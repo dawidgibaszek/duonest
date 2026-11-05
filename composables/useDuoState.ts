@@ -148,6 +148,35 @@ export interface MovieItem {
   updated_at?: string
 }
 
+export interface MealIngredient {
+  name: string
+  measure?: string
+  is_in_shopping_list?: boolean
+}
+
+export interface MealItem {
+  id: string
+  partnership_id: string
+  date: string // 'YYYY-MM-DD'
+  day_name?: string
+  title: string
+  category?: string
+  area?: string
+  cook_id?: string // 'me' | 'partner' | 'both' | 'restaurant' | 'takeout' | user_id
+  image_url?: string
+  source?: 'custom' | 'api'
+  api_id?: string
+  ingredients?: MealIngredient[]
+  instructions?: string
+  youtube_url?: string
+  recipe_url?: string
+  is_completed: boolean
+  completed_at?: string | null
+  created_by?: string
+  created_at: string
+  updated_at?: string
+}
+
 // Helpers for unique code generation
 const generateUniqueCode = () => {
   const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'
@@ -233,9 +262,11 @@ const nudgesList = ref<NudgeItem[]>([])
 const milestonesList = ref<NestMilestone[]>([])
 const wishlistItems = ref<WishlistItem[]>([])
 const moviesList = ref<MovieItem[]>([])
+const mealsList = ref<MealItem[]>([])
 
 // Active sub-tabs for grouped navigation
-export const activeDailySubTab = ref<'shopping' | 'tasks'>('shopping')
+export const activeDailySubTab = ref<'shopping' | 'tasks' | 'meals'>('shopping')
+export const activeOrgSubTab = activeDailySubTab
 export const activeTasksMainTab = ref<'tasks' | 'pet'>('tasks')
 export const activeLeisureSubTab = ref<'movies' | 'wishlist'>('movies')
 
@@ -641,6 +672,13 @@ export const useDuoState = () => {
       moviesList.value = []
     }
 
+    const savedMeals = loadFromStorage<MealItem[]>('duonest_meals', [])
+    if (savedMeals && savedMeals.length > 0) {
+      mealsList.value = savedMeals
+    } else {
+      mealsList.value = []
+    }
+
     if (typeof window !== 'undefined' && currentUser.value?.id) {
       try {
         const savedTs = localStorage.getItem(`duonest_last_nudge_ts_${currentUser.value.id}`)
@@ -845,6 +883,7 @@ export const useDuoState = () => {
     milestonesList.value = []
     wishlistItems.value = []
     moviesList.value = []
+    mealsList.value = []
     lastNudgeSentAt.value = null
     if (typeof window !== 'undefined') {
       localStorage.removeItem('duonest_partner_user')
@@ -856,6 +895,7 @@ export const useDuoState = () => {
       localStorage.removeItem('duonest_milestones')
       localStorage.removeItem('duonest_wishlist')
       localStorage.removeItem('duonest_movies')
+      localStorage.removeItem('duonest_meals')
     }
     syncToStorage()
   }
@@ -871,6 +911,7 @@ export const useDuoState = () => {
     milestonesList.value = []
     wishlistItems.value = []
     moviesList.value = []
+    mealsList.value = []
     lastNudgeSentAt.value = null
     if (typeof window !== 'undefined') {
       localStorage.removeItem('duonest_auth_user')
@@ -886,6 +927,7 @@ export const useDuoState = () => {
       localStorage.removeItem('duonest_milestones')
       localStorage.removeItem('duonest_wishlist')
       localStorage.removeItem('duonest_movies')
+      localStorage.removeItem('duonest_meals')
     }
   }
 
@@ -1668,6 +1710,7 @@ export const useDuoState = () => {
     saveToStorage('duonest_milestones', milestonesList.value)
     saveToStorage('duonest_wishlist', wishlistItems.value)
     saveToStorage('duonest_movies', moviesList.value)
+    saveToStorage('duonest_meals', mealsList.value)
   }
 
   // Broadcast an action to the partner via Supabase Realtime WebSocket & Web Push
@@ -2551,6 +2594,48 @@ export const useDuoState = () => {
           break
         }
 
+        // --- MEALS BROADCASTS ---
+        case 'MEAL_ADD': {
+          if (data?.id) {
+            const exists = mealsList.value.some(m => m.id === data.id)
+            if (!exists) {
+              mealsList.value = [data, ...mealsList.value]
+              syncToStorage()
+              triggerToast(`${senderName} zaplanował(a) obiad: "${data.title}"`)
+            }
+          }
+          break
+        }
+        case 'MEAL_UPDATE': {
+          if (data?.id) {
+            const idx = mealsList.value.findIndex(m => m.id === data.id)
+            if (idx !== -1) {
+              mealsList.value[idx] = { ...mealsList.value[idx], ...data }
+              syncToStorage()
+            }
+          }
+          break
+        }
+        case 'MEAL_DELETE': {
+          if (data?.id) {
+            mealsList.value = mealsList.value.filter(m => m.id !== data.id)
+            syncToStorage()
+          }
+          break
+        }
+        case 'MEAL_TOGGLE_COMPLETED': {
+          if (data?.id) {
+            const item = mealsList.value.find(m => m.id === data.id)
+            if (item) {
+              item.is_completed = data.is_completed
+              item.completed_at = data.completed_at
+              mealsList.value = [...mealsList.value]
+              syncToStorage()
+            }
+          }
+          break
+        }
+
         // --- PARTNERSHIP UPDATES ---
         case 'PARTNERSHIP_UPDATE': {
           if (data && partnership.value) {
@@ -2756,6 +2841,23 @@ export const useDuoState = () => {
           moviesList.value = moviesList.value.filter(m => m.id !== payload.old.id)
         }
         syncToStorage()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'meals', filter: `partnership_id=eq.${partnershipId}` }, (payload: any) => {
+        if (payload.eventType === 'INSERT') {
+          if (!mealsList.value.some(m => m.id === payload.new.id)) {
+            mealsList.value.push(payload.new)
+            syncToStorage()
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          const idx = mealsList.value.findIndex(m => m.id === payload.new.id)
+          if (idx !== -1) {
+            mealsList.value[idx] = payload.new
+            syncToStorage()
+          }
+        } else if (payload.eventType === 'DELETE') {
+          mealsList.value = mealsList.value.filter(m => m.id !== payload.old.id)
+          syncToStorage()
+        }
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'nudges', filter: `partnership_id=eq.${partnershipId}` }, (payload: any) => {
         if (payload.eventType === 'INSERT') {
@@ -3038,14 +3140,15 @@ export const useDuoState = () => {
     const client = getCleanDbClient() || getSupabaseClient()
     if (!client) return
     try {
-      const [shops, tasks, evts, ndgs, wshs, movs, mls] = await Promise.all([
+      const [shops, tasks, evts, ndgs, wshs, movs, mls, mlsList] = await Promise.all([
         client.from('shopping_items').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         client.from('tasks').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         client.from('events').select('*').eq('partnership_id', partnershipId).order('start_time', { ascending: true }),
         client.from('nudges').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }).limit(20),
         client.from('wishlist_items').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         client.from('movies').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
-        client.from('milestones').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false })
+        client.from('milestones').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
+        client.from('meals').select('*').eq('partnership_id', partnershipId).order('date', { ascending: true })
       ])
 
       if (shops.data) {
@@ -3069,6 +3172,9 @@ export const useDuoState = () => {
       }
       if (mls?.data) {
         milestonesList.value = mls.data
+      }
+      if (mlsList?.data) {
+        mealsList.value = mlsList.data
       }
 
       syncToStorage()
@@ -4675,6 +4781,159 @@ export const useDuoState = () => {
     }
   }
 
+  // --- MEALS & DINNER PLANNER CRUD ACTIONS ---
+  const addMeal = async (meal: {
+    date: string // 'YYYY-MM-DD'
+    title: string
+    day_name?: string
+    category?: string
+    area?: string
+    cook_id?: string
+    image_url?: string
+    source?: 'custom' | 'api'
+    api_id?: string
+    ingredients?: MealIngredient[]
+    instructions?: string
+    youtube_url?: string
+    recipe_url?: string
+  }): Promise<MealItem | null> => {
+    if (!meal.title.trim()) return null
+    if (!await verifyUserAndPartnershipAccess()) return null
+
+    const pId = partnership.value?.id || currentUser.value?.partnership_id || ''
+    const newDoc: MealItem = {
+      id: 'meal_' + Math.random().toString(36).substring(2, 9),
+      partnership_id: pId,
+      date: meal.date,
+      day_name: meal.day_name || '',
+      title: meal.title.trim(),
+      category: meal.category || '',
+      area: meal.area || '',
+      cook_id: meal.cook_id || 'me',
+      image_url: meal.image_url || '',
+      source: meal.source || 'custom',
+      api_id: meal.api_id || '',
+      ingredients: meal.ingredients || [],
+      instructions: meal.instructions || '',
+      youtube_url: meal.youtube_url || '',
+      recipe_url: meal.recipe_url || '',
+      is_completed: false,
+      completed_at: null,
+      created_by: currentUser.value?.id || null,
+      created_at: new Date().toISOString()
+    }
+
+    // Replace if meal on this date already exists or add to list
+    mealsList.value = [newDoc, ...mealsList.value.filter(m => m.id !== newDoc.id)]
+    syncToStorage()
+
+    broadcastToPartner('MEAL_ADD', newDoc)
+
+    const client = getCleanDbClient() || getSupabaseClient()
+    if (client && pId) {
+      safeDb(client.from('meals').upsert(newDoc))
+    }
+
+    triggerToast(`Zaplanowano obiad: "${newDoc.title}"`)
+    return newDoc
+  }
+
+  const updateMeal = async (id: string, updates: Partial<MealItem>) => {
+    if (!await verifyUserAndPartnershipAccess()) return
+    const idx = mealsList.value.findIndex(m => m.id === id)
+    if (idx === -1) return
+    const current = mealsList.value[idx]
+    const updated: MealItem = {
+      ...current,
+      ...updates,
+      updated_at: new Date().toISOString()
+    }
+    mealsList.value = mealsList.value.map(m => m.id === id ? updated : m)
+    syncToStorage()
+
+    broadcastToPartner('MEAL_UPDATE', updated)
+
+    const client = getCleanDbClient() || getSupabaseClient()
+    const pId = partnership.value?.id || currentUser.value?.partnership_id
+    if (client && pId) {
+      safeDb(client.from('meals').update(updates).eq('id', id))
+    }
+  }
+
+  const deleteMeal = async (id: string) => {
+    if (!await verifyUserAndPartnershipAccess()) return
+    const item = mealsList.value.find(m => m.id === id)
+    if (!item) return
+    mealsList.value = mealsList.value.filter(m => m.id !== id)
+    syncToStorage()
+
+    broadcastToPartner('MEAL_DELETE', { id })
+
+    const client = getCleanDbClient() || getSupabaseClient()
+    const pId = partnership.value?.id || currentUser.value?.partnership_id
+    if (client && pId) {
+      safeDb(client.from('meals').delete().eq('id', id))
+    }
+
+    triggerToast(`Usunięto obiad "${item.title}" z planu.`)
+  }
+
+  const toggleMealCompleted = async (id: string) => {
+    if (!await verifyUserAndPartnershipAccess()) return
+    const item = mealsList.value.find(m => m.id === id)
+    if (!item) return
+    const newStatus = !item.is_completed
+    const completedAt = newStatus ? new Date().toISOString() : null
+
+    item.is_completed = newStatus
+    item.completed_at = completedAt
+    mealsList.value = [...mealsList.value]
+    syncToStorage()
+
+    broadcastToPartner('MEAL_TOGGLE_COMPLETED', { id, is_completed: newStatus, completed_at: completedAt })
+
+    const client = getCleanDbClient() || getSupabaseClient()
+    const pId = partnership.value?.id || currentUser.value?.partnership_id
+    if (client && pId) {
+      safeDb(client.from('meals').update({ is_completed: newStatus, completed_at: completedAt }).eq('id', id))
+    }
+
+    if (newStatus) {
+      triggerToast(`Smacznego! Obiad "${item.title}" zjedzony.`)
+    }
+  }
+
+  const addIngredientsToShopping = async (ingredients: { name: string; measure?: string }[]): Promise<number> => {
+    if (!ingredients || ingredients.length === 0) return 0
+    let count = 0
+    for (const ing of ingredients) {
+      if (!ing.name || !ing.name.trim()) continue
+      const title = ing.measure && ing.measure.trim() ? `${ing.name.trim()} (${ing.measure.trim()})` : ing.name.trim()
+      await addShoppingItem(title, 'Spożywcze', '1')
+      count++
+    }
+    triggerToast(`Dodano ${count} składników do Listy Zakupów!`)
+    return count
+  }
+
+  const refreshMeals = async () => {
+    const client = getCleanDbClient() || getSupabaseClient()
+    const pId = partnership.value?.id || currentUser.value?.partnership_id
+    if (!client || !pId) return
+    try {
+      const { data, error } = await client
+        .from('meals')
+        .select('*')
+        .eq('partnership_id', pId)
+        .order('date', { ascending: true })
+
+      if (!error && data) {
+        mealsList.value = data
+        syncToStorage()
+      }
+    } catch (_) {}
+  }
+
   return {
     authUser,
     authSession,
@@ -4694,6 +4953,7 @@ export const useDuoState = () => {
     milestonesList,
     wishlistItems,
     moviesList,
+    mealsList,
     addWishlistItem,
     updateWishlistItem,
     deleteWishlistItem,
@@ -4706,6 +4966,12 @@ export const useDuoState = () => {
     toggleMovieWatched,
     saveMovieReview,
     refreshMovies,
+    addMeal,
+    updateMeal,
+    deleteMeal,
+    toggleMealCompleted,
+    addIngredientsToShopping,
+    refreshMeals,
     updatePet,
     isPaired,
     isOnlineWithSupabase,
@@ -4761,6 +5027,7 @@ export const useDuoState = () => {
     formattedNextNudgeTime,
     nextNudgeRemainingMs,
     activeDailySubTab,
+    activeOrgSubTab,
     activeTasksMainTab,
     activeLeisureSubTab,
     updatePartnershipSettings,

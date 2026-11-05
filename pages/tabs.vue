@@ -18,6 +18,9 @@
           <div v-show="activeDailySubTab === 'tasks'" class="subtab-fill-container">
             <TabTasks />
           </div>
+          <div v-show="activeDailySubTab === 'meals'" class="subtab-fill-container">
+            <TabMeals />
+          </div>
         </div>
         <div class="tab-slide" :class="{ 'is-active': activeTabIndex === 2 }">
           <TabCalendar />
@@ -67,7 +70,7 @@
               {{ pendingShoppingCount + pendingTasksCount }}
             </span>
           </div>
-          <span class="tab-title">Codzienność</span>
+          <span class="tab-title">Organizacja</span>
         </button>
 
         <button
@@ -130,6 +133,7 @@ import { useDuoState } from '~/composables/useDuoState'
 import TabNest from '~/pages/tabs/nest.vue'
 import TabShopping from '~/pages/tabs/shopping.vue'
 import TabTasks from '~/pages/tabs/tasks.vue'
+import TabMeals from '~/pages/tabs/meals.vue'
 import TabCalendar from '~/pages/tabs/calendar.vue'
 import TabWishlist from '~/pages/tabs/wishlist.vue'
 import TabMovies from '~/pages/tabs/movies.vue'
@@ -494,8 +498,14 @@ const goToTab = (index: number) => {
 
 const handleDailyTabClick = () => {
   if (activeTabIndex.value === 1) {
-    // If already on Codzienność tab, toggle between shopping and tasks
-    activeDailySubTab.value = activeDailySubTab.value === 'shopping' ? 'tasks' : 'shopping'
+    // Cycle between shopping -> tasks -> meals -> shopping
+    if (activeDailySubTab.value === 'shopping') {
+      activeDailySubTab.value = 'tasks'
+    } else if (activeDailySubTab.value === 'tasks') {
+      activeDailySubTab.value = 'meals'
+    } else {
+      activeDailySubTab.value = 'shopping'
+    }
     const targetPath = `/tabs/${activeDailySubTab.value}`
     if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
       window.history.replaceState({}, '', targetPath)
@@ -540,7 +550,10 @@ const syncTabFromRoute = (animate: boolean = false) => {
   } else if (path.includes('tasks')) {
     idx = 1
     activeDailySubTab.value = 'tasks'
-  } else if (path.includes('daily')) {
+  } else if (path.includes('meals') || path.includes('dinner')) {
+    idx = 1
+    activeDailySubTab.value = 'meals'
+  } else if (path.includes('daily') || path.includes('organization') || path.includes('organizacja')) {
     idx = 1
   } else if (path.includes('calendar')) {
     idx = 2

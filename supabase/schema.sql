@@ -328,16 +328,37 @@ drop policy if exists "Allow all on push_subscriptions" on public.push_subscript
 create policy "Allow all on push_subscriptions" on public.push_subscriptions for all using (true) with check (true);
 
 -- ==========================================================
--- OPTIONAL HARDENED RLS POLICIES FOR STRICT PARTNERSHIP ISOLATION
--- (Uncomment when switching from anonymous pairing code auth to strict Supabase Auth UUIDs)
+-- 11. MEALS & DINNER PLANNER (Wspólny planer obiadów i posiłków)
 -- ==========================================================
--- create or replace function public.is_partnership_member(target_partnership_id text)
--- returns boolean security definer language sql as $$
---   select exists (
---     select 1 from public.partnerships
---     where id = target_partnership_id
---     and (partner1_id = auth.uid()::text or partner2_id = auth.uid()::text)
---   );
--- $$;
+create table if not exists public.meals (
+  id text primary key,
+  partnership_id text not null,
+  date text not null, -- 'YYYY-MM-DD'
+  day_name text, -- 'Poniedziałek', 'Wtorek', itp.
+  title text not null,
+  category text,
+  area text,
+  cook_id text, -- 'me' | 'partner' | 'both' | 'restaurant' | 'takeout' | user_id
+  image_url text,
+  source text default 'custom', -- 'custom' | 'api'
+  api_id text,
+  ingredients jsonb default '[]'::jsonb,
+  instructions text,
+  youtube_url text,
+  recipe_url text,
+  is_completed boolean not null default false,
+  completed_at timestamptz,
+  created_by text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create index if not exists idx_meals_partnership on public.meals(partnership_id);
+create index if not exists idx_meals_date on public.meals(date);
+
+alter table public.meals enable row level security;
+drop policy if exists "Allow all on meals" on public.meals;
+create policy "Allow all on meals" on public.meals for all using (true) with check (true);
+
 
 

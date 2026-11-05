@@ -11,7 +11,7 @@
         </div>
       </ion-toolbar>
 
-      <!-- MAIN TABS: Zakupy vs Zadania vs Zwierzak -->
+      <!-- MAIN TABS: Zakupy vs Zadania vs Obiady vs Zwierzak -->
       <ion-toolbar class="main-tabs-toolbar" data-no-swipe>
         <div class="main-tabs-pill-row">
           <button
@@ -35,10 +35,19 @@
 
           <button
             type="button"
+            class="main-tab-pill"
+            @click="switchToMeals"
+          >
+            <ion-icon :icon="ioniconsRestaurantOutline" />
+            <span>Obiady</span>
+          </button>
+
+          <button
+            type="button"
             class="main-tab-pill pet-tab-pill"
             @click="switchToPet"
           >
-            <span class="tab-pet-emoji">{{ hasPet ? currentPetDef.emoji : '🐾' }}</span>
+            <ion-icon :icon="ioniconsPawOutline" />
             <span>Zwierzak</span>
             <span class="tab-pet-lvl" v-if="hasPet">lvl {{ petLevel }}</span>
           </button>
@@ -261,6 +270,10 @@ const switchToTasks = () => {
   activeTasksMainTab.value = 'tasks'
 }
 
+const switchToMeals = () => {
+  activeDailySubTab.value = 'meals'
+}
+
 const switchToPet = () => {
   activeDailySubTab.value = 'tasks'
   activeTasksMainTab.value = 'pet'
@@ -407,20 +420,27 @@ const handleRefresh = async (event: any) => {
   padding: 4px;
   border-radius: 14px;
   gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.main-tabs-pill-row::-webkit-scrollbar {
+  display: none;
 }
 
 .main-tab-pill {
-  flex: 1;
+  flex: 1 0 auto;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 10px;
+  gap: 5px;
+  padding: 7px 10px;
   border-radius: 10px;
   border: none;
   background: transparent;
   color: #64748b;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
