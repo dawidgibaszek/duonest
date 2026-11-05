@@ -452,7 +452,7 @@ export const clearSupabaseSessionStorage = () => {
       const keysToRemove: string[] = []
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i)
-        if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+        if (key && (key.startsWith('sb-') || key.includes('supabase') || key === 'duonest_clean_db_anon')) {
           keysToRemove.push(key)
         }
       }
@@ -471,7 +471,8 @@ export const getCleanDbClient = () => {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
-        detectSessionInUrl: false
+        detectSessionInUrl: false,
+        storageKey: 'duonest_clean_db_anon'
       }
     })
     return cleanDbClient
@@ -483,6 +484,14 @@ export const getCleanDbClient = () => {
 
 export const getSupabaseClient = () => {
   if (globalSupabaseClient) return globalSupabaseClient
+
+  try {
+    const client = useSupabaseClient()
+    if (client) {
+      globalSupabaseClient = client
+      return globalSupabaseClient
+    }
+  } catch (_) {}
 
   try {
     const cfg = getSupabaseConfig()
@@ -497,14 +506,6 @@ export const getSupabaseClient = () => {
   } catch (err) {
     console.warn('Primary Supabase client init:', err)
   }
-
-  try {
-    const client = useSupabaseClient()
-    if (client) {
-      globalSupabaseClient = client
-      return globalSupabaseClient
-    }
-  } catch (_) {}
 
   return globalSupabaseClient
 }

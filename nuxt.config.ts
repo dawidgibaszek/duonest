@@ -15,7 +15,11 @@ export default defineNuxtConfig({
   ],
 
   nitro: {
-    preset: process.env.NITRO_PRESET || (process.env.NETLIFY ? 'netlify' : undefined)
+    preset: process.env.NITRO_PRESET || (process.env.NETLIFY ? 'netlify' : undefined),
+    prerender: {
+      crawlLinks: false,
+      routes: ['/']
+    }
   },
 
   ionic: {
@@ -79,7 +83,7 @@ export default defineNuxtConfig({
       ]
     },
     workbox: {
-      navigateFallback: '/',
+      navigateFallback: null,
       globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
       importScripts: ['/sw-push.js'],
       clientsClaim: true,
