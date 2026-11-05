@@ -357,7 +357,7 @@
                   <span class="history-author">
                     {{ ndg.sender_id === currentUser.id ? 'Ty' : (partnerUser?.name || 'Partner') }}:
                   </span>
-                  <span class="history-msg">{{ ndg.message || ndg.nudge_type }}</span>
+                  <span class="history-msg">{{ ndg.message || getNudgeTitle(ndg.nudge_type) }}</span>
                 </div>
               </div>
             </div>
@@ -1457,6 +1457,11 @@ const formattedPartnerMoodTime = computed(() => {
 const getMoodLabel = (mood?: string | null) => {
   const choice = moodChoices.find(c => c.id === mood)
   return choice ? choice.label : 'Dobry'
+}
+
+const getNudgeTitle = (type: string) => {
+  const found = nudgePresets.find(p => p.id === type)
+  return found ? found.title : type
 }
 
 const handleSaveMood = async () => {

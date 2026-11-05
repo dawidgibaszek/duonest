@@ -200,29 +200,17 @@
           <p class="nudge-sub">Wyślij szybką reakcję, by wywołać uśmiech u {{ partnerUser?.name || 'partnera' }}:</p>
 
           <div class="nudge-actions-grid">
-            <button class="nudge-btn" @click="sendQuickNudge('hug', 'Ciepły uścisk!')">
+            <button
+              type="button"
+              v-for="n in nudgePresets"
+              :key="n.id"
+              class="nudge-btn"
+              @click="sendQuickNudge(n.id, n.defaultMsg)"
+            >
               <div class="nudge-icon-circle">
-                <DuoIcon name="nudge-hug" :size="20" />
+                <DuoIcon :name="'nudge-' + n.id" :size="20" />
               </div>
-              <span class="nudge-text">Uścisk</span>
-            </button>
-            <button class="nudge-btn" @click="sendQuickNudge('kiss', 'Słodki buziak!')">
-              <div class="nudge-icon-circle">
-                <DuoIcon name="nudge-kiss" :size="20" />
-              </div>
-              <span class="nudge-text">Buziak</span>
-            </button>
-            <button class="nudge-btn" @click="sendQuickNudge('tea', 'Ciepła herbatka!')">
-              <div class="nudge-icon-circle">
-                <DuoIcon name="nudge-tea" :size="20" />
-              </div>
-              <span class="nudge-text">Herbatka</span>
-            </button>
-            <button class="nudge-btn" @click="sendQuickNudge('love', 'Bardzo Cię kocham!')">
-              <div class="nudge-icon-circle">
-                <DuoIcon name="nudge-love" :size="20" />
-              </div>
-              <span class="nudge-text">Kocham Cię</span>
+              <span class="nudge-text">{{ n.title }}</span>
             </button>
           </div>
         </div>
@@ -854,6 +842,14 @@ const celebrateWithConfetti = () => {
     colors: ['#0284c7', '#0ea5e9', '#0d9488', '#38bdf8', '#f43f5e']
   })
 }
+
+const nudgePresets = [
+  { id: 'hug', title: 'Uścisk', defaultMsg: 'Ciepły uścisk w trakcie dnia!' },
+  { id: 'kiss', title: 'Buziak', defaultMsg: 'Słodki buziak dla Ciebie!' },
+  { id: 'tea', title: 'Herbatka', defaultMsg: 'Zrobiłem dla Ciebie herbatkę!' },
+  { id: 'love', title: 'Kocham Cię', defaultMsg: 'Pamiętaj, że bardzo Cię kocham!' },
+  { id: 'massage', title: 'Masaż', defaultMsg: 'Wieczorny relaksujący masaż czeka na Ciebie!' }
+]
 
 const sendQuickNudge = async (type: string, msg: string) => {
   const sent = await sendNudge(type, msg)
@@ -1981,15 +1977,15 @@ const handleRefresh = async (event: any) => {
 
 .nudge-actions-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
 }
 
 .nudge-btn {
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
-  padding: 10px 4px;
+  padding: 10px 2px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2012,6 +2008,7 @@ const handleRefresh = async (event: any) => {
   font-size: 10px;
   font-weight: 700;
   color: #475569;
+  white-space: nowrap;
 }
 
 /* MINI TASKS LIST */
