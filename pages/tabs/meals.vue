@@ -692,30 +692,26 @@
       handle-behavior="cycle"
       data-no-swipe="true"
     >
-      <ion-header class="modal-custom-header">
-        <ion-toolbar>
-          <div class="modal-header-inner">
-            <div class="modal-title-wrap">
-              <div class="modal-title-icon-badge">
-                <ion-icon :icon="ioniconsRestaurantOutline" class="modal-title-icon" />
-              </div>
-              <div class="modal-title-text-group">
-                <ion-title class="modal-main-title">Przepis i Składniki</ion-title>
-                <span class="modal-sub-title">Inspiracja kulinarna dla Was</span>
-              </div>
+      <ion-header class="modal-custom-header ion-no-border">
+        <div class="modal-sheet-header">
+          <div class="modal-title-wrap">
+            <div class="modal-title-icon-badge">
+              <ion-icon :icon="ioniconsRestaurantOutline" class="modal-title-icon" />
             </div>
-            <ion-buttons slot="end">
-              <button
-                type="button"
-                class="modal-close-icon-btn"
-                @click="showDetailsModal = false"
-                aria-label="Zamknij"
-              >
-                <ion-icon :icon="ioniconsCloseOutline" />
-              </button>
-            </ion-buttons>
+            <div class="modal-title-text-group">
+              <h3 class="modal-main-title">Przepis i Składniki</h3>
+              <span class="modal-sub-title">Inspiracja kulinarna dla Was</span>
+            </div>
           </div>
-        </ion-toolbar>
+          <button
+            type="button"
+            class="modal-close-icon-btn"
+            @click="showDetailsModal = false"
+            aria-label="Zamknij"
+          >
+            <ion-icon :icon="ioniconsCloseOutline" />
+          </button>
+        </div>
       </ion-header>
 
       <ion-content class="ion-padding recipe-modal-content" v-if="activeSelectedMeal">
@@ -896,30 +892,26 @@
       handle-behavior="cycle"
       data-no-swipe="true"
     >
-      <ion-header class="modal-custom-header">
-        <ion-toolbar>
-          <div class="modal-header-inner">
-            <div class="modal-title-wrap">
-              <div class="modal-title-icon-badge">
-                <ion-icon :icon="ioniconsCalendarOutline" class="modal-title-icon" />
-              </div>
-              <div class="modal-title-text-group">
-                <ion-title class="modal-main-title">Zaplanuj ten obiad</ion-title>
-                <span class="modal-sub-title">Wybierz dzień i kucharza dla przepisu</span>
-              </div>
+      <ion-header class="modal-custom-header ion-no-border">
+        <div class="modal-sheet-header">
+          <div class="modal-title-wrap">
+            <div class="modal-title-icon-badge">
+              <ion-icon :icon="ioniconsCalendarOutline" class="modal-title-icon" />
             </div>
-            <ion-buttons slot="end">
-              <button
-                type="button"
-                class="modal-close-icon-btn"
-                @click="showAssignModal = false"
-                aria-label="Zamknij"
-              >
-                <ion-icon :icon="ioniconsCloseOutline" />
-              </button>
-            </ion-buttons>
+            <div class="modal-title-text-group">
+              <h3 class="modal-main-title">Zaplanuj ten obiad</h3>
+              <span class="modal-sub-title">Wybierz dzień i kucharza dla przepisu</span>
+            </div>
           </div>
-        </ion-toolbar>
+          <button
+            type="button"
+            class="modal-close-icon-btn"
+            @click="showAssignModal = false"
+            aria-label="Zamknij"
+          >
+            <ion-icon :icon="ioniconsCloseOutline" />
+          </button>
+        </div>
       </ion-header>
 
       <ion-content class="ion-padding custom-meal-modal-content" v-if="assignTargetMeal">
@@ -1047,30 +1039,26 @@
       handle-behavior="cycle"
       data-no-swipe="true"
     >
-      <ion-header class="modal-custom-header">
-        <ion-toolbar>
-          <div class="modal-header-inner">
-            <div class="modal-title-wrap">
-              <div class="modal-title-icon-badge">
-                <ion-icon :icon="ioniconsRestaurantOutline" class="modal-title-icon" />
-              </div>
-              <div class="modal-title-text-group">
-                <ion-title class="modal-main-title">Dodaj Własny Obiad</ion-title>
-                <span class="modal-sub-title">Zaplanuj domowy posiłek dla Was</span>
-              </div>
+      <ion-header class="modal-custom-header ion-no-border">
+        <div class="modal-sheet-header">
+          <div class="modal-title-wrap">
+            <div class="modal-title-icon-badge">
+              <ion-icon :icon="ioniconsRestaurantOutline" class="modal-title-icon" />
             </div>
-            <ion-buttons slot="end">
-              <button
-                type="button"
-                class="modal-close-icon-btn"
-                @click="showAddCustomModal = false"
-                aria-label="Zamknij"
-              >
-                <ion-icon :icon="ioniconsCloseOutline" />
-              </button>
-            </ion-buttons>
+            <div class="modal-title-text-group">
+              <h3 class="modal-main-title">Dodaj Własny Obiad</h3>
+              <span class="modal-sub-title">Zaplanuj domowy posiłek dla Was</span>
+            </div>
           </div>
-        </ion-toolbar>
+          <button
+            type="button"
+            class="modal-close-icon-btn"
+            @click="showAddCustomModal = false"
+            aria-label="Zamknij"
+          >
+            <ion-icon :icon="ioniconsCloseOutline" />
+          </button>
+        </div>
       </ion-header>
 
       <ion-content class="ion-padding custom-meal-modal-content">
@@ -1245,33 +1233,29 @@
       handle-behavior="cycle"
       data-no-swipe="true"
     >
-      <ion-header class="modal-custom-header">
-        <ion-toolbar>
-          <div class="modal-header-inner">
-            <div class="modal-title-wrap">
-              <div class="modal-title-icon-badge">
-                <ion-icon :icon="ioniconsBookOutline" class="modal-title-icon" />
-              </div>
-              <div class="modal-title-text-group">
-                <ion-title class="modal-main-title">Wybierz z Twoich Przepisów</ion-title>
-                <span class="modal-sub-title" v-if="selectedTargetPickDayLabel">
-                  Zaplanuj na: {{ selectedTargetPickDayLabel }}
-                </span>
-                <span class="modal-sub-title" v-else>Wybierz obiad z Waszej historii</span>
-              </div>
+      <ion-header class="modal-custom-header ion-no-border">
+        <div class="modal-sheet-header">
+          <div class="modal-title-wrap">
+            <div class="modal-title-icon-badge">
+              <ion-icon :icon="ioniconsBookOutline" class="modal-title-icon" />
             </div>
-            <ion-buttons slot="end">
-              <button
-                type="button"
-                class="modal-close-icon-btn"
-                @click="showPickSavedModal = false"
-                aria-label="Zamknij"
-              >
-                <ion-icon :icon="ioniconsCloseOutline" />
-              </button>
-            </ion-buttons>
+            <div class="modal-title-text-group">
+              <h3 class="modal-main-title">Wybierz z Twoich Przepisów</h3>
+              <span class="modal-sub-title" v-if="selectedTargetPickDayLabel">
+                Zaplanuj na: {{ selectedTargetPickDayLabel }}
+              </span>
+              <span class="modal-sub-title" v-else>Wybierz obiad z Waszej historii</span>
+            </div>
           </div>
-        </ion-toolbar>
+          <button
+            type="button"
+            class="modal-close-icon-btn"
+            @click="showPickSavedModal = false"
+            aria-label="Zamknij"
+          >
+            <ion-icon :icon="ioniconsCloseOutline" />
+          </button>
+        </div>
       </ion-header>
 
       <ion-content class="ion-padding custom-meal-modal-content">
@@ -3284,7 +3268,7 @@ onMounted(() => {
 /* ======================================================= */
 .recipe-modal-content {
   --background: #ffffff;
-  --padding-top: 4px;
+  --padding-top: 14px;
   --padding-bottom: 40px;
   --padding-start: 16px;
   --padding-end: 16px;
@@ -3698,29 +3682,34 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   margin-bottom: 2px;
 }
 
-.dn-meal-sheet-modal .modal-custom-header ion-toolbar {
+.dn-meal-sheet-modal .modal-custom-header {
+  background: #ffffff;
   --background: #ffffff;
-  --border-width: 0;
-  padding: 4px 14px 8px;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.dn-meal-sheet-modal .modal-header-inner {
+.dn-meal-sheet-modal .modal-sheet-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 12px 16px 12px 16px;
+  background: #ffffff;
   width: 100%;
-  padding: 0 2px;
+  box-sizing: border-box;
 }
 
 .dn-meal-sheet-modal .modal-title-wrap {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+  margin-right: 12px;
 }
 
 .dn-meal-sheet-modal .modal-title-icon-badge {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 12px;
   background: #f1f5f9;
   display: flex;
@@ -3735,6 +3724,8 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   display: flex;
   flex-direction: column;
   text-align: left;
+  min-width: 0;
+  flex: 1;
 }
 
 .dn-meal-sheet-modal .modal-main-title {
@@ -3742,14 +3733,22 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   font-weight: 800;
   color: #0f172a;
   padding: 0;
+  margin: 0;
   line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dn-meal-sheet-modal .modal-sub-title {
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 500;
   color: #64748b;
-  margin-top: 1px;
+  margin-top: 2px;
+  margin-bottom: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dn-meal-sheet-modal .modal-close-icon-btn {
@@ -3764,10 +3763,11 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   justify-content: center;
   color: #64748b;
   cursor: pointer;
-  font-size: 22px;
+  font-size: 20px;
   transition: all 0.15s ease;
   touch-action: manipulation;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .dn-meal-sheet-modal .modal-close-icon-btn:hover {
@@ -3781,7 +3781,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 
 .custom-meal-modal-content {
   --background: #ffffff;
-  --padding-top: 6px;
+  --padding-top: 14px;
   --padding-bottom: 32px;
   --padding-start: 16px;
   --padding-end: 16px;
@@ -3851,6 +3851,8 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .form-label {
