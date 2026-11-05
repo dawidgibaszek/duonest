@@ -19,14 +19,14 @@
                 aria-label="Dodaj własny obiad"
               >
                 <ion-icon :icon="ioniconsAddOutline" />
-                <span>Nowe</span>
+                <span style="text-wrap: nowrap;">Nowe</span>
               </button>
             </div>
           </div>
         </div>
       </ion-toolbar>
 
-      <!-- MAIN TABS: Zakupy vs Zadania vs Obiady vs Zwierzak -->
+      <!-- MAIN TABS: Zakupy vs Zadania vs Obiady vs Zwierzak (ZERO EMOJIS - ONLY SVG) -->
       <ion-toolbar class="main-tabs-toolbar" data-no-swipe>
         <div class="main-tabs-pill-row">
           <button
@@ -70,7 +70,7 @@
         </div>
       </ion-toolbar>
 
-      <!-- SUB-VIEW SEGMENT: Kalendarz Tygodnia vs Odkrywaj z API -->
+      <!-- SUB-VIEW SEGMENT: Plan Tygodnia vs Inspiracje & Przepisy -->
       <ion-toolbar class="subview-toolbar" data-no-swipe>
         <div class="subview-segmented-wrap">
           <button
@@ -90,7 +90,7 @@
             @click="activeSubView = 'explore'"
           >
             <ion-icon :icon="ioniconsSparklesOutline" />
-            <span>Odkrywaj z API</span>
+            <span>Inspiracje & Przepisy</span>
           </button>
         </div>
       </ion-toolbar>
@@ -251,15 +251,15 @@
               <div class="empty-slot-buttons">
                 <button
                   type="button"
-                  class="slot-btn slot-api-btn"
+                  class="slot-btn slot-primary-btn"
                   @click="openExploreForDate(day.dateStr)"
                 >
                   <ion-icon :icon="ioniconsSparklesOutline" />
-                  <span>Wybierz z API</span>
+                  <span>Wybierz przepis</span>
                 </button>
                 <button
                   type="button"
-                  class="slot-btn slot-custom-btn"
+                  class="slot-btn slot-secondary-btn"
                   @click="openAddCustomModal(day.dateStr)"
                 >
                   <ion-icon :icon="ioniconsAddOutline" />
@@ -272,47 +272,47 @@
       </div>
 
       <!-- ============================================== -->
-      <!-- WIDOK 2: ODKRYWAJ Z API (KATALOG & FILTRY)     -->
+      <!-- WIDOK 2: INSPIRACJE & PRZEPISY (KATALOG)       -->
       <!-- ============================================== -->
       <div v-else class="meals-explore-wrapper">
-        <!-- Surprise / Random meal generator banner -->
-        <div class="dn-card surprise-banner">
-          <div class="surprise-text-box">
-            <div class="surprise-icon-circle">
+        <!-- Compact modern surprise bar -->
+        <div class="surprise-hero-bar dn-card" @click="handleSurpriseMe">
+          <div class="surprise-left-content">
+            <div class="surprise-icon-orb">
               <ion-icon :icon="ioniconsShuffleOutline" />
             </div>
-            <div>
-              <h3 class="surprise-title">Nie wiecie co dziś zjeść?</h3>
-              <p class="surprise-sub">Wylosujcie kulinarną propozycję obiadową jednym kliknięciem!</p>
+            <div class="surprise-texts">
+              <span class="surprise-badge-label">Kulinarne koło fortuny</span>
+              <h4 class="surprise-heading">Nie wiesz co dziś ugotować?</h4>
             </div>
           </div>
           <button
             type="button"
-            class="dn-button-primary surprise-btn"
+            class="surprise-pill-btn"
             :disabled="isLoadingRandom"
-            @click="handleSurpriseMe"
+            @click.stop="handleSurpriseMe"
           >
             <ion-spinner v-if="isLoadingRandom" name="crescent" class="btn-spinner" />
-            <ion-icon v-else :icon="ioniconsShuffleOutline" />
-            <span>Zaskocz nas pomysłem</span>
+            <span v-else>Wylosuj</span>
+            <ion-icon v-if="!isLoadingRandom" :icon="ioniconsArrowForwardOutline" />
           </button>
         </div>
 
         <!-- Search Bar -->
-        <div class="explore-search-wrap">
-          <div class="custom-search-field">
-            <ion-icon :icon="ioniconsSearchOutline" class="search-input-icon" />
+        <div class="explore-search-container">
+          <div class="explore-search-field">
+            <ion-icon :icon="ioniconsSearchOutline" class="search-ico" />
             <input
               v-model="searchQuery"
               type="text"
               placeholder="Szukaj dania lub składnika (np. kurczak, makaron)..."
-              class="search-native-input"
+              class="search-input-el"
               @keydown.enter="triggerSearch"
             />
             <button
               v-if="searchQuery"
               type="button"
-              class="search-clear-btn"
+              class="search-clear-ico"
               @click="searchQuery = ''; triggerSearch()"
             >
               <ion-icon :icon="ioniconsCloseCircle" />
@@ -320,100 +320,75 @@
           </div>
         </div>
 
-        <!-- Filter Chips: Kuchnie Świata -->
-        <div class="filter-section">
-          <div class="filter-section-header">
-            <ion-icon :icon="ioniconsGlobeOutline" />
-            <span>Kuchnie świata</span>
-          </div>
-          <div class="filter-chips-scroll" data-no-swipe>
-            <button
-              v-for="area in areaFilters"
-              :key="area.key"
-              type="button"
-              class="filter-chip"
-              :class="{ active: selectedArea === area.key }"
-              @click="selectArea(area.key)"
-            >
-              <span>{{ area.label }}</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Filter Chips: Kategorie Dań -->
-        <div class="filter-section">
-          <div class="filter-section-header">
-            <ion-icon :icon="ioniconsNutritionOutline" />
-            <span>Rodzaj posiłku</span>
-          </div>
-          <div class="filter-chips-scroll" data-no-swipe>
-            <button
-              v-for="cat in categoryFilters"
-              :key="cat.key"
-              type="button"
-              class="filter-chip"
-              :class="{ active: selectedCategory === cat.key }"
-              @click="selectCategory(cat.key)"
-            >
-              <span>{{ cat.label }}</span>
-            </button>
-          </div>
+        <!-- Curated Pills Filter Bar (Single clean horizontal row) -->
+        <div class="quick-filter-scroll" data-no-swipe>
+          <button
+            v-for="pill in curatedFilterPills"
+            :key="pill.id"
+            type="button"
+            class="curated-filter-pill"
+            :class="{ active: activeFilterId === pill.id }"
+            @click="applyCuratedFilter(pill)"
+          >
+            <span>{{ pill.label }}</span>
+          </button>
         </div>
 
         <!-- Loading state -->
-        <div v-if="isLoadingApi" class="api-loading-state">
+        <div v-if="isLoadingApi" class="recipes-loading-state">
           <ion-spinner name="crescent" color="primary" />
           <p>Wyszukiwanie dań i przepisów...</p>
         </div>
 
         <!-- Empty state -->
-        <div v-else-if="apiResults.length === 0" class="api-empty-state dn-card">
+        <div v-else-if="apiResults.length === 0" class="recipes-empty-state dn-card">
           <div class="empty-icon-circle">
             <ion-icon :icon="ioniconsRestaurantOutline" />
           </div>
-          <h3>Nie znaleziono dań</h3>
-          <p>Spróbuj zmienić filtry lub wpisać inne hasło (np. pasta, chicken, pizza).</p>
+          <h3>Brak dań dla tych kryteriów</h3>
+          <p>Spróbuj zmienić kategorię lub wpisać inne hasło (np. pasta, chicken, pizza).</p>
         </div>
 
-        <!-- Meals Grid -->
-        <div v-else class="meals-api-grid">
+        <!-- Recipes Grid (Clean, symmetrical, aligned 2-column cards) -->
+        <div v-else class="meals-cards-grid">
           <div
             v-for="meal in apiResults"
             :key="meal.id"
-            class="dn-card api-meal-tile"
+            class="recipe-card dn-card"
+            @click="openApiMealPreview(meal)"
           >
-            <div
-              class="tile-image"
-              :style="{ backgroundImage: `url(${meal.thumbnail})` }"
-              @click="openApiMealPreview(meal)"
-            >
-              <div class="tile-category-badge">
-                {{ meal.categoryPl || meal.category }}
+            <!-- Card Media with Badge Overlay -->
+            <div class="recipe-card-media">
+              <img
+                :src="meal.thumbnail"
+                :alt="meal.title"
+                loading="lazy"
+                class="recipe-img"
+              />
+              <div class="recipe-badges-overlay">
+                <span class="recipe-badge-cuisine" v-if="meal.areaPl || meal.area">
+                  {{ meal.areaPl || meal.area }}
+                </span>
+                <span class="recipe-badge-category" v-if="meal.categoryPl || meal.category">
+                  {{ meal.categoryPl || meal.category }}
+                </span>
               </div>
             </div>
 
-            <div class="tile-body">
-              <span class="tile-area-tag">{{ meal.areaPl || meal.area || 'Międzynarodowa' }}</span>
-              <h4 class="tile-title" @click="openApiMealPreview(meal)">
+            <!-- Card Content with Pinned Action Button -->
+            <div class="recipe-card-body">
+              <h4 class="recipe-card-title" :title="meal.title">
                 {{ meal.title }}
               </h4>
 
-              <div class="tile-btn-row">
+              <div class="recipe-bottom-action">
                 <button
                   type="button"
-                  class="tile-info-btn"
-                  @click="openApiMealPreview(meal)"
-                  title="Przepis i składniki"
+                  class="recipe-plan-pill-btn"
+                  @click.stop="openAssignModal(meal)"
                 >
-                  <ion-icon :icon="ioniconsInformationCircleOutline" />
-                </button>
-                <button
-                  type="button"
-                  class="tile-choose-btn dn-button-primary"
-                  @click="openAssignModal(meal)"
-                >
-                  <ion-icon :icon="ioniconsAddOutline" />
-                  <span>Wybierz na obiad</span>
+                  <ion-icon :icon="ioniconsCalendarOutline" />
+                  <span>Zaplanuj</span>
                 </button>
               </div>
             </div>
@@ -449,11 +424,11 @@
           <div class="modal-recipe-header">
             <h2 class="modal-recipe-title">{{ activeSelectedMeal.title }}</h2>
             <div class="modal-recipe-tags">
-              <span v-if="activeSelectedMeal.category" class="tag-pill category-pill">
-                {{ activeSelectedMeal.category }}
+              <span v-if="activeSelectedMeal.categoryPl || activeSelectedMeal.category" class="tag-pill category-pill">
+                {{ activeSelectedMeal.categoryPl || activeSelectedMeal.category }}
               </span>
-              <span v-if="activeSelectedMeal.area" class="tag-pill area-pill">
-                {{ activeSelectedMeal.area }}
+              <span v-if="activeSelectedMeal.areaPl || activeSelectedMeal.area" class="tag-pill area-pill">
+                {{ activeSelectedMeal.areaPl || activeSelectedMeal.area }}
               </span>
             </div>
           </div>
@@ -513,7 +488,7 @@
     </ion-modal>
 
     <!-- ============================================== -->
-    <!-- MODAL 2: WYBÓR DNIA I KUCHARZA DLA DANIA Z API -->
+    <!-- MODAL 2: WYBÓR DNIA I KUCHARZA DLA DANIA       -->
     <!-- ============================================== -->
     <ion-modal :is-open="showAssignModal" @didDismiss="showAssignModal = false">
       <ion-header>
@@ -617,7 +592,7 @@
             @click="confirmAssignMeal"
           >
             <ion-icon :icon="ioniconsCheckmarkOutline" />
-            <span>Zapisz w Planerze</span>
+            <span>Zaplanuj obiad</span>
           </button>
         </div>
       </ion-content>
@@ -750,7 +725,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useDuoState, type MealItem, type MealIngredient } from '~/composables/useDuoState'
 import { usePetState } from '~/composables/usePetState'
 
@@ -835,9 +810,7 @@ interface DaySlot {
 
 const weekDays = computed<DaySlot[]>(() => {
   const now = new Date()
-  // Current day of week: Sunday = 0, Monday = 1, ...
   const currentDayOfWeek = now.getDay()
-  // Distance to this week's Monday (in ISO week Monday = 1, Sunday = 7)
   const distanceToMonday = (currentDayOfWeek + 6) % 7
 
   const monday = new Date(now)
@@ -944,51 +917,43 @@ const handleAddMealIngredientsToShopping = async (meal: MealItem) => {
   await addIngredientsToShopping(meal.ingredients)
 }
 
-// --- EXPLORE API STATE ---
+// --- EXPLORE / RECIPES CATALOG STATE ---
 const searchQuery = ref('')
-const selectedArea = ref('all')
-const selectedCategory = ref('all')
+const activeFilterId = ref('all')
 const apiResults = ref<any[]>([])
 const isLoadingApi = ref(false)
 const isLoadingRandom = ref(false)
 
-const areaFilters = [
-  { key: 'all', label: 'Wszystkie kuchnie' },
-  { key: 'Italian', label: 'Włoska' },
-  { key: 'Mexican', label: 'Meksykańska' },
-  { key: 'American', label: 'Amerykańska' },
-  { key: 'Chinese', label: 'Chińska' },
-  { key: 'Japanese', label: 'Japońska' },
-  { key: 'French', label: 'Francuska' },
-  { key: 'Greek', label: 'Grecka' },
-  { key: 'Polish', label: 'Polska' },
-  { key: 'Indian', label: 'Indyjska' }
+const curatedFilterPills = [
+  { id: 'all', label: 'Wszystkie', type: 'all', value: '' },
+  { id: 'pasta', label: 'Makarony', type: 'category', value: 'Pasta' },
+  { id: 'chicken', label: 'Drób & Kurczak', type: 'category', value: 'Chicken' },
+  { id: 'veg', label: 'Wegetariańskie', type: 'category', value: 'Vegetarian' },
+  { id: 'italian', label: 'Włoska', type: 'area', value: 'Italian' },
+  { id: 'asian', label: 'Azjatycka', type: 'area', value: 'Asian' },
+  { id: 'mexican', label: 'Meksykańska', type: 'area', value: 'Mexican' },
+  { id: 'beef', label: 'Wołowina', type: 'category', value: 'Beef' },
+  { id: 'seafood', label: 'Ryby & Owoce morza', type: 'category', value: 'Seafood' },
+  { id: 'soup', label: 'Zupy & Dodatki', type: 'category', value: 'Side' },
+  { id: 'dessert', label: 'Desery', type: 'category', value: 'Dessert' }
 ]
 
-const categoryFilters = [
-  { key: 'all', label: 'Wszystkie' },
-  { key: 'Pasta', label: 'Makarony' },
-  { key: 'Chicken', label: 'Drób & Kurczak' },
-  { key: 'Beef', label: 'Wołowina' },
-  { key: 'Pork', label: 'Wieprzowina' },
-  { key: 'Seafood', label: 'Ryby & Owoce morza' },
-  { key: 'Vegetarian', label: 'Wegetariańskie' },
-  { key: 'Side', label: 'Dodatki & Zupy' },
-  { key: 'Dessert', label: 'Desery' }
-]
-
-const fetchApiMeals = async () => {
+const fetchApiMeals = async (overrideType?: string, overrideVal?: string) => {
   isLoadingApi.value = true
   try {
     const params = new URLSearchParams()
     if (searchQuery.value.trim()) {
       params.set('q', searchQuery.value.trim())
-    }
-    if (selectedCategory.value !== 'all') {
-      params.set('category', selectedCategory.value)
-    }
-    if (selectedArea.value !== 'all') {
-      params.set('area', selectedArea.value)
+    } else {
+      const currentPill = curatedFilterPills.find(p => p.id === activeFilterId.value)
+      const type = overrideType || currentPill?.type || 'all'
+      const val = overrideVal !== undefined ? overrideVal : (currentPill?.value || '')
+
+      if (type === 'category' && val) {
+        params.set('category', val)
+      } else if (type === 'area' && val) {
+        params.set('area', val)
+      }
     }
 
     const res = await $fetch<{ success: boolean; meals: any[] }>(`/api/meals/search?${params.toString()}`)
@@ -1005,19 +970,13 @@ const fetchApiMeals = async () => {
   }
 }
 
+const applyCuratedFilter = (pill: any) => {
+  activeFilterId.value = pill.id
+  searchQuery.value = ''
+  fetchApiMeals(pill.type, pill.value)
+}
+
 const triggerSearch = () => {
-  fetchApiMeals()
-}
-
-const selectArea = (key: string) => {
-  selectedArea.value = key
-  if (key !== 'all') selectedCategory.value = 'all'
-  fetchApiMeals()
-}
-
-const selectCategory = (key: string) => {
-  selectedCategory.value = key
-  if (key !== 'all') selectedArea.value = 'all'
   fetchApiMeals()
 }
 
@@ -1045,7 +1004,6 @@ const openMealDetailsModal = (meal: any) => {
 }
 
 const openApiMealPreview = async (meal: any) => {
-  // If meal has no full ingredients (from filter.php), fetch full lookup
   if (!meal.ingredients || meal.ingredients.length === 0) {
     try {
       const res = await $fetch<{ success: boolean; meal: any }>(`/api/meals/lookup?id=${meal.id}`)
@@ -1072,7 +1030,6 @@ const assignDate = ref('')
 const assignCook = ref<'me' | 'partner' | 'both' | 'restaurant' | 'takeout'>('me')
 
 const openAssignModal = async (meal: any, defaultDate?: string) => {
-  // Fetch full details if not loaded
   let fullMeal = meal
   if (!meal.ingredients || meal.ingredients.length === 0) {
     try {
@@ -1269,12 +1226,12 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 6px 10px;
+  padding: 7px 12px;
   border-radius: 9px;
   border: none;
   background: transparent;
   color: #64748b;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.18s ease;
@@ -1581,81 +1538,114 @@ onMounted(() => {
   gap: 4px;
   font-size: 11px;
   font-weight: 700;
-  padding: 5px 10px;
+  padding: 6px 11px;
   border-radius: 8px;
   border: none;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.slot-api-btn {
+.slot-primary-btn {
   background: #0f172a;
   color: #ffffff;
 }
 
-.slot-custom-btn {
+.slot-secondary-btn {
   background: #f1f5f9;
   color: #334155;
 }
 
-/* WIDOK 2: ODKRYWAJ Z API */
+/* WIDOK 2: INSPIRACJE & PRZEPISY (KATALOG) */
 .meals-explore-wrapper {
   padding: 12px 14px 40px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-}
-
-.surprise-banner {
-  padding: 14px;
-  border-radius: 16px;
-  display: flex;
-  flex-direction: column;
   gap: 12px;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border: 1px solid #e2e8f0;
 }
 
-.surprise-text-box {
+/* COMPACT SURPRISE BAR */
+.surprise-hero-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.surprise-icon-circle {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
+.surprise-hero-bar:active {
+  transform: scale(0.99);
+}
+
+.surprise-left-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.surprise-icon-orb {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   background: #0f172a;
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 18px;
   flex-shrink: 0;
 }
 
-.surprise-title {
-  font-size: 15px;
+.surprise-texts {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.surprise-badge-label {
+  font-size: 10px;
   font-weight: 800;
-  color: #0f172a;
-  margin: 0 0 2px;
+  text-transform: uppercase;
+  color: #0284c7;
+  letter-spacing: 0.5px;
 }
 
-.surprise-sub {
-  font-size: 12px;
-  color: #64748b;
-  margin: 0;
-}
-
-.surprise-btn {
-  width: 100%;
-  padding: 9px;
+.surprise-heading {
   font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 1px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* SEARCH */
-.custom-search-field {
+.surprise-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* SEARCH FIELD */
+.explore-search-container {
+  width: 100%;
+}
+
+.explore-search-field {
   display: flex;
   align-items: center;
   background: #ffffff;
@@ -1663,52 +1653,48 @@ onMounted(() => {
   border-radius: 12px;
   padding: 8px 12px;
   gap: 8px;
+  transition: all 0.2s ease;
 }
 
-.search-input-icon {
-  font-size: 18px;
+.explore-search-field:focus-within {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.08);
+}
+
+.search-ico {
+  font-size: 17px;
   color: #94a3b8;
+  flex-shrink: 0;
 }
 
-.search-native-input {
+.search-input-el {
   flex: 1;
   border: none;
   background: transparent;
-  font-size: 13.5px;
+  font-size: 13px;
   color: #0f172a;
   outline: none;
+  min-width: 0;
 }
 
-.search-clear-btn {
+.search-input-el::placeholder {
+  color: #94a3b8;
+  font-size: 12.5px;
+}
+
+.search-clear-ico {
   border: none;
   background: transparent;
   color: #94a3b8;
-  font-size: 18px;
+  font-size: 17px;
   cursor: pointer;
   display: flex;
   align-items: center;
+  padding: 0;
 }
 
-/* FILTERS */
-.filter-section {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.filter-section-header {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 800;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding-left: 2px;
-}
-
-.filter-chips-scroll {
+/* SINGLE HORIZONTAL CURATED FILTER PILLS */
+.quick-filter-scroll {
   display: flex;
   gap: 6px;
   overflow-x: auto;
@@ -1716,15 +1702,15 @@ onMounted(() => {
   padding-bottom: 2px;
 }
 
-.filter-chips-scroll::-webkit-scrollbar {
+.quick-filter-scroll::-webkit-scrollbar {
   display: none;
 }
 
-.filter-chip {
+.curated-filter-pill {
   flex-shrink: 0;
-  padding: 5px 12px;
+  padding: 6px 13px;
   border-radius: 999px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #e2e8f0;
   background: #ffffff;
   color: #475569;
   font-size: 12px;
@@ -1734,111 +1720,139 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-.filter-chip.active {
+.curated-filter-pill.active {
   background: #0f172a;
   color: #ffffff;
   border-color: #0f172a;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
 }
 
-/* GRID */
-.meals-api-grid {
+/* RECIPES GRID: Rock-solid symmetrical 2-column layout */
+.meals-cards-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
-.api-meal-tile {
+.recipe-card {
   display: flex;
   flex-direction: column;
-  border-radius: 14px;
+  border-radius: 16px;
   overflow: hidden;
+  background: #ffffff;
   border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
 }
 
-.tile-image {
+.recipe-card:active {
+  transform: scale(0.985);
+}
+
+.recipe-card-media {
+  position: relative;
   width: 100%;
   aspect-ratio: 16 / 11;
-  background-size: cover;
-  background-position: center;
-  background-color: #f1f5f9;
-  position: relative;
-  cursor: pointer;
+  background: #f1f5f9;
+  overflow: hidden;
 }
 
-.tile-category-badge {
+.recipe-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.recipe-badges-overlay {
   position: absolute;
   top: 6px;
   left: 6px;
-  background: rgba(15, 23, 42, 0.75);
+  right: 6px;
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.recipe-badge-cuisine {
+  background: rgba(15, 23, 42, 0.78);
   backdrop-filter: blur(4px);
   color: #ffffff;
   font-size: 9.5px;
   font-weight: 800;
   padding: 2px 6px;
   border-radius: 6px;
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.tile-body {
-  padding: 10px;
+.recipe-badge-category {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(4px);
+  color: #0f172a;
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 6px;
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recipe-card-body {
+  padding: 10px 10px 12px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   flex: 1;
 }
 
-.tile-area-tag {
-  font-size: 10px;
-  font-weight: 700;
-  color: #059669;
-  margin-bottom: 2px;
-}
-
-.tile-title {
+.recipe-card-title {
   font-size: 13px;
   font-weight: 700;
   color: #0f172a;
-  margin: 0 0 10px;
-  line-height: 1.3;
+  line-height: 1.35;
+  margin: 0 0 10px 0;
+  height: 35px; /* Exactly 2 lines height across all cards */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  cursor: pointer;
 }
 
-.tile-btn-row {
-  display: flex;
-  gap: 6px;
+.recipe-bottom-action {
+  margin-top: auto;
+  width: 100%;
 }
 
-.tile-info-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  color: #475569;
+.recipe-plan-pill-btn {
+  width: 100%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  cursor: pointer;
-}
-
-.tile-choose-btn {
-  flex: 1;
-  padding: 6px 8px;
-  font-size: 11px;
+  gap: 5px;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  border-radius: 9px;
+  padding: 8px 10px;
+  font-size: 12px;
   font-weight: 700;
-  border-radius: 8px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
-.api-loading-state,
-.api-empty-state {
+.recipe-plan-pill-btn:hover {
+  background: #1e293b;
+}
+
+.recipes-loading-state,
+.recipes-empty-state {
   text-align: center;
   padding: 40px 20px;
 }

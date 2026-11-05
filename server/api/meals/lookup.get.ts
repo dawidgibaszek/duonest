@@ -28,3 +28,4 @@ export default defineEventHandler(async (event) => {
     return { success: false, error: err?.message || 'SERVER_ERROR', meal: null }
   }
 })
+

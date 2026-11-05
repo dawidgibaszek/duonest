@@ -37,3 +37,4 @@ export default defineEventHandler(async () => {
     areas
   }
 })
+

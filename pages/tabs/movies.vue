@@ -67,7 +67,7 @@
             </div>
             <div class="header-text-meta">
               <span class="actions-title">Kino we dwoje</span>
-              <span class="actions-sub">Wyszukaj z bazy TMDB lub wylosuj seans na dziś!</span>
+              <span class="actions-sub">Wyszukaj film lub wylosuj seans na dziś!</span>
             </div>
           </div>
 
@@ -75,7 +75,7 @@
             <button type="button" class="action-tile action-search" @click="openSearchModal">
               <ion-icon :icon="ioniconsSearchOutline" />
               <div class="tile-meta">
-                <span class="tile-title">Szukaj z TMDB</span>
+                <span class="tile-title">Szukaj filmów</span>
                 <span class="tile-sub">Filmy, seriale, anime</span>
               </div>
             </button>
@@ -416,7 +416,7 @@
           <div class="empty-actions-row">
             <button type="button" class="dn-button-primary" @click="openSearchModal">
               <ion-icon :icon="ioniconsSearchOutline" />
-              <span>Wyszukaj z bazy TMDB</span>
+              <span>Wyszukaj film lub serial</span>
             </button>
             <button type="button" class="manual-fallback-btn" @click="openManualAddModal">
               Wpisz tytuł ręcznie
@@ -426,7 +426,7 @@
       </div>
 
       <!-- ========================================================== -->
-      <!-- MODAL 1: TMDB SEARCH & RECOMMENDATIONS MODAL -->
+      <!-- MODAL 1: SEARCH & RECOMMENDATIONS MODAL -->
       <!-- ========================================================== -->
       <ion-modal
         :is-open="isSearchModalOpen"
@@ -445,7 +445,7 @@
               </div>
               <div class="header-text-block">
                 <div class="branding-tag-row">
-                  <span class="tmdb-pill">TMDB</span>
+                  <span class="tmdb-pill">Kino</span>
                   <span class="catalog-live-pill">
                     <span class="live-dot"></span>
                     Katalog online
@@ -517,7 +517,7 @@
                 <ion-icon :icon="ioniconsAlertCircleOutline" />
               </div>
               <div class="warning-text">
-                <span class="warning-title">Klucz TMDB API</span>
+                <span class="warning-title">Klucz katalogu filmów</span>
                 <span class="warning-desc">{{ apiKeyWarning }}</span>
               </div>
               <button type="button" class="warning-action-btn" @click="openApiKeyPrompt">
@@ -533,7 +533,7 @@
               <div class="spinner-pulse-ring">
                 <ion-spinner name="crescent" class="loading-crescent" />
               </div>
-              <span class="loading-title">Przeszukuję bazę TMDB...</span>
+              <span class="loading-title">Przeszukuję bazę filmów...</span>
               <span class="loading-subtitle">Pobieram oceny, gatunki i oficjalne plakaty</span>
             </div>
 
@@ -2069,7 +2069,7 @@ const executeSearch = async () => {
       searchResults.value = res.results || []
     } else {
       if (res?.error === 'NO_API_KEY') {
-        apiKeyWarning.value = 'Aby wyszukiwać automatycznie w TMDB, wpisz darmowy klucz TMDB API.'
+        apiKeyWarning.value = 'Aby wyszukiwać w internetowej bazie filmów, podaj klucz dostępu TMDB.'
       } else {
         searchError.value = res?.message || 'Wystąpił błąd podczas wyszukiwania.'
       }
@@ -2111,13 +2111,13 @@ const loadTrendingIfEmpty = async () => {
 
 const openApiKeyPrompt = () => {
   const currentKey = getStoredTmdbApiKey()
-  const entered = window.prompt('Wprowadź swój klucz TMDB API (v3 key lub token):', currentKey)
+  const entered = window.prompt('Wprowadź swój klucz dostępu TMDB (v3 key lub token):', currentKey)
   if (entered !== null) {
     const clean = entered.trim()
     if (clean) {
       localStorage.setItem('duonest_tmdb_api_key', clean)
       apiKeyWarning.value = ''
-      triggerToast('Zapisano klucz TMDB API!', { type: 'movies', title: 'TMDB' })
+      triggerToast('Zapisano klucz bazy filmów!', { type: 'movies', title: 'Katalog filmów' })
       if (tmdbSearchQuery.value) {
         executeSearch()
       } else {
@@ -2750,7 +2750,7 @@ const getEmptyStateDesc = () => {
   if (activeStatusFilter.value === 'watched') {
     return 'Gdy obejrzycie film lub odcinek, oznaczcie go jako obejrzany, by dodać Wasze recenzje!'
   }
-  return 'Wyszukajcie film, anime lub serial z bazy TMDB i stwórzcie Waszą prywatną filmotekę!'
+  return 'Wyszukajcie film, anime lub serial i stwórzcie Waszą prywatną filmotekę!'
 }
 
 const handleRefresh = async (event: any) => {
