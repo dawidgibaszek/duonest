@@ -4349,18 +4349,19 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-radius: 14px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 16px;
+  flex-wrap: nowrap;
+  min-height: 48px;
 }
 
 .saved-header-texts {
   display: flex;
   align-items: center;
-  flex-shrink: 0;
+  flex-shrink: 1;
   min-width: 0;
 }
 
@@ -4369,17 +4370,17 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   white-space: nowrap;
-  flex-shrink: 0;
+  min-width: 0;
 }
 
 .saved-hero-icon {
-  font-size: 18px;
+  font-size: 16.5px;
   color: #0f172a;
   flex-shrink: 0;
 }
 
 .saved-heading {
-  font-size: 14.5px;
+  font-size: 13.5px;
   font-weight: 800;
   color: #0f172a;
   margin: 0;
@@ -4390,6 +4391,15 @@ onMounted(() => {
 
 .saved-title-row .count-chip {
   flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 800;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  line-height: 1.4;
+  margin-right: 4px;
 }
 
 .saved-subheading {
@@ -6332,25 +6342,35 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .saved-header-actions-group .header-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   padding: 5px 9px;
-  font-size: 11.5px;
+  font-size: 11px;
   white-space: nowrap;
   border-radius: 9px;
   font-weight: 700;
-  gap: 4px;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+  flex-shrink: 0;
+  height: 30px;
 }
 
 .saved-header-actions-group .header-action-btn ion-icon {
-  font-size: 14px;
+  font-size: 13.5px;
 }
 
 .saved-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   padding: 5px 8px;
   border-radius: 9px;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -6359,6 +6379,8 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   border: 1px solid #cbd5e1;
   background: #ffffff;
   color: #0f172a;
+  flex-shrink: 0;
+  height: 30px;
 }
 
 .saved-action-btn:hover {
@@ -6366,7 +6388,8 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   border-color: #94a3b8;
 }
 
-.saved-action-btn:active {
+.saved-action-btn:active,
+.saved-header-actions-group .header-action-btn:active {
   transform: scale(0.96);
 }
 
@@ -6377,7 +6400,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .saved-action-btn.import-btn ion-icon {
-  font-size: 13.5px;
+  font-size: 13px;
   color: #0f172a;
 }
 
@@ -6389,12 +6412,44 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   display: none;
 }
 
-@media (max-width: 440px) {
+@media (max-width: 560px) {
   .saved-header-actions-group .btn-text-full {
     display: none;
   }
   .saved-header-actions-group .btn-text-short {
     display: inline;
+  }
+}
+
+@media (max-width: 375px) {
+  .saved-recipes-header {
+    padding: 7px 10px;
+    gap: 10px;
+  }
+  .saved-heading {
+    font-size: 13px;
+  }
+  .saved-hero-icon {
+    font-size: 16px;
+  }
+  .saved-title-row {
+    gap: 4px;
+  }
+  .saved-title-row .count-chip {
+    font-size: 9.5px;
+    padding: 1px 5px;
+    margin-right: 2px;
+  }
+  .saved-header-actions-group {
+    gap: 4px;
+  }
+  .saved-action-btn {
+    padding: 4px 7px;
+    font-size: 10.5px;
+  }
+  .saved-header-actions-group .header-action-btn {
+    padding: 4px 8px;
+    font-size: 10.5px;
   }
 }
 
