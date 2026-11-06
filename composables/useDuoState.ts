@@ -179,6 +179,7 @@ export interface MealItem {
   created_by?: string
   created_at: string
   updated_at?: string
+  titlePl?: string
 }
 
 // Helpers for unique code generation
@@ -285,7 +286,6 @@ export const deduplicateMoviesList = (list: MovieItem[]): MovieItem[] => {
 
   for (const item of list) {
     if (!item || !item.title) continue
-    // Primary key: tmdb_id if present, else normalized title + media_type
     const key = (item.tmdb_id && Number(item.tmdb_id))
       ? `tmdb_${Number(item.tmdb_id)}`
       : `title_${normalizeMovieTitle(item.title)}_${item.media_type || 'movie'}`
@@ -293,7 +293,6 @@ export const deduplicateMoviesList = (list: MovieItem[]): MovieItem[] => {
     if (!seenMap.has(key)) {
       seenMap.set(key, item)
     } else {
-      // If we already saw this movie, keep the one with reviews or watched status
       const existing = seenMap.get(key)!
       const itemHasReviews = item.reviews && Object.keys(item.reviews).length > 0
       const existingHasReviews = existing.reviews && Object.keys(existing.reviews).length > 0
@@ -378,7 +377,6 @@ export const inferToastMetadata = (msg: string): { title: string; type: ToastTyp
 const activeToastMessage = ref<string | null>(null)
 const activeToastItem = ref<DuoToastItem | null>(null)
 
-// Two-way synchronization for activeToastMessage
 watch(activeToastMessage, (val) => {
   if (!val) {
     activeToastItem.value = null
@@ -433,23 +431,24 @@ export const hashPassword = async (password: string): Promise<string> => {
 export const verifyPassword = async (password: string, storedHash: string): Promise<boolean> => {
   if (!storedHash) return false
 
-  // 1. Try modern SHA-256 hash
   try {
     const modernHash = await hashPassword(password)
     if (storedHash === modernHash) return true
   } catch (_) {}
 
-  // 2. Try legacy fallback hash (for accounts registered with h_ hash like Dawid's)
   const legacyHash = computeLegacyHash(password)
   if (storedHash === legacyHash) return true
 
   return false
 }
 
-// Supabase project credentials (from runtimeConfig or env)
+const DEFAULT_SUPABASE_URL = 'https://hfvgobhxiuchchblaajq.supabase.co'
+const DEFAULT_SUPABASE_KEY = ['sb_publishable_', 'kQsFx4GuieBdbGJaEl3eDg_', 'RE0FD9lR'].join('')
+
+// Supabase project credentials (bezpieczny fallback bez wywoływania useRuntimeConfig w module root)
 export const getSupabaseConfig = () => {
   try {
-    const config = useRuntimeConfig()
+    const config = typeof useRuntimeConfig === 'function' ? useRuntimeConfig() : null
     if (config?.public?.supabaseUrl && config?.public?.supabaseKey) {
       return {
         url: config.public.supabaseUrl,
@@ -457,13 +456,13 @@ export const getSupabaseConfig = () => {
       }
     }
   } catch (_) {}
-  const url = (typeof process !== 'undefined' ? (process.env?.SUPABASE_URL || process.env?.NUXT_PUBLIC_SUPABASE_URL) : '') || ('https://' + 'hfvgobhxiuchchblaajq.supabase.co')
-  const key = (typeof process !== 'undefined' ? (process.env?.SUPABASE_KEY || process.env?.NUXT_PUBLIC_SUPABASE_KEY) : '') || ['sb_publishable_', 'kQsFx4GuieBdbGJaEl3eDg_', 'RE0FD9lR'].join('')
+  const url = (typeof process !== 'undefined' ? (process.env?.SUPABASE_URL || process.env?.NUXT_PUBLIC_SUPABASE_URL) : '') || DEFAULT_SUPABASE_URL
+  const key = (typeof process !== 'undefined' ? (process.env?.SUPABASE_KEY || process.env?.NUXT_PUBLIC_SUPABASE_KEY) : '') || DEFAULT_SUPABASE_KEY
   return { url, key }
 }
 
-export const SUPABASE_PROJECT_URL = getSupabaseConfig().url
-export const SUPABASE_PUBLIC_KEY = getSupabaseConfig().key
+export const SUPABASE_PROJECT_URL = (typeof process !== 'undefined' ? (process.env?.SUPABASE_URL || process.env?.NUXT_PUBLIC_SUPABASE_URL) : '') || DEFAULT_SUPABASE_URL
+export const SUPABASE_PUBLIC_KEY = (typeof process !== 'undefined' ? (process.env?.SUPABASE_KEY || process.env?.NUXT_PUBLIC_SUPABASE_KEY) : '') || DEFAULT_SUPABASE_KEY
 
 // Active Supabase Realtime Channels references
 let activePartnershipChannel: any = null
@@ -531,7 +530,7 @@ export const getCleanDbClient = () => {
     return cleanDbClient
   } catch (err) {
     console.warn('Clean DB client init:', err)
-    return getSupabaseClient()
+    return null
   }
 }
 
@@ -539,10 +538,12 @@ export const getSupabaseClient = () => {
   if (globalSupabaseClient) return globalSupabaseClient
 
   try {
-    const client = useSupabaseClient()
-    if (client) {
-      globalSupabaseClient = client
-      return globalSupabaseClient
+    if (typeof useSupabaseClient === 'function') {
+      const client = useSupabaseClient()
+      if (client) {
+        globalSupabaseClient = client
+        return globalSupabaseClient
+      }
     }
   } catch (_) {}
 
@@ -563,12 +564,10 @@ export const getSupabaseClient = () => {
   return globalSupabaseClient
 }
 
-// Safe database executor to prevent any unhandled rejection or .catch TypeError
 export const safeDb = (operation: any) => {
   if (!operation) return
   try {
     Promise.resolve(operation).catch((err: any) => {
-      // Intentionally silent or non-fatal log - DB tables may not be created yet in user's Supabase
       if (process.dev) {
         console.warn('Supabase DB operation ignored:', err?.message || err)
       }
@@ -584,12 +583,10 @@ export const useDuoState = () => {
   const supabase = getSupabaseClient()
   const db = getCleanDbClient() || supabase
 
-  // Hydrate from localStorage once on client
   const initializeClientState = () => {
     if (typeof window === 'undefined' || isStateInitialized.value) return
     isStateInitialized.value = true
 
-    // Load auth from storage first to prevent UI login flicker
     const savedAuthUser = loadFromStorage<any>('duonest_auth_user', null)
     const savedAuthSession = loadFromStorage<any>('duonest_auth_session', null)
     if (savedAuthUser) {
@@ -599,7 +596,6 @@ export const useDuoState = () => {
 
     const savedUser = loadFromStorage<Profile | null>('duonest_current_user', null)
     if (savedUser) {
-      // Clear legacy hardcoded mock values so profiles are not automatically pre-filled
       const cleanLoveNote = savedUser.love_note === 'Budujemy nasze wspólne gniazdko!' ? '' : (savedUser.love_note || '')
       const cleanDrink = savedUser.favorite_drink === 'Kawa z mlekiem' ? '' : (savedUser.favorite_drink || '')
       const cleanTreat = savedUser.favorite_treat === 'Czekolada' ? '' : (savedUser.favorite_treat || '')
@@ -658,7 +654,7 @@ export const useDuoState = () => {
     if (savedPartnership) {
       partnership.value = {
         ...savedPartnership,
-        nest_level: 1   // Will be recalculated when Supabase data loads
+        nest_level: 1
       }
       if (partnership.value.pet_xp === undefined) partnership.value.pet_xp = 0
     }
@@ -707,7 +703,6 @@ export const useDuoState = () => {
       } catch {}
     }
 
-    // Asynchronously verify with Supabase Auth
     if (supabase) {
       supabase.auth.getSession().then(({ data: { session } }: any) => {
         if (session?.user) {
@@ -756,11 +751,9 @@ export const useDuoState = () => {
       isAuthLoading.value = false
     }
 
-    // If already paired, subscribe immediately to partnership realtime
     if (partnership.value?.id) {
       subscribeToPartnershipRealtime(partnership.value.id)
     } else if (currentUser.value?.pairing_code) {
-      // Listen for incoming pairing request
       subscribeToPairingChannel(currentUser.value.pairing_code)
     }
 
@@ -865,30 +858,30 @@ export const useDuoState = () => {
             .eq('id', partnerId)
             .maybeSingle()
 
-            if (pUser) {
-              const rawPartnerColor = pUser.avatar_color || '#0d9488'
-              const cleanPartnerColor = rawPartnerColor.includes('|') ? rawPartnerColor.split('|')[0] : rawPartnerColor
-              partnerUser.value = {
-                ...createInitialProfile(),
-                ...pUser,
-                password_hash: undefined,
-                name: pUser.name || (pUser.email ? pUser.email.split('@')[0] : 'Partner'),
-                love_note: (pUser.love_note === 'Budujemy nasze wspólne gniazdko!' || pUser.love_note === 'Cieszę się, że jesteśmy razem!') ? '' : (pUser.love_note || ''),
-                favorite_drink: pUser.favorite_drink === 'Kawa z mlekiem' ? '' : (pUser.favorite_drink || ''),
-                favorite_treat: pUser.favorite_treat === 'Czekolada' ? '' : (pUser.favorite_treat || ''),
-                avatar_color: cleanPartnerColor,
-                points: Number(pUser.points) || 0
-              }
-              saveToStorage('duonest_partner_user', partnerUser.value)
+          if (pUser) {
+            const rawPartnerColor = pUser.avatar_color || '#0d9488'
+            const cleanPartnerColor = rawPartnerColor.includes('|') ? rawPartnerColor.split('|')[0] : rawPartnerColor
+            partnerUser.value = {
+              ...createInitialProfile(),
+              ...pUser,
+              password_hash: undefined,
+              name: pUser.name || (pUser.email ? pUser.email.split('@')[0] : 'Partner'),
+              love_note: (pUser.love_note === 'Budujemy nasze wspólne gniazdko!' || pUser.love_note === 'Cieszę się, że jesteśmy razem!') ? '' : (pUser.love_note || ''),
+              favorite_drink: pUser.favorite_drink === 'Kawa z mlekiem' ? '' : (pUser.favorite_drink || ''),
+              favorite_treat: pUser.favorite_treat === 'Czekolada' ? '' : (pUser.favorite_treat || ''),
+              avatar_color: cleanPartnerColor,
+              points: Number(pUser.points) || 0
+            }
+            saveToStorage('duonest_partner_user', partnerUser.value)
 
-              const lastActive = pUser.last_seen_at || pUser.updated_at || pUser.mood_updated_at || null
-              if (lastActive) {
-                if (!partnerLastSeenAt.value || new Date(lastActive).getTime() > new Date(partnerLastSeenAt.value).getTime()) {
-                  partnerLastSeenAt.value = lastActive
-                  saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
-                }
+            const lastActive = pUser.last_seen_at || pUser.updated_at || pUser.mood_updated_at || null
+            if (lastActive) {
+              if (!partnerLastSeenAt.value || new Date(lastActive).getTime() > new Date(partnerLastSeenAt.value).getTime()) {
+                partnerLastSeenAt.value = lastActive
+                saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
               }
             }
+          }
         }
         await loadSupabaseData(partnershipId)
       }
@@ -960,7 +953,7 @@ export const useDuoState = () => {
   }
 
   const signInWithEmail = async (email: string, password: string) => {
-    const dbClient = getCleanDbClient()
+    const dbClient = getCleanDbClient() || getSupabaseClient()
     if (!dbClient) return { data: null, error: new Error('Brak połączenia z systemem') }
     const cleanEmail = sanitizeEmail(email)
     if (!cleanEmail) return { data: null, error: new Error('Wprowadź adres e-mail') }
@@ -973,11 +966,9 @@ export const useDuoState = () => {
     try {
       clearSupabaseSessionStorage()
 
-      // Direct secure query to Supabase profiles by exact email
       let dbProfile: any = null
       let fetchErr: any = null
 
-      // Strategy 1: Case-insensitive ilike on exact email
       const res1 = await dbClient
         .from('profiles')
         .select('*')
@@ -992,7 +983,6 @@ export const useDuoState = () => {
         fetchErr = res1.error
       }
 
-      // Strategy 2: Exact eq match
       if (!dbProfile) {
         const res2 = await dbClient
           .from('profiles')
@@ -1006,7 +996,6 @@ export const useDuoState = () => {
         }
       }
 
-      // Strategy 3: Resilient fallback via global client (exact ilike only)
       if (!dbProfile) {
         const authClient = getSupabaseClient()
         if (authClient) {
@@ -1039,7 +1028,6 @@ export const useDuoState = () => {
         }
       }
 
-      // Validate password & email verification status
       const rawColor = dbProfile.avatar_color || '#0284c7'
       let storedHash = dbProfile.password_hash || ''
       let displayColor = '#0284c7'
@@ -1070,11 +1058,9 @@ export const useDuoState = () => {
         }
       }
 
-      // Reset lockout counters on success
       loginFailures.value = 0
       loginLockoutUntil.value = 0
 
-      // Check email verification for newly registered accounts
       if (isUnverified) {
         let hasConfirmedInSupabase = false
         const authClient = getSupabaseClient()
@@ -1112,7 +1098,6 @@ export const useDuoState = () => {
         }
       }
 
-      // Upgrade legacy or inline hash to dedicated password_hash column
       let modernHash = storedHash
       if (storedHash && storedHash.startsWith('h_')) {
         modernHash = await hashPassword(password)
@@ -1141,7 +1126,6 @@ export const useDuoState = () => {
         localStorage.setItem('duonest_user_pwd_hash', storedHash)
       }
 
-      // Create active session and profile
       const authUserObj = {
         id: dbProfile.id,
         email: dbProfile.email,
@@ -1188,7 +1172,7 @@ export const useDuoState = () => {
   }
 
   const signUpWithEmail = async (email: string, password: string, name?: string) => {
-    const dbClient = getCleanDbClient()
+    const dbClient = getCleanDbClient() || getSupabaseClient()
     if (!dbClient) return { data: null, error: new Error('Brak połączenia z systemem') }
     const cleanEmail = sanitizeEmail(email)
     const cleanName = (name || '').trim() || 'Użytkownik'
@@ -1201,7 +1185,6 @@ export const useDuoState = () => {
     }
 
     try {
-      // 1. Check if email already registered in Supabase profiles
       const { data: existingProfiles } = await dbClient
         .from('profiles')
         .select('id, email')
@@ -1215,7 +1198,6 @@ export const useDuoState = () => {
         }
       }
 
-      // 2. Hash password & prepare unique profile with unverified flag for new signups
       const passHash = await hashPassword(password)
       const newUserId = 'usr_' + Math.random().toString(36).substring(2, 11)
       const newPairingCode = generateUniqueCode()
@@ -1238,7 +1220,6 @@ export const useDuoState = () => {
         favorite_treat: ''
       }
 
-      // 3. Insert into Supabase profiles (with fallback for legacy schema without password_hash)
       let { error: insertErr } = await dbClient
         .from('profiles')
         .insert(newProfile)
@@ -1257,7 +1238,6 @@ export const useDuoState = () => {
         throw new Error('Nie udało się utworzyć profilu: ' + (insertErr.message || insertErr))
       }
 
-      // 4. Trigger email verification link via Supabase Auth + Resend SMTP
       const verifyRedirectUrl = typeof window !== 'undefined'
         ? `${window.location.origin}/verified`
         : 'https://duonestapp.pl/verified'
@@ -1291,7 +1271,7 @@ export const useDuoState = () => {
   }
 
   const requestPasswordReset = async (email: string) => {
-    const dbClient = getCleanDbClient()
+    const dbClient = getCleanDbClient() || getSupabaseClient()
     const authClient = getSupabaseClient()
     if (!dbClient || !authClient) return { data: null, error: new Error('Brak połączenia z systemem') }
     const cleanEmail = sanitizeEmail(email)
@@ -1300,7 +1280,6 @@ export const useDuoState = () => {
     }
 
     try {
-      // 1. Verify user profile exists in database using clean client
       const { data: dbProfile, error: profileErr } = await dbClient
         .from('profiles')
         .select('id, email, name')
@@ -1314,11 +1293,9 @@ export const useDuoState = () => {
       }
 
       if (!dbProfile) {
-        // Anti-enumeration: return success without revealing whether email is registered
         return { data: true, error: null }
       }
 
-      // Ensure user account exists in Supabase auth.users so Supabase Auth can send the email
       try {
         await authClient.auth.signUp({
           email: cleanEmail,
@@ -1326,12 +1303,10 @@ export const useDuoState = () => {
         })
       } catch (_) {}
 
-      // 2. Prepare redirect URL to dedicated reset-password page (including email for OTP fallback)
       const redirectUrl = typeof window !== 'undefined'
         ? `${window.location.origin}/reset-password?email=${encodeURIComponent(cleanEmail)}`
         : `https://duonestapp.pl/reset-password?email=${encodeURIComponent(cleanEmail)}`
 
-      // 3. Dispatch password recovery request via Supabase Auth + connected Resend SMTP
       const { error: resetErr } = await authClient.auth.resetPasswordForEmail(cleanEmail, {
         redirectTo: redirectUrl
       })
@@ -1352,7 +1327,7 @@ export const useDuoState = () => {
     recoveryToken?: string
   ) => {
     const authClient = getSupabaseClient()
-    const dbClient = getCleanDbClient()
+    const dbClient = getCleanDbClient() || authClient
     if (!authClient || !dbClient) return { data: null, error: new Error('Brak połączenia z systemem') }
     if (!newPassword || newPassword.length < 6) {
       return { data: null, error: new Error('Hasło musi mieć co najmniej 6 znaków.') }
@@ -1364,7 +1339,6 @@ export const useDuoState = () => {
     }
 
     try {
-      // 1. If recoveryToken was provided from URL hash, set session in Supabase Auth
       if (recoveryToken && authClient) {
         try {
           await authClient.auth.setSession({
@@ -1374,7 +1348,6 @@ export const useDuoState = () => {
         } catch (_) {}
       }
 
-      // 2. Update password in Supabase Auth (safe try-catch)
       if (authClient) {
         try {
           await authClient.auth.updateUser({ password: newPassword })
@@ -1383,10 +1356,8 @@ export const useDuoState = () => {
         }
       }
 
-      // 3. Compute modern SHA-256 hash for DuoNest database
       const modernHash = await hashPassword(newPassword)
 
-      // 4. Find the profile matching the VERIFIED email ONLY
       let dbProfile: any = null
       let profileErr: any = null
 
@@ -1429,7 +1400,6 @@ export const useDuoState = () => {
         }
       }
 
-      // 5. Update password hash directly in profiles table (AWAITED and verified with .select())
       const rawColor = dbProfile.avatar_color || '#0284c7'
       const displayColor = rawColor.includes('|') ? rawColor.split('|')[0] : rawColor
 
@@ -1465,7 +1435,6 @@ export const useDuoState = () => {
         }
       }
 
-      // 6. Clean up temporary recovery session and poisoned localStorage
       if (authClient) {
         try {
           await authClient.auth.signOut({ scope: 'local' })
@@ -1473,20 +1442,17 @@ export const useDuoState = () => {
       }
       clearSupabaseSessionStorage()
 
-      // 7. Clear old storage items to ensure clean switch
       if (typeof window !== 'undefined') {
         localStorage.removeItem('duonest_auth_user')
         localStorage.removeItem('duonest_auth_session')
         localStorage.removeItem('duonest_user_pwd_hash')
       }
 
-      // 8. Update state and local storage immediately with fresh credentials
       currentUserPasswordHash.value = modernHash
       if (typeof window !== 'undefined') {
         localStorage.setItem('duonest_user_pwd_hash', modernHash)
       }
 
-      // Create active session
       const authUserObj = {
         id: dbProfile.id,
         email: dbProfile.email,
@@ -1534,7 +1500,7 @@ export const useDuoState = () => {
   }
 
   const verifyEmailForProfile = async (targetEmail: string) => {
-    const dbClient = getCleanDbClient()
+    const dbClient = getCleanDbClient() || getSupabaseClient()
     if (!dbClient) return { success: false, error: 'Brak połączenia z systemem' }
     const clean = sanitizeEmail(targetEmail)
     if (!clean || !clean.includes('@')) {
@@ -1611,7 +1577,7 @@ export const useDuoState = () => {
   }
 
   const changeUserPassword = async (currentPassword: string, newPassword: string) => {
-    const dbClient = getCleanDbClient()
+    const dbClient = getCleanDbClient() || getSupabaseClient()
     const authClient = getSupabaseClient()
     if (!dbClient) return { success: false, error: 'Brak połączenia z bazą danych' }
 
@@ -1623,7 +1589,6 @@ export const useDuoState = () => {
     }
 
     try {
-      // 1. Fetch current profile from database
       const { data: dbProfile, error: fetchErr } = await dbClient
         .from('profiles')
         .select('*')
@@ -1648,7 +1613,6 @@ export const useDuoState = () => {
         displayColor = rawColor
       }
 
-      // 2. If profile already has a stored password hash, verify current password
       if (storedHash) {
         if (!currentPassword) {
           return { success: false, error: 'Wprowadź obecne hasło.' }
@@ -1659,10 +1623,8 @@ export const useDuoState = () => {
         }
       }
 
-      // 3. Compute modern SHA-256 hash for the new password
       const modernHash = await hashPassword(newPassword)
 
-      // 4. Update password directly in profiles table (AWAITED and verified with .select())
       let { data: updatedRows, error: updateErr } = await dbClient
         .from('profiles')
         .update({
@@ -1691,14 +1653,12 @@ export const useDuoState = () => {
         return { success: false, error: 'Nie udało się zapisać nowego hasła w bazie danych: ' + updateErr.message }
       }
 
-      // 5. Update password in Supabase Auth if session exists
       if (authClient) {
         try {
           await authClient.auth.updateUser({ password: newPassword })
         } catch (_) {}
       }
 
-      // 6. Update local state & storage
       currentUserPasswordHash.value = modernHash
       if (typeof window !== 'undefined') {
         localStorage.setItem('duonest_user_pwd_hash', modernHash)
@@ -1753,7 +1713,6 @@ export const useDuoState = () => {
     }
   }
 
-  // Save changes to storage
   const syncToStorage = () => {
     saveToStorage('duonest_current_user', currentUser.value)
     saveToStorage('duonest_partner_user', partnerUser.value)
@@ -1768,9 +1727,7 @@ export const useDuoState = () => {
     saveToStorage('duonest_meals', mealsList.value)
   }
 
-  // Broadcast an action to the partner via Supabase Realtime WebSocket & Web Push
   const broadcastToPartner = (action: string, payload: any) => {
-    // 1. Live WebSocket broadcast for instant in-app sync (<50ms)
     if (activePartnershipChannel) {
       try {
         activePartnershipChannel.send({
@@ -1789,7 +1746,6 @@ export const useDuoState = () => {
       }
     }
 
-    // 2. Real Web Push notification delivery for background/locked phone delivery
     if (typeof window !== 'undefined' && (currentUser.value?.partnership_id || partnerUser.value?.id)) {
       const actionsForPush = [
         'NUDGE_SEND',
@@ -1811,7 +1767,6 @@ export const useDuoState = () => {
       ]
 
       if (actionsForPush.includes(action)) {
-        // Fire-and-forget server dispatch (never blocks or throws in UI)
         $fetch('/api/push/send', {
           method: 'POST',
           body: {
@@ -1829,7 +1784,6 @@ export const useDuoState = () => {
     }
   }
 
-  // Toast feedback helpers with gesture dismiss support & rich metadata
   const dismissToast = () => {
     activeToastItem.value = null
     activeToastMessage.value = null
@@ -1860,7 +1814,6 @@ export const useDuoState = () => {
     }
   }
 
-  // --- REALTIME SECURITY LISTENER (AUTO-LOGOUT ON DB DELETE / UNPAIR) ---
   const subscribeToSecurityChannel = (userId: string, partnershipId?: string | null) => {
     const client = getCleanDbClient() || supabase
     if (!client || typeof window === 'undefined' || !userId) return
@@ -1868,7 +1821,6 @@ export const useDuoState = () => {
     const channelName = `duonest_sec_${userId}`
     const targetPartnershipId = partnershipId || null
 
-    // If channel is already active and subscribed/joining for this exact user and partnership, do not duplicate
     if (
       activeSecurityChannel &&
       activeSecurityUserId === userId &&
@@ -1878,7 +1830,6 @@ export const useDuoState = () => {
       return
     }
 
-    // Clean up any existing security channel references
     if (activeSecurityChannel) {
       try {
         client.removeChannel(activeSecurityChannel)
@@ -1886,7 +1837,6 @@ export const useDuoState = () => {
       activeSecurityChannel = null
     }
 
-    // Also remove any existing channel with this name/topic from Supabase client's internal channels registry
     try {
       const existingChannels = (client.getChannels ? client.getChannels() : []) || []
       for (const ch of existingChannels) {
@@ -1902,7 +1852,6 @@ export const useDuoState = () => {
     const channel = client.channel(channelName)
     activeSecurityChannel = channel
 
-    // 1. Listen for user profile deletion or unpairing in Supabase
     channel.on(
       'postgres_changes',
       {
@@ -1940,7 +1889,6 @@ export const useDuoState = () => {
       }
     )
 
-    // 2. If paired, listen for partnership deletion or removal in Supabase
     if (targetPartnershipId) {
       channel.on(
         'postgres_changes',
@@ -1993,7 +1941,6 @@ export const useDuoState = () => {
     if (typeof window === 'undefined' || securityLifecycleBound) return
     securityLifecycleBound = true
 
-    // Periodic heartbeat check: every 20 seconds
     if (!securityCheckInterval) {
       securityCheckInterval = setInterval(() => {
         if (currentUser.value?.id && authUser.value) {
@@ -2002,7 +1949,6 @@ export const useDuoState = () => {
       }, 20000)
     }
 
-    // Use document for visibilitychange - more reliable cross-platform
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         if (currentUser.value?.id && authUser.value) {
@@ -2011,14 +1957,12 @@ export const useDuoState = () => {
       }
     })
 
-    // window.focus fires in browser but NOT reliably in iOS PWA standalone mode
     window.addEventListener('focus', () => {
       if (currentUser.value?.id && authUser.value) {
         verifyUserAndPartnershipAccess(true)
       }
     })
 
-    // pageshow fires on iOS PWA when returning from background (persisted=true = from bfcache)
     window.addEventListener('pageshow', (e: PageTransitionEvent) => {
       if (e.persisted || document.visibilityState === 'visible') {
         if (currentUser.value?.id && authUser.value) {
@@ -2031,7 +1975,6 @@ export const useDuoState = () => {
   const verifyUserAndPartnershipAccess = async (force: boolean = false): Promise<boolean> => {
     if (typeof window === 'undefined' || isLoggingOut) return true
 
-    // Do not run verification if user is not genuinely authenticated
     if (!authUser.value || !authUser.value.id) {
       return true
     }
@@ -2059,7 +2002,6 @@ export const useDuoState = () => {
     isSecurityVerifying = true
 
     try {
-      // 1. Verify user profile exists in database
       let { data: dbProfile, error: profileErr } = await client
         .from('profiles')
         .select('*')
@@ -2073,7 +2015,6 @@ export const useDuoState = () => {
       }
 
       if (dbProfile) {
-        // Synchronize and preserve modern password hash from database profile
         if (dbProfile.avatar_color && dbProfile.avatar_color.includes('|')) {
           const hashPart = dbProfile.avatar_color.split('|')[1]
           if (hashPart && hashPart !== 'unverified') {
@@ -2095,7 +2036,6 @@ export const useDuoState = () => {
       }
 
       if (!dbProfile && !profileErr) {
-        // Recovery by email in case userId in localStorage was stale/desynced
         const userEmail = currentUser.value?.email || authUser.value?.email
         if (userEmail) {
           const { data: profileByEmail } = await client
@@ -2123,17 +2063,14 @@ export const useDuoState = () => {
         }
       }
 
-      // 2. If user is in an active Gniazdko, verify partnership linkage
       if (pId) {
         if (dbProfile && (!dbProfile.partnership_id || dbProfile.partnership_id !== pId)) {
           if (dbProfile.partnership_id) {
-            // Auto-heal: partnership ID in DB is different from local cache, load DB partnership
             currentUser.value.partnership_id = dbProfile.partnership_id
             await loadPartnershipAndPartner(dbProfile.partnership_id, dbProfile.id)
             syncToStorage()
             return true
           } else {
-            // Partner un-paired: clear partnership state and route to /pairing, DO NOT LOG OUT USER!
             partnership.value = null
             partnerUser.value = null
             currentUser.value.partnership_id = null
@@ -2158,7 +2095,6 @@ export const useDuoState = () => {
         }
 
         if (!dbPartnership && !partErr) {
-          // Partnership was removed: clear partnership and go to /pairing, DO NOT LOG OUT USER!
           partnership.value = null
           partnerUser.value = null
           currentUser.value.partnership_id = null
@@ -2170,7 +2106,6 @@ export const useDuoState = () => {
         }
 
         if (dbPartnership && dbPartnership.partner1_id !== userId && dbPartnership.partner2_id !== userId) {
-          // User is no longer part of this partnership: go to /pairing, DO NOT LOG OUT USER!
           partnership.value = null
           partnerUser.value = null
           currentUser.value.partnership_id = null
@@ -2181,7 +2116,6 @@ export const useDuoState = () => {
           return false
         }
 
-        // Sync partner profile and points from DB
         if (dbPartnership) {
           const myId = userId
           const partnerId = (myId && dbPartnership.partner1_id === myId)
@@ -2231,14 +2165,12 @@ export const useDuoState = () => {
     }
   }
 
-  // --- REALTIME SUBSCRIPTION FOR PAIRED PARTNERS ---
   const subscribeToPartnershipRealtime = (partnershipId: string) => {
     const client = getCleanDbClient() || supabase
     if (!client || typeof window === 'undefined' || !partnershipId) return
 
     const channelName = `duonest_channel_${partnershipId}`
 
-    // If already subscribed or joining for this exact partnershipId, do not duplicate
     if (
       activePartnershipChannel &&
       activePartnershipId === partnershipId &&
@@ -2254,7 +2186,6 @@ export const useDuoState = () => {
       activePartnershipChannel = null
     }
 
-    // Clean up any channels matching this name from client internal registry
     try {
       const existingChannels = (client.getChannels ? client.getChannels() : []) || []
       for (const ch of existingChannels) {
@@ -2275,7 +2206,6 @@ export const useDuoState = () => {
     })
     activePartnershipChannel = channel
 
-    // 1. Presence: See when partner is actively inside the app
     channel
       .on('presence', { event: 'sync' }, () => {
         const presenceState = channel.presenceState()
@@ -2293,7 +2223,6 @@ export const useDuoState = () => {
           partnerLastSeenAt.value = new Date().toISOString()
           saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
           triggerToast(`${partnerUser.value?.name || 'Partner'} jest online`)
-          // Synchronize our profile silently to the newly joined partner immediately
           broadcastToPartner('PROFILE_SYNC', {
             profile: currentUser.value,
             partnership: partnership.value ? {
@@ -2311,12 +2240,10 @@ export const useDuoState = () => {
         }
       })
 
-    // 2. Realtime Broadcast Actions: Instant sync across devices (<50ms)
     channel.on('broadcast', { event: 'duo_sync' }, async (envelope: any) => {
       const { action, senderId, senderName, data } = envelope.payload || {}
-      if (senderId === currentUser.value.id) return // ignore own echoes
+      if (senderId === currentUser.value.id) return
 
-      // Partner performed an action, so partner is active right now
       partnerLastSeenAt.value = new Date().toISOString()
       saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
 
@@ -2340,7 +2267,6 @@ export const useDuoState = () => {
           }
           break
         }
-        // --- CALENDAR EVENTS ---
         case 'EVENT_ADD': {
           if (data && !eventsList.value.some(e => e.id === data.id)) {
             eventsList.value.push(data)
@@ -2387,8 +2313,6 @@ export const useDuoState = () => {
           }
           break
         }
-
-        // --- SHOPPING LIST ---
         case 'SHOPPING_ADD': {
           if (data && !shoppingItems.value.some(i => i.id === data.id)) {
             shoppingItems.value.unshift(data)
@@ -2419,8 +2343,6 @@ export const useDuoState = () => {
           syncToStorage()
           break
         }
-
-        // --- TASKS / CHORES ---
         case 'TASK_ADD': {
           if (data && !tasksList.value.some(t => t.id === data.id)) {
             tasksList.value.unshift(data)
@@ -2477,8 +2399,6 @@ export const useDuoState = () => {
           }
           break
         }
-
-        // --- PET UPDATES ---
         case 'PET_UPDATE': {
           if (data && partnership.value) {
             if (data.pet_id) partnership.value.pet_id = data.pet_id
@@ -2489,8 +2409,6 @@ export const useDuoState = () => {
           }
           break
         }
-
-        // --- MOOD & NUDGES ---
         case 'MOOD_UPDATE': {
           if (data?.mood && partnerUser.value) {
             partnerUser.value.current_mood = data.mood
@@ -2516,8 +2434,6 @@ export const useDuoState = () => {
           }
           break
         }
-
-        // --- MILESTONES & REWARDS ---
         case 'MILESTONE_ADD': {
           if (data && !milestonesList.value.some(m => m.id === data.id)) {
             milestonesList.value.push(data)
@@ -2566,21 +2482,10 @@ export const useDuoState = () => {
           }
           break
         }
-
-        // --- WISHLIST ITEMS ---
         case 'WISHLIST_ADD': {
           if (data && data.id) {
             wishlistItems.value = [data, ...wishlistItems.value.filter(w => w.id !== data.id)]
             syncToStorage()
-            const isForMe = data.for_user_id === currentUser.value.id
-            let label = 'do listy marzeń'
-            if (isForMe) {
-              label = 'do Twojej wishlisty (dla Ciebie)'
-            } else if (!data.for_user_id) {
-              label = 'do wspólnej listy marzeń'
-            } else if (data.for_user_id === data.created_by) {
-              label = 'do swojej wishlisty'
-            }
             triggerToast(`${senderName} dodał(a) marzenie`, { type: 'wishlist' })
           }
           break
@@ -2614,15 +2519,12 @@ export const useDuoState = () => {
             const completedAt = data.completed_at || (data.is_completed ? new Date().toISOString() : null)
             wishlistItems.value = wishlistItems.value.map(w => w.id === data.id ? { ...w, is_completed: data.is_completed, completed_at: completedAt } : w)
             syncToStorage()
-            const item = wishlistItems.value.find(w => w.id === data.id)
             if (data.is_completed) {
               triggerToast('Marzenie spełnione', { type: 'wishlist' })
             }
           }
           break
         }
-
-        // --- MOVIES / FILMY & SERIALE ---
         case 'MOVIE_ADD': {
           if (data?.id) {
             const cleanTitle = normalizeMovieTitle(data.title)
@@ -2683,8 +2585,6 @@ export const useDuoState = () => {
           }
           break
         }
-
-        // --- MEALS BROADCASTS ---
         case 'MEAL_ADD': {
           if (data?.id) {
             const exists = mealsList.value.some(m => m.id === data.id)
@@ -2728,8 +2628,6 @@ export const useDuoState = () => {
           }
           break
         }
-
-        // --- PARTNERSHIP UPDATES ---
         case 'PARTNERSHIP_UPDATE': {
           if (data && partnership.value) {
             partnership.value = { ...partnership.value, ...data }
@@ -2737,8 +2635,6 @@ export const useDuoState = () => {
           }
           break
         }
-
-        // --- PROFILE SYNC (SILENT BACKGROUND EXCHANGE ON CONNECT) ---
         case 'PROFILE_SYNC': {
           if (data?.profile) {
             partnerUser.value = {
@@ -2755,8 +2651,6 @@ export const useDuoState = () => {
           }
           break
         }
-
-        // --- PROFILE UPDATES (EXPLICIT USER EDIT IN MODAL) ---
         case 'PROFILE_UPDATE': {
           if (data?.profile) {
             partnerUser.value = {
@@ -2776,11 +2670,7 @@ export const useDuoState = () => {
           }
           break
         }
-
-        // --- BIDIRECTIONAL SYNC ON CONNECT ---
         case 'REQ_STATE_SYNC': {
-          // Send all our items and profile to partner so both are 100% in sync
-          // Filter out surprise gift items created by us that are hidden from partner
           const shareableWishlist = wishlistItems.value.filter(i => i.is_visible_to_partner || i.created_by !== currentUser.value.id)
           broadcastToPartner('RESP_STATE_SYNC', {
             profile: currentUser.value,
@@ -2817,7 +2707,6 @@ export const useDuoState = () => {
               milestonesList.value = data.milestones
             }
             if (Array.isArray(data.wishlist)) {
-              // Merge incoming wishlist with existing items without dropping any local items
               const existingMap = new Map(wishlistItems.value.map(w => [w.id, w]))
               for (const item of data.wishlist) {
                 if (item && item.id) {
@@ -2841,7 +2730,6 @@ export const useDuoState = () => {
       }
     })
 
-    // 3. Postgres Changes (if PostgreSQL schema exists in Supabase)
     channel
       .on('postgres_changes', { event: '*', schema: 'public', table: 'shopping_items', filter: `partnership_id=eq.${partnershipId}` }, (payload: any) => {
         if (payload.eventType === 'INSERT') {
@@ -3001,21 +2889,18 @@ export const useDuoState = () => {
         }
       })
 
-    // Subscribe to channel
     channel.subscribe((status: string) => {
       if (status === 'SUBSCRIBED') {
         realtimeStatus.value = 'connected'
         activePartnershipChannel = channel
         isOnlineWithSupabase.value = true
 
-        // Track presence
         channel.track({
           user_id: currentUser.value.id,
           name: currentUser.value.name,
           online_at: new Date().toISOString()
         })
 
-        // Broadcast our profile silently so partner gets our up-to-date name & details without false notifications
         broadcastToPartner('PROFILE_SYNC', {
           profile: currentUser.value,
           partnership: partnership.value ? {
@@ -3024,7 +2909,6 @@ export const useDuoState = () => {
           } : undefined
         })
 
-        // Ask partner for any updates they made while we were offline
         broadcastToPartner('REQ_STATE_SYNC', {})
       } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         realtimeStatus.value = 'disconnected'
@@ -3036,7 +2920,6 @@ export const useDuoState = () => {
     })
   }
 
-  // Helper to normalize pairing code
   const normalizePairingCode = (raw: string): string => {
     let clean = (raw || '').trim().toUpperCase().replace(/[\s-]+/g, '')
     if (clean.startsWith('DN')) {
@@ -3045,7 +2928,6 @@ export const useDuoState = () => {
     return clean ? `DN-${clean}` : ''
   }
 
-  // --- REALTIME PAIRING CHANNEL ---
   const subscribeToPairingChannel = (myPairingCode: string) => {
     const client = getCleanDbClient() || supabase
     if (!client || typeof window === 'undefined') return
@@ -3083,12 +2965,10 @@ export const useDuoState = () => {
     })
     activePairingChannel = pairChan
 
-    // 1. Listen for realtime broadcast PAIR_REQUEST
     pairChan.on('broadcast', { event: 'PAIR_REQUEST' }, async (envelope: any) => {
       const { initiatorProfile, newPartnership } = envelope.payload || {}
       if (!initiatorProfile || !newPartnership) return
 
-      // Adopt partnership immediately on this device!
       const finalPartnership: Partnership = {
         ...newPartnership,
         partner2_id: currentUser.value.id
@@ -3102,7 +2982,6 @@ export const useDuoState = () => {
       currentUser.value.partnership_id = newPartnership.id
       syncToStorage()
 
-      // Reply with PAIR_ACCEPTED containing our full profile so the initiator sees our real name!
       try {
         await pairChan.send({
           type: 'broadcast',
@@ -3116,7 +2995,6 @@ export const useDuoState = () => {
 
       triggerToast('Połączono z partnerem')
 
-      // Clean up pairing channel and switch to partnership channel
       setTimeout(() => {
         try { client.removeChannel(pairChan) } catch (_) {}
         activePairingChannel = null
@@ -3126,7 +3004,6 @@ export const useDuoState = () => {
       }, 500)
     })
 
-    // 2. Listen for Postgres changes on currentUser profile (in case partner updated DB directly)
     const myId = currentUser.value?.id || authUser.value?.id
     if (myId) {
       pairChan.on(
@@ -3166,7 +3043,6 @@ export const useDuoState = () => {
     })
   }
 
-  // Send periodic heartbeat to keep presence and last_seen_at current
   let heartbeatTimer: any = null
   let lastHeartbeatSentAt = 0
 
@@ -3180,14 +3056,12 @@ export const useDuoState = () => {
     const nowIso = new Date(now).toISOString()
     currentUser.value.last_seen_at = nowIso
 
-    // Broadcast heartbeat over active partnership channel
     if (activePartnershipChannel) {
       try {
         await broadcastToPartner('HEARTBEAT', { at: nowIso })
       } catch (_) {}
     }
 
-    // Silently update profiles in Supabase if partnership exists
     if (currentUser.value.partnership_id) {
       const client = getCleanDbClient() || getSupabaseClient()
       if (client) {
@@ -3201,7 +3075,6 @@ export const useDuoState = () => {
     }
   }
 
-  // Setup heartbeat interval (runs every 45s if visible)
   if (typeof window !== 'undefined' && !heartbeatTimer) {
     heartbeatTimer = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
@@ -3216,7 +3089,6 @@ export const useDuoState = () => {
     })
   }
 
-  // Check and sync with Supabase tables if active session/tables exist
   const initSupabaseSync = async () => {
     initializeClientState()
     const client = getCleanDbClient() || getSupabaseClient()
@@ -3230,7 +3102,6 @@ export const useDuoState = () => {
     isOnlineWithSupabase.value = true
 
     try {
-      // 1. Check if tables exist in Supabase PostgreSQL database
       const { error: testErr } = await client.from('profiles').select('id').limit(1)
       if (testErr && (testErr.code === 'PGRST205' || testErr.message?.includes('schema cache'))) {
         dbSchemaStatus.value = 'missing_tables'
@@ -3243,7 +3114,6 @@ export const useDuoState = () => {
           console.log('Supabase PostgreSQL database tables connected!')
         }
 
-        // Sync partnership & tables from DB with latest profile check
         if (currentUser.value?.id) {
           const { data: dbProfile } = await client
             .from('profiles')
@@ -3252,7 +3122,6 @@ export const useDuoState = () => {
             .maybeSingle()
 
           if (dbProfile) {
-            // Synchronize and preserve modern password hash from database profile
             if (dbProfile.avatar_color && dbProfile.avatar_color.includes('|')) {
               const hashPart = dbProfile.avatar_color.split('|')[1]
               if (hashPart && hashPart !== 'unverified') {
@@ -3348,7 +3217,6 @@ export const useDuoState = () => {
     return !!authUser.value || !!authSession.value
   })
 
-  // --- PAIRING SYSTEM ---
   const isPaired = computed(() => {
     return Boolean(currentUser.value?.partnership_id || partnership.value?.id)
   })
@@ -3363,7 +3231,6 @@ export const useDuoState = () => {
     }
   }
 
-  // Helper: auto-heal abandoned, corrupted, or ghost partnerships in Supabase
   const checkAndAutoHealPartnership = async (profile: Profile, client: any): Promise<boolean> => {
     if (!profile.partnership_id) return true
 
@@ -3375,13 +3242,11 @@ export const useDuoState = () => {
         .maybeSingle()
 
       if (!part) {
-        // Partnership doesn't exist in DB - clear profile reference
         await client.from('profiles').update({ partnership_id: null }).eq('id', profile.id)
         profile.partnership_id = null
         return true
       }
 
-      // Check for ghost partner
       const isGhost =
         (part.partner1_id && part.partner1_id.startsWith('usr_partner_')) ||
         (part.partner2_id && part.partner2_id.startsWith('usr_partner_')) ||
@@ -3394,7 +3259,6 @@ export const useDuoState = () => {
         return true
       }
 
-      // Check if the other partner exists and still references this partnership
       const otherPartnerId = part.partner1_id === profile.id ? part.partner2_id : part.partner1_id
       const { data: otherProfile, error: otherErr } = await client
         .from('profiles')
@@ -3403,26 +3267,22 @@ export const useDuoState = () => {
         .maybeSingle()
 
       if (otherErr) {
-        // Network hiccup or RLS restriction - NEVER destroy active partnership on read error!
         return false
       }
 
       if (otherProfile && otherProfile.partnership_id !== part.id) {
-        // Other partner has explicitly disconnected or joined another partnership - clear orphaned partnership
         await client.from('partnerships').delete().eq('id', part.id)
         await client.from('profiles').update({ partnership_id: null }).eq('id', profile.id)
         profile.partnership_id = null
         return true
       }
 
-      // Truly active mutual partnership with another real user
       return false
     } catch (_) {
       return false
     }
   }
 
-  // Check pairing status against Supabase DB directly
   const checkDbPairingStatus = async (): Promise<boolean> => {
     const client = getCleanDbClient() || supabase
     const myId = currentUser.value?.id || authUser.value?.id
@@ -3469,7 +3329,6 @@ export const useDuoState = () => {
     const myCleanEmail = sanitizeEmail(currentUser.value?.email || authUser.value?.email)
     const myCode = normalizePairingCode(currentUser.value?.pairing_code)
 
-    // Check if input is an email address
     const isEmailInput = trimmedInput.includes('@') && trimmedInput.includes('.')
     const targetEmail = isEmailInput ? sanitizeEmail(trimmedInput) : ''
     const targetCode = !isEmailInput ? normalizePairingCode(trimmedInput) : ''
@@ -3487,7 +3346,6 @@ export const useDuoState = () => {
       return { success: false, error: 'Brak połączenia z bazą danych.' }
     }
 
-    // 1. Search for partner profile in Supabase (requesting only safe public columns)
     const safeProfileFields = 'id, name, email, avatar_url, avatar_color, pairing_code, partnership_id, points, created_at, last_seen_at'
     let foundPartnerProfile: Profile | null = null
 
@@ -3514,7 +3372,6 @@ export const useDuoState = () => {
       if (data) {
         foundPartnerProfile = data
       } else {
-        // Fallback: exact match without "DN-" prefix if user entered alphanumeric code
         const rawClean = trimmedInput.toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^DN/, '')
         if (rawClean && rawClean.length >= 6) {
           const { data: fbData } = await dbClient
@@ -3543,16 +3400,13 @@ export const useDuoState = () => {
       }
     }
 
-    // Reset pairing lockout on found profile
     pairingFailures.value = 0
     pairingLockoutUntil.value = 0
 
-    // Ensure partner avatar_color is sanitized and carries no legacy hash parts
     if (foundPartnerProfile.avatar_color && foundPartnerProfile.avatar_color.includes('|')) {
       foundPartnerProfile.avatar_color = foundPartnerProfile.avatar_color.split('|')[0]
     }
 
-    // Cannot pair with oneself
     if (
       foundPartnerProfile.id === currentUser.value.id ||
       (myCleanEmail && foundPartnerProfile.email && sanitizeEmail(foundPartnerProfile.email) === myCleanEmail)
@@ -3560,7 +3414,6 @@ export const useDuoState = () => {
       return { success: false, error: 'Nie możesz sparować konta ze samym sobą.' }
     }
 
-    // Check if partner has ALREADY initiated a partnership WITH CURRENT USER
     if (foundPartnerProfile.partnership_id) {
       const { data: existingPart } = await dbClient
         .from('partnerships')
@@ -3573,7 +3426,6 @@ export const useDuoState = () => {
         ((existingPart.partner1_id === currentUser.value.id && existingPart.partner2_id === foundPartnerProfile.id) ||
          (existingPart.partner2_id === currentUser.value.id && existingPart.partner1_id === foundPartnerProfile.id))
       ) {
-        // Mutual handshake completed!
         currentUser.value.partnership_id = existingPart.id
         partnerUser.value = {
           ...createInitialProfile(),
@@ -3593,7 +3445,6 @@ export const useDuoState = () => {
       }
     }
 
-    // Check & auto-heal currentUser partnership if stale or ghost
     if (currentUser.value?.partnership_id) {
       const isMyCurrentFree = await checkAndAutoHealPartnership(currentUser.value, dbClient)
       if (!isMyCurrentFree) {
@@ -3604,7 +3455,6 @@ export const useDuoState = () => {
       }
     }
 
-    // Check & auto-heal partner's partnership if stale or ghost
     if (foundPartnerProfile.partnership_id) {
       const isPartnerFree = await checkAndAutoHealPartnership(foundPartnerProfile, dbClient)
       if (!isPartnerFree) {
@@ -3615,7 +3465,6 @@ export const useDuoState = () => {
       }
     }
 
-    // Clear any residual data on this client before creating fresh partnership
     clearPartnershipData()
 
     const newPartnershipId = 'part_' + Math.random().toString(36).substring(2, 10)
@@ -3639,7 +3488,6 @@ export const useDuoState = () => {
       avatar_color: getCleanAccentColor(foundPartnerProfile.avatar_color, '#1e293b')
     }
 
-    // 2. Persist to Supabase with real AWAIT
     const { error: partErr } = await dbClient.from('partnerships').upsert(createdPartnership)
     if (partErr) {
       return { success: false, error: 'Błąd zapisu nowego Gniazdka: ' + (partErr.message || 'spróbuj ponownie.') }
@@ -3655,13 +3503,11 @@ export const useDuoState = () => {
       return { success: false, error: 'Błąd przypisania profilu partnera: ' + (u2Err.message || 'spróbuj ponownie.') }
     }
 
-    // 3. Update local state
     currentUser.value.partnership_id = newPartnershipId
     partnerUser.value = createdPartner
     partnership.value = createdPartnership
     syncToStorage()
 
-    // 4. Send Realtime broadcast to partner on pairing channel
     try {
       const broadcastPayload = {
         initiatorProfile: currentUser.value,
@@ -3691,7 +3537,6 @@ export const useDuoState = () => {
       }
     } catch (_) {}
 
-    // 5. Connect to partnership realtime & security channels
     subscribeToPartnershipRealtime(newPartnershipId)
     subscribeToSecurityChannel(currentUser.value.id, newPartnershipId)
 
@@ -3704,7 +3549,6 @@ export const useDuoState = () => {
     const myId = currentUser.value?.id || authUser.value?.id
     const partnerId = partnerUser.value?.id
 
-    // Broadcast disconnection notice so partner reacts instantly
     broadcastToPartner('PARTNERSHIP_DISCONNECT', {})
 
     const dbClient = getCleanDbClient() || supabase
@@ -3750,7 +3594,6 @@ export const useDuoState = () => {
     }
   }
 
-  // --- SHOPPING LIST ACTIONS ---
   const addShoppingItem = async (title: string, category: string, quantity: string = '') => {
     if (!title.trim() || !partnership.value) return
     if (!await verifyUserAndPartnershipAccess()) return
@@ -3768,7 +3611,6 @@ export const useDuoState = () => {
     shoppingItems.value.unshift(newItem)
     syncToStorage()
 
-    // Broadcast live to partner
     broadcastToPartner('SHOPPING_ADD', newItem)
 
     if (db) {
@@ -3783,7 +3625,6 @@ export const useDuoState = () => {
     item.is_completed = !item.is_completed
     syncToStorage()
 
-    // Broadcast live to partner
     broadcastToPartner('SHOPPING_TOGGLE', { id, is_completed: item.is_completed, title: item.title })
 
     if (db) {
@@ -3800,7 +3641,6 @@ export const useDuoState = () => {
     shoppingItems.value = shoppingItems.value.filter(i => i.id !== id)
     syncToStorage()
 
-    // Broadcast live to partner
     broadcastToPartner('SHOPPING_DELETE', { id })
 
     if (db) {
@@ -3814,7 +3654,6 @@ export const useDuoState = () => {
     shoppingItems.value = shoppingItems.value.filter(i => !i.is_completed)
     syncToStorage()
 
-    // Broadcast live to partner
     broadcastToPartner('SHOPPING_CLEAR', {})
 
     if (db && toDelete.length > 0) {
@@ -3822,7 +3661,6 @@ export const useDuoState = () => {
     }
   }
 
-  // --- TASKS ACTIONS ---
   const addTask = async (title: string, description: string = '', assignedTo: string | null = null, isRecurring: boolean = false, recurrenceInterval: string = 'weekly', points: number = 15) => {
     if (!title.trim() || !partnership.value) return
     if (!await verifyUserAndPartnershipAccess()) return
@@ -3843,7 +3681,6 @@ export const useDuoState = () => {
     tasksList.value.unshift(newTask)
     syncToStorage()
 
-    // Broadcast live to partner
     broadcastToPartner('TASK_ADD', newTask)
 
     if (db) {
@@ -3858,7 +3695,6 @@ export const useDuoState = () => {
     task.is_completed = !task.is_completed
     const nowCompleted = task.is_completed
 
-    // Assign completer and completion timestamp
     const myId = currentUser.value?.id || null
     const previousCompleterId = task.completed_by
     task.completed_by = nowCompleted ? myId : null
@@ -3867,7 +3703,6 @@ export const useDuoState = () => {
     const taskPts = Number(task.points) || 15
     const delta = nowCompleted ? taskPts : -taskPts
 
-    // Award / deduct points in local profile state permanently
     if (nowCompleted) {
       if (currentUser.value) {
         currentUser.value.points = (Number(currentUser.value.points) || 0) + taskPts
@@ -3876,7 +3711,6 @@ export const useDuoState = () => {
         }
       }
     } else {
-      // Uncompleting: deduct points from whichever user completed the task
       if (previousCompleterId && partnerUser.value && previousCompleterId === partnerUser.value.id) {
         partnerUser.value.points = Math.max(0, (Number(partnerUser.value.points) || 0) - taskPts)
         if (db && partnerUser.value.id) {
@@ -3895,7 +3729,6 @@ export const useDuoState = () => {
     }
     syncToStorage()
 
-    // Broadcast live to partner
     broadcastToPartner('TASK_TOGGLE', {
       id,
       title: task.title,
@@ -3948,10 +3781,8 @@ export const useDuoState = () => {
   const deleteTask = async (id: string) => {
     if (!await verifyUserAndPartnershipAccess()) return
     tasksList.value = tasksList.value.filter(t => t.id !== id)
-    // Points earned are permanent and stay with the user & nest even when completed tasks are deleted or cleared!
     syncToStorage()
 
-    // Broadcast live to partner
     broadcastToPartner('TASK_DELETE', { id })
 
     if (db) {
@@ -3959,7 +3790,6 @@ export const useDuoState = () => {
     }
   }
 
-  // --- EXTENDED CALENDAR & EVENTS ACTIONS ---
   const addEvent = async (
     title: string,
     category: EventItem['category'],
@@ -3973,14 +3803,12 @@ export const useDuoState = () => {
     if (!title.trim() || !partnership.value) return
     if (!await verifyUserAndPartnershipAccess()) return
 
-    // Normalize start_time to valid ISO timestamp
     let normalizedStartTime = startTime || new Date().toISOString()
     const startD = new Date(normalizedStartTime)
     if (!isNaN(startD.getTime())) {
       normalizedStartTime = startD.toISOString()
     }
 
-    // Normalize end_time to valid ISO timestamp or undefined
     let normalizedEndTime: string | undefined = undefined
     if (endTime && endTime.trim()) {
       const trimmedEnd = endTime.trim()
@@ -4015,7 +3843,6 @@ export const useDuoState = () => {
     eventsList.value.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
     syncToStorage()
 
-    // Broadcast live to partner immediately
     broadcastToPartner('EVENT_ADD', newEvent)
 
     if (db) {
@@ -4058,7 +3885,6 @@ export const useDuoState = () => {
     eventsList.value.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
     syncToStorage()
 
-    // Broadcast live to partner
     broadcastToPartner('EVENT_UPDATE', { id, updates: sanitizedUpdates })
 
     if (db) {
@@ -4074,7 +3900,6 @@ export const useDuoState = () => {
     const wasCompleted = ev.is_completed
     ev.is_completed = !ev.is_completed
 
-    // Award 10 points to the user who fulfilled the plan
     if (currentUser.value) {
       if (!wasCompleted && ev.is_completed) {
         currentUser.value.points = (Number(currentUser.value.points) || 0) + 10
@@ -4087,7 +3912,6 @@ export const useDuoState = () => {
     }
     syncToStorage()
 
-    // Broadcast live to partner
     broadcastToPartner('EVENT_TOGGLE_COMPLETED', {
       id,
       title: ev.title,
@@ -4106,7 +3930,6 @@ export const useDuoState = () => {
     eventsList.value = eventsList.value.filter(e => e.id !== id)
     syncToStorage()
 
-    // Broadcast live to partner
     broadcastToPartner('EVENT_DELETE', { id })
 
     if (db) {
@@ -4115,7 +3938,6 @@ export const useDuoState = () => {
     triggerToast('Usunięto plan')
   }
 
-  // --- MOOD & NUDGES ACTIONS ---
   const updateMood = async (mood: string, note: string = '') => {
     if (!await verifyUserAndPartnershipAccess()) return
     currentUser.value.current_mood = mood
@@ -4123,7 +3945,6 @@ export const useDuoState = () => {
     currentUser.value.mood_updated_at = new Date().toISOString()
     syncToStorage()
 
-    // Broadcast live to partner
     broadcastToPartner('MOOD_UPDATE', { mood, note: note.trim() })
 
     if (db) {
@@ -4187,7 +4008,6 @@ export const useDuoState = () => {
     if (isSendingNudgeInProgress) return false
     if (!partnership.value || !partnerUser.value) return false
 
-    // Limit: only 1 nudge per person per 24 hours
     if (hasSentDailyNudge.value) {
       triggerToast('Szturchnięcie już wysłane')
       return false
@@ -4223,11 +4043,9 @@ export const useDuoState = () => {
       }
       nudgesList.value.unshift(newNudge)
 
-      // Reward 5 points for sender
       currentUser.value.points = (Number(currentUser.value.points) || 0) + 5
       syncToStorage()
 
-      // Broadcast live to partner
       broadcastToPartner('NUDGE_SEND', {
         ...newNudge,
         sender_points: currentUser.value.points
@@ -4268,7 +4086,6 @@ export const useDuoState = () => {
     triggerToast('Zapisano ustawienia')
   }
 
-  // --- PROFILE & PERSONAL DATA MANAGEMENT ---
   const updateMyProfile = async (updates: {
     name?: string
     avatar_color?: string
@@ -4306,7 +4123,6 @@ export const useDuoState = () => {
 
     syncToStorage()
 
-    // Live broadcast across Supabase Realtime WebSocket
     broadcastToPartner('PROFILE_UPDATE', {
       is_manual_edit: true,
       profile: {
@@ -4333,7 +4149,6 @@ export const useDuoState = () => {
         favorite_treat: currentUser.value.favorite_treat
       }
 
-      // ONLY touch avatar_color in the DB if updates.avatar_color was explicitly provided
       if (updates.avatar_color) {
         const cleanNewColor = getCleanAccentColor(updates.avatar_color)
         profileDbUpdates.avatar_color = cleanNewColor
@@ -4357,7 +4172,6 @@ export const useDuoState = () => {
     triggerToast('Zapisano profil')
   }
 
-  // Days together calculation
   const daysTogether = computed(() => {
     const dateStr = partnership.value?.anniversary_date || partnership.value?.created_at || new Date().toISOString()
     const start = new Date(dateStr).getTime()
@@ -4366,7 +4180,6 @@ export const useDuoState = () => {
     return Math.floor(diff / (1000 * 60 * 60 * 24)) + 1
   })
 
-  // User Accent Colors (for tasks, assignments, and personalized styling)
   const currentUserAccentColor = computed(() => {
     return getCleanAccentColor(currentUser.value?.avatar_color, '#0f172a')
   })
@@ -4376,7 +4189,7 @@ export const useDuoState = () => {
   })
 
   const getUserAccentColor = (userId?: string | null): string => {
-    if (!userId) return '#64748b' // Shared / neutral
+    if (!userId) return '#64748b'
     if (currentUser.value && userId === currentUser.value.id) {
       return currentUserAccentColor.value
     }
@@ -4386,7 +4199,6 @@ export const useDuoState = () => {
     return '#64748b'
   }
 
-  // Helper to determine who completed or was assigned a task
   const getTaskCompleterId = (task: TaskItem): string | null => {
     if (task.completed_by) return task.completed_by
     if (task.assigned_to) return task.assigned_to
@@ -4394,7 +4206,6 @@ export const useDuoState = () => {
     return null
   }
 
-  // --- DUO POINTS BREAKDOWN PER PERSON ---
   const userCompletedTasksCount = computed(() => {
     const myId = currentUser.value?.id
     if (!myId) return 0
@@ -4450,11 +4261,9 @@ export const useDuoState = () => {
   const userEarnedPoints = computed(() => userRawTaskPoints.value + userNudgePoints.value)
   const partnerEarnedPoints = computed(() => partnerRawTaskPoints.value + partnerNudgePoints.value)
 
-  // Individual points read exclusively from Supabase profiles.points (DB is single source of truth)
   const userPoints = computed(() => Math.max(0, Number(currentUser.value?.points) || 0))
   const partnerPoints = computed(() => Math.max(0, Number(partnerUser.value?.points) || 0))
 
-  // Total Duet score is ALWAYS the exact sum of both users' points in the pair
   const nestPoints = computed(() => Math.max(0, userPoints.value + partnerPoints.value))
 
   const nestLevel = computed(() => {
@@ -4473,7 +4282,6 @@ export const useDuoState = () => {
     return Math.max(0, Math.min(100, Math.round((currentPointsInTier / 50) * 100)))
   })
 
-  // Balanced percentage bar based on individual contributions
   const userPointsPct = computed(() => {
     const totalPersonal = nestPoints.value
     if (totalPersonal <= 0) return 0
@@ -4486,7 +4294,6 @@ export const useDuoState = () => {
     return Math.max(0, 100 - userPointsPct.value)
   })
 
-  // --- MILESTONES & REWARDS CRUD ACTIONS ---
   const addMilestone = async (title: string, targetPoints: number, assignedTo: string | null = null, description: string = '') => {
     if (!title.trim()) return
     if (!await verifyUserAndPartnershipAccess()) return
@@ -4529,7 +4336,6 @@ export const useDuoState = () => {
 
   const deleteMilestone = async (id: string) => {
     if (!await verifyUserAndPartnershipAccess()) return
-    const item = milestonesList.value.find(m => m.id === id)
     milestonesList.value = milestonesList.value.filter(m => m.id !== id)
     syncToStorage()
     broadcastToPartner('MILESTONE_DELETE', { id })
@@ -4568,7 +4374,6 @@ export const useDuoState = () => {
     triggerToast('Wznowiono cel')
   }
 
-  // --- WISHLIST & GIFT CRUD ACTIONS ---
   const addWishlistItem = async (itemData: {
     title: string
     url?: string | null
@@ -4577,8 +4382,8 @@ export const useDuoState = () => {
     currency?: string | null
     site_name?: string | null
     note?: string | null
-    for_user_id?: string | null // null = Wspólne, currentUser.id = Dla mnie, partnerUser.id = Dla partnera
-    is_visible_to_partner?: boolean // default true; if false, it's a secret surprise gift for partner
+    for_user_id?: string | null
+    is_visible_to_partner?: boolean
   }) => {
     if (!itemData.title || !itemData.title.trim()) return null
     if (!await verifyUserAndPartnershipAccess()) return null
@@ -4610,7 +4415,6 @@ export const useDuoState = () => {
       safeDb(db.from('wishlist_items').insert(newItem))
     }
 
-    // Only broadcast to partner if visible to partner
     if (newItem.is_visible_to_partner) {
       broadcastToPartner('WISHLIST_ADD', newItem)
     }
@@ -4636,13 +4440,11 @@ export const useDuoState = () => {
 
     if (updated.is_visible_to_partner) {
       if (!oldVisibility) {
-        // Was hidden, now made visible
         broadcastToPartner('WISHLIST_ADD', updated)
       } else {
         broadcastToPartner('WISHLIST_UPDATE', { id, updates, item: updated })
       }
     } else if (oldVisibility) {
-      // Was visible, now hidden -> partner should remove it
       broadcastToPartner('WISHLIST_DELETE', { id })
     }
 
@@ -4699,7 +4501,6 @@ export const useDuoState = () => {
   let _refreshWishlistQueued = false
 
   const refreshWishlist = async () => {
-    // If a request is already in-flight, just queue one more run for after it finishes
     if (_refreshWishlistInFlight) {
       _refreshWishlistQueued = true
       return
@@ -4720,7 +4521,6 @@ export const useDuoState = () => {
       if (!error && data) {
         const myIds = new Set([currentUser.value?.id, authUser.value?.id].filter(Boolean))
         const filtered = data.filter((item: WishlistItem) => item.is_visible_to_partner || myIds.has(item.created_by))
-        // Merge: never drop items that are locally present but not yet in DB response
         const remoteIds = new Set(filtered.map((i: WishlistItem) => i.id))
         const localOnly = wishlistItems.value.filter(w => !remoteIds.has(w.id))
         wishlistItems.value = [...filtered, ...localOnly]
@@ -4732,13 +4532,11 @@ export const useDuoState = () => {
       _refreshWishlistInFlight = false
       if (_refreshWishlistQueued) {
         _refreshWishlistQueued = false
-        // Run one more time to pick up any changes that arrived during the in-flight request
         setTimeout(() => refreshWishlist(), 300)
       }
     }
   }
 
-  // --- MOVIES / FILMY & SERIALE CRUD ACTIONS ---
   const addMovie = async (movie: {
     title: string
     original_title?: string | null
@@ -4756,7 +4554,6 @@ export const useDuoState = () => {
     if (!movie.title.trim()) return null
     if (!await verifyUserAndPartnershipAccess()) return null
 
-    // Prevent duplicate entries
     const cleanTitle = normalizeMovieTitle(movie.title)
     const cleanOrig = normalizeMovieTitle(movie.original_title)
     const existing = moviesList.value.find(m => {
@@ -4798,8 +4595,8 @@ export const useDuoState = () => {
       added_by: currentUser.value?.id || null,
       watched_at: movie.status === 'watched' ? new Date().toISOString() : null,
       reviews: {},
-      last_watched_season: movie.last_watched_season !== undefined ? movie.last_watched_season : ((movie.media_type === 'tv' || movie.media_type === 'anime') ? 1 : null),
-      last_watched_episode: movie.last_watched_episode !== undefined ? movie.last_watched_episode : ((movie.media_type === 'tv' || movie.media_type === 'anime') ? 1 : null),
+      last_watched_season: (movie as any).last_watched_season !== undefined ? (movie as any).last_watched_season : ((movie.media_type === 'tv' || movie.media_type === 'anime') ? 1 : null),
+      last_watched_episode: (movie as any).last_watched_episode !== undefined ? (movie as any).last_watched_episode : ((movie.media_type === 'tv' || movie.media_type === 'anime') ? 1 : null),
       created_at: new Date().toISOString()
     }
 
@@ -4990,9 +4787,8 @@ export const useDuoState = () => {
     }
   }
 
-  // --- MEALS & DINNER PLANNER CRUD ACTIONS ---
   const addMeal = async (meal: {
-    date?: string // 'YYYY-MM-DD' or '' for cookbook-only
+    date?: string
     title: string
     day_name?: string
     category?: string
@@ -5033,11 +4829,9 @@ export const useDuoState = () => {
       created_at: new Date().toISOString()
     }
 
-    // If date is provided, replace any meal on that date in this partnership
     if (cleanDate) {
       mealsList.value = [newDoc, ...mealsList.value.filter(m => !(m.date === cleanDate && m.partnership_id === pId))]
     } else {
-      // Check if this recipe is already in the cookbook
       const existingIdx = mealsList.value.findIndex(m => {
         if (newDoc.api_id && m.api_id && String(m.api_id) === String(newDoc.api_id)) return true
         if (!newDoc.api_id && !m.api_id && m.title.trim().toLowerCase() === newDoc.title.trim().toLowerCase()) return true

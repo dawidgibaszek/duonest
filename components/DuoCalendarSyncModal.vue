@@ -8,7 +8,6 @@
     :handle="true"
   >
     <ion-header class="modal-custom-header ion-no-border">
-      <div class="modal-sheet-handle-spacer" aria-hidden="true"></div>
       <div class="sync-modal-header">
         <div class="sync-title-box">
           <div class="sync-title-icon-badge">
@@ -542,22 +541,15 @@ const handleImportParsedEvents = async () => {
 .modal-custom-header {
   background: #ffffff;
   border-bottom: 1px solid #e2e8f0;
-  padding-bottom: 8px;
-}
-
-.modal-sheet-handle-spacer {
-  width: 42px;
-  height: 4px;
-  background: #cbd5e1;
-  border-radius: 999px;
-  margin: 10px auto 6px auto;
+  padding-top: 6px;
+  padding-bottom: 12px;
 }
 
 .sync-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 18px 12px 18px;
+  padding: 8px 16px 12px 16px;
 }
 
 .sync-title-box {
@@ -607,6 +599,7 @@ const handleImportParsedEvents = async () => {
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .sync-modal-close-btn:hover {
@@ -622,10 +615,18 @@ const handleImportParsedEvents = async () => {
   border-radius: 12px;
   margin: 0 16px;
   gap: 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.sync-tabs-row::-webkit-scrollbar {
+  display: none;
 }
 
 .sync-tab-btn {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: max-content;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -635,7 +636,7 @@ const handleImportParsedEvents = async () => {
   border: none;
   background: transparent;
   color: #64748b;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -761,6 +762,7 @@ const handleImportParsedEvents = async () => {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .provider-name {
@@ -785,6 +787,7 @@ const handleImportParsedEvents = async () => {
   background: #f1f5f9;
   padding: 6px 12px;
   border-radius: 999px;
+  flex-shrink: 0;
 }
 
 /* Feed Copy Box */
@@ -833,6 +836,7 @@ const handleImportParsedEvents = async () => {
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .feed-copy-btn.copied {
@@ -1159,4 +1163,3 @@ const handleImportParsedEvents = async () => {
   cursor: not-allowed;
 }
 </style>
-
