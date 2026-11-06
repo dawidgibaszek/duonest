@@ -617,7 +617,7 @@ const handleResendVerification = async () => {
 .forgot-link-btn {
   background: transparent;
   border: none;
-  color: #0284c7;
+  color: #0f172a;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -626,7 +626,7 @@ const handleResendVerification = async () => {
 }
 
 .forgot-link-btn:hover {
-  color: #0369a1;
+  color: #020617;
   text-decoration: underline;
 }
 
@@ -825,7 +825,7 @@ const handleResendVerification = async () => {
 .recovery-email-change-btn {
   background: transparent;
   border: none;
-  color: #0284c7;
+  color: #0f172a;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -844,9 +844,9 @@ const handleResendVerification = async () => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #f0f9ff;
-  color: #0284c7;
-  border: 1.5px solid #bae6fd;
+  background: #f8fafc;
+  color: #0f172a;
+  border: 1.5px solid #e2e8f0;
   border-radius: 12px;
   padding: 9px 16px;
   font-size: 13px;
@@ -856,7 +856,8 @@ const handleResendVerification = async () => {
 }
 
 .resend-verification-btn:hover {
-  background: #e0f2fe;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 .resend-verification-btn:active {

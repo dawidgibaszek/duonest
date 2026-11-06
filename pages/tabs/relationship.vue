@@ -1907,7 +1907,7 @@ const handleRefresh = async (event: any) => {
 }
 
 .section-tag.mood-tag {
-  color: #0284c7;
+  color: #0f172a;
 }
 
 .section-tag.love-tag {
@@ -2177,8 +2177,9 @@ const handleRefresh = async (event: any) => {
 .pair-now-badge {
   font-size: 9.5px;
   font-weight: 700;
-  color: #0284c7;
-  background: #e0f2fe;
+  color: #0f172a;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
   padding: 1px 7px;
   border-radius: 999px;
   cursor: pointer;

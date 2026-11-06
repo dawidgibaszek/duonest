@@ -604,7 +604,7 @@ const handleSubmit = async () => {
 }
 
 .loading-spinner {
-  color: #0284c7;
+  color: #0f172a;
   font-size: 32px;
 }
 
@@ -722,13 +722,13 @@ const handleSubmit = async () => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: #0284c7;
-  border-color: #bae6fd;
-  background: #f0f9ff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+  background: #f8fafc;
 }
 
 .resend-btn:hover:not(:disabled) {
-  background: #e0f2fe;
+  background: #f1f5f9;
 }
 
 .resend-btn:disabled {
@@ -743,19 +743,19 @@ const handleSubmit = async () => {
   gap: 8px;
   width: 100%;
   padding: 14px 20px;
-  background: #0284c7;
+  background: #0f172a;
   color: #ffffff;
   border: none;
   border-radius: 14px;
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.25);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25);
   transition: background 0.15s ease;
 }
 
 .primary-btn:hover {
-  background: #0369a1;
+  background: #020617;
 }
 
 .secondary-btn {
@@ -867,8 +867,8 @@ const handleSubmit = async () => {
 
 .input-container:focus-within {
   background: #ffffff;
-  border-color: #0284c7;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1);
 }
 
 .field-icon {

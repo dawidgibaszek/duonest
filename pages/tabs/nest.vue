@@ -3,35 +3,71 @@
     <ion-header :translucent="true">
       <ion-toolbar>
         <div class="header-content">
-          <div class="brand-badge">
+          <div class="brand-badge" @click="navigateTo('/tabs/nest')">
             <img src="/favicon.png" alt="DuoNest" class="brand-logo" />
-            <div>
+            <div class="brand-text-col">
               <span class="brand-name">DuoNest</span>
               <span class="brand-sub">Wspólna przestrzeń</span>
             </div>
           </div>
           <div class="header-actions-group">
             <div
+              v-if="partnerUser?.id"
               class="couple-indicator-badge"
               :class="{ 'is-online': isPartnerOnline }"
               @click="navigateTo('/tabs/relationship')"
               :title="isPartnerOnline ? `${partnerUser?.name || 'Partner'} jest teraz online` : `Ostatnia aktywność: ${partnerLastActiveText}`"
             >
-              <div class="partner-avatar-mini" :style="{ backgroundColor: partnerUserAccentColor }">
-                <span class="avatar-initial">{{ (partnerUser?.name || 'P').charAt(0).toUpperCase() }}</span>
+              <div class="partner-avatar-wrap">
+                <div class="partner-avatar-mini" :style="{ backgroundColor: partnerUserAccentColor }">
+                  <img
+                    v-if="partnerUser?.avatar_url"
+                    :src="partnerUser.avatar_url"
+                    :alt="partnerUser.name || 'Partner'"
+                    class="partner-avatar-img"
+                  />
+                  <span v-else class="avatar-initial">{{ (partnerUser?.name || 'P').charAt(0).toUpperCase() }}</span>
+                </div>
                 <span class="status-pip" :class="{ 'is-online': isPartnerOnline }"></span>
               </div>
-              <div class="partner-status-col">
-                <span class="partner-name-tag">{{ partnerUser?.name || 'Partner' }}</span>
-                <span class="partner-activity-tag" :class="{ 'is-online': isPartnerOnline }">
-                  {{ isPartnerOnline ? 'online' : partnerLastActiveText }}
-                </span>
+              <div class="partner-info-col">
+                <div class="partner-name-row">
+                  <span class="partner-name-tag">{{ partnerUser?.name || 'Partner' }}</span>
+                </div>
+                <div class="partner-status-row">
+                  <span v-if="isPartnerOnline" class="status-live-badge">
+                    <span class="status-pulse-dot"></span>
+                    online
+                  </span>
+                  <span v-else class="status-time-badge">
+                    <ion-icon :icon="ioniconsTimeOutline" class="status-clock-icon" />
+                    {{ partnerLastActiveText }}
+                  </span>
+                </div>
               </div>
             </div>
+            <div
+              v-else
+              class="couple-indicator-badge not-paired"
+              @click="navigateTo('/pairing')"
+              title="Połącz konto z partnerem"
+            >
+              <div class="partner-avatar-wrap">
+                <div class="partner-avatar-mini unpaired-avatar">
+                  <ion-icon :icon="ioniconsPersonAddOutline" class="unpaired-icon" />
+                </div>
+              </div>
+              <div class="partner-info-col">
+                <span class="partner-name-tag">Połącz konto</span>
+                <span class="partner-time-sub">Kod parowania</span>
+              </div>
+            </div>
+
             <button
               class="quick-gear-btn"
               @click="navigateTo('/tabs/relationship?category=nest_settings')"
               title="Ustawienia Gniazdka"
+              aria-label="Ustawienia Gniazdka"
             >
               <ion-icon :icon="ioniconsSettingsOutline" />
             </button>
@@ -1187,32 +1223,62 @@ const handleRefresh = async (event: any) => {
 </script>
 
 <style scoped>
+/* ========================================================== */
+/* TOP NAVIGATION BAR / HEADER (GNIAZDKO)                     */
+/* ========================================================== */
+ion-header {
+  box-shadow: none;
+}
+
+ion-toolbar {
+  --background: rgba(255, 255, 255, 0.88);
+  --border-width: 0;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+
 .header-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 16px;
+  padding: 10px 16px;
+  gap: 12px;
 }
 
 .brand-badge {
   display: flex;
   align-items: center;
   gap: 10px;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
 }
 
 .brand-logo {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.12);
   object-fit: cover;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.brand-badge:active .brand-logo {
+  transform: scale(0.94);
+}
+
+.brand-text-col {
+  display: flex;
+  flex-direction: column;
 }
 
 .brand-name {
+  font-family: var(--ion-heading-font-family, 'Outfit', sans-serif);
   font-size: 19px;
   font-weight: 800;
   color: #0f172a;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   display: block;
   line-height: 1.1;
 }
@@ -1221,6 +1287,8 @@ const handleRefresh = async (event: any) => {
   font-size: 11px;
   color: #64748b;
   font-weight: 600;
+  letter-spacing: -0.01em;
+  display: block;
 }
 
 .header-actions-group {
@@ -1229,49 +1297,25 @@ const handleRefresh = async (event: any) => {
   gap: 8px;
 }
 
-.quick-gear-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  color: #64748b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 17px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  padding: 0;
-}
-
-.quick-gear-btn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
-  transform: rotate(25deg);
-}
-
-.quick-gear-btn:active {
-  transform: scale(0.92);
-}
-
+/* COUPLE / PARTNER INDICATOR CAPSULE */
 .couple-indicator-badge {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 999px;
-  padding: 3px 10px 3px 4px;
+  padding: 4px 12px 4px 4px;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  max-width: 175px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 2px 6px rgba(15, 23, 42, 0.02);
+  max-width: 185px;
 }
 
 .couple-indicator-badge:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: #f8fafc;
+  border-color: rgba(15, 23, 42, 0.16);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.07);
 }
 
 .couple-indicator-badge:active {
@@ -1279,26 +1323,56 @@ const handleRefresh = async (event: any) => {
 }
 
 .couple-indicator-badge.is-online {
+  border-color: rgba(22, 163, 74, 0.25);
+  box-shadow: 0 1px 4px rgba(22, 163, 74, 0.1), 0 2px 8px rgba(15, 23, 42, 0.03);
+}
+
+.couple-indicator-badge.is-online:hover {
   background: #f0fdf4;
-  border-color: #bbf7d0;
-  box-shadow: 0 1px 3px rgba(22, 163, 74, 0.1);
+  border-color: rgba(22, 163, 74, 0.4);
+}
+
+.couple-indicator-badge.not-paired {
+  border-style: dashed;
+  border-color: #cbd5e1;
+}
+
+.partner-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
 }
 
 .partner-avatar-mini {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  flex-shrink: 0;
   color: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25), 0 1px 3px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.partner-avatar-mini.unpaired-avatar {
+  background: #0f172a;
+}
+
+.unpaired-icon {
+  font-size: 15px;
+  color: #ffffff;
+}
+
+.partner-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .avatar-initial {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   line-height: 1;
   text-transform: uppercase;
@@ -1308,26 +1382,27 @@ const handleRefresh = async (event: any) => {
   position: absolute;
   bottom: -1px;
   right: -1px;
-  width: 9px;
-  height: 9px;
+  width: 9.5px;
+  height: 9.5px;
   border-radius: 50%;
   background: #94a3b8;
   border: 2px solid #ffffff;
-  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  transition: all 0.25s ease;
 }
 
 .status-pip.is-online {
   background: #16a34a;
-  box-shadow: 0 0 6px rgba(22, 163, 74, 0.7);
+  box-shadow: 0 0 7px rgba(22, 163, 74, 0.75);
   animation: pulsePip 2s infinite ease-in-out;
 }
 
 @keyframes pulsePip {
   0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.15); opacity: 0.75; }
+  50% { transform: scale(1.18); opacity: 0.8; }
 }
 
-.partner-status-col {
+.partner-info-col {
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1335,38 +1410,105 @@ const handleRefresh = async (event: any) => {
   line-height: 1.15;
 }
 
+.partner-name-row {
+  display: flex;
+  align-items: center;
+}
+
 .partner-name-tag {
-  max-width: 95px;
+  max-width: 100px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
   color: #0f172a;
-  letter-spacing: -0.2px;
+  letter-spacing: -0.015em;
 }
 
-.couple-indicator-badge.is-online .partner-name-tag {
-  color: #14532d;
+.partner-status-row {
+  display: flex;
+  align-items: center;
+  margin-top: 1.5px;
 }
 
-.partner-activity-tag {
-  max-width: 95px;
+.status-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3.5px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #15803d;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.status-pulse-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #16a34a;
+  display: inline-block;
+  box-shadow: 0 0 4px rgba(22, 163, 74, 0.6);
+}
+
+.status-time-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #64748b;
+  line-height: 1;
+  max-width: 100px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 9.5px;
-  font-weight: 500;
-  color: #64748b;
-  margin-top: 1px;
 }
 
-.partner-activity-tag.is-online {
-  color: #16a34a;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  font-size: 9px;
+.status-clock-icon {
+  font-size: 10.5px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.partner-time-sub {
+  font-size: 9.5px;
+  font-weight: 500;
+  color: #94a3b8;
+  line-height: 1;
+}
+
+/* QUICK SETTINGS BUTTON */
+.quick-gear-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 2px 6px rgba(15, 23, 42, 0.02);
+  flex-shrink: 0;
+}
+
+.quick-gear-btn:hover {
+  background: #f8fafc;
+  color: #020617;
+  border-color: rgba(15, 23, 42, 0.16);
+  transform: rotate(25deg);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.07);
+}
+
+.quick-gear-btn:active {
+  transform: scale(0.92);
 }
 
 /* ========================================================== */

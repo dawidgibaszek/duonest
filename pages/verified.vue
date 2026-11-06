@@ -322,7 +322,7 @@ onBeforeUnmount(() => {
 
 .email-badge-icon {
   font-size: 16px;
-  color: #0284c7;
+  color: #0f172a;
   flex-shrink: 0;
 }
 
@@ -343,7 +343,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: #0284c7;
+  background: #0f172a;
   color: #ffffff;
   border: none;
   border-radius: 14px;
@@ -351,12 +351,12 @@ onBeforeUnmount(() => {
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25);
   transition: all 0.2s ease;
 }
 
 .primary-btn:hover {
-  background: #0369a1;
+  background: #020617;
   transform: translateY(-1px);
 }
 
