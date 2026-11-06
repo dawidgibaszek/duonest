@@ -1311,10 +1311,11 @@
             <button
               type="button"
               class="dn-button-primary submit-manual-btn"
-              :disabled="!manualForm.title.trim()"
+              :disabled="!manualForm.title.trim() || isSubmittingManual"
               @click="submitManualAdd"
             >
-              <ion-icon :icon="ioniconsAddCircle" />
+              <ion-spinner v-if="isSubmittingManual" name="crescent" style="width: 18px; height: 18px;" />
+              <ion-icon v-else :icon="ioniconsAddCircle" />
               <span>Dodaj do Waszej listy</span>
             </button>
           </div>
@@ -2549,35 +2550,48 @@ const closeManualModal = () => {
   isManualModalOpen.value = false
 }
 
+const isSubmittingManual = ref(false)
+
 const submitManualAdd = async () => {
-  const title = manualForm.value.title.trim()
+  if (isSubmittingManual.value) return
+  const title = manualForm.value.title.trim().slice(0, 150)
   if (!title) return
 
   if (isAlreadyInList(title)) {
-    triggerToast(`"${title}" znajduje się już na Waszej liście seansów! 🍿`, {
+    triggerToast(`"${title}" znajduje się już na Waszej liście seansów!`, {
       type: 'movies',
       title: 'Już na liście'
     })
     return
   }
 
-  const genres = manualForm.value.genreInput
-    ? manualForm.value.genreInput.split(',').map(s => s.trim()).filter(Boolean)
-    : []
+  isSubmittingManual.value = true
+  try {
+    const genres = manualForm.value.genreInput
+      ? manualForm.value.genreInput.split(',').map(s => s.trim().slice(0, 40)).filter(Boolean)
+      : []
 
-  await addMovie({
-    title,
-    media_type: manualForm.value.media_type,
-    status: manualForm.value.status,
-    release_year: manualForm.value.release_year.trim() || null,
-    genres,
-    poster_path: manualForm.value.poster_path.trim() || null,
-    overview: manualForm.value.overview.trim() || null,
-    last_watched_season: isSeries(manualForm.value) ? manualForm.value.season : null,
-    last_watched_episode: isSeries(manualForm.value) ? manualForm.value.episode : null
-  })
+    const rawSeason = parseInt(String(manualForm.value.season), 10)
+    const cleanSeason = Number.isFinite(rawSeason) ? Math.max(1, Math.min(rawSeason, 100)) : 1
+    const rawEpisode = parseInt(String(manualForm.value.episode), 10)
+    const cleanEpisode = Number.isFinite(rawEpisode) ? Math.max(1, Math.min(rawEpisode, 1000)) : 1
 
-  closeManualModal()
+    await addMovie({
+      title,
+      media_type: manualForm.value.media_type,
+      status: manualForm.value.status,
+      release_year: manualForm.value.release_year.trim().slice(0, 10) || null,
+      genres,
+      poster_path: manualForm.value.poster_path.trim().slice(0, 500) || null,
+      overview: manualForm.value.overview.trim().slice(0, 1000) || null,
+      last_watched_season: isSeries(manualForm.value) ? cleanSeason : null,
+      last_watched_episode: isSeries(manualForm.value) ? cleanEpisode : null
+    })
+
+    closeManualModal()
+  } finally {
+    isSubmittingManual.value = false
+  }
 }
 
 // --- MODAL 5: DETAILS MODAL ---
@@ -5923,6 +5937,8 @@ ion-modal.dn-movies-details-modal {
   font-size: 12px;
   color: #475569;
   line-height: 1.35;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .details-modal-actions {

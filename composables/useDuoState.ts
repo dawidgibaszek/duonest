@@ -316,10 +316,10 @@ const realtimeStatus = ref<'connected' | 'connecting' | 'disconnected'>('disconn
 const dbSchemaStatus = ref<'checking' | 'connected' | 'missing_tables'>('checking')
 const isPartnerOnline = ref(false)
 const partnerLastSeenAt = ref<string | null>(null)
-let loginFailures = 0
-let loginLockoutUntil = 0
-let pairingFailures = 0
-let pairingLockoutUntil = 0
+const loginFailures = ref(0)
+const loginLockoutUntil = ref(0)
+const pairingFailures = ref(0)
+const pairingLockoutUntil = ref(0)
 const NUDGE_COOLDOWN_MS = 24 * 60 * 60 * 1000 // 24 hours per nudge per user
 const lastNudgeSentAt = ref<number | null>(null)
 const nowTimestamp = ref(Date.now())
@@ -1290,10 +1290,6 @@ export const useDuoState = () => {
     }
   }
 
-  const bypassLoginWithEmail = async (email: string, name: string) => {
-    return signUpWithEmail(email, 'duonest_pass', name)
-  }
-
   const requestPasswordReset = async (email: string) => {
     const dbClient = getCleanDbClient()
     const authClient = getSupabaseClient()
@@ -1467,13 +1463,6 @@ export const useDuoState = () => {
           data: null,
           error: new Error('Nie udało się zapisać nowego hasła w bazie danych: ' + (updateErr.message || updateErr))
         }
-      }
-
-      if (!updatedRows || updatedRows.length === 0) {
-        await dbClient.from('profiles').update({
-          avatar_color: updatedAvatarColor,
-          updated_at: new Date().toISOString()
-        }).eq('id', dbProfile.id)
       }
 
       // 6. Clean up temporary recovery session and poisoned localStorage
@@ -1700,13 +1689,6 @@ export const useDuoState = () => {
       if (updateErr) {
         console.error('Password change error in profiles:', updateErr)
         return { success: false, error: 'Nie udało się zapisać nowego hasła w bazie danych: ' + updateErr.message }
-      }
-
-      if (!updatedRows || updatedRows.length === 0) {
-        await dbClient.from('profiles').update({
-          avatar_color: updatedColor,
-          updated_at: new Date().toISOString()
-        }).eq('id', userId)
       }
 
       // 5. Update password in Supabase Auth if session exists
@@ -2471,10 +2453,6 @@ export const useDuoState = () => {
                 } else if (wasCompleted && !data.is_completed) {
                   partnerUser.value.points = Math.max(0, (Number(partnerUser.value.points) || 0) - taskPts)
                 }
-              }
-
-              if (currentUser.value && data.partner_points !== undefined) {
-                currentUser.value.points = Math.max(0, Number(data.partner_points) || 0)
               }
 
               if (partnership.value) {
@@ -3420,14 +3398,19 @@ export const useDuoState = () => {
 
       // Check if the other partner exists and still references this partnership
       const otherPartnerId = part.partner1_id === profile.id ? part.partner2_id : part.partner1_id
-      const { data: otherProfile } = await client
+      const { data: otherProfile, error: otherErr } = await client
         .from('profiles')
         .select('id, partnership_id')
         .eq('id', otherPartnerId)
         .maybeSingle()
 
-      if (!otherProfile || otherProfile.partnership_id !== part.id) {
-        // Other partner has disconnected or deleted account - clear orphaned partnership
+      if (otherErr) {
+        // Network hiccup or RLS restriction - NEVER destroy active partnership on read error!
+        return false
+      }
+
+      if (otherProfile && otherProfile.partnership_id !== part.id) {
+        // Other partner has explicitly disconnected or joined another partnership - clear orphaned partnership
         await client.from('partnerships').delete().eq('id', part.id)
         await client.from('profiles').update({ partnership_id: null }).eq('id', profile.id)
         profile.partnership_id = null
@@ -3728,11 +3711,29 @@ export const useDuoState = () => {
 
     const dbClient = getCleanDbClient() || supabase
     if (dbClient) {
-      if (myId) {
-        try { await dbClient.from('profiles').update({ partnership_id: null }).eq('id', myId) } catch (_) {}
+      let p1Id = myId
+      let p2Id = partnerId
+
+      if (pId) {
+        try {
+          const { data: partRow } = await dbClient
+            .from('partnerships')
+            .select('partner1_id, partner2_id')
+            .eq('id', pId)
+            .maybeSingle()
+
+          if (partRow) {
+            p1Id = partRow.partner1_id || p1Id
+            p2Id = partRow.partner2_id || p2Id
+          }
+        } catch (_) {}
       }
-      if (partnerId) {
-        try { await dbClient.from('profiles').update({ partnership_id: null }).eq('id', partnerId) } catch (_) {}
+
+      if (p1Id) {
+        try { await dbClient.from('profiles').update({ partnership_id: null }).eq('id', p1Id) } catch (_) {}
+      }
+      if (p2Id) {
+        try { await dbClient.from('profiles').update({ partnership_id: null }).eq('id', p2Id) } catch (_) {}
       }
       if (pId) {
         try { await dbClient.from('partnerships').delete().eq('id', pId) } catch (_) {}
@@ -4183,54 +4184,69 @@ export const useDuoState = () => {
     return 'mniej niż minutę'
   })
 
+  let isSendingNudgeInProgress = false
   const sendNudge = async (nudgeType: string, message: string = '') => {
+    if (isSendingNudgeInProgress) return false
     if (!partnership.value || !partnerUser.value) return false
-    if (!await verifyUserAndPartnershipAccess()) return false
 
     // Limit: only 1 nudge per person per 24 hours
     if (hasSentDailyNudge.value) {
-      triggerToast(`Dzisiejsze puknięcie zostało już wysłane! Kolejne za: ${formattedNextNudgeTime.value}.`)
+      triggerToast(`Dzisiejsze szturchnięcie zostało już wysłane! Kolejne za: ${formattedNextNudgeTime.value}.`)
       return false
     }
 
-    const now = Date.now()
-    lastNudgeSentAt.value = now
-    if (typeof window !== 'undefined' && currentUser.value?.id) {
-      try {
-        localStorage.setItem(`duonest_last_nudge_ts_${currentUser.value.id}`, now.toString())
-      } catch {}
-    }
-
-    const newNudge: NudgeItem = {
-      id: 'ndg_' + Math.random().toString(36).substring(2, 9),
-      partnership_id: partnership.value.id,
-      sender_id: currentUser.value.id,
-      receiver_id: partnerUser.value.id,
-      nudge_type: nudgeType,
-      message: message || undefined,
-      created_at: new Date().toISOString()
-    }
-    nudgesList.value.unshift(newNudge)
-
-    // Reward 5 points for sender
-    currentUser.value.points = (Number(currentUser.value.points) || 0) + 5
-    syncToStorage()
-
-    // Broadcast live to partner
-    broadcastToPartner('NUDGE_SEND', {
-      ...newNudge,
-      sender_points: currentUser.value.points
-    })
-
-    if (db) {
-      safeDb(db.from('nudges').insert(newNudge))
-      if (currentUser.value?.id) {
-        safeDb(db.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
+    isSendingNudgeInProgress = true
+    try {
+      if (!await verifyUserAndPartnershipAccess()) {
+        return false
       }
-    }
 
-    triggerToast(`Wysłano dzisiejsze puknięcie do ${partnerUser.value.name}! (+5 pkt)`)
-    return true
+      if (hasSentDailyNudge.value) {
+        triggerToast(`Dzisiejsze szturchnięcie zostało już wysłane! Kolejne za: ${formattedNextNudgeTime.value}.`)
+        return false
+      }
+
+      const now = Date.now()
+      lastNudgeSentAt.value = now
+      if (typeof window !== 'undefined' && currentUser.value?.id) {
+        try {
+          localStorage.setItem(`duonest_last_nudge_ts_${currentUser.value.id}`, now.toString())
+        } catch {}
+      }
+
+      const newNudge: NudgeItem = {
+        id: 'ndg_' + Math.random().toString(36).substring(2, 9),
+        partnership_id: partnership.value.id,
+        sender_id: currentUser.value.id,
+        receiver_id: partnerUser.value.id,
+        nudge_type: nudgeType,
+        message: message || undefined,
+        created_at: new Date().toISOString()
+      }
+      nudgesList.value.unshift(newNudge)
+
+      // Reward 5 points for sender
+      currentUser.value.points = (Number(currentUser.value.points) || 0) + 5
+      syncToStorage()
+
+      // Broadcast live to partner
+      broadcastToPartner('NUDGE_SEND', {
+        ...newNudge,
+        sender_points: currentUser.value.points
+      })
+
+      if (db) {
+        safeDb(db.from('nudges').insert(newNudge))
+        if (currentUser.value?.id) {
+          safeDb(db.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
+        }
+      }
+
+      triggerToast(`Wysłano dzisiejsze szturchnięcie do ${partnerUser.value.name}! (+5 pkt)`)
+      return true
+    } finally {
+      isSendingNudgeInProgress = false
+    }
   }
 
   const updatePartnershipSettings = async (nestName: string, anniversaryDate: string) => {
@@ -4437,11 +4453,11 @@ export const useDuoState = () => {
   const partnerEarnedPoints = computed(() => partnerRawTaskPoints.value + partnerNudgePoints.value)
 
   // Individual points read exclusively from Supabase profiles.points (DB is single source of truth)
-  const userPoints = computed(() => Number(currentUser.value?.points) || 0)
-  const partnerPoints = computed(() => Number(partnerUser.value?.points) || 0)
+  const userPoints = computed(() => Math.max(0, Number(currentUser.value?.points) || 0))
+  const partnerPoints = computed(() => Math.max(0, Number(partnerUser.value?.points) || 0))
 
   // Total Duet score is ALWAYS the exact sum of both users' points in the pair
-  const nestPoints = computed(() => userPoints.value + partnerPoints.value)
+  const nestPoints = computed(() => Math.max(0, userPoints.value + partnerPoints.value))
 
   const nestLevel = computed(() => {
     return Math.max(1, 1 + Math.floor(nestPoints.value / 50))
@@ -4454,8 +4470,9 @@ export const useDuoState = () => {
   })
 
   const levelProgress = computed(() => {
-    const currentPointsInTier = nestPoints.value % 50
-    return Math.min(100, Math.round((currentPointsInTier / 50) * 100))
+    const pts = Math.max(0, nestPoints.value)
+    const currentPointsInTier = pts % 50
+    return Math.max(0, Math.min(100, Math.round((currentPointsInTier / 50) * 100)))
   })
 
   // Balanced percentage bar based on individual contributions
@@ -5185,7 +5202,6 @@ export const useDuoState = () => {
     isAuthLoading,
     signInWithEmail,
     signUpWithEmail,
-    bypassLoginWithEmail,
     signOutUser,
     currentUser,
     partnerUser,

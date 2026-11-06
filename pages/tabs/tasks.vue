@@ -581,6 +581,7 @@
               <label class="form-label">Nazwa zadania *</label>
               <ion-input
                 v-model="newTaskTitle"
+                maxlength="100"
                 placeholder="np. Podlanie kwiatów, Mycie okien..."
                 class="modal-input"
               />
@@ -590,6 +591,7 @@
               <label class="form-label">Opis lub dodatkowe uwagi</label>
               <ion-textarea
                 v-model="newTaskDesc"
+                maxlength="500"
                 placeholder="np. Płyn do szyb jest pod zlewem w kuchni"
                 class="modal-input modal-textarea"
                 :rows="2"
@@ -680,8 +682,9 @@
               </div>
             </div>
 
-            <button type="submit" class="dn-button-sea submit-task-btn" :disabled="!newTaskTitle.trim()">
-              <ion-icon :icon="ioniconsCheckmarkOutline" />
+            <button type="submit" class="dn-button-sea submit-task-btn" :disabled="!newTaskTitle.trim() || isSubmitting">
+              <ion-spinner v-if="isSubmitting" name="crescent" style="width: 18px; height: 18px;" />
+              <ion-icon v-else :icon="ioniconsCheckmarkOutline" />
               <span>Dodaj Zadanie</span>
             </button>
           </form>
@@ -1107,6 +1110,7 @@ const newTaskAssignee = ref<string | null>(null)
 const newTaskIsRecurring = ref(false)
 const newTaskInterval = ref('weekly')
 const newTaskPoints = ref(15)
+const isSubmitting = ref(false)
 
 const recurrenceOptions = [
   { value: 'daily', label: 'Codziennie' },
@@ -1204,21 +1208,32 @@ const handleToggleTask = async (task: TaskItem) => {
 }
 
 const handleCreateTask = async () => {
-  if (!newTaskTitle.value.trim()) return
-  await addTask(
-    newTaskTitle.value,
-    newTaskDesc.value,
-    newTaskAssignee.value,
-    newTaskIsRecurring.value,
-    newTaskInterval.value,
-    newTaskPoints.value
-  )
-  showAddModal.value = false
-  newTaskTitle.value = ''
-  newTaskDesc.value = ''
-  newTaskAssignee.value = null
-  newTaskIsRecurring.value = false
-  newTaskPoints.value = 15
+  if (isSubmitting.value) return
+  const cleanTitle = newTaskTitle.value.trim().slice(0, 100)
+  if (!cleanTitle) return
+
+  isSubmitting.value = true
+  try {
+    const cleanDesc = newTaskDesc.value.trim().slice(0, 500)
+    const cleanPoints = Math.max(1, Math.min(100, Number(newTaskPoints.value) || 15))
+
+    await addTask(
+      cleanTitle,
+      cleanDesc,
+      newTaskAssignee.value,
+      newTaskIsRecurring.value,
+      newTaskInterval.value,
+      cleanPoints
+    )
+    showAddModal.value = false
+    newTaskTitle.value = ''
+    newTaskDesc.value = ''
+    newTaskAssignee.value = null
+    newTaskIsRecurring.value = false
+    newTaskPoints.value = 15
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 const handleSwipeCompleteTask = async (task: TaskItem) => {
@@ -1901,6 +1916,8 @@ const handleRefresh = async (event: any) => {
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.3px;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .pet-species-pill {

@@ -12,12 +12,12 @@ export default defineEventHandler(async (event) => {
   }
 
   const query = getQuery(event)
-  const categoryType = String(query.type || 'all').toLowerCase()
+  const rawType = String(query.type || 'all').toLowerCase().trim()
+  const categoryType = ['all', 'movie', 'tv', 'anime'].includes(rawType) ? rawType : 'all'
   const runtimeConfig = useRuntimeConfig()
   const apiKey = String(
-    query.apiKey ||
     runtimeConfig.tmdbApiKey ||
-    runtimeConfig.public.tmdbApiKey ||
+    runtimeConfig.public?.tmdbApiKey ||
     process.env.TMDB_API_KEY ||
     ''
   ).trim()
@@ -56,7 +56,8 @@ export default defineEventHandler(async (event) => {
 
     const response = await fetch(url.toString(), {
       method: 'GET',
-      headers
+      headers,
+      signal: AbortSignal.timeout(6000)
     })
 
     if (!response.ok) {

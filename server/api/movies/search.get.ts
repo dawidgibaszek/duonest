@@ -12,15 +12,13 @@ export default defineEventHandler(async (event) => {
   }
 
   const query = getQuery(event)
-  const searchQuery = String(query.q || query.query || '').trim()
-  const filterType = String(query.type || 'all').toLowerCase()
+  const searchQuery = String(query.q || query.query || '').trim().slice(0, 80)
+  const filterType = String(query.type || 'all').toLowerCase().slice(0, 10)
   const runtimeConfig = useRuntimeConfig()
 
-  // Use server runtime config or incoming client apiKey
+  // Use only server-side configured API key (Zero Trust: do not trust incoming query parameters for sensitive API credentials)
   const apiKey = String(
-    query.apiKey ||
     runtimeConfig.tmdbApiKey ||
-    runtimeConfig.public.tmdbApiKey ||
     process.env.TMDB_API_KEY ||
     ''
   ).trim()
@@ -33,7 +31,7 @@ export default defineEventHandler(async (event) => {
     return {
       success: false,
       error: 'NO_API_KEY',
-      message: 'Brak klucza TMDB API. Wprowadź klucz w pliku .env (TMDB_API_KEY) lub w ustawieniach wyszukiwarki.',
+      message: 'Brak skonfigurowanego klucza TMDB API na serwerze.',
       results: []
     }
   }
@@ -49,7 +47,6 @@ export default defineEventHandler(async (event) => {
     } else if (filterType === 'tv') {
       endpoint = 'https://api.themoviedb.org/3/search/tv'
     } else if (filterType === 'anime') {
-      // Use multi search to catch both anime movies and anime TV series!
       endpoint = 'https://api.themoviedb.org/3/search/multi'
     }
 
@@ -58,7 +55,8 @@ export default defineEventHandler(async (event) => {
 
     const response = await fetch(url.toString(), {
       method: 'GET',
-      headers
+      headers,
+      signal: AbortSignal.timeout(6000)
     })
 
     if (!response.ok) {
@@ -66,20 +64,20 @@ export default defineEventHandler(async (event) => {
         return {
           success: false,
           error: 'INVALID_API_KEY',
-          message: 'Podany klucz TMDB API jest nieprawidłowy lub wygasł.',
+          message: 'Klucz TMDB API jest nieprawidłowy lub wygasł.',
           results: []
         }
       }
       return {
         success: false,
         error: `HTTP_${response.status}`,
-        message: `Błąd TMDB (${response.status}): ${response.statusText}`,
+        message: 'Błąd połączenia z bazą filmów. Spróbuj ponownie później.',
         results: []
       }
     }
 
     const data = await response.json()
-    const rawResults: TmdbRawItem[] = data.results || []
+    const rawResults: TmdbRawItem[] = Array.isArray(data.results) ? data.results : []
 
     // Filter out person results from multi-search and normalize
     const validResults = rawResults
@@ -107,10 +105,11 @@ export default defineEventHandler(async (event) => {
       results: filteredResults
     }
   } catch (err: any) {
+    console.error('[Movies Search Error]:', err?.message || err)
     return {
       success: false,
-      error: 'NETWORK_ERROR',
-      message: err.message || 'Nie udało się połączyć z API TMDB.',
+      error: 'SEARCH_FAILED',
+      message: 'Nie udało się połączyć z bazą filmów. Sprawdź połączenie z internetem.',
       results: []
     }
   }

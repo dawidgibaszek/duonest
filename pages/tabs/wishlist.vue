@@ -405,6 +405,7 @@
               <label class="form-label">Nazwa przedmiotu *</label>
               <ion-input
                 v-model="formData.title"
+                maxlength="120"
                 placeholder="np. Słuchawki bezprzewodowe, Ulubione perfumy..."
                 class="modal-styled-input"
               />
@@ -417,6 +418,7 @@
                 <ion-input
                   v-model="formData.price"
                   type="text"
+                  maxlength="20"
                   placeholder="np. 149.99"
                   class="modal-styled-input price-input-field"
                 />
@@ -434,6 +436,7 @@
               <label class="form-label">Sklep lub marka (opcjonalnie)</label>
               <ion-input
                 v-model="formData.site_name"
+                maxlength="60"
                 placeholder="np. Allegro, Amazon, Zalando, IKEA..."
                 class="modal-styled-input"
               />
@@ -445,6 +448,7 @@
               <ion-input
                 v-model="formData.url"
                 type="url"
+                maxlength="500"
                 placeholder="https://..."
                 class="modal-styled-input"
               />
@@ -456,6 +460,7 @@
               <ion-input
                 v-model="formData.image_url"
                 type="url"
+                maxlength="500"
                 placeholder="https://... (adres obrazka)"
                 class="modal-styled-input"
               />
@@ -466,6 +471,7 @@
               <label class="form-label">Notatka (rozmiar, kolor, wersja itp.)</label>
               <ion-textarea
                 v-model="formData.note"
+                maxlength="500"
                 placeholder="np. Rozmiar M, kolor czarny, wersja 128GB..."
                 :rows="2"
                 class="modal-styled-input modal-textarea-styled"
@@ -478,6 +484,7 @@
                 v-if="editingItemId"
                 type="button"
                 class="delete-item-btn"
+                :disabled="isSubmitting"
                 @click="handleDeleteItem(editingItemId)"
               >
                 <ion-icon :icon="ioniconsTrashOutline" />
@@ -487,10 +494,11 @@
               <button
                 type="button"
                 class="dn-button-primary save-item-btn"
-                :disabled="!formData.title.trim()"
+                :disabled="!formData.title.trim() || isSubmitting"
                 @click="handleSaveFormData"
               >
-                <ion-icon :icon="ioniconsCheckmarkOutline" />
+                <ion-spinner v-if="isSubmitting" name="crescent" style="width: 18px; height: 18px;" />
+                <ion-icon v-else :icon="ioniconsCheckmarkOutline" />
                 <span>{{ editingItemId ? 'Zapisz zmiany' : 'Dodaj do wishlisty' }}</span>
               </button>
             </div>
@@ -539,6 +547,7 @@ const switchToMovies = () => {
 // Scraper state
 const urlInput = ref('')
 const isScraping = ref(false)
+const isSubmitting = ref(false)
 const scrapeError = ref<string | null>(null)
 
 // Partner ID helper (falls back to partnership partner1/partner2 if partner profile is still loading)
@@ -752,7 +761,7 @@ const handleScrapeUrl = async () => {
           url: url,
           image_url: resData?.image_url || ''
         }
-        resNotice = `Rozpoznano przedmiot z ${siteName || 'linku'}! Uzupełnij cenę i sprawdź szczegóły ✨`
+        resNotice = `Rozpoznano przedmiot z ${siteName || 'linku'}! Uzupełnij cenę i sprawdź szczegóły.`
       }
     } catch (_) {}
   }
@@ -779,7 +788,7 @@ const handleScrapeUrl = async () => {
     formTarget.value = resolveDefaultTarget()
     isModalOpen.value = true
     urlInput.value = ''
-    triggerToast(resNotice || 'Pobrano dane ze sklepu! Sprawdź i dostosuj szczegóły ✨')
+    triggerToast(resNotice || 'Pobrano dane ze sklepu! Sprawdź i dostosuj szczegóły.')
   } else {
     // Pure manual fallback
     let fallbackSite = ''
@@ -867,64 +876,85 @@ const setFormTarget = (target: 'me' | 'partner' | 'together') => {
 
 // Save form data (Add or Update)
 const handleSaveFormData = async () => {
-  if (!formData.value.title.trim()) return
+  if (isSubmitting.value) return
+  const cleanTitle = formData.value.title.trim().slice(0, 120)
+  if (!cleanTitle) return
 
-  const currentUserId = currentUser.value?.id || 'local_user'
-  const pId = partnerId.value
+  isSubmitting.value = true
+  try {
+    const currentUserId = currentUser.value?.id || 'local_user'
+    const pId = partnerId.value
 
-  let forUserId: string | null = null
-  if (formTarget.value === 'me') {
-    forUserId = currentUserId
-  } else if (formTarget.value === 'partner') {
-    forUserId = pId || 'partner'
-  } else {
-    forUserId = null
-  }
-
-  const isVisible = formTarget.value === 'partner' ? formData.value.is_visible_to_partner : true
-  const isSurprise = !isVisible
-
-  if (editingItemId.value) {
-    // Update existing item
-    await updateWishlistItem(editingItemId.value, {
-      title: formData.value.title.trim(),
-      price: formData.value.price ? formData.value.price.trim() : null,
-      currency: formData.value.currency || 'PLN',
-      site_name: formData.value.site_name ? formData.value.site_name.trim() : null,
-      url: formData.value.url ? formData.value.url.trim() : null,
-      image_url: formData.value.image_url ? formData.value.image_url.trim() : null,
-      note: formData.value.note ? formData.value.note.trim() : null,
-      for_user_id: forUserId,
-      is_visible_to_partner: isVisible
-    })
-  } else {
-    // Add new item
-    await addWishlistItem({
-      title: formData.value.title.trim(),
-      price: formData.value.price ? formData.value.price.trim() : null,
-      currency: formData.value.currency || 'PLN',
-      site_name: formData.value.site_name ? formData.value.site_name.trim() : null,
-      url: formData.value.url ? formData.value.url.trim() : null,
-      image_url: formData.value.image_url ? formData.value.image_url.trim() : null,
-      note: formData.value.note ? formData.value.note.trim() : null,
-      for_user_id: forUserId,
-      is_visible_to_partner: isVisible
-    })
-
-    // Immediately switch active filter tab so the newly added item is guaranteed to be in view!
-    if (isSurprise) {
-      activeFilter.value = 'surprise'
+    let forUserId: string | null = null
+    if (formTarget.value === 'me') {
+      forUserId = currentUserId
+    } else if (formTarget.value === 'partner') {
+      forUserId = pId || 'partner'
     } else {
-      activeFilter.value = 'all'
+      forUserId = null
     }
-  }
 
-  closeModal()
+    const isVisible = formTarget.value === 'partner' ? formData.value.is_visible_to_partner : true
+    const isSurprise = !isVisible
 
-  // Ensure DOM reflow and WebKit layer invalidation on iOS PWA standalone
-  await nextTick()
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new Event('resize'))
+    let cleanPrice: string | null = null
+    if (formData.value.price && formData.value.price.trim()) {
+      const rawP = formData.value.price.trim().replace(/\s+/g, '').replace(',', '.')
+      const parsed = parseFloat(rawP)
+      if (!isNaN(parsed) && parsed >= 0) {
+        cleanPrice = parsed.toFixed(2).replace(/\.00$/, '')
+      }
+    }
+
+    const cleanSite = formData.value.site_name ? formData.value.site_name.trim().slice(0, 60) : null
+    const cleanUrl = formData.value.url ? formData.value.url.trim().slice(0, 500) : null
+    const cleanImageUrl = formData.value.image_url ? formData.value.image_url.trim().slice(0, 500) : null
+    const cleanNote = formData.value.note ? formData.value.note.trim().slice(0, 500) : null
+
+    if (editingItemId.value) {
+      // Update existing item
+      await updateWishlistItem(editingItemId.value, {
+        title: cleanTitle,
+        price: cleanPrice,
+        currency: formData.value.currency || 'PLN',
+        site_name: cleanSite,
+        url: cleanUrl,
+        image_url: cleanImageUrl,
+        note: cleanNote,
+        for_user_id: forUserId,
+        is_visible_to_partner: isVisible
+      })
+    } else {
+      // Add new item
+      await addWishlistItem({
+        title: cleanTitle,
+        price: cleanPrice,
+        currency: formData.value.currency || 'PLN',
+        site_name: cleanSite,
+        url: cleanUrl,
+        image_url: cleanImageUrl,
+        note: cleanNote,
+        for_user_id: forUserId,
+        is_visible_to_partner: isVisible
+      })
+
+      // Immediately switch active filter tab so the newly added item is guaranteed to be in view!
+      if (isSurprise) {
+        activeFilter.value = 'surprise'
+      } else {
+        activeFilter.value = 'all'
+      }
+    }
+
+    closeModal()
+
+    // Ensure DOM reflow and WebKit layer invalidation on iOS PWA standalone
+    await nextTick()
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('resize'))
+    }
+  } finally {
+    isSubmitting.value = false
   }
 }
 

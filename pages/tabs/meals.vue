@@ -1117,6 +1117,7 @@
             <div class="input-container-box">
               <ion-input
                 v-model="customTitle"
+                maxlength="100"
                 placeholder="np. Kotlety schabowe z ziemniaczkami, Domowa lasagne..."
                 class="modal-input"
                 :clear-input="true"
@@ -1218,6 +1219,7 @@
             <div class="textarea-container-box">
               <ion-textarea
                 v-model="customIngredientsText"
+                maxlength="1000"
                 placeholder="Wpisz składniki po przecinku lub od nowej linii, np.:&#10;schab, bułka tarta, jajka, ziemniaki..."
                 class="modal-textarea"
                 :rows="3"
@@ -1242,6 +1244,7 @@
             <div class="textarea-container-box">
               <ion-textarea
                 v-model="customInstructions"
+                maxlength="2000"
                 placeholder="np. Smażyć na maśle klarowanym, dodać świeży koperek..."
                 class="modal-textarea"
                 :rows="2"
@@ -1255,9 +1258,10 @@
             <button
               type="submit"
               class="dn-button-primary submit-custom-meal-btn"
-              :disabled="!customTitle.trim() || !customDate"
+              :disabled="!customTitle.trim() || !customDate || isSubmittingCustomMeal"
             >
-              <ion-icon :icon="ioniconsCheckmarkOutline" />
+              <ion-spinner v-if="isSubmittingCustomMeal" name="crescent" style="width: 18px; height: 18px;" />
+              <ion-icon v-else :icon="ioniconsCheckmarkOutline" />
               <span>Dodaj do Planera Tygodnia</span>
             </button>
           </div>
@@ -2155,32 +2159,40 @@ const openAssignModal = async (meal: any, defaultDate?: string) => {
   showAssignModal.value = true
 }
 
+const isSubmittingAssignMeal = ref(false)
+
 const confirmAssignMeal = async () => {
+  if (isSubmittingAssignMeal.value) return
   if (!assignTargetMeal.value || !assignDate.value) return
   const m = assignTargetMeal.value
   const targetDay = weekDays.value.find(d => d.dateStr === assignDate.value)
 
-  const assignKey = (m.api_id || m.id) ? `api_${m.api_id || m.id}` : `custom_${(m.title || '').trim().toLowerCase()}`
-  unblockSavedRecipeKey(assignKey)
+  isSubmittingAssignMeal.value = true
+  try {
+    const assignKey = (m.api_id || m.id) ? `api_${m.api_id || m.id}` : `custom_${(m.title || '').trim().toLowerCase()}`
+    unblockSavedRecipeKey(assignKey)
 
-  await addMeal({
-    date: assignDate.value,
-    day_name: targetDay?.dayName || '',
-    title: formatMealTitlePl(m.titlePl || m.title),
-    category: m.categoryPl || m.category || '',
-    area: m.areaPl || m.area || '',
-    cook_id: assignCook.value,
-    image_url: m.thumbnail || m.image_url || '',
-    source: m.source || (m.api_id ? 'api' : 'custom'),
-    api_id: m.api_id || m.id,
-    ingredients: m.ingredients || [],
-    instructions: m.instructions || '',
-    youtube_url: m.youtubeUrl || m.youtube_url || '',
-    recipe_url: m.sourceUrl || m.recipe_url || ''
-  })
+    await addMeal({
+      date: assignDate.value,
+      day_name: targetDay?.dayName || '',
+      title: formatMealTitlePl(m.titlePl || m.title),
+      category: m.categoryPl || m.category || '',
+      area: m.areaPl || m.area || '',
+      cook_id: assignCook.value,
+      image_url: m.thumbnail || m.image_url || '',
+      source: m.source || (m.api_id ? 'api' : 'custom'),
+      api_id: m.api_id || m.id,
+      ingredients: m.ingredients || [],
+      instructions: m.instructions || '',
+      youtube_url: m.youtubeUrl || m.youtube_url || '',
+      recipe_url: m.sourceUrl || m.recipe_url || ''
+    })
 
-  showAssignModal.value = false
-  activeSubView.value = 'calendar'
+    showAssignModal.value = false
+    activeSubView.value = 'calendar'
+  } finally {
+    isSubmittingAssignMeal.value = false
+  }
 }
 
 const openExploreForDate = (dateStr: string) => {
@@ -2220,30 +2232,38 @@ const modalPickRecipesList = computed(() => {
   })
 })
 
+const isSubmittingSavedRecipe = ref(false)
+
 const selectSavedRecipeForDay = async (recipe: SavedRecipe) => {
+  if (isSubmittingSavedRecipe.value) return
   if (!targetPickDate.value) return
   const targetDay = weekDays.value.find(d => d.dateStr === targetPickDate.value)
 
-  unblockSavedRecipeKey(recipe.key)
+  isSubmittingSavedRecipe.value = true
+  try {
+    unblockSavedRecipeKey(recipe.key)
 
-  await addMeal({
-    date: targetPickDate.value,
-    day_name: targetDay?.dayName || '',
-    title: formatMealTitlePl(recipe.titlePl || recipe.title),
-    category: recipe.category || '',
-    area: recipe.area || '',
-    cook_id: pickModalCook.value,
-    image_url: recipe.image_url || '',
-    source: recipe.source,
-    api_id: recipe.api_id,
-    ingredients: recipe.ingredients || [],
-    instructions: recipe.instructions || '',
-    youtube_url: recipe.youtube_url || '',
-    recipe_url: recipe.recipe_url || ''
-  })
+    await addMeal({
+      date: targetPickDate.value,
+      day_name: targetDay?.dayName || '',
+      title: formatMealTitlePl(recipe.titlePl || recipe.title),
+      category: recipe.category || '',
+      area: recipe.area || '',
+      cook_id: pickModalCook.value,
+      image_url: recipe.image_url || '',
+      source: recipe.source,
+      api_id: recipe.api_id,
+      ingredients: recipe.ingredients || [],
+      instructions: recipe.instructions || '',
+      youtube_url: recipe.youtube_url || '',
+      recipe_url: recipe.recipe_url || ''
+    })
 
-  showPickSavedModal.value = false
-  activeSubView.value = 'calendar'
+    showPickSavedModal.value = false
+    activeSubView.value = 'calendar'
+  } finally {
+    isSubmittingSavedRecipe.value = false
+  }
 }
 
 const isRecipeInSaved = (meal?: any) => {
@@ -2307,32 +2327,41 @@ const openAddCustomModal = (defaultDate?: string) => {
   showAddCustomModal.value = true
 }
 
+const isSubmittingCustomMeal = ref(false)
+
 const handleCreateCustomMeal = async () => {
-  if (!customTitle.value.trim() || !customDate.value) return
+  if (isSubmittingCustomMeal.value) return
+  const cleanTitle = customTitle.value.trim().slice(0, 100)
+  if (!cleanTitle || !customDate.value) return
 
-  const ingredients: MealIngredient[] = []
-  if (customIngredientsText.value.trim()) {
-    const lines = customIngredientsText.value.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
-    for (const item of lines) {
-      ingredients.push({ name: item })
+  isSubmittingCustomMeal.value = true
+  try {
+    const ingredients: MealIngredient[] = []
+    if (customIngredientsText.value.trim()) {
+      const lines = customIngredientsText.value.split(/[\n,]+/).map(s => s.trim().slice(0, 80)).filter(Boolean)
+      for (const item of lines) {
+        ingredients.push({ name: item })
+      }
     }
+
+    const targetDay = weekDays.value.find(d => d.dateStr === customDate.value)
+
+    unblockSavedRecipeKey(`custom_${cleanTitle.toLowerCase()}`)
+
+    await addMeal({
+      date: customDate.value,
+      day_name: targetDay?.dayName || '',
+      title: cleanTitle,
+      cook_id: customCook.value,
+      source: 'custom',
+      ingredients,
+      instructions: customInstructions.value.trim().slice(0, 2000)
+    })
+
+    showAddCustomModal.value = false
+  } finally {
+    isSubmittingCustomMeal.value = false
   }
-
-  const targetDay = weekDays.value.find(d => d.dateStr === customDate.value)
-
-  unblockSavedRecipeKey(`custom_${customTitle.value.trim().toLowerCase()}`)
-
-  await addMeal({
-    date: customDate.value,
-    day_name: targetDay?.dayName || '',
-    title: customTitle.value.trim(),
-    cook_id: customCook.value,
-    source: 'custom',
-    ingredients,
-    instructions: customInstructions.value.trim()
-  })
-
-  showAddCustomModal.value = false
 }
 
 const handleRefresh = async (event: any) => {
@@ -2652,6 +2681,8 @@ onMounted(() => {
   margin: 0 0 4px;
   cursor: pointer;
   line-height: 1.3;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .meal-title.strike {

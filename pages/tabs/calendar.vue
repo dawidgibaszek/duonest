@@ -537,6 +537,7 @@
               <label class="form-label">Tytuł planu *</label>
               <ion-input
                 v-model="modalForm.title"
+                maxlength="100"
                 placeholder="np. Kolacja we włoskiej restauracji Marcello, Wyjazd w góry..."
                 class="modal-input"
                 :clear-input="true"
@@ -637,6 +638,7 @@
               <label class="form-label">Lokalizacja / Miejsce (opcjonalnie)</label>
               <ion-input
                 v-model="modalForm.location"
+                maxlength="100"
                 placeholder="np. Restauracja Marcello, Kino Muranów, Park Oliwski..."
                 class="modal-input"
                 :clear-input="true"
@@ -648,6 +650,7 @@
               <label class="form-label">Notatki lub co zabrać</label>
               <ion-textarea
                 v-model="modalForm.description"
+                maxlength="500"
                 placeholder="np. Stolik zarezerwowany na 19:30, zabrać ciepły sweter..."
                 class="modal-input modal-textarea"
                 :rows="2"
@@ -655,8 +658,9 @@
             </div>
 
             <!-- SUBMIT BUTTON -->
-            <button type="submit" class="dn-button-sea submit-btn" :disabled="!modalForm.title.trim()">
-              <ion-icon :icon="ioniconsCheckmarkOutline" />
+            <button type="submit" class="dn-button-sea submit-btn" :disabled="!modalForm.title.trim() || isSubmitting">
+              <ion-spinner v-if="isSubmitting" name="crescent" style="width: 18px; height: 18px;" />
+              <ion-icon v-else :icon="ioniconsCheckmarkOutline" />
               <span>{{ isEditingMode ? 'Zapisz zmiany w Planie' : 'Zapisz w Kalendarzu' }}</span>
             </button>
           </form>
@@ -724,30 +728,44 @@ const toLocalIsoString = (date: Date): string => {
 const toDbTimestamp = (dateStr: string): string => {
   if (!dateStr) return new Date().toISOString()
   const d = new Date(dateStr)
-  if (!isNaN(d.getTime())) {
-    return d.toISOString()
-  }
-  return dateStr
+  return !isNaN(d.getTime()) ? d.toISOString() : new Date().toISOString()
 }
 
 const toDbEndTimestamp = (endTimeStr: string, startDateStr: string): string | null => {
   if (!endTimeStr || !endTimeStr.trim()) return null
   const trimmed = endTimeStr.trim()
+  let endD: Date | null = null
+
   if (/^\d{2}:\d{2}(:\d{2})?$/.test(trimmed)) {
     const datePart = startDateStr ? startDateStr.split('T')[0] : formatLocalDate(new Date())
     const fullLocal = `${datePart}T${trimmed.substring(0, 5)}:00`
     const d = new Date(fullLocal)
-    return !isNaN(d.getTime()) ? d.toISOString() : null
+    if (!isNaN(d.getTime())) endD = d
+  } else {
+    const timeMatch = trimmed.match(/T(\d{2}:\d{2}(:\d{2})?)/)
+    if (timeMatch && startDateStr) {
+      const datePart = startDateStr.split('T')[0]
+      const fullLocal = `${datePart}T${timeMatch[1].substring(0, 5)}:00`
+      const d = new Date(fullLocal)
+      if (!isNaN(d.getTime())) endD = d
+    } else {
+      const d = new Date(trimmed)
+      if (!isNaN(d.getTime())) endD = d
+    }
   }
-  const timeMatch = trimmed.match(/T(\d{2}:\d{2}(:\d{2})?)/)
-  if (timeMatch && startDateStr) {
-    const datePart = startDateStr.split('T')[0]
-    const fullLocal = `${datePart}T${timeMatch[1].substring(0, 5)}:00`
-    const d = new Date(fullLocal)
-    return !isNaN(d.getTime()) ? d.toISOString() : null
+
+  if (!endD) return null
+
+  // Ensure end time is strictly after start time
+  const startD = new Date(toDbTimestamp(startDateStr))
+  if (endD.getTime() <= startD.getTime()) {
+    // If within 12 hours earlier, assume it extends past midnight into the next day
+    if (startD.getTime() - endD.getTime() < 12 * 60 * 60 * 1000) {
+      endD = new Date(endD.getTime() + 24 * 60 * 60 * 1000)
+    }
   }
-  const d = new Date(trimmed)
-  return !isNaN(d.getTime()) ? d.toISOString() : null
+
+  return endD.toISOString()
 }
 
 // Calendar Navigation State
@@ -1181,37 +1199,48 @@ const closeEventModal = () => {
   editingEventId.value = null
 }
 
+const isSubmitting = ref(false)
+
 const handleSaveEvent = async () => {
-  if (!modalForm.title.trim()) return
+  if (isSubmitting.value) return
+  const cleanTitle = modalForm.title.trim().slice(0, 100)
+  if (!cleanTitle) return
 
-  const startTimestamp = toDbTimestamp(modalForm.startTime)
-  const endTimestamp = toDbEndTimestamp(modalForm.endTime, modalForm.startTime)
+  isSubmitting.value = true
+  try {
+    const startTimestamp = toDbTimestamp(modalForm.startTime)
+    const endTimestamp = toDbEndTimestamp(modalForm.endTime, modalForm.startTime)
+    const cleanLocation = modalForm.location.trim().slice(0, 100) || null
+    const cleanDesc = modalForm.description.trim().slice(0, 500) || null
 
-  if (isEditingMode.value && editingEventId.value) {
-    await updateEvent(editingEventId.value, {
-      title: modalForm.title.trim(),
-      category: modalForm.category,
-      start_time: startTimestamp,
-      end_time: endTimestamp,
-      location: modalForm.location.trim() || null,
-      description: modalForm.description.trim() || null,
-      planner_name: modalForm.plannerName,
-      is_surprise: modalForm.isSurprise
-    })
-  } else {
-    await addEvent(
-      modalForm.title.trim(),
-      modalForm.category,
-      startTimestamp,
-      modalForm.description.trim(),
-      modalForm.location.trim(),
-      endTimestamp || '',
-      modalForm.isSurprise,
-      modalForm.plannerName
-    )
+    if (isEditingMode.value && editingEventId.value) {
+      await updateEvent(editingEventId.value, {
+        title: cleanTitle,
+        category: modalForm.category,
+        start_time: startTimestamp,
+        end_time: endTimestamp,
+        location: cleanLocation,
+        description: cleanDesc,
+        planner_name: modalForm.plannerName,
+        is_surprise: modalForm.isSurprise
+      })
+    } else {
+      await addEvent(
+        cleanTitle,
+        modalForm.category,
+        startTimestamp,
+        cleanDesc || '',
+        cleanLocation || '',
+        endTimestamp || '',
+        modalForm.isSurprise,
+        modalForm.plannerName
+      )
+    }
+
+    closeEventModal()
+  } finally {
+    isSubmitting.value = false
   }
-
-  closeEventModal()
 }
 
 const confirmDeleteEvent = (id: string, title: string) => {

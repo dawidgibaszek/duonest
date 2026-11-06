@@ -29,15 +29,15 @@ export default defineEventHandler(async (event) => {
   }
 
   const query = getQuery(event)
-  const requestedType = String(query.type || 'all').toLowerCase()
-  const requestedGenre = String(query.genre || 'all').toLowerCase()
-  const minRating = Number(query.minRating || 0)
+  const requestedType = String(query.type || 'all').toLowerCase().slice(0, 10)
+  const requestedGenre = String(query.genre || 'all').toLowerCase().slice(0, 20)
+  const minRatingRaw = parseFloat(String(query.minRating || 0))
+  const minRating = isNaN(minRatingRaw) ? 0 : Math.max(0, Math.min(10, minRatingRaw))
   const runtimeConfig = useRuntimeConfig()
 
+  // Use only server-side configured API key (Zero Trust)
   const apiKey = String(
-    query.apiKey ||
     runtimeConfig.tmdbApiKey ||
-    runtimeConfig.public.tmdbApiKey ||
     process.env.TMDB_API_KEY ||
     ''
   ).trim()
@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
     return {
       success: false,
       error: 'NO_API_KEY',
-      message: 'Brak klucza TMDB API. Wprowadź klucz w .env lub ustawieniach aplikacji.'
+      message: 'Brak klucza TMDB API na serwerze.'
     }
   }
 
@@ -72,41 +72,39 @@ export default defineEventHandler(async (event) => {
     queryParams['language'] = 'pl-PL'
 
     let endpoint = 'https://api.themoviedb.org/3/discover/movie'
-    const genreInfo = GENRE_MAP[requestedGenre] || {}
 
     if (targetType === 'anime') {
       endpoint = 'https://api.themoviedb.org/3/discover/tv'
+      queryParams['with_genres'] = '16'
       queryParams['with_original_language'] = 'ja'
-      const animeGenres = [16]
-      if (genreInfo.tv && genreInfo.tv !== 16) {
-        animeGenres.push(genreInfo.tv)
-      } else if (genreInfo.movie && genreInfo.movie !== 16) {
-        animeGenres.push(genreInfo.movie)
+      queryParams['vote_count.gte'] = '15'
+      if (minRating > 0) {
+        queryParams['vote_average.gte'] = String(minRating)
       }
-      queryParams['with_genres'] = animeGenres.join(',')
-      queryParams['vote_count.gte'] = '25'
+      queryParams['sort_by'] = 'popularity.desc'
     } else if (targetType === 'tv') {
       endpoint = 'https://api.themoviedb.org/3/discover/tv'
-      if (genreInfo.tv) {
-        queryParams['with_genres'] = String(genreInfo.tv)
+      queryParams['sort_by'] = 'popularity.desc'
+      queryParams['vote_count.gte'] = '20'
+      if (minRating > 0) {
+        queryParams['vote_average.gte'] = String(minRating)
       }
-      queryParams['vote_count.gte'] = '40'
+      if (requestedGenre !== 'all' && GENRE_MAP[requestedGenre]?.tv) {
+        queryParams['with_genres'] = String(GENRE_MAP[requestedGenre].tv)
+      }
     } else {
+      // movie
       endpoint = 'https://api.themoviedb.org/3/discover/movie'
-      if (genreInfo.movie) {
-        queryParams['with_genres'] = String(genreInfo.movie)
+      queryParams['sort_by'] = 'popularity.desc'
+      queryParams['vote_count.gte'] = '30'
+      if (minRating > 0) {
+        queryParams['vote_average.gte'] = String(minRating)
       }
-      queryParams['vote_count.gte'] = '60'
+      if (requestedGenre !== 'all' && GENRE_MAP[requestedGenre]?.movie) {
+        queryParams['with_genres'] = String(GENRE_MAP[requestedGenre].movie)
+      }
     }
 
-    if (minRating > 0) {
-      queryParams['vote_average.gte'] = String(minRating)
-    }
-
-    // Sort order: popularity or vote_average
-    queryParams['sort_by'] = Math.random() > 0.35 ? 'popularity.desc' : 'vote_average.desc'
-
-    // Choose random page between 1 and 6 for variety
     const randomPage = Math.floor(Math.random() * 5) + 1
     queryParams['page'] = String(randomPage)
 
@@ -115,7 +113,11 @@ export default defineEventHandler(async (event) => {
       Object.entries(queryParams).forEach(([k, v]) => url.searchParams.set(k, v))
       url.searchParams.set('page', String(pageNumber))
 
-      const resp = await fetch(url.toString(), { method: 'GET', headers })
+      const resp = await fetch(url.toString(), {
+        method: 'GET',
+        headers,
+        signal: AbortSignal.timeout(6000)
+      })
       if (!resp.ok) {
         if (resp.status === 401) {
           throw new Error('INVALID_API_KEY')
@@ -134,12 +136,12 @@ export default defineEventHandler(async (event) => {
       data = await fetchPage(1)
     }
 
-    const rawResults: TmdbRawItem[] = data?.results || []
+    const rawResults: TmdbRawItem[] = Array.isArray(data?.results) ? data.results : []
     if (rawResults.length === 0) {
       return {
         success: false,
         error: 'NO_RESULTS',
-        message: 'Nie znaleziono filmów spełniających te kryteria w bazie TMDB. Spróbuj poluzować filtry (np. mniejsza ocena lub dowolny gatunek).'
+        message: 'Nie znaleziono filmów spełniających te kryteria w bazie TMDB. Spróbuj poluzować filtry.'
       }
     }
 
@@ -168,25 +170,25 @@ export default defineEventHandler(async (event) => {
       total_found: listToUse.length
     }
   } catch (err: any) {
+    console.error('[Movies Random Error]:', err?.message || err)
     if (err.message === 'INVALID_API_KEY') {
       return {
         success: false,
         error: 'INVALID_API_KEY',
-        message: 'Klucz TMDB API jest nieprawidłowy lub wygasł. Sprawdź konfigurację TMDB_API_KEY.'
+        message: 'Klucz TMDB API jest nieprawidłowy lub wygasł.'
       }
     }
     if (err.message === 'RATE_LIMITED') {
       return {
         success: false,
         error: 'RATE_LIMITED',
-        message: 'Przekroczono limit zapytań TMDB API. Odczekaj chwilę przed kolejnym losowaniem.'
+        message: 'Przekroczono limit zapytań TMDB API. Odczekaj chwilę.'
       }
     }
     return {
       success: false,
       error: 'SERVER_ERROR',
-      message: err.message || 'Wystąpił nieoczekiwany błąd podczas losowania z TMDB.'
+      message: 'Wystąpił błąd podczas losowania z TMDB. Spróbuj ponownie za chwilę.'
     }
   }
 })
-

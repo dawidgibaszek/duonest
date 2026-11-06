@@ -2781,6 +2781,8 @@ const handleRefresh = async (event: any) => {
 .history-msg {
   color: #475569;
   margin-left: 4px;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 /* ========================================================== */
@@ -2996,6 +2998,8 @@ const handleRefresh = async (event: any) => {
 .milestone-title {
   font-size: 12.5px;
   color: #9a3412;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .milestone-subtitle {

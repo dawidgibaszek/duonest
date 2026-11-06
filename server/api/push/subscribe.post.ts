@@ -74,7 +74,7 @@ export default defineEventHandler(async (event) => {
     console.error('[WebPush] Error saving push subscription:', error)
     throw createError({
       statusCode: 500,
-      statusMessage: error.message || 'Failed to save push subscription'
+      statusMessage: 'Nie udało się zapisać subskrypcji'
     })
   }
 

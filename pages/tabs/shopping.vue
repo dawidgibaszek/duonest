@@ -67,6 +67,7 @@
           <div class="input-row">
             <ion-input
               v-model="newItemTitle"
+              maxlength="100"
               placeholder="Co trzeba kupić? (np. Mleko, Owoce...)"
               class="custom-ion-input"
               :clear-input="true"
@@ -98,8 +99,9 @@
             </button>
           </div>
 
-          <button type="submit" class="dn-button-sea add-btn" :disabled="!newItemTitle.trim()">
-            <ion-icon :icon="ioniconsAddOutline" />
+          <button type="submit" class="dn-button-sea add-btn" :disabled="!newItemTitle.trim() || isSubmitting">
+            <ion-spinner v-if="isSubmitting" name="crescent" style="width: 18px; height: 18px;" />
+            <ion-icon v-else :icon="ioniconsAddOutline" />
             <span>Dodaj do koszyka</span>
           </button>
         </form>
@@ -368,12 +370,22 @@ const filterQtyKeydown = (event: KeyboardEvent) => {
   }
 }
 
+const isSubmitting = ref(false)
+
 const handleAddItem = async () => {
-  if (!newItemTitle.value.trim()) return
-  const cleanQty = newItemQty.value ? String(newItemQty.value).replace(/\D/g, '').trim() : ''
-  await addShoppingItem(newItemTitle.value, selectedCategory.value, cleanQty)
-  newItemTitle.value = ''
-  newItemQty.value = ''
+  if (isSubmitting.value) return
+  const cleanTitle = newItemTitle.value.trim().slice(0, 100)
+  if (!cleanTitle) return
+
+  isSubmitting.value = true
+  try {
+    const cleanQty = newItemQty.value ? String(newItemQty.value).replace(/\D/g, '').trim().slice(0, 5) : ''
+    await addShoppingItem(cleanTitle, selectedCategory.value, cleanQty)
+    newItemTitle.value = ''
+    newItemQty.value = ''
+  } finally {
+    isSubmitting.value = false
+  }
 }
 
 const handleSwipeComplete = (id: string) => {

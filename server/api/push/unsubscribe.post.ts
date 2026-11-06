@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
     console.error('[WebPush] Error deleting push subscription:', error)
     throw createError({
       statusCode: 500,
-      statusMessage: error.message || 'Failed to delete push subscription'
+      statusMessage: 'Nie udało się usunąć subskrypcji'
     })
   }
 

@@ -19,19 +19,15 @@ function formatPartnerAction(
     case 'NUDGE_SEND': {
       const type = (data?.nudge_type || 'love').toLowerCase()
       let label = 'słodkiego buziaka'
-      let emoji = '💋'
       if (type.includes('hug') || type.includes('przytulas')) {
         label = 'ciepłego przytulasa'
-        emoji = '🤗'
       } else if (type.includes('touch') || type.includes('puk')) {
         label = 'delikatne puknięcie'
-        emoji = '👉'
       } else if (type.includes('miss') || type.includes('tęsk')) {
         label = 'wiadomość, że za Tobą tęskni'
-        emoji = '🥺'
       }
       return {
-        title: `${name} myśli o Tobie! ${emoji}`,
+        title: `${name} myśli o Tobie!`,
         body: `${name} przesyła Ci ${label}. Otwórz Gniazdko, by odpowiedzieć!`,
         url: '/tabs/nest',
         category: 'nudges'
@@ -41,18 +37,18 @@ function formatPartnerAction(
     case 'MOOD_UPDATE': {
       const mood = data?.mood || 'happy'
       const moodLabels: Record<string, string> = {
-        great: 'Wspaniały 🌟',
-        happy: 'Radosny 😊',
-        calm: 'Spokojny 🍃',
-        tired: 'Zmęczony 🥱',
-        sad: 'Smutny 🥺',
-        stressed: 'Zestresowany ⚡',
-        romantic: 'Romantyczny 💕'
+        great: 'Wspaniały',
+        happy: 'Radosny',
+        calm: 'Spokojny',
+        tired: 'Zmęczony',
+        sad: 'Smutny',
+        stressed: 'Zestresowany',
+        romantic: 'Romantyczny'
       }
       const label = moodLabels[mood] || mood
       const note = data?.note ? ` („${data.note}”)` : ''
       return {
-        title: `${name} zaktualizował(a) nastrój 💌`,
+        title: `${name} zaktualizował(a) nastrój`,
         body: `Aktualny nastrój: ${label}${note}`,
         url: '/tabs/nest',
         category: 'mood'
@@ -62,7 +58,7 @@ function formatPartnerAction(
     case 'SHOPPING_ADD': {
       const itemName = data?.title || data?.name || 'nową pozycję'
       return {
-        title: `Lista zakupów 🛒`,
+        title: `Lista zakupów`,
         body: `${name} dodał(a) do listy: ${itemName}`,
         url: '/tabs/shopping',
         category: 'shopping'
@@ -73,7 +69,7 @@ function formatPartnerAction(
       if (data?.is_completed) {
         const itemName = data?.title || data?.name || 'pozycję'
         return {
-          title: `Zakupy we dwoje 🛒`,
+          title: `Zakupy we dwoje`,
           body: `${name} kupił(a) i odhaczył(a): ${itemName}`,
           url: '/tabs/shopping',
           category: 'shopping'
@@ -86,7 +82,7 @@ function formatPartnerAction(
       const taskTitle = data?.title || 'nowe zadanie'
       const pts = data?.points ? ` (+${data.points} pkt)` : ''
       return {
-        title: `Nowy obowiązek domowy ✨`,
+        title: `Nowy obowiązek domowy`,
         body: `${name} dodał(a) zadanie: ${taskTitle}${pts}`,
         url: '/tabs/tasks',
         category: 'tasks'
@@ -98,7 +94,7 @@ function formatPartnerAction(
         const taskTitle = data?.title || 'zadanie'
         const pts = data?.points ? ` (+${data.points} pkt)` : ''
         return {
-          title: `Zadanie ukończone! 🎉`,
+          title: `Zadanie ukończone!`,
           body: `${name} zrealizował(a): ${taskTitle}${pts}!`,
           url: '/tabs/tasks',
           category: 'tasks'
@@ -110,7 +106,7 @@ function formatPartnerAction(
     case 'EVENT_ADD': {
       const evtTitle = data?.title || 'wspólne plany'
       return {
-        title: `Wspólny terminarz 📅`,
+        title: `Wspólny terminarz`,
         body: `${name} zaplanował(a): ${evtTitle}`,
         url: '/tabs/calendar',
         category: 'calendar'
@@ -121,7 +117,7 @@ function formatPartnerAction(
       if (data?.is_completed) {
         const evtTitle = data?.title || 'plan'
         return {
-          title: `Plan zrealizowany! ❤️`,
+          title: `Plan zrealizowany!`,
           body: `${name} oznaczył(a) plan jako zrealizowany: ${evtTitle}`,
           url: '/tabs/calendar',
           category: 'calendar'
@@ -133,7 +129,7 @@ function formatPartnerAction(
     case 'WISHLIST_ADD': {
       const wishTitle = data?.title || 'nowe marzenie'
       return {
-        title: `Wishlista i marzenia 🎁`,
+        title: `Wishlista i marzenia`,
         body: `${name} dodał(a) nowe marzenie: ${wishTitle}`,
         url: '/tabs/wishlist',
         category: 'wishlist'
@@ -144,7 +140,7 @@ function formatPartnerAction(
       if (data?.is_completed) {
         const wishTitle = data?.title || 'marzenie'
         return {
-          title: `Marzenie spełnione! 💖`,
+          title: `Marzenie spełnione!`,
           body: `${name} spełnił(a) Wasze marzenie: ${wishTitle}!`,
           url: '/tabs/wishlist',
           category: 'wishlist'
@@ -156,7 +152,7 @@ function formatPartnerAction(
     case 'MOVIE_ADD': {
       const movieTitle = data?.title || 'nowy seans'
       return {
-        title: `Kino we dwoje 🎬`,
+        title: `Kino we dwoje`,
         body: `${name} dodał(a) do listy filmów: ${movieTitle}`,
         url: '/tabs/movies',
         category: 'wishlist'
@@ -167,7 +163,7 @@ function formatPartnerAction(
       if (data?.status === 'watched') {
         const movieTitle = data?.title || 'seans'
         return {
-          title: `Obejrzane we dwoje! 🍿`,
+          title: `Obejrzane we dwoje!`,
           body: `${name} oznaczył(a) film jako obejrzany: ${movieTitle}`,
           url: '/tabs/movies',
           category: 'wishlist'
@@ -179,7 +175,7 @@ function formatPartnerAction(
     case 'MILESTONE_CLAIM': {
       const milestoneTitle = data?.title || 'wspólny cel'
       return {
-        title: `Nagroda odblokowana! 🏆`,
+        title: `Nagroda odblokowana!`,
         body: `${name} odebrał(a) Wasz cel: ${milestoneTitle}!`,
         url: '/tabs/nest',
         category: 'milestones'
@@ -189,7 +185,7 @@ function formatPartnerAction(
     case 'MEAL_ADD': {
       const mealTitle = data?.titlePl || data?.title || 'nowy posiłek'
       return {
-        title: `Planer obiadów 🍳`,
+        title: `Planer obiadów`,
         body: `${name} zaplanował(a) obiad: ${mealTitle}`,
         url: '/tabs/meals',
         category: 'meals'
@@ -199,7 +195,7 @@ function formatPartnerAction(
     case 'MEAL_UPDATE': {
       const mealTitle = data?.titlePl || data?.title || 'posiłek'
       return {
-        title: `Planer obiadów 🍲`,
+        title: `Planer obiadów`,
         body: `${name} zaktualizował(a) obiad: ${mealTitle}`,
         url: '/tabs/meals',
         category: 'meals'
@@ -210,7 +206,7 @@ function formatPartnerAction(
       if (data?.is_completed) {
         const mealTitle = data?.titlePl || data?.title || 'dzisiejszy obiad'
         return {
-          title: `Smacznego! Obiad gotowy 🍽️`,
+          title: `Smacznego! Obiad gotowy`,
           body: `${name} oznaczył(a) obiad „${mealTitle}” jako zjedzony!`,
           url: '/tabs/meals',
           category: 'meals'
@@ -261,8 +257,15 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Authorization check: If sender and partnership provided, verify sender membership in partnership
-  if (body.partnershipId && body.senderUserId) {
+  // Authorization check: If partnership provided, verify sender membership in partnership
+  if (body.partnershipId) {
+    if (!body.senderUserId) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Sender user ID required for partnership push'
+      })
+    }
+
     const { data: part, error: pErr } = await supabase
       .from('partnerships')
       .select('partner1_id, partner2_id')
@@ -367,7 +370,7 @@ export default defineEventHandler(async (event) => {
     console.error('[WebPush] Error fetching subscriptions:', error)
     throw createError({
       statusCode: 500,
-      statusMessage: error.message || 'Failed to fetch subscriptions'
+      statusMessage: 'Nie udało się pobrać subskrypcji'
     })
   }
 

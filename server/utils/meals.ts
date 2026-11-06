@@ -136,12 +136,13 @@ export function translateAreaToPl(area: string): string {
   return MEAL_AREA_TRANSLATIONS[area] || area
 }
 
-// Memory cache for translated instructions and recipes
+// Memory cache for translated instructions and recipes (capped at 1000 items)
+const MAX_TRANSLATION_CACHE_SIZE = 1000
 const translationCache = new Map<string, string>()
 
 export async function translateTextToPolish(text: string): Promise<string> {
   if (!text || !text.trim()) return ''
-  const clean = text.trim()
+  const clean = text.trim().slice(0, 2000)
 
   if (translationCache.has(clean)) {
     return translationCache.get(clean)!
@@ -154,6 +155,10 @@ export async function translateTextToPolish(text: string): Promise<string> {
       const data = await res.json()
       const translated = Array.isArray(data?.[0]) ? data[0].map((s: any) => s[0]).join('') : ''
       if (translated && typeof translated === 'string') {
+        if (translationCache.size >= MAX_TRANSLATION_CACHE_SIZE) {
+          const firstKey = translationCache.keys().next().value
+          if (firstKey) translationCache.delete(firstKey)
+        }
         translationCache.set(clean, translated)
         return translated
       }
@@ -242,7 +247,7 @@ export async function translateRecipeInstructionsAsync(rawInstructions: string):
     return { instructionsPl: '', stepsPl: [] }
   }
 
-  const rawSteps = splitInstructionsIntoSteps(rawInstructions)
+  const rawSteps = splitInstructionsIntoSteps(rawInstructions).slice(0, 35)
   if (rawSteps.length === 0) {
     return { instructionsPl: '', stepsPl: [] }
   }

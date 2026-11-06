@@ -391,9 +391,40 @@ export async function processScrape(rawUrl: string): Promise<{
       throw new Error(`HTTP ${response?.status || 500}`)
     }
 
-    // Limit read size to prevent memory exhaustion
-    const rawText = await response.text()
-    const html = rawText.slice(0, 500000)
+    const contentType = (response.headers.get('content-type') || '').toLowerCase()
+    if (contentType && !contentType.includes('text/html') && !contentType.includes('application/xhtml') && !contentType.includes('text/plain')) {
+      throw new Error('Nieobsługiwany typ zawartości strony')
+    }
+
+    const contentLength = parseInt(response.headers.get('content-length') || '0', 10)
+    if (contentLength > 5 * 1024 * 1024) {
+      throw new Error('Rozmiar strony przekracza dopuszczalny limit')
+    }
+
+    // Limit read size to 500KB to prevent memory exhaustion
+    let html = ''
+    if (response.body && typeof response.body.getReader === 'function') {
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let receivedBytes = 0
+      const maxBytes = 500_000
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (value) {
+          receivedBytes += value.length
+          html += decoder.decode(value, { stream: true })
+        }
+        if (receivedBytes >= maxBytes) {
+          await reader.cancel()
+          break
+        }
+      }
+    } else {
+      const rawText = await response.text()
+      html = rawText.slice(0, 500_000)
+    }
 
     // 1. Title Extraction
     let rawTitle = extractMeta(html, 'og:title') || extractMeta(html, 'twitter:title')
@@ -450,7 +481,7 @@ export async function processScrape(rawUrl: string): Promise<{
         site_name: friendlySiteName || siteDomain,
         url: parsedUrl.href
       },
-      notice: `Rozpoznano sklep ${friendlySiteName || 'internetowy'}! Uzupełnij brakujące szczegóły marzenia ✨`
+      notice: `Rozpoznano sklep ${friendlySiteName || 'internetowy'}! Uzupełnij brakujące szczegóły marzenia.`
     }
   }
 }
