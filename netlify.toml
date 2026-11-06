@@ -47,6 +47,16 @@
   to = "/.netlify/functions/meals-categories"
   status = 200
 
+[[redirects]]
+  from = "/api/meals/import"
+  to = "/.netlify/functions/meals-import"
+  status = 200
+
+[[redirects]]
+  from = "/api/calendar/feed"
+  to = "/.netlify/functions/calendar-feed"
+  status = 200
+
 # PWA & SPA Routing Fallback for Netlify
 [[redirects]]
   from = "/*"

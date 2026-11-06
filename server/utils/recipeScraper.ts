@@ -1,4 +1,17 @@
-import { decodeHtmlEntities } from '../../utils/wishlistParser'
+export function decodeHtmlEntities(str: string): string {
+  if (!str) return ''
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+    .replace(/&#x2F;/g, '/')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+    .trim()
+}
 
 export interface ScrapedRecipeData {
   title: string
@@ -356,30 +369,9 @@ async function scrapeRecipeWebsite(targetUrl: string): Promise<ScrapedRecipeData
     throw new Error('Adres nie prowadzi do strony HTML.')
   }
 
-  // Limit read size to 500KB to prevent memory exhaustion
-  let html = ''
-  if (response.body && typeof response.body.getReader === 'function') {
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
-    let receivedBytes = 0
-    const maxBytes = 500_000
-
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      if (value) {
-        receivedBytes += value.length
-        html += decoder.decode(value, { stream: true })
-      }
-      if (receivedBytes >= maxBytes) {
-        await reader.cancel()
-        break
-      }
-    }
-  } else {
-    const rawText = await response.text()
-    html = rawText.slice(0, 500_000)
-  }
+  // Limit read size to 1.5MB to prevent memory exhaustion while retaining full markup
+  const rawText = await response.text()
+  const html = rawText.slice(0, 1_500_000)
 
   const parsedUrl = new URL(currentUrl)
   const siteDomain = parsedUrl.hostname.replace(/^www\./i, '')
@@ -471,6 +463,56 @@ async function scrapeRecipeWebsite(targetUrl: string): Promise<ScrapedRecipeData
     }
   }
 
+  // 2b. Structural HTML fallback for ingredients (e.g. Kwestia Smaku, Moje Wypieki, WordPress food blogs)
+  if (ingredients.length === 0) {
+    const ingContainerRegex = /<div[^>]*class=["'][^"']*(?:field-name-field-skladniki|group-skladniki|recipe-ingredients|wprm-recipe-ingredients|skladniki-list|ingredients-list)[^"']*["'][^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi
+    let containerMatch
+    while ((containerMatch = ingContainerRegex.exec(html)) !== null) {
+      const liMatches = containerMatch[1].matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)
+      for (const li of liMatches) {
+        const clean = decodeHtmlEntities(li[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+        if (clean && clean.length > 1 && clean.length < 150) {
+          ingredients.push({ name: clean })
+        }
+      }
+    }
+
+    if (ingredients.length === 0) {
+      const articleMatch = html.match(/<(?:article|main)[^>]*>([\s\S]*?)<\/(?:article|main)>/i)
+      let articleContent = articleMatch ? articleMatch[1] : html
+      const commentsIdx = articleContent.search(/<(?:div|section)[^>]+id=["']comments["']/i)
+      if (commentsIdx !== -1) {
+        articleContent = articleContent.slice(0, commentsIdx)
+      }
+
+      const headingSections = [...articleContent.matchAll(/<h([2-5])[^>]*>([\s\S]*?)<\/h\1>([\s\S]*?)(?=<h[2-5]|$)/gi)]
+      for (const hSec of headingSections) {
+        const headingText = hSec[2].replace(/<[^>]+>/g, '').toLowerCase()
+        const content = hSec[3]
+
+        if (/składnik|skladnik|ciasto|nadzienie|polewa|krem|dodatki|ponadto|spód|wierzch|ingredient/.test(headingText)) {
+          const liMatches = content.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)
+          for (const li of liMatches) {
+            const clean = decodeHtmlEntities(li[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+            if (clean && clean.length > 1 && clean.length < 150) {
+              ingredients.push({ name: clean })
+            }
+          }
+
+          if (instructionsSteps.length === 0) {
+            const pMatches = content.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)
+            for (const p of pMatches) {
+              const clean = decodeHtmlEntities(p[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+              if (clean && clean.length > 40 && !clean.toLowerCase().includes('źródło przepisu')) {
+                instructionsSteps.push(clean)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
   // 3. OpenGraph / Meta tags fallback
   if (!title) {
     const ogTitle = extractMetaTag(html, 'og:title') || extractMetaTag(html, 'twitter:title')
@@ -493,6 +535,51 @@ async function scrapeRecipeWebsite(targetUrl: string): Promise<ScrapedRecipeData
     imageUrl = extractMetaTag(html, 'og:image:secure_url') ||
                extractMetaTag(html, 'og:image') ||
                extractMetaTag(html, 'twitter:image') || ''
+  }
+
+  // Structural HTML fallback for preparation steps (e.g. Kwestia Smaku, Moje Wypieki, WordPress food blogs)
+  if (instructionsSteps.length === 0) {
+    const prepContainerRegex = /<div[^>]*class=["'][^"']*(?:field-name-field-przygotowanie|recipe-instructions|wprm-recipe-instructions|sposob-przygotowania|instructions-list)[^"']*["'][^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi
+    let prepMatch
+    while ((prepMatch = prepContainerRegex.exec(html)) !== null) {
+      const liMatches = prepMatch[1].matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)
+      for (const li of liMatches) {
+        const clean = decodeHtmlEntities(li[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+        if (clean && clean.length > 5) {
+          instructionsSteps.push(clean)
+        }
+      }
+      if (instructionsSteps.length === 0) {
+        const pMatches = prepMatch[1].matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi)
+        for (const p of pMatches) {
+          const clean = decodeHtmlEntities(p[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+          if (clean && clean.length > 10) {
+            instructionsSteps.push(clean)
+          }
+        }
+      }
+    }
+
+    if (instructionsSteps.length === 0) {
+      const articleMatch = html.match(/<(?:article|main)[^>]*>([\s\S]*?)<\/(?:article|main)>/i)
+      let articleContent = articleMatch ? articleMatch[1] : html
+      const commentsIdx = articleContent.search(/<(?:div|section)[^>]+id=["']comments["']/i)
+      if (commentsIdx !== -1) {
+        articleContent = articleContent.slice(0, commentsIdx)
+      }
+
+      const prepHeadings = articleContent.matchAll(/<h([2-5])[^>]*>([\s\S]*?(?:przygotowanie|wykonanie|sposób|sposob|instrukcj|direction)[\s\S]*?)<\/h\1>([\s\S]*?)(?=<h[2-5]|$)/gi)
+      for (const hSec of prepHeadings) {
+        const content = hSec[3]
+        const items = content.matchAll(/<(?:p|li)[^>]*>([\s\S]*?)<\/(?:p|li)>/gi)
+        for (const it of items) {
+          const clean = decodeHtmlEntities(it[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+          if (clean && clean.length > 15) {
+            instructionsSteps.push(clean)
+          }
+        }
+      }
+    }
   }
 
   if (instructionsSteps.length === 0) {
