@@ -372,6 +372,8 @@ create index if not exists idx_meals_partnership on public.meals(partnership_id)
 create index if not exists idx_meals_date on public.meals(date);
 
 alter table public.meals enable row level security;
+alter table if exists public.meals alter column date drop not null;
+alter table if exists public.meals alter column date set default '';
 drop policy if exists "Allow all on meals" on public.meals;
 create policy "Allow all on meals" on public.meals for all using (true) with check (true);
 

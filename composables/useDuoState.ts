@@ -161,7 +161,7 @@ export interface MealIngredient {
 export interface MealItem {
   id: string
   partnership_id: string
-  date: string // 'YYYY-MM-DD'
+  date: string // 'YYYY-MM-DD' or '' for cookbook-only
   day_name?: string
   title: string
   category?: string
@@ -4999,7 +4999,7 @@ export const useDuoState = () => {
 
   // --- MEALS & DINNER PLANNER CRUD ACTIONS ---
   const addMeal = async (meal: {
-    date: string // 'YYYY-MM-DD'
+    date?: string // 'YYYY-MM-DD' or '' for cookbook-only
     title: string
     day_name?: string
     category?: string
@@ -5017,10 +5017,11 @@ export const useDuoState = () => {
     if (!await verifyUserAndPartnershipAccess()) return null
 
     const pId = partnership.value?.id || currentUser.value?.partnership_id || ''
+    const cleanDate = meal.date ? String(meal.date).trim() : ''
     const newDoc: MealItem = {
       id: 'meal_' + Math.random().toString(36).substring(2, 9),
       partnership_id: pId,
-      date: meal.date,
+      date: cleanDate,
       day_name: meal.day_name || '',
       title: meal.title.trim(),
       category: meal.category || '',
@@ -5039,8 +5040,45 @@ export const useDuoState = () => {
       created_at: new Date().toISOString()
     }
 
-    // Replace if meal on this date already exists or add to list
-    mealsList.value = [newDoc, ...mealsList.value.filter(m => m.id !== newDoc.id)]
+    // If date is provided, replace any meal on that date in this partnership
+    if (cleanDate) {
+      mealsList.value = [newDoc, ...mealsList.value.filter(m => !(m.date === cleanDate && m.partnership_id === pId))]
+    } else {
+      // Check if this recipe is already in the cookbook
+      const existingIdx = mealsList.value.findIndex(m => {
+        if (newDoc.api_id && m.api_id && String(m.api_id) === String(newDoc.api_id)) return true
+        if (!newDoc.api_id && !m.api_id && m.title.trim().toLowerCase() === newDoc.title.trim().toLowerCase()) return true
+        return false
+      })
+
+      if (existingIdx !== -1) {
+        const existing = mealsList.value[existingIdx]
+        const updated: MealItem = {
+          ...existing,
+          title: newDoc.title,
+          category: newDoc.category || existing.category,
+          area: newDoc.area || existing.area,
+          image_url: newDoc.image_url || existing.image_url,
+          ingredients: (newDoc.ingredients && newDoc.ingredients.length > 0) ? newDoc.ingredients : existing.ingredients,
+          instructions: newDoc.instructions || existing.instructions,
+          youtube_url: newDoc.youtube_url || existing.youtube_url,
+          recipe_url: newDoc.recipe_url || existing.recipe_url,
+          updated_at: new Date().toISOString()
+        }
+        mealsList.value = mealsList.value.map((m, idx) => idx === existingIdx ? updated : m)
+        syncToStorage()
+        broadcastToPartner('MEAL_UPDATE', updated)
+        const client = getCleanDbClient() || getSupabaseClient()
+        if (client && pId) {
+          safeDb(client.from('meals').upsert(updated))
+        }
+        triggerToast(`Zaktualizowano w Twoich przepisach: "${newDoc.title}"`)
+        return updated
+      }
+
+      mealsList.value = [newDoc, ...mealsList.value]
+    }
+
     syncToStorage()
 
     broadcastToPartner('MEAL_ADD', newDoc)
@@ -5050,7 +5088,11 @@ export const useDuoState = () => {
       safeDb(client.from('meals').upsert(newDoc))
     }
 
-    triggerToast(`Zaplanowano obiad: "${newDoc.title}"`)
+    if (cleanDate) {
+      triggerToast(`Zaplanowano obiad: "${newDoc.title}"`)
+    } else {
+      triggerToast(`Dodano do Twoich przepisów: "${newDoc.title}"`)
+    }
     return newDoc
   }
 

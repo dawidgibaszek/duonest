@@ -15,11 +15,11 @@
               <button
                 type="button"
                 class="header-action-btn"
-                @click="openAddCustomModal()"
-                aria-label="Dodaj własny obiad"
+                @click="activeSubView === 'my-recipes' ? openAddCookbookRecipeModal() : openAddCustomModal()"
+                :aria-label="activeSubView === 'my-recipes' ? 'Dodaj przepis do książki' : 'Dodaj własny obiad'"
               >
                 <ion-icon :icon="ioniconsAddOutline" />
-                <span style="text-wrap: nowrap;">Własne</span>
+                <span style="text-wrap: nowrap;">{{ activeSubView === 'my-recipes' ? 'Nowy przepis' : 'Własne' }}</span>
               </button>
             </div>
           </div>
@@ -307,10 +307,10 @@
           <button
             type="button"
             class="header-action-btn"
-            @click="openAddCustomModal()"
+            @click="openAddCookbookRecipeModal()"
           >
             <ion-icon :icon="ioniconsAddOutline" />
-            <span>Własny obiad</span>
+            <span>Nowy przepis</span>
           </button>
         </div>
 
@@ -384,11 +384,11 @@
             <button
               type="button"
               class="slot-btn slot-secondary-btn"
-              @click="openAddCustomModal()"
+              @click="openAddCookbookRecipeModal()"
               style="padding: 10px 16px; font-size: 13px;"
             >
               <ion-icon :icon="ioniconsAddOutline" />
-              <span>Dodaj własny obiad</span>
+              <span>Dodaj nowy przepis</span>
             </button>
           </div>
         </div>
@@ -441,6 +441,10 @@
                     <ion-icon :icon="ioniconsFlameOutline" />
                     <span>{{ recipe.cookCount }}x w menu</span>
                   </span>
+                  <span class="recipe-badge-cookbook" v-else-if="!recipe.lastCookedDate">
+                    <ion-icon :icon="ioniconsBookOutline" />
+                    <span>Książka</span>
+                  </span>
                   <span class="recipe-badge-cuisine" v-else-if="recipe.area || recipe.category">
                     {{ recipe.area || recipe.category }}
                   </span>
@@ -463,6 +467,10 @@
                   <span v-if="recipe.lastCookedDate" class="meta-tag date-tag">
                     <ion-icon :icon="ioniconsCalendarOutline" />
                     {{ recipe.lastCookedDate }}
+                  </span>
+                  <span v-else class="meta-tag cookbook-tag">
+                    <ion-icon :icon="ioniconsBookOutline" />
+                    W książce
                   </span>
                 </div>
 
@@ -642,6 +650,16 @@
                   </button>
                   <button
                     type="button"
+                    class="recipe-action-bookmark-btn"
+                    :class="{ 'is-saved': isRecipeInSaved(meal) }"
+                    @click.stop="handleToggleSaveRecipe(meal)"
+                    :title="isRecipeInSaved(meal) ? 'Zapisano w Twoich przepisach' : 'Zapisz w Twoich przepisach'"
+                    :aria-label="isRecipeInSaved(meal) ? 'Usuń z Twoich przepisów' : 'Zapisz w Twoich przepisach'"
+                  >
+                    <ion-icon :icon="isRecipeInSaved(meal) ? ioniconsBookmark : ioniconsBookmarkOutline" />
+                  </button>
+                  <button
+                    type="button"
                     class="recipe-action-plan-btn"
                     @click.stop="openAssignModal(meal)"
                   >
@@ -735,6 +753,16 @@
               <ion-icon :icon="ioniconsTrashOutline" />
             </button>
             <button
+              v-else
+              type="button"
+              class="modal-save-icon-btn"
+              @click="handleToggleSaveRecipe(activeSelectedMeal)"
+              aria-label="Zapisz w Twoich przepisach"
+              title="Zapisz w Twoich przepisach"
+            >
+              <ion-icon :icon="ioniconsBookmarkOutline" />
+            </button>
+            <button
               type="button"
               class="modal-close-icon-btn"
               @click="showDetailsModal = false"
@@ -788,15 +816,24 @@
             </div>
           </div>
 
-          <!-- Primary CTA Button: Plan this meal -->
-          <div class="recipe-plan-cta-box">
+          <!-- Primary CTA Button: Plan this meal or save to cookbook -->
+          <div class="recipe-plan-cta-box recipe-plan-cta-row">
+            <button
+              v-if="!isRecipeInSaved(activeSelectedMeal)"
+              type="button"
+              class="dn-button-secondary recipe-save-btn"
+              @click="handleToggleSaveRecipe(activeSelectedMeal)"
+            >
+              <ion-icon :icon="ioniconsBookmarkOutline" />
+              <span>Zapisz w przepisach</span>
+            </button>
             <button
               type="button"
               class="dn-button-primary recipe-plan-btn"
               @click="openAssignFromDetails(activeSelectedMeal)"
             >
               <ion-icon :icon="ioniconsCalendarOutline" />
-              <span>Zaplanuj ten obiad na ten tydzień</span>
+              <span>Zaplanuj na ten tydzień</span>
             </button>
           </div>
 
@@ -908,6 +945,17 @@
             >
               <ion-icon :icon="ioniconsTrashOutline" />
               <span>Usuń</span>
+            </button>
+            <button
+              v-else
+              type="button"
+              class="recipe-modal-save-btn"
+              @click="handleToggleSaveRecipe(activeSelectedMeal)"
+              aria-label="Zapisz w Twoich przepisach"
+              title="Zapisz w Twoich przepisach"
+            >
+              <ion-icon :icon="ioniconsBookmarkOutline" />
+              <span>Zapisz</span>
             </button>
             <button
               type="button"
@@ -1091,8 +1139,11 @@
               <ion-icon :icon="ioniconsRestaurantOutline" class="modal-title-icon" />
             </div>
             <div class="modal-title-text-group">
-              <h3 class="modal-main-title">Dodaj Własny Obiad</h3>
-              <span class="modal-sub-title">Zaplanuj domowy posiłek dla Was</span>
+              <h3 class="modal-main-title">{{ customDate ? 'Zaplanuj Własny Obiad' : 'Dodaj Przepis do Książki' }}</h3>
+              <span class="modal-sub-title" v-if="customDate && selectedCustomDayLabel">
+                Zaplanuj na: {{ selectedCustomDayLabel }}
+              </span>
+              <span class="modal-sub-title" v-else>Dodaj danie do Waszej bazy przepisów</span>
             </div>
           </div>
           <button
@@ -1112,7 +1163,7 @@
           <div class="form-group">
             <label class="form-label">
               <ion-icon :icon="ioniconsFastFoodOutline" class="label-icon" />
-              <span>Nazwa obiadu *</span>
+              <span>Nazwa obiadu lub przepisu *</span>
             </label>
             <div class="input-container-box">
               <ion-input
@@ -1125,18 +1176,54 @@
             </div>
           </div>
 
+          <!-- Kategoria -->
+          <div class="form-group">
+            <div class="label-between-row">
+              <label class="form-label">
+                <ion-icon :icon="ioniconsRestaurantOutline" class="label-icon" />
+                <span>Kategoria</span>
+              </label>
+              <span class="label-badge-optional">opcjonalnie</span>
+            </div>
+            <div class="custom-category-chips-scroll" data-no-swipe>
+              <button
+                v-for="cat in customCategories"
+                :key="cat"
+                type="button"
+                class="custom-category-pill"
+                :class="{ active: customCategory === cat }"
+                @click="customCategory = cat"
+              >
+                {{ cat }}
+              </button>
+            </div>
+          </div>
+
           <!-- Dzień tygodnia -->
           <div class="form-group">
             <div class="label-between-row">
               <label class="form-label">
                 <ion-icon :icon="ioniconsCalendarOutline" class="label-icon" />
-                <span>Wybierz dzień *</span>
+                <span>Planowanie na dzień</span>
               </label>
-              <span class="selected-day-badge" v-if="selectedCustomDayLabel">
-                {{ selectedCustomDayLabel }}
-              </span>
+              <span class="label-badge-optional">opcjonalnie</span>
             </div>
-            <div class="days-select-grid">
+
+            <!-- Choice 1: Only Cookbook (no day assigned) -->
+            <div class="custom-day-mode-row">
+              <button
+                type="button"
+                class="custom-mode-choice-btn"
+                :class="{ active: !customDate }"
+                @click="customDate = ''"
+              >
+                <ion-icon :icon="ioniconsBookOutline" />
+                <span>Tylko książka kucharska (bez dnia w planerze)</span>
+              </button>
+            </div>
+
+            <!-- Choice 2: Select a specific day of the week -->
+            <div class="days-select-grid" :class="{ 'is-inactive': !customDate }">
               <button
                 v-for="d in weekDays"
                 :key="d.dateStr"
@@ -1149,6 +1236,26 @@
                 <span class="btn-day-date">{{ d.displayDate.split(' ')[0] }}</span>
                 <span v-if="d.meal" class="btn-day-indicator" title="Zaplanowano obiad"></span>
               </button>
+            </div>
+          </div>
+
+          <!-- Zdjęcie potrawy (opcjonalnie) -->
+          <div class="form-group">
+            <div class="label-between-row">
+              <label class="form-label">
+                <ion-icon :icon="ioniconsImageOutline" class="label-icon" />
+                <span>Zdjęcie potrawy (link URL)</span>
+              </label>
+              <span class="label-badge-optional">opcjonalnie</span>
+            </div>
+            <div class="input-container-box">
+              <ion-input
+                v-model="customImageUrl"
+                type="url"
+                placeholder="https://... (link do zdjęcia dania)"
+                class="modal-input"
+                :clear-input="true"
+              />
             </div>
           </div>
 
@@ -1258,11 +1365,11 @@
             <button
               type="submit"
               class="dn-button-primary submit-custom-meal-btn"
-              :disabled="!customTitle.trim() || !customDate || isSubmittingCustomMeal"
+              :disabled="!customTitle.trim() || isSubmittingCustomMeal"
             >
               <ion-spinner v-if="isSubmittingCustomMeal" name="crescent" style="width: 18px; height: 18px;" />
               <ion-icon v-else :icon="ioniconsCheckmarkOutline" />
-              <span>Dodaj do Planera Tygodnia</span>
+              <span>{{ customDate ? 'Dodaj do Planera Tygodnia' : 'Zapisz w Twoich Przepisach' }}</span>
             </button>
           </div>
         </form>
@@ -1518,6 +1625,7 @@ export interface SavedRecipe {
   cookCount: number
   lastCookedDate?: string
   latestMealId?: string
+  createdAt?: string
 }
 
 const deletedSavedRecipeKeys = ref<Set<string>>(new Set())
@@ -1550,6 +1658,7 @@ const savedRecipes = computed<SavedRecipe[]>(() => {
     const key = m.api_id ? `api_${m.api_id}` : `custom_${m.title.trim().toLowerCase()}`
     if (deletedSavedRecipeKeys.value.has(key)) continue
     const existing = map.get(key)
+    const hasDate = !!(m.date && m.date.trim())
     if (!existing) {
       map.set(key, {
         key,
@@ -1567,15 +1676,18 @@ const savedRecipes = computed<SavedRecipe[]>(() => {
         instructionsSteps: m.instructions ? m.instructions.split(/\r?\n+/).map(s => s.trim()).filter(Boolean) : [],
         youtube_url: m.youtube_url,
         recipe_url: m.recipe_url,
-        cookCount: 1,
-        lastCookedDate: m.date,
-        latestMealId: m.id
+        cookCount: hasDate ? 1 : 0,
+        lastCookedDate: hasDate ? m.date : undefined,
+        latestMealId: m.id,
+        createdAt: m.created_at || ''
       })
     } else {
-      existing.cookCount++
-      if (m.date && (!existing.lastCookedDate || m.date > existing.lastCookedDate)) {
-        existing.lastCookedDate = m.date
-        existing.latestMealId = m.id
+      if (hasDate) {
+        existing.cookCount++
+        if (!existing.lastCookedDate || m.date > existing.lastCookedDate) {
+          existing.lastCookedDate = m.date
+          existing.latestMealId = m.id
+        }
       }
       if (!existing.image_url && m.image_url) {
         existing.image_url = m.image_url
@@ -1591,12 +1703,13 @@ const savedRecipes = computed<SavedRecipe[]>(() => {
       if (!existing.youtube_url && m.youtube_url) existing.youtube_url = m.youtube_url
       if (!existing.category && m.category) existing.category = m.category
       if (!existing.area && m.area) existing.area = m.area
+      if (!existing.createdAt && m.created_at) existing.createdAt = m.created_at
     }
   }
 
   return Array.from(map.values()).sort((a, b) => {
-    const dateA = a.lastCookedDate || ''
-    const dateB = b.lastCookedDate || ''
+    const dateA = a.lastCookedDate || a.createdAt || ''
+    const dateB = b.lastCookedDate || b.createdAt || ''
     return dateB.localeCompare(dateA)
   })
 })
@@ -2266,17 +2379,23 @@ const selectSavedRecipeForDay = async (recipe: SavedRecipe) => {
   }
 }
 
-const isRecipeInSaved = (meal?: any) => {
+const isRecipeInSaved = (meal?: any): boolean => {
   if (!meal) return false
-  const key = meal.key || (meal.api_id ? `api_${meal.api_id}` : `custom_${(meal.title || '').trim().toLowerCase()}`)
-  return savedRecipes.value.some(r => r.key === key)
+  const mealId = meal.api_id || (meal.source === 'api' ? meal.id : undefined)
+  const cleanTitle = (meal.title || meal.name || meal.rawTitle || '').trim().toLowerCase()
+  const key = meal.key || (mealId ? `api_${mealId}` : (meal.id ? `api_${meal.id}` : `custom_${cleanTitle}`))
+
+  if (savedRecipes.value.some(r => r.key === key)) return true
+  if (mealId && savedRecipes.value.some(r => r.api_id && String(r.api_id) === String(mealId))) return true
+  if (cleanTitle && savedRecipes.value.some(r => (r.rawTitle?.trim().toLowerCase() === cleanTitle) || (r.title?.trim().toLowerCase() === cleanTitle))) return true
+  return false
 }
 
 const confirmDeleteSavedRecipe = async (recipe: SavedRecipe | any) => {
   if (!recipe) return
   const title = formatMealTitlePl(recipe.titlePl || recipe.title || recipe.name)
   if (confirm(`Czy na pewno chcesz usunąć przepis "${title}" z Twoich przepisów?`)) {
-    const key = recipe.key || (recipe.api_id ? `api_${recipe.api_id}` : `custom_${(recipe.title || '').trim().toLowerCase()}`)
+    const key = recipe.key || (recipe.api_id ? `api_${recipe.api_id}` : (recipe.id ? `api_${recipe.id}` : `custom_${(recipe.title || '').trim().toLowerCase()}`))
     deletedSavedRecipeKeys.value.add(key)
     if (process.client) {
       try {
@@ -2293,6 +2412,44 @@ const confirmDeleteSavedRecipe = async (recipe: SavedRecipe | any) => {
   }
 }
 
+const handleToggleSaveRecipe = async (meal: any) => {
+  if (!meal) return
+  if (isRecipeInSaved(meal)) {
+    await confirmDeleteSavedRecipe(meal)
+    return
+  }
+
+  let fullMeal = meal
+  const mealId = meal.api_id || meal.id
+  if (meal.source === 'api' || mealId) {
+    if (!meal.ingredients || meal.ingredients.length === 0) {
+      try {
+        const res = await fetchMealApi<{ success: boolean; meal: any }>(`/api/meals/lookup?id=${mealId}`)
+        if (res?.meal) fullMeal = res.meal
+      } catch (_) {}
+    }
+  }
+
+  const recipeKey = mealId ? `api_${mealId}` : `custom_${(fullMeal.title || fullMeal.name || '').trim().toLowerCase()}`
+  unblockSavedRecipeKey(recipeKey)
+
+  await addMeal({
+    date: '', // Brak wyznaczonego dnia - bezposrednio do ksiazki kucharskiej
+    day_name: '',
+    title: formatMealTitlePl(fullMeal.titlePl || fullMeal.title || fullMeal.name),
+    category: fullMeal.categoryPl || fullMeal.category || '',
+    area: fullMeal.areaPl || fullMeal.area || '',
+    cook_id: 'me',
+    image_url: fullMeal.thumbnail || fullMeal.image_url || '',
+    source: fullMeal.source || (mealId ? 'api' : 'custom'),
+    api_id: mealId ? String(mealId) : undefined,
+    ingredients: fullMeal.ingredients || [],
+    instructions: fullMeal.instructions || '',
+    youtube_url: fullMeal.youtubeUrl || fullMeal.youtube_url || '',
+    recipe_url: fullMeal.sourceUrl || fullMeal.recipe_url || ''
+  })
+}
+
 const openSavedRecipeDetails = (recipe: SavedRecipe) => {
   activeSelectedMeal.value = {
     ...recipe,
@@ -2304,24 +2461,57 @@ const openSavedRecipeDetails = (recipe: SavedRecipe) => {
   showDetailsModal.value = true
 }
 
-// --- ADD CUSTOM MEAL MODAL ---
+// --- ADD CUSTOM MEAL / COOKBOOK RECIPE MODAL ---
 const showAddCustomModal = ref(false)
 const customTitle = ref('')
 const customDate = ref('')
 const customCook = ref<'me' | 'partner' | 'both' | 'restaurant' | 'takeout'>('me')
+const customCategory = ref('Obiad domowy')
+const customImageUrl = ref('')
 const customIngredientsText = ref('')
 const customInstructions = ref('')
 
+const customCategories = [
+  'Obiad domowy',
+  'Makarony',
+  'Drób',
+  'Wołowina',
+  'Wieprzowina',
+  'Ryby',
+  'Wegetariańskie',
+  'Zupy',
+  'Śniadania',
+  'Desery',
+  'Inne'
+]
+
 const selectedCustomDayLabel = computed(() => {
-  if (!customDate.value) return ''
+  if (!customDate.value) return 'Tylko w Twoich przepisach (bez dnia)'
   const d = weekDays.value.find(item => item.dateStr === customDate.value)
-  return d ? `${d.dayName}, ${d.displayDate}` : ''
+  return d ? `${d.dayName}, ${d.displayDate}` : customDate.value
 })
+
+const openAddCookbookRecipeModal = () => {
+  customTitle.value = ''
+  customDate.value = ''
+  customCook.value = 'me'
+  customCategory.value = 'Obiad domowy'
+  customImageUrl.value = ''
+  customIngredientsText.value = ''
+  customInstructions.value = ''
+  showAddCustomModal.value = true
+}
 
 const openAddCustomModal = (defaultDate?: string) => {
   customTitle.value = ''
-  customDate.value = defaultDate || weekDays.value.find(d => !d.meal)?.dateStr || weekDays.value[0]?.dateStr || toIsoDateString(new Date())
+  if (defaultDate !== undefined) {
+    customDate.value = defaultDate
+  } else {
+    customDate.value = weekDays.value.find(d => !d.meal)?.dateStr || weekDays.value[0]?.dateStr || toIsoDateString(new Date())
+  }
   customCook.value = 'me'
+  customCategory.value = 'Obiad domowy'
+  customImageUrl.value = ''
   customIngredientsText.value = ''
   customInstructions.value = ''
   showAddCustomModal.value = true
@@ -2332,7 +2522,7 @@ const isSubmittingCustomMeal = ref(false)
 const handleCreateCustomMeal = async () => {
   if (isSubmittingCustomMeal.value) return
   const cleanTitle = customTitle.value.trim().slice(0, 100)
-  if (!cleanTitle || !customDate.value) return
+  if (!cleanTitle) return
 
   isSubmittingCustomMeal.value = true
   try {
@@ -2344,14 +2534,17 @@ const handleCreateCustomMeal = async () => {
       }
     }
 
-    const targetDay = weekDays.value.find(d => d.dateStr === customDate.value)
+    const cleanDate = customDate.value ? customDate.value.trim() : ''
+    const targetDay = cleanDate ? weekDays.value.find(d => d.dateStr === cleanDate) : null
 
     unblockSavedRecipeKey(`custom_${cleanTitle.toLowerCase()}`)
 
     await addMeal({
-      date: customDate.value,
+      date: cleanDate,
       day_name: targetDay?.dayName || '',
       title: cleanTitle,
+      category: customCategory.value || 'Obiad domowy',
+      image_url: customImageUrl.value.trim() || undefined,
       cook_id: customCook.value,
       source: 'custom',
       ingredients,
@@ -3240,6 +3433,20 @@ onMounted(() => {
   color: #ffffff;
 }
 
+.recipe-badge-cookbook {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 7px;
+  font-size: 10.5px;
+  font-weight: 800;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #ffffff;
+}
+
 .recipe-card-body {
   padding: 12px 14px 14px;
   display: flex;
@@ -3279,6 +3486,12 @@ onMounted(() => {
   border-radius: 6px;
 }
 
+.meta-tag.cookbook-tag {
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+}
+
 .recipe-bottom-action {
   margin-top: auto;
   width: 100%;
@@ -3306,6 +3519,39 @@ onMounted(() => {
 
 .recipe-action-outline-btn:hover {
   background: #f1f5f9;
+}
+
+.recipe-action-bookmark-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.recipe-action-bookmark-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.recipe-action-bookmark-btn.is-saved {
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+  border-color: #0f172a;
+}
+
+.recipe-action-bookmark-btn:active {
+  transform: scale(0.92);
 }
 
 .recipe-action-plan-btn {
@@ -4076,6 +4322,65 @@ onMounted(() => {
   transform: scale(0.96);
 }
 
+.recipe-modal-save-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 13px 16px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  background: #f8fafc;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+  white-space: nowrap;
+}
+
+.recipe-modal-save-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.recipe-modal-save-btn:active {
+  transform: scale(0.96);
+}
+
+.recipe-plan-cta-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+}
+
+.recipe-plan-cta-row > button {
+  flex: 1;
+}
+
+.recipe-save-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  background: #f8fafc;
+  color: #0f172a;
+  border: 1.5px solid #cbd5e1;
+  transition: all 0.15s ease;
+}
+
+.recipe-save-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
 .bottom-plan-btn {
   flex: 1;
   width: 100%;
@@ -4220,6 +4525,35 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .dn-meal-sheet-modal .modal-delete-icon-btn:active {
+  transform: scale(0.92);
+}
+
+.dn-meal-sheet-modal .modal-save-icon-btn {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0f172a;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.dn-meal-sheet-modal .modal-save-icon-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.dn-meal-sheet-modal .modal-save-icon-btn:active {
   transform: scale(0.92);
 }
 
@@ -4425,6 +4759,90 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   font-size: 14px;
   flex-shrink: 0;
   color: #94a3b8;
+}
+
+/* Custom Meal Category Chips */
+.custom-category-chips-scroll {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.custom-category-chips-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.custom-category-pill {
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+}
+
+.custom-category-pill:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.custom-category-pill.active {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+/* Custom Day Selection & Mode Choice */
+.custom-day-mode-row {
+  margin-bottom: 8px;
+}
+
+.custom-mode-choice-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1.5px dashed #cbd5e1;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+}
+
+.custom-mode-choice-btn ion-icon {
+  font-size: 16px;
+}
+
+.custom-mode-choice-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.custom-mode-choice-btn.active {
+  background: rgba(15, 23, 42, 0.08);
+  border-color: #0f172a;
+  border-style: solid;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.days-select-grid.is-inactive {
+  opacity: 0.85;
 }
 
 /* 7-Day Select Grid */
