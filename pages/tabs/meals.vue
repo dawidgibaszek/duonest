@@ -503,7 +503,7 @@
           <div class="saved-empty-actions">
             <button
               type="button"
-              class="dn-button-primary"
+              class="dn-button-primary saved-empty-btn"
               @click="openImportRecipeModal()"
             >
               <ion-icon :icon="ioniconsLinkOutline" />
@@ -511,18 +511,16 @@
             </button>
             <button
               type="button"
-              class="slot-btn slot-secondary-btn"
+              class="slot-btn slot-secondary-btn saved-empty-btn"
               @click="openAddCookbookRecipeModal()"
-              style="padding: 10px 16px; font-size: 13px;"
             >
               <ion-icon :icon="ioniconsAddOutline" />
               <span>Dodaj własny przepis</span>
             </button>
             <button
               type="button"
-              class="slot-btn slot-secondary-btn"
+              class="slot-btn slot-secondary-btn saved-empty-btn"
               @click="activeSubView = 'explore'"
-              style="padding: 10px 16px; font-size: 13px;"
             >
               <ion-icon :icon="ioniconsSparklesOutline" />
               <span>Przeglądaj inspiracje</span>
@@ -1712,7 +1710,7 @@
             <div class="saved-empty-actions" style="margin-top: 14px;">
               <button
                 type="button"
-                class="dn-button-primary"
+                class="dn-button-primary saved-empty-btn"
                 @click="showPickSavedModal = false; openExploreForDate(targetPickDate)"
               >
                 <ion-icon :icon="ioniconsSparklesOutline" />
@@ -1720,9 +1718,8 @@
               </button>
               <button
                 type="button"
-                class="slot-btn slot-secondary-btn"
+                class="slot-btn slot-secondary-btn saved-empty-btn"
                 @click="showPickSavedModal = false; openAddCustomModal(targetPickDate)"
-                style="padding: 10px 16px; font-size: 13px;"
               >
                 <ion-icon :icon="ioniconsAddOutline" />
                 <span>Wpisz własny obiad</span>
@@ -4424,10 +4421,42 @@ onMounted(() => {
 
 .saved-empty-actions {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+  width: 100%;
+}
+
+.saved-empty-actions .saved-empty-btn,
+.saved-empty-actions button {
+  width: 100%;
+  max-width: 290px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  margin-top: 14px;
-  flex-wrap: wrap;
+  gap: 8px;
+  box-sizing: border-box;
+  text-align: center;
+  white-space: nowrap;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.saved-empty-actions .saved-empty-btn ion-icon,
+.saved-empty-actions button ion-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.saved-empty-actions .saved-empty-btn:active,
+.saved-empty-actions button:active {
+  transform: scale(0.98);
 }
 
 /* TWOJE PRZEPISY: KONTROLKI, FILTROWANIE, SORTOWANIE I WIDOKI */
