@@ -327,14 +327,14 @@
           </div>
         </div>
 
-        <!-- Search Bar in Saved Recipes -->
-        <div class="explore-search-container" v-if="savedRecipes.length > 0">
-          <div class="explore-search-field">
+        <!-- Search & View Controls Bar -->
+        <div class="saved-control-bar" v-if="savedRecipes.length > 0">
+          <div class="saved-search-box">
             <ion-icon :icon="ioniconsSearchOutline" class="search-ico" />
             <input
               v-model="savedSearchQuery"
               type="text"
-              placeholder="Szukaj w Twoich przepisach..."
+              placeholder="Szukaj dania lub składnika..."
               class="search-input-el"
             />
             <button
@@ -342,14 +342,52 @@
               type="button"
               class="search-clear-ico"
               @click="savedSearchQuery = ''"
+              aria-label="Wyczyść szukanie"
             >
               <ion-icon :icon="ioniconsCloseCircle" />
             </button>
           </div>
+
+          <div class="saved-filter-actions-row">
+            <!-- Sort Selector -->
+            <div class="saved-sort-dropdown">
+              <ion-icon :icon="ioniconsSwapVerticalOutline" class="sort-icon" />
+              <select v-model="savedSortOption" class="sort-native-select" aria-label="Sortuj przepisy">
+                <option value="recent">Ostatnio dodane</option>
+                <option value="alpha">Nazwa A - Z</option>
+                <option value="cookCount">Najczęściej gotowane</option>
+                <option value="ingredients">Liczba składników</option>
+              </select>
+            </div>
+
+            <!-- View Switcher (Grid / List) -->
+            <div class="saved-view-toggle">
+              <button
+                type="button"
+                class="view-btn"
+                :class="{ active: savedViewMode === 'grid' }"
+                @click="setSavedViewMode('grid')"
+                title="Widok kafelków"
+                aria-label="Widok kafelków"
+              >
+                <ion-icon :icon="ioniconsGridOutline" />
+              </button>
+              <button
+                type="button"
+                class="view-btn"
+                :class="{ active: savedViewMode === 'list' }"
+                @click="setSavedViewMode('list')"
+                title="Widok listy"
+                aria-label="Widok listy"
+              >
+                <ion-icon :icon="ioniconsListOutline" />
+              </button>
+            </div>
+          </div>
         </div>
 
-        <!-- Filter Chips: Wszystkie / Własne / Z linku / Z inspiracji -->
-        <div class="quick-filter-scroll" v-if="savedRecipes.length > 0" data-no-swipe>
+        <!-- Filter Chips Level 1: Typ & Status dania -->
+        <div class="quick-filter-scroll saved-source-scroll" v-if="savedRecipes.length > 0" data-no-swipe>
           <button
             type="button"
             class="curated-filter-pill"
@@ -365,7 +403,7 @@
             @click="savedFilterType = 'custom'"
           >
             <ion-icon :icon="ioniconsPersonOutline" style="margin-right: 4px;" />
-            <span>Własne dania ({{ savedCustomCount }})</span>
+            <span>Własne ({{ savedCustomCount }})</span>
           </button>
           <button
             type="button"
@@ -384,6 +422,74 @@
           >
             <ion-icon :icon="ioniconsSparklesOutline" style="margin-right: 4px;" />
             <span>Z inspiracji ({{ savedApiCount }})</span>
+          </button>
+          <button
+            v-if="savedUnplannedCount > 0"
+            type="button"
+            class="curated-filter-pill"
+            :class="{ active: savedFilterType === 'unplanned' }"
+            @click="savedFilterType = 'unplanned'"
+          >
+            <ion-icon :icon="ioniconsBookOutline" style="margin-right: 4px;" />
+            <span>Tylko w książce ({{ savedUnplannedCount }})</span>
+          </button>
+          <button
+            v-if="savedCookedCount > 0"
+            type="button"
+            class="curated-filter-pill"
+            :class="{ active: savedFilterType === 'cooked' }"
+            @click="savedFilterType = 'cooked'"
+          >
+            <ion-icon :icon="ioniconsFlameOutline" style="margin-right: 4px;" />
+            <span>Ulubione ({{ savedCookedCount }})</span>
+          </button>
+        </div>
+
+        <!-- Filter Chips Level 2: Kategorie kulinarne -->
+        <div class="saved-categories-filter-row" v-if="savedRecipes.length > 0 && availableSavedCategories.length > 0" data-no-swipe>
+          <div class="category-pills-scroll">
+            <span class="cat-filter-prefix">Kategoria:</span>
+            <button
+              type="button"
+              class="cat-pill-btn"
+              :class="{ active: savedSelectedCategory === 'all' }"
+              @click="savedSelectedCategory = 'all'"
+            >
+              Wszystkie
+            </button>
+            <button
+              v-for="cat in availableSavedCategories"
+              :key="cat.name"
+              type="button"
+              class="cat-pill-btn"
+              :class="{ active: savedSelectedCategory.toLowerCase() === cat.name.toLowerCase() }"
+              @click="savedSelectedCategory = (savedSelectedCategory.toLowerCase() === cat.name.toLowerCase()) ? 'all' : cat.name"
+            >
+              <span>{{ cat.name }}</span>
+              <span class="cat-count-sub">{{ cat.count }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Active filters summary banner -->
+        <div class="saved-active-summary-bar" v-if="savedRecipes.length > 0 && hasActiveFilters">
+          <div class="summary-left">
+            <span class="summary-count">Znaleziono: <strong>{{ filteredSavedRecipes.length }}</strong> z {{ savedRecipes.length }}</span>
+            <span v-if="savedFilterType !== 'all'" class="summary-badge">
+              {{ getFilterTypeLabel(savedFilterType) }}
+              <ion-icon :icon="ioniconsCloseOutline" @click.stop="savedFilterType = 'all'" />
+            </span>
+            <span v-if="savedSelectedCategory !== 'all'" class="summary-badge">
+              {{ savedSelectedCategory }}
+              <ion-icon :icon="ioniconsCloseOutline" @click.stop="savedSelectedCategory = 'all'" />
+            </span>
+            <span v-if="savedSortOption !== 'recent'" class="summary-badge sort-badge">
+              Sort: {{ getSortOptionLabel(savedSortOption) }}
+              <ion-icon :icon="ioniconsCloseOutline" @click.stop="savedSortOption = 'recent'" />
+            </span>
+          </div>
+          <button type="button" class="summary-reset-btn" @click="resetSavedFilters">
+            <span>Resetuj</span>
           </button>
         </div>
 
@@ -424,26 +530,27 @@
           </div>
         </div>
 
-        <!-- Search empty state: no results for search query -->
+        <!-- Search / Filter empty state: no results -->
         <div v-else-if="filteredSavedRecipes.length === 0" class="recipes-empty-state dn-card">
           <div class="empty-icon-circle">
             <ion-icon :icon="ioniconsSearchOutline" />
           </div>
           <h3>Brak pasujących dań</h3>
-          <p>Nie znaleziono przepisów dla frazy "{{ savedSearchQuery }}".</p>
+          <p>Żaden przepis nie spełnia wybranych filtrów.</p>
           <button
             type="button"
-            class="slot-btn slot-secondary-btn"
-            @click="savedSearchQuery = ''; savedFilterType = 'all'"
-            style="padding: 8px 16px; font-size: 12px; margin-top: 10px;"
+            class="dn-button-primary"
+            @click="resetSavedFilters"
+            style="margin-top: 12px; padding: 10px 20px; font-size: 13px;"
           >
-            Wyczyść filtry
+            Pokaż wszystkie przepisy ({{ savedRecipes.length }})
           </button>
         </div>
 
-        <!-- Saved Recipes Grid -->
+        <!-- Saved Recipes: Grid or List View -->
         <div v-else class="meals-cards-container">
-          <div class="meals-cards-grid">
+          <!-- WIDOK A: KAFELKI (GRID VIEW) -->
+          <div v-if="savedViewMode === 'grid'" class="meals-cards-grid">
             <div
               v-for="recipe in filteredSavedRecipes"
               :key="recipe.key"
@@ -460,7 +567,7 @@
                 />
                 <div v-else class="recipe-img-placeholder">
                   <ion-icon :icon="ioniconsRestaurantOutline" />
-                  <span class="placeholder-label">Domowy obiad</span>
+                  <span class="placeholder-label">{{ recipe.category || 'Domowy obiad' }}</span>
                 </div>
 
                 <div class="recipe-badges-overlay">
@@ -488,11 +595,12 @@
                 </h4>
 
                 <div class="saved-card-meta-row">
-                  <span v-if="recipe.ingredients?.length" class="meta-tag">
+                  <span v-if="recipe.ingredients?.length" class="meta-tag ing-meta-tag">
                     <ion-icon :icon="ioniconsListOutline" />
                     {{ recipe.ingredients.length }} składników
                   </span>
-                  <span v-if="recipe.category" class="meta-tag">
+                  <span v-if="recipe.category" class="meta-tag cat-meta-tag">
+                    <ion-icon :icon="ioniconsRestaurantOutline" />
                     {{ recipe.category }}
                   </span>
                   <span v-if="recipe.lastCookedDate" class="meta-tag date-tag">
@@ -532,6 +640,81 @@
                     <ion-icon :icon="ioniconsTrashOutline" />
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- WIDOK B: KOMPAKTOWA LISTA (LIST VIEW) -->
+          <div v-else class="saved-recipes-list-view">
+            <div
+              v-for="recipe in filteredSavedRecipes"
+              :key="recipe.key"
+              class="saved-list-card dn-card"
+              @click="openSavedRecipeDetails(recipe)"
+            >
+              <div class="saved-list-media">
+                <img
+                  v-if="recipe.image_url"
+                  :src="recipe.image_url"
+                  :alt="recipe.title"
+                  loading="lazy"
+                  class="saved-list-img"
+                />
+                <div v-else class="saved-list-img-placeholder">
+                  <ion-icon :icon="ioniconsRestaurantOutline" />
+                </div>
+              </div>
+
+              <div class="saved-list-info">
+                <div class="saved-list-top-row">
+                  <span class="saved-list-source-pill" :class="recipe.source">
+                    {{ recipe.source === 'import' ? (recipe.recipe_url?.includes('tiktok.com') ? 'TikTok' : 'Link') : (recipe.source === 'custom' ? 'Własny' : 'Inspiracja') }}
+                  </span>
+                  <span v-if="recipe.category" class="saved-list-cat-pill">
+                    {{ recipe.category }}
+                  </span>
+                  <span v-if="recipe.cookCount > 1" class="saved-list-cooked-pill">
+                    <ion-icon :icon="ioniconsFlameOutline" /> {{ recipe.cookCount }}x
+                  </span>
+                  <span v-else-if="!recipe.lastCookedDate" class="saved-list-book-pill">
+                    <ion-icon :icon="ioniconsBookOutline" /> Książka
+                  </span>
+                </div>
+
+                <h4 class="saved-list-title" :title="formatMealTitlePl(recipe.titlePl || recipe.title)">
+                  {{ formatMealTitlePl(recipe.titlePl || recipe.title) }}
+                </h4>
+
+                <div class="saved-list-meta-row">
+                  <span v-if="recipe.ingredients?.length" class="saved-list-meta-item">
+                    <ion-icon :icon="ioniconsListOutline" /> {{ recipe.ingredients.length }} składników
+                  </span>
+                  <span v-if="recipe.lastCookedDate" class="saved-list-meta-item">
+                    <ion-icon :icon="ioniconsCalendarOutline" /> {{ recipe.lastCookedDate }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="saved-list-actions">
+                <button
+                  type="button"
+                  class="saved-list-plan-btn"
+                  @click.stop="openAssignModal(recipe)"
+                  title="Zaplanuj na ten tydzień"
+                  aria-label="Zaplanuj obiad"
+                >
+                  <ion-icon :icon="ioniconsCalendarOutline" />
+                  <span>Zaplanuj</span>
+                </button>
+                <button
+                  type="button"
+                  class="saved-list-delete-btn"
+                  @click.stop="confirmDeleteSavedRecipe(recipe)"
+                  title="Usuń z Twoich przepisów"
+                  aria-label="Usuń przepis"
+                >
+                  <ion-icon :icon="ioniconsTrashOutline" />
+                </button>
               </div>
             </div>
           </div>
@@ -2024,19 +2207,105 @@ const savedRecipes = computed<SavedRecipe[]>(() => {
 })
 
 const savedSearchQuery = ref('')
-const savedFilterType = ref<'all' | 'custom' | 'api' | 'import'>('all')
+const savedFilterType = ref<'all' | 'custom' | 'api' | 'import' | 'unplanned' | 'cooked'>('all')
+const savedSelectedCategory = ref<string>('all')
+const savedSortOption = ref<'recent' | 'alpha' | 'cookCount' | 'ingredients'>('recent')
+const savedViewMode = ref<'grid' | 'list'>('grid')
+
+if (process.client) {
+  try {
+    const savedMode = localStorage.getItem('duonest_saved_view_mode')
+    if (savedMode === 'grid' || savedMode === 'list') {
+      savedViewMode.value = savedMode
+    }
+  } catch (_) {}
+}
+
+const setSavedViewMode = (mode: 'grid' | 'list') => {
+  savedViewMode.value = mode
+  if (process.client) {
+    try {
+      localStorage.setItem('duonest_saved_view_mode', mode)
+    } catch (_) {}
+  }
+}
 
 const savedCustomCount = computed(() => savedRecipes.value.filter(r => r.source === 'custom').length)
 const savedApiCount = computed(() => savedRecipes.value.filter(r => r.source === 'api').length)
 const savedImportCount = computed(() => savedRecipes.value.filter(r => r.source === 'import').length)
+const savedUnplannedCount = computed(() => savedRecipes.value.filter(r => !r.lastCookedDate).length)
+const savedCookedCount = computed(() => savedRecipes.value.filter(r => r.cookCount > 1).length)
+
+const availableSavedCategories = computed(() => {
+  const map = new Map<string, number>()
+  for (const r of savedRecipes.value) {
+    const cat = r.category?.trim()
+    if (cat) {
+      map.set(cat, (map.get(cat) || 0) + 1)
+    }
+  }
+  return Array.from(map.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'pl'))
+})
+
+const hasActiveFilters = computed(() => {
+  return savedFilterType.value !== 'all' ||
+    savedSelectedCategory.value !== 'all' ||
+    !!savedSearchQuery.value.trim() ||
+    savedSortOption.value !== 'recent'
+})
+
+const resetSavedFilters = () => {
+  savedFilterType.value = 'all'
+  savedSelectedCategory.value = 'all'
+  savedSearchQuery.value = ''
+  savedSortOption.value = 'recent'
+}
+
+const getFilterTypeLabel = (type: string) => {
+  switch (type) {
+    case 'custom': return 'Własne dania'
+    case 'import': return 'Z linku / TikTok'
+    case 'api': return 'Z inspiracji'
+    case 'unplanned': return 'Tylko w książce'
+    case 'cooked': return 'Ulubione'
+    default: return 'Wszystkie'
+  }
+}
+
+const getSortOptionLabel = (option: string) => {
+  switch (option) {
+    case 'alpha': return 'A - Z'
+    case 'cookCount': return 'Popularność'
+    case 'ingredients': return 'Składniki'
+    default: return 'Najnowsze'
+  }
+}
 
 const filteredSavedRecipes = computed(() => {
   let list = savedRecipes.value
 
-  if (savedFilterType.value !== 'all') {
-    list = list.filter(r => r.source === savedFilterType.value)
+  // 1. Source / Status Filter
+  if (savedFilterType.value === 'custom') {
+    list = list.filter(r => r.source === 'custom')
+  } else if (savedFilterType.value === 'import') {
+    list = list.filter(r => r.source === 'import')
+  } else if (savedFilterType.value === 'api') {
+    list = list.filter(r => r.source === 'api')
+  } else if (savedFilterType.value === 'unplanned') {
+    list = list.filter(r => !r.lastCookedDate)
+  } else if (savedFilterType.value === 'cooked') {
+    list = list.filter(r => r.cookCount > 1)
   }
 
+  // 2. Category Filter
+  if (savedSelectedCategory.value !== 'all') {
+    const targetCat = savedSelectedCategory.value.toLowerCase().trim()
+    list = list.filter(r => (r.category?.toLowerCase().trim() || '') === targetCat)
+  }
+
+  // 3. Search Query Filter
   const q = savedSearchQuery.value.trim().toLowerCase()
   if (q) {
     list = list.filter(r => {
@@ -2048,7 +2317,24 @@ const filteredSavedRecipes = computed(() => {
     })
   }
 
-  return list
+  // 4. Sorting
+  const sorted = [...list]
+  if (savedSortOption.value === 'alpha') {
+    sorted.sort((a, b) => a.title.localeCompare(b.title, 'pl'))
+  } else if (savedSortOption.value === 'cookCount') {
+    sorted.sort((a, b) => b.cookCount - a.cookCount || a.title.localeCompare(b.title, 'pl'))
+  } else if (savedSortOption.value === 'ingredients') {
+    sorted.sort((a, b) => (a.ingredients?.length || 0) - (b.ingredients?.length || 0))
+  } else {
+    // 'recent'
+    sorted.sort((a, b) => {
+      const dateA = a.lastCookedDate || a.createdAt || ''
+      const dateB = b.lastCookedDate || b.createdAt || ''
+      return dateB.localeCompare(dateA)
+    })
+  }
+
+  return sorted
 })
 
 // Counts for pill chips
@@ -4098,6 +4384,592 @@ onMounted(() => {
   justify-content: center;
   margin-top: 14px;
   flex-wrap: wrap;
+}
+
+/* TWOJE PRZEPISY: KONTROLKI, FILTROWANIE, SORTOWANIE I WIDOKI */
+.saved-control-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.saved-search-box {
+  flex: 1 1 200px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0 10px;
+  height: 40px;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+}
+
+.saved-search-box:focus-within {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.06);
+}
+
+.saved-search-box .search-ico {
+  font-size: 17px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.saved-search-box .search-input-el {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: #0f172a;
+  outline: none;
+  font-family: inherit;
+}
+
+.saved-search-box .search-input-el::placeholder {
+  color: #94a3b8;
+}
+
+.saved-search-box .search-clear-ico {
+  background: none;
+  border: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 17px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+.saved-search-box .search-clear-ico:hover {
+  color: #0f172a;
+}
+
+.saved-filter-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.saved-sort-dropdown {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  height: 40px;
+  padding: 0 10px;
+  gap: 6px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+}
+
+.saved-sort-dropdown:hover,
+.saved-sort-dropdown:focus-within {
+  border-color: #0f172a;
+}
+
+.saved-sort-dropdown .sort-icon {
+  font-size: 16px;
+  color: #64748b;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.saved-sort-dropdown .sort-native-select {
+  border: none;
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #0f172a;
+  outline: none;
+  cursor: pointer;
+  padding-right: 4px;
+  font-family: inherit;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.saved-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: #f1f5f9;
+  border-radius: 12px;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid #e2e8f0;
+  height: 40px;
+  box-sizing: border-box;
+}
+
+.saved-view-toggle .view-btn {
+  background: transparent;
+  border: none;
+  border-radius: 9px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 17px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.saved-view-toggle .view-btn:hover {
+  color: #0f172a;
+}
+
+.saved-view-toggle .view-btn.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.saved-source-scroll {
+  margin: 0;
+  padding-bottom: 2px;
+}
+
+.saved-categories-filter-row {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.saved-categories-filter-row::-webkit-scrollbar {
+  display: none;
+}
+
+.category-pills-scroll {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: max-content;
+}
+
+.cat-filter-prefix {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+
+.cat-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.cat-pill-btn:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.cat-pill-btn.active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+
+.cat-pill-btn .cat-count-sub {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.cat-pill-btn.active .cat-count-sub {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.saved-active-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #475569;
+}
+
+.summary-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.summary-count {
+  font-size: 12px;
+  color: #64748b;
+  margin-right: 4px;
+}
+
+.summary-count strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.summary-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.summary-badge ion-icon {
+  font-size: 13px;
+  cursor: pointer;
+  color: #94a3b8;
+  transition: color 0.15s ease;
+}
+
+.summary-badge ion-icon:hover {
+  color: #ef4444;
+}
+
+.summary-badge.sort-badge {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.summary-reset-btn {
+  background: none;
+  border: none;
+  color: #e06d53;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-decoration: underline;
+  flex-shrink: 0;
+}
+
+.summary-reset-btn:hover {
+  color: #c2410c;
+}
+
+.saved-card-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 6px 0 10px;
+}
+
+.saved-card-meta-row .meta-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+.saved-card-meta-row .meta-tag ion-icon {
+  font-size: 12px;
+}
+
+.saved-card-meta-row .meta-tag.cookbook-tag {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.saved-card-meta-row .meta-tag.cat-meta-tag {
+  background: #fdf2f8;
+  color: #be185d;
+}
+
+.saved-card-meta-row .meta-tag.ing-meta-tag {
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.saved-card-meta-row .meta-tag.date-tag {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+/* WIDOK LISTY DWUKOLUMNOWY / POZIOMY (LIST VIEW) */
+.saved-recipes-list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.saved-list-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+}
+
+.saved-list-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.06);
+  transform: translateY(-1px);
+}
+
+.saved-list-media {
+  width: 68px;
+  height: 68px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f1f5f9;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.saved-list-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.saved-list-img-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  color: #94a3b8;
+  font-size: 24px;
+}
+
+.saved-list-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.saved-list-top-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.saved-list-source-pill {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #f1f5f9;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.saved-list-source-pill.custom {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.saved-list-source-pill.import {
+  background: #fdf2f8;
+  color: #be185d;
+}
+
+.saved-list-source-pill.api {
+  background: #faf5ff;
+  color: #7e22ce;
+}
+
+.saved-list-cat-pill {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+.saved-list-cooked-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.saved-list-book-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.saved-list-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.saved-list-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.saved-list-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.saved-list-meta-item ion-icon {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.saved-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.saved-list-plan-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.saved-list-plan-btn:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+}
+
+.saved-list-plan-btn:active {
+  transform: scale(0.96);
+}
+
+.saved-list-delete-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.saved-list-delete-btn:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #ef4444;
+}
+
+.saved-list-delete-btn:active {
+  transform: scale(0.92);
+}
+
+@media (max-width: 480px) {
+  .saved-list-media {
+    width: 60px;
+    height: 60px;
+  }
+  .saved-list-card {
+    padding: 8px 10px;
+    gap: 10px;
+  }
+  .saved-list-title {
+    font-size: 13.5px;
+  }
+  .saved-list-plan-btn span {
+    display: none;
+  }
+  .saved-list-plan-btn {
+    padding: 7px 9px;
+  }
 }
 
 /* PICK SAVED MODAL */
