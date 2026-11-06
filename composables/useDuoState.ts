@@ -168,7 +168,7 @@ export interface MealItem {
   area?: string
   cook_id?: string // 'me' | 'partner' | 'both' | 'restaurant' | 'takeout' | user_id
   image_url?: string
-  source?: 'custom' | 'api'
+  source?: 'custom' | 'api' | 'import'
   api_id?: string
   ingredients?: MealIngredient[]
   instructions?: string
@@ -5006,7 +5006,7 @@ export const useDuoState = () => {
     area?: string
     cook_id?: string
     image_url?: string
-    source?: 'custom' | 'api'
+    source?: 'custom' | 'api' | 'import'
     api_id?: string
     ingredients?: MealIngredient[]
     instructions?: string

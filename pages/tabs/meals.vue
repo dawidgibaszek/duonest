@@ -304,14 +304,25 @@
               <span class="count-chip" v-if="savedRecipes.length > 0">{{ savedRecipes.length }}</span>
             </div>
           </div>
-          <button
-            type="button"
-            class="header-action-btn"
-            @click="openAddCookbookRecipeModal()"
-          >
-            <ion-icon :icon="ioniconsAddOutline" />
-            <span>Nowy przepis</span>
-          </button>
+          <div class="saved-header-actions-group">
+            <button
+              type="button"
+              class="saved-action-btn import-btn"
+              @click="openImportRecipeModal()"
+              title="Importuj przepis z linku lub TikToka"
+            >
+              <ion-icon :icon="ioniconsLinkOutline" />
+              <span>Importuj</span>
+            </button>
+            <button
+              type="button"
+              class="header-action-btn"
+              @click="openAddCookbookRecipeModal()"
+            >
+              <ion-icon :icon="ioniconsAddOutline" />
+              <span>Nowy przepis</span>
+            </button>
+          </div>
         </div>
 
         <!-- Search Bar in Saved Recipes -->
@@ -335,7 +346,7 @@
           </div>
         </div>
 
-        <!-- Filter Chips: Wszystkie / Własne / Z inspiracji -->
+        <!-- Filter Chips: Wszystkie / Własne / Z linku / Z inspiracji -->
         <div class="quick-filter-scroll" v-if="savedRecipes.length > 0" data-no-swipe>
           <button
             type="button"
@@ -357,6 +368,15 @@
           <button
             type="button"
             class="curated-filter-pill"
+            :class="{ active: savedFilterType === 'import' }"
+            @click="savedFilterType = 'import'"
+          >
+            <ion-icon :icon="ioniconsLinkOutline" style="margin-right: 4px;" />
+            <span>Z linku / TikTok ({{ savedImportCount }})</span>
+          </button>
+          <button
+            type="button"
+            class="curated-filter-pill"
             :class="{ active: savedFilterType === 'api' }"
             @click="savedFilterType = 'api'"
           >
@@ -371,15 +391,15 @@
             <ion-icon :icon="ioniconsBookOutline" />
           </div>
           <h3>Wasza książka kucharska jest pusta</h3>
-          <p>Każde danie zaplanowane z inspiracji lub wpisane jako własny obiad automatycznie trafi tutaj, by móc łatwo zaplanować je w przyszłości.</p>
+          <p>Dodajcie własne danie, zaimportujcie ulubiony przepis z TikToka lub bloga kulinarnego, albo wybierzcie pyszne inspiracje.</p>
           <div class="saved-empty-actions">
             <button
               type="button"
               class="dn-button-primary"
-              @click="activeSubView = 'explore'"
+              @click="openImportRecipeModal()"
             >
-              <ion-icon :icon="ioniconsSparklesOutline" />
-              <span>Przeglądaj inspiracje</span>
+              <ion-icon :icon="ioniconsLinkOutline" />
+              <span>Importuj z linku lub TikToka</span>
             </button>
             <button
               type="button"
@@ -388,7 +408,16 @@
               style="padding: 10px 16px; font-size: 13px;"
             >
               <ion-icon :icon="ioniconsAddOutline" />
-              <span>Dodaj nowy przepis</span>
+              <span>Dodaj własny przepis</span>
+            </button>
+            <button
+              type="button"
+              class="slot-btn slot-secondary-btn"
+              @click="activeSubView = 'explore'"
+              style="padding: 10px 16px; font-size: 13px;"
+            >
+              <ion-icon :icon="ioniconsSparklesOutline" />
+              <span>Przeglądaj inspiracje</span>
             </button>
           </div>
         </div>
@@ -434,8 +463,8 @@
 
                 <div class="recipe-badges-overlay">
                   <span class="recipe-badge-source" :class="recipe.source">
-                    <ion-icon :icon="recipe.source === 'custom' ? ioniconsPersonOutline : ioniconsSparklesOutline" />
-                    <span>{{ recipe.source === 'custom' ? 'Własny przepis' : 'Z inspiracji' }}</span>
+                    <ion-icon :icon="recipe.source === 'import' ? ioniconsLinkOutline : (recipe.source === 'custom' ? ioniconsPersonOutline : ioniconsSparklesOutline)" />
+                    <span>{{ recipe.source === 'import' ? (recipe.recipe_url?.includes('tiktok.com') ? 'TikTok' : 'Z linku') : (recipe.source === 'custom' ? 'Własny przepis' : 'Z inspiracji') }}</span>
                   </span>
                   <span class="recipe-badge-cooked" v-if="recipe.cookCount > 1">
                     <ion-icon :icon="ioniconsFlameOutline" />
@@ -915,19 +944,19 @@
           </div>
 
           <!-- Video / External Recipe Link -->
-          <div class="recipe-detail-section" v-if="activeSelectedMeal.youtube_url || activeSelectedMeal.youtubeUrl">
+          <div class="recipe-detail-section" v-if="activeSelectedMeal.youtube_url || activeSelectedMeal.youtubeUrl || activeSelectedMeal.recipe_url">
             <a
-              :href="activeSelectedMeal.youtube_url || activeSelectedMeal.youtubeUrl"
+              :href="activeSelectedMeal.youtube_url || activeSelectedMeal.youtubeUrl || activeSelectedMeal.recipe_url"
               target="_blank"
               rel="noopener noreferrer"
               class="video-recipe-card"
             >
               <div class="video-icon-circle">
-                <ion-icon :icon="ioniconsPlayCircleOutline" />
+                <ion-icon :icon="(activeSelectedMeal.youtube_url || activeSelectedMeal.recipe_url?.includes('tiktok.com')) ? ioniconsPlayCircleOutline : ioniconsOpenOutline" />
               </div>
               <div class="video-meta">
-                <span class="video-title">Wideo z przygotowania</span>
-                <span class="video-sub">Zobacz jak przygotować</span>
+                <span class="video-title">{{ activeSelectedMeal.recipe_url?.includes('tiktok.com') ? 'Wideo na TikToku' : (activeSelectedMeal.youtube_url ? 'Wideo z przygotowania' : 'Oryginalny przepis ze strony') }}</span>
+                <span class="video-sub">Otwórz źródło w nowej karcie</span>
               </div>
               <ion-icon :icon="ioniconsChevronForwardOutline" class="video-arrow" />
             </a>
@@ -1158,6 +1187,19 @@
       </ion-header>
 
       <ion-content class="ion-padding custom-meal-modal-content">
+        <!-- Shortcut to import from URL or TikTok -->
+        <button
+          type="button"
+          class="import-shortcut-banner"
+          @click="showAddCustomModal = false; openImportRecipeModal()"
+        >
+          <div class="shortcut-text-wrap">
+            <ion-icon :icon="ioniconsLinkOutline" class="shortcut-icon" />
+            <span>Masz link do TikToka lub bloga? <strong>Importuj automatycznie</strong></span>
+          </div>
+          <ion-icon :icon="ioniconsChevronForwardOutline" class="shortcut-arrow" />
+        </button>
+
         <form @submit.prevent="handleCreateCustomMeal" class="custom-meal-form">
           <!-- Nazwa obiadu -->
           <div class="form-group">
@@ -1566,6 +1608,271 @@
         </div>
       </ion-content>
     </ion-modal>
+
+    <!-- ============================================== -->
+    <!-- MODAL 5: IMPORT PRZEPISU Z LINKU / TIKTOKA     -->
+    <!-- ============================================== -->
+    <ion-modal
+      :is-open="showImportModal"
+      @didDismiss="closeImportModal"
+      class="dn-meal-sheet-modal dn-import-recipe-modal"
+      :breakpoints="[0, 0.88, 0.98]"
+      :initial-breakpoint="0.88"
+      :handle="true"
+      handle-behavior="cycle"
+      data-no-swipe="true"
+    >
+      <ion-header class="modal-custom-header ion-no-border">
+        <div class="modal-sheet-handle-spacer" aria-hidden="true"></div>
+        <div class="modal-sheet-header">
+          <div class="modal-title-wrap">
+            <div class="modal-title-icon-badge">
+              <ion-icon :icon="ioniconsLinkOutline" class="modal-title-icon" />
+            </div>
+            <div class="modal-title-text-group">
+              <h3 class="modal-main-title">Importuj Przepis z Linku</h3>
+              <span class="modal-sub-title">Wklej link z TikToka lub strony kulinarnej</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="modal-close-icon-btn"
+            @click="closeImportModal"
+            aria-label="Zamknij"
+          >
+            <ion-icon :icon="ioniconsCloseOutline" />
+          </button>
+        </div>
+      </ion-header>
+
+      <ion-content class="ion-padding import-modal-content">
+        <!-- KROK 1: Wprowadzanie adresu URL -->
+        <div v-if="!importedRecipePreview" class="import-input-step">
+          <!-- Supported Platforms Chips -->
+          <div class="import-supported-platforms">
+            <span class="platform-chip tiktok-chip">
+              <ion-icon :icon="ioniconsPlayCircleOutline" />
+              <span>TikTok</span>
+            </span>
+            <span class="platform-chip">
+              <ion-icon :icon="ioniconsRestaurantOutline" />
+              <span>Kwestia Smaku</span>
+            </span>
+            <span class="platform-chip">
+              <ion-icon :icon="ioniconsRestaurantOutline" />
+              <span>Ania Gotuje</span>
+            </span>
+            <span class="platform-chip">
+              <ion-icon :icon="ioniconsRestaurantOutline" />
+              <span>Przepisy.pl</span>
+            </span>
+            <span class="platform-chip">
+              <ion-icon :icon="ioniconsGlobeOutline" />
+              <span>Dowolny blog</span>
+            </span>
+          </div>
+
+          <!-- Input Field with Clear & Paste buttons -->
+          <div class="form-group" style="margin-top: 14px;">
+            <label class="form-label">
+              <ion-icon :icon="ioniconsLinkOutline" class="label-icon" />
+              <span>Link do przepisu lub TikToka</span>
+            </label>
+            <div class="input-container-box import-link-input-box">
+              <ion-input
+                v-model="importUrlInput"
+                type="url"
+                placeholder="https://www.tiktok.com/... lub https://..."
+                class="modal-input"
+                :clear-input="true"
+                @keyup.enter="handleFetchRecipeFromUrl"
+              />
+              <button
+                v-if="canPasteClipboard && !importUrlInput"
+                type="button"
+                class="paste-clipboard-btn"
+                @click="handlePasteFromClipboard"
+              >
+                <span>Wklej</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Error message if any -->
+          <div v-if="importErrorMessage" class="import-error-banner">
+            <ion-icon :icon="ioniconsAlertCircleOutline" />
+            <span>{{ importErrorMessage }}</span>
+          </div>
+
+          <!-- Fetch Button -->
+          <div class="modal-submit-bar" style="margin-top: 20px;">
+            <button
+              type="button"
+              class="dn-button-primary submit-custom-meal-btn"
+              :disabled="!importUrlInput.trim() || isFetchingImport"
+              @click="handleFetchRecipeFromUrl"
+            >
+              <ion-spinner v-if="isFetchingImport" name="crescent" style="width: 18px; height: 18px;" />
+              <ion-icon v-else :icon="ioniconsSparklesOutline" />
+              <span>{{ isFetchingImport ? 'Pobieranie i analiza...' : 'Pobierz przepis' }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- KROK 2: Podgląd i zatwierdzenie zaimportowanego przepisu -->
+        <div v-else class="import-preview-step">
+          <!-- Hero Card / Image Banner -->
+          <div
+            v-if="importedRecipePreview.imageUrl"
+            class="imported-hero-banner"
+            :style="{ backgroundImage: `url(${importedRecipePreview.imageUrl})` }"
+          >
+            <div class="imported-hero-overlay"></div>
+            <div class="imported-source-badge">
+              <ion-icon :icon="importedRecipePreview.sourceName?.includes('TikTok') ? ioniconsPlayCircleOutline : ioniconsGlobeOutline" />
+              <span>{{ importedRecipePreview.sourceName || 'Zaimportowano z sieci' }}</span>
+            </div>
+          </div>
+
+          <!-- Title Edit Field -->
+          <div class="form-group" style="margin-top: 14px;">
+            <label class="form-label">
+              <ion-icon :icon="ioniconsFastFoodOutline" class="label-icon" />
+              <span>Nazwa dania</span>
+            </label>
+            <div class="input-container-box">
+              <ion-input
+                v-model="importedRecipePreview.title"
+                maxlength="100"
+                class="modal-input"
+                :clear-input="true"
+              />
+            </div>
+          </div>
+
+          <!-- Category Chips -->
+          <div class="form-group">
+            <div class="label-between-row">
+              <label class="form-label">
+                <ion-icon :icon="ioniconsRestaurantOutline" class="label-icon" />
+                <span>Kategoria</span>
+              </label>
+            </div>
+            <div class="custom-category-chips-scroll" data-no-swipe>
+              <button
+                v-for="cat in customCategories"
+                :key="cat"
+                type="button"
+                class="custom-category-pill"
+                :class="{ active: importedRecipePreview.category === cat }"
+                @click="importedRecipePreview.category = cat"
+              >
+                {{ cat }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Day Selection (Cookbook vs specific day) -->
+          <div class="form-group">
+            <div class="label-between-row">
+              <label class="form-label">
+                <ion-icon :icon="ioniconsCalendarOutline" class="label-icon" />
+                <span>Gdzie zapisać?</span>
+              </label>
+              <span class="label-badge-optional">opcjonalnie</span>
+            </div>
+
+            <!-- Choice 1: Only Cookbook (no day assigned) -->
+            <div class="custom-day-mode-row">
+              <button
+                type="button"
+                class="custom-mode-choice-btn"
+                :class="{ active: !importTargetDate }"
+                @click="importTargetDate = ''"
+              >
+                <ion-icon :icon="ioniconsBookOutline" />
+                <span>Tylko książka kucharska (bez dnia w planerze)</span>
+              </button>
+            </div>
+
+            <!-- Choice 2: Select a specific day of the week -->
+            <div class="days-select-grid" :class="{ 'is-inactive': !importTargetDate }">
+              <button
+                v-for="d in weekDays"
+                :key="d.dateStr"
+                type="button"
+                class="day-select-btn"
+                :class="{ active: importTargetDate === d.dateStr, 'has-meal': !!d.meal, 'is-today': d.isToday }"
+                @click="importTargetDate = d.dateStr"
+              >
+                <span class="btn-day-name">{{ d.shortDay }}</span>
+                <span class="btn-day-date">{{ d.displayDate.split(' ')[0] }}</span>
+                <span v-if="d.meal" class="btn-day-indicator" title="Zaplanowano obiad"></span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Ingredients List Preview (if any) -->
+          <div class="form-group" v-if="importedRecipePreview.ingredients?.length">
+            <div class="label-between-row">
+              <label class="form-label">
+                <ion-icon :icon="ioniconsCartOutline" class="label-icon" />
+                <span>Składniki ({{ importedRecipePreview.ingredients.length }})</span>
+              </label>
+            </div>
+            <div class="imported-ingredients-list">
+              <span
+                v-for="(ing, iIdx) in importedRecipePreview.ingredients"
+                :key="iIdx"
+                class="imported-ing-pill"
+              >
+                {{ ing.name }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Instructions / Caption Preview -->
+          <div class="form-group" v-if="importedRecipePreview.instructions">
+            <div class="label-between-row">
+              <label class="form-label">
+                <ion-icon :icon="ioniconsBookOutline" class="label-icon" />
+                <span>Opis / Przygotowanie</span>
+              </label>
+            </div>
+            <div class="textarea-container-box">
+              <ion-textarea
+                v-model="importedRecipePreview.instructions"
+                maxlength="3000"
+                class="modal-textarea"
+                :rows="3"
+                :auto-grow="true"
+              />
+            </div>
+          </div>
+
+          <!-- Actions: Save & Change Link -->
+          <div class="imported-actions-row">
+            <button
+              type="button"
+              class="slot-btn slot-secondary-btn change-link-btn"
+              @click="importedRecipePreview = null"
+            >
+              <span>Zmień link</span>
+            </button>
+            <button
+              type="button"
+              class="dn-button-primary submit-custom-meal-btn"
+              :disabled="!importedRecipePreview.title?.trim() || isSavingImportedRecipe"
+              @click="handleSaveImportedRecipe"
+            >
+              <ion-spinner v-if="isSavingImportedRecipe" name="crescent" style="width: 18px; height: 18px;" />
+              <ion-icon v-else :icon="ioniconsCheckmarkOutline" />
+              <span>{{ importTargetDate ? 'Zapisz i zaplanuj' : 'Zapisz w Twoich Przepisach' }}</span>
+            </button>
+          </div>
+        </div>
+      </ion-content>
+    </ion-modal>
   </ion-page>
 </template>
 
@@ -1615,7 +1922,7 @@ export interface SavedRecipe {
   area?: string
   image_url?: string
   thumbnail?: string
-  source: 'custom' | 'api'
+  source: 'custom' | 'api' | 'import'
   api_id?: string
   ingredients?: MealIngredient[]
   instructions?: string
@@ -1715,10 +2022,11 @@ const savedRecipes = computed<SavedRecipe[]>(() => {
 })
 
 const savedSearchQuery = ref('')
-const savedFilterType = ref<'all' | 'custom' | 'api'>('all')
+const savedFilterType = ref<'all' | 'custom' | 'api' | 'import'>('all')
 
 const savedCustomCount = computed(() => savedRecipes.value.filter(r => r.source === 'custom').length)
 const savedApiCount = computed(() => savedRecipes.value.filter(r => r.source === 'api').length)
+const savedImportCount = computed(() => savedRecipes.value.filter(r => r.source === 'import').length)
 
 const filteredSavedRecipes = computed(() => {
   let list = savedRecipes.value
@@ -2554,6 +2862,120 @@ const handleCreateCustomMeal = async () => {
     showAddCustomModal.value = false
   } finally {
     isSubmittingCustomMeal.value = false
+  }
+}
+
+// --- IMPORT RECIPE FROM LINK / TIKTOK ---
+const showImportModal = ref(false)
+const importUrlInput = ref('')
+const isFetchingImport = ref(false)
+const importErrorMessage = ref('')
+const importedRecipePreview = ref<any | null>(null)
+const importTargetDate = ref('')
+const isSavingImportedRecipe = ref(false)
+
+const canPasteClipboard = computed(() => {
+  if (process.server) return false
+  return typeof navigator !== 'undefined' && !!navigator.clipboard?.readText
+})
+
+const openImportRecipeModal = () => {
+  importUrlInput.value = ''
+  importErrorMessage.value = ''
+  importedRecipePreview.value = null
+  importTargetDate.value = ''
+  showImportModal.value = true
+}
+
+const closeImportModal = () => {
+  showImportModal.value = false
+  importedRecipePreview.value = null
+  importErrorMessage.value = ''
+  importUrlInput.value = ''
+}
+
+const handlePasteFromClipboard = async () => {
+  try {
+    if (navigator?.clipboard?.readText) {
+      const text = await navigator.clipboard.readText()
+      if (text && text.trim()) {
+        importUrlInput.value = text.trim()
+        importErrorMessage.value = ''
+      }
+    }
+  } catch (_) {}
+}
+
+const handleFetchRecipeFromUrl = async () => {
+  if (isFetchingImport.value) return
+  const cleanUrl = importUrlInput.value.trim()
+  if (!cleanUrl) {
+    importErrorMessage.value = 'Wklej link do przepisu lub TikToka.'
+    return
+  }
+
+  isFetchingImport.value = true
+  importErrorMessage.value = ''
+  try {
+    const res = await $fetch<{ success: boolean; recipe?: any; error?: string }>('/api/meals/import', {
+      method: 'POST',
+      body: { url: cleanUrl }
+    })
+
+    if (res && res.success && res.recipe) {
+      importedRecipePreview.value = {
+        title: res.recipe.title || '',
+        category: res.recipe.category || 'Obiad domowy',
+        area: res.recipe.area || '',
+        imageUrl: res.recipe.imageUrl || '',
+        ingredients: res.recipe.ingredients || [],
+        instructions: res.recipe.instructions || '',
+        recipeUrl: res.recipe.recipeUrl || cleanUrl,
+        sourceName: res.recipe.sourceName || 'Zaimportowano z sieci',
+        source: 'import'
+      }
+      importTargetDate.value = ''
+    } else {
+      importErrorMessage.value = res?.error || 'Nie udało się pobrać danych z tego linku.'
+    }
+  } catch (err: any) {
+    importErrorMessage.value = err?.data?.statusMessage || err?.message || 'Wystąpił błąd podczas pobierania przepisu.'
+  } finally {
+    isFetchingImport.value = false
+  }
+}
+
+const handleSaveImportedRecipe = async () => {
+  if (isSavingImportedRecipe.value || !importedRecipePreview.value) return
+  const cleanTitle = importedRecipePreview.value.title?.trim()
+  if (!cleanTitle) return
+
+  isSavingImportedRecipe.value = true
+  try {
+    const cleanDate = importTargetDate.value ? importTargetDate.value.trim() : ''
+    const targetDay = cleanDate ? weekDays.value.find(d => d.dateStr === cleanDate) : null
+
+    unblockSavedRecipeKey(`import_${cleanTitle.toLowerCase()}`)
+    unblockSavedRecipeKey(`custom_${cleanTitle.toLowerCase()}`)
+
+    await addMeal({
+      date: cleanDate,
+      day_name: targetDay?.dayName || '',
+      title: cleanTitle,
+      category: importedRecipePreview.value.category || 'Obiad domowy',
+      area: importedRecipePreview.value.area || '',
+      image_url: importedRecipePreview.value.imageUrl || '',
+      cook_id: 'me',
+      source: 'import',
+      ingredients: importedRecipePreview.value.ingredients || [],
+      instructions: importedRecipePreview.value.instructions || '',
+      recipe_url: importedRecipePreview.value.recipeUrl || importUrlInput.value
+    })
+
+    closeImportModal()
+    activeSubView.value = 'my-recipes'
+  } finally {
+    isSavingImportedRecipe.value = false
   }
 }
 
@@ -4986,5 +5408,310 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   opacity: 0.45;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+/* ======================================================= */
+/* IMPORT RECIPE & TWOJE PRZEPISY ACTIONS                  */
+/* ======================================================= */
+.saved-header-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.saved-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 11px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+  white-space: nowrap;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.saved-action-btn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.saved-action-btn:active {
+  transform: scale(0.96);
+}
+
+.saved-action-btn.import-btn {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.saved-action-btn.import-btn ion-icon {
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.recipe-badge-source.import {
+  background: rgba(15, 23, 42, 0.9);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.import-shortcut-banner {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border-radius: 12px;
+  background: rgba(14, 165, 233, 0.08);
+  border: 1px solid rgba(14, 165, 233, 0.25);
+  color: #0369a1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+  text-align: left;
+}
+
+.import-shortcut-banner:hover {
+  background: rgba(14, 165, 233, 0.12);
+  border-color: rgba(14, 165, 233, 0.4);
+}
+
+.import-shortcut-banner:active {
+  transform: scale(0.98);
+}
+
+.import-shortcut-banner .shortcut-text-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #0c4a6e;
+  min-width: 0;
+}
+
+.import-shortcut-banner .shortcut-text-wrap strong {
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.import-shortcut-banner .shortcut-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  color: #0284c7;
+}
+
+.import-shortcut-banner .shortcut-arrow {
+  font-size: 15px;
+  color: #0284c7;
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+
+/* ======================================================= */
+/* MODAL 5: IMPORT RECIPE MODAL                           */
+/* ======================================================= */
+.dn-import-recipe-modal {
+  --background: #ffffff;
+}
+
+.import-modal-content {
+  --background: #ffffff;
+  --padding-top: 14px;
+  --padding-bottom: 30px;
+  --padding-start: 16px;
+  --padding-end: 16px;
+}
+
+.import-input-step,
+.import-preview-step {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.import-supported-platforms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.platform-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.platform-chip ion-icon {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.platform-chip.tiktok-chip {
+  background: rgba(15, 23, 42, 0.06);
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.platform-chip.tiktok-chip ion-icon {
+  color: #0f172a;
+}
+
+.import-link-input-box {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.import-link-input-box .modal-input {
+  flex: 1;
+}
+
+.paste-clipboard-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 11px;
+  margin-right: 8px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+  flex-shrink: 0;
+}
+
+.paste-clipboard-btn:hover {
+  background: #1e293b;
+}
+
+.paste-clipboard-btn:active {
+  transform: scale(0.95);
+}
+
+.import-error-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 6px;
+}
+
+.import-error-banner ion-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.imported-hero-banner {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 220px;
+  border-radius: 16px;
+  background-size: cover;
+  background-position: center;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+}
+
+.imported-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.4) 0%, rgba(15, 23, 42, 0.1) 50%, rgba(15, 23, 42, 0.6) 100%);
+}
+
+.imported-source-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.imported-source-badge ion-icon {
+  font-size: 13px;
+  color: #38bdf8;
+}
+
+.imported-ingredients-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 8px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.imported-ing-pill {
+  display: inline-block;
+  padding: 4px 9px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #334155;
+  line-height: 1.3;
+}
+
+.imported-actions-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.change-link-btn {
+  flex: 0 0 auto;
+  padding: 13px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 14px;
+}
+
+.imported-actions-row .submit-custom-meal-btn {
+  flex: 1;
 }
 </style>
