@@ -1121,6 +1121,7 @@ const handleRefresh = async (event: any) => {
   height: 36px;
   border-radius: 10px;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+  object-fit: cover;
 }
 
 .brand-name {

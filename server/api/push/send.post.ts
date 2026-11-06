@@ -185,6 +185,39 @@ function formatPartnerAction(
       }
     }
 
+    case 'MEAL_ADD': {
+      const mealTitle = data?.titlePl || data?.title || 'nowy posiłek'
+      return {
+        title: `Planer obiadów 🍳`,
+        body: `${name} zaplanował(a) obiad: ${mealTitle}`,
+        url: '/tabs/meals',
+        category: 'meals'
+      }
+    }
+
+    case 'MEAL_UPDATE': {
+      const mealTitle = data?.titlePl || data?.title || 'posiłek'
+      return {
+        title: `Planer obiadów 🍲`,
+        body: `${name} zaktualizował(a) obiad: ${mealTitle}`,
+        url: '/tabs/meals',
+        category: 'meals'
+      }
+    }
+
+    case 'MEAL_TOGGLE_COMPLETED': {
+      if (data?.is_completed) {
+        const mealTitle = data?.titlePl || data?.title || 'dzisiejszy obiad'
+        return {
+          title: `Smacznego! Obiad gotowy 🍽️`,
+          body: `${name} oznaczył(a) obiad „${mealTitle}” jako zjedzony!`,
+          url: '/tabs/meals',
+          category: 'meals'
+        }
+      }
+      return null
+    }
+
     default:
       return null
   }

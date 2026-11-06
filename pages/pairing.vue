@@ -749,6 +749,7 @@ onUnmounted(() => {
   border-radius: 20px;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
   margin-bottom: 12px;
+  object-fit: cover;
 }
 
 .pairing-title {

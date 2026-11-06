@@ -434,6 +434,7 @@ const handleResendVerification = async () => {
   height: 58px;
   border-radius: 16px;
   display: block;
+  object-fit: cover;
 }
 
 .login-title {

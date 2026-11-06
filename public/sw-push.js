@@ -49,7 +49,21 @@ self.addEventListener('push', (event) => {
   }
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (windowClients) => {
+      // Check if user has muted this category in local settings
+      const category = payload.data && payload.data.category
+      if (category && 'caches' in self) {
+        try {
+          const cache = await caches.open('duonest-settings')
+          const resp = await cache.match('/push-settings.json')
+          if (resp) {
+            const prefData = await resp.json()
+            if (prefData.enabled === false) return
+            if (prefData.settings && prefData.settings[category] === false) return
+          }
+        } catch (_) {}
+      }
+
       // Check if user is currently inside the app (any window/tab is visible or focused)
       const isAppInForeground = windowClients.some((client) => {
         return client.visibilityState === 'visible' || client.focused

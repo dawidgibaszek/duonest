@@ -567,14 +567,15 @@ const handleSubmit = async () => {
   height: 72px;
   border-radius: 20px;
   background: #ffffff;
-  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.12);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
   margin-bottom: 12px;
 }
 
 .reset-logo {
   width: 44px;
   height: 44px;
-  object-fit: contain;
+  border-radius: 12px;
+  object-fit: cover;
 }
 
 .brand-title {

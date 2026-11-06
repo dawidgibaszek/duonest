@@ -10,7 +10,6 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
-    "@nuxt/vite-builder": "^3.21.11",
     "@nuxtjs/ionic": "^1.0.2",
     "@nuxtjs/supabase": "^2.1.0",
     "@supabase/supabase-js": "^2.49.1",
@@ -18,7 +17,7 @@
     "canvas-confetti": "^1.9.4",
     "html5-qrcode": "^2.3.8",
     "ionicons": "^7.4.0",
-    "nuxt": "^3.21.11",
+    "nuxt": "^4.6.4",
     "qrcode": "^1.5.4",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0",
@@ -33,7 +32,11 @@
   },
   "overrides": {
     "rimraf": "^6.0.1",
-    "glob": "^13.0.6",
+    "glob": "^14.0.3",
+    "minimatch": "^11.0.5",
+    "basic-ftp": "^6.2.6",
+    "tmp": "^0.2.7",
+    "deepmerge": "4.1.2",
     "tar": "^7.5.2",
     "superagent": "^10.2.2"
   }

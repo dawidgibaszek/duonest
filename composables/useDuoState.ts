@@ -229,10 +229,6 @@ export const getCleanAccentColor = (rawColor?: string | null, fallback = '#0f172
   if (!rawColor) return fallback
   const first = rawColor.split('|')[0].trim()
   const col = first.startsWith('#') ? first : (first ? `#${first}` : fallback)
-  // Upgrade old legacy default accent colors to sophisticated black
-  if (col.toLowerCase() === '#0284c7' || col.toLowerCase() === '#0d9488' || col.toLowerCase() === '#38bdf8') {
-    return fallback
-  }
   return col
 }
 
@@ -328,7 +324,7 @@ if (typeof window !== 'undefined' && !nudgeTickerInterval) {
 }
 
 // Enhanced DuoNest Toast Types & Reactive State
-export type ToastType = 'success' | 'love' | 'points' | 'calendar' | 'shopping' | 'tasks' | 'mood' | 'wishlist' | 'info' | 'warning'
+export type ToastType = 'success' | 'love' | 'points' | 'calendar' | 'shopping' | 'tasks' | 'meals' | 'mood' | 'wishlist' | 'info' | 'warning'
 
 export interface DuoToastItem {
   id: string
@@ -360,6 +356,9 @@ export const inferToastMetadata = (msg: string): { title: string; type: ToastTyp
   }
   if (m.includes('zadani') || m.includes('obowiązk')) {
     return { title: 'Zadania Domowe', type: 'tasks' }
+  }
+  if (m.includes('obiad') || m.includes('posiłek') || m.includes('przepis') || m.includes('gotowan') || m.includes('zjedzon')) {
+    return { title: 'Planer Obiadów', type: 'meals' }
   }
   if (m.includes('rozłączono') || m.includes('nie rozpoznano') || m.includes('błąd') || m.includes('uwaga') || m.includes('nie powiodło')) {
     return { title: 'Powiadomienie', type: 'warning' }
@@ -423,7 +422,7 @@ export const hashPassword = async (password: string): Promise<string> => {
 }
 
 export const verifyPassword = async (password: string, storedHash: string): Promise<boolean> => {
-  if (!storedHash) return true
+  if (!storedHash) return false
 
   // 1. Try modern SHA-256 hash
   try {
@@ -918,6 +917,7 @@ export const useDuoState = () => {
     moviesList.value = []
     mealsList.value = []
     lastNudgeSentAt.value = null
+    currentUserPasswordHash.value = ''
     if (typeof window !== 'undefined') {
       localStorage.removeItem('duonest_auth_user')
       localStorage.removeItem('duonest_auth_session')
@@ -1083,7 +1083,12 @@ export const useDuoState = () => {
 
         if (hasConfirmedInSupabase) {
           isUnverified = false
-          safeDb(dbClient.from('profiles').update({ avatar_color: `${displayColor}|${storedHash}` }).eq('id', dbProfile.id))
+          try {
+            await dbClient.from('profiles').update({
+              avatar_color: `${displayColor}|${storedHash}`,
+              updated_at: new Date().toISOString()
+            }).eq('id', dbProfile.id)
+          } catch (_) {}
         } else {
           return {
             data: null,
@@ -1092,11 +1097,16 @@ export const useDuoState = () => {
         }
       }
 
-      // If user profile had a legacy hash or no hash, auto-upgrade it now to modern SHA-256 in Supabase
-      const modernHash = await hashPassword(password)
-      if (!storedHash || storedHash !== modernHash) {
-        storedHash = modernHash
-        safeDb(dbClient.from('profiles').update({ avatar_color: `${displayColor}|${modernHash}` }).eq('id', dbProfile.id))
+      // If user profile had a legacy hash (h_ prefix), safely upgrade it now to modern SHA-256 in Supabase
+      if (storedHash && storedHash.startsWith('h_')) {
+        const modernHash = await hashPassword(password)
+        try {
+          await dbClient.from('profiles').update({
+            avatar_color: `${displayColor}|${modernHash}`,
+            updated_at: new Date().toISOString()
+          }).eq('id', dbProfile.id)
+          storedHash = modernHash
+        } catch (_) {}
       }
 
       currentUserPasswordHash.value = storedHash
@@ -1627,18 +1637,26 @@ export const useDuoState = () => {
       const modernHash = await hashPassword(newPassword)
       const updatedColor = `${displayColor}|${modernHash}`
 
-      // 4. Update password directly in profiles table (AWAITED)
-      const { error: updateErr } = await dbClient
+      // 4. Update password directly in profiles table (AWAITED and verified with .select())
+      const { data: updatedRows, error: updateErr } = await dbClient
         .from('profiles')
         .update({
           avatar_color: updatedColor,
           updated_at: new Date().toISOString()
         })
         .eq('id', userId)
+        .select()
 
       if (updateErr) {
         console.error('Password change error in profiles:', updateErr)
         return { success: false, error: 'Nie udało się zapisać nowego hasła w bazie danych: ' + updateErr.message }
+      }
+
+      if (!updatedRows || updatedRows.length === 0) {
+        await dbClient.from('profiles').update({
+          avatar_color: updatedColor,
+          updated_at: new Date().toISOString()
+        }).eq('id', userId)
       }
 
       // 5. Update password in Supabase Auth if session exists
@@ -1754,7 +1772,10 @@ export const useDuoState = () => {
         'WISHLIST_TOGGLE_COMPLETED',
         'MOVIE_ADD',
         'MOVIE_TOGGLE_WATCHED',
-        'MILESTONE_CLAIM'
+        'MILESTONE_CLAIM',
+        'MEAL_ADD',
+        'MEAL_UPDATE',
+        'MEAL_TOGGLE_COMPLETED'
       ]
 
       if (actionsForPush.includes(action)) {
@@ -2020,6 +2041,17 @@ export const useDuoState = () => {
       }
 
       if (dbProfile) {
+        // Synchronize and preserve modern password hash from database profile
+        if (dbProfile.avatar_color && dbProfile.avatar_color.includes('|')) {
+          const hashPart = dbProfile.avatar_color.split('|')[1]
+          if (hashPart && hashPart !== 'unverified') {
+            currentUserPasswordHash.value = hashPart
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('duonest_user_pwd_hash', hashPart)
+            }
+          }
+        }
+
         currentUser.value = {
           ...currentUser.value,
           ...dbProfile,
@@ -2606,7 +2638,8 @@ export const useDuoState = () => {
             if (!exists) {
               mealsList.value = [data, ...mealsList.value]
               syncToStorage()
-              triggerToast(`${senderName} zaplanował(a) obiad: "${data.title}"`)
+              const mealTitle = data.titlePl || data.title || 'posiłek'
+              triggerToast(`${senderName} zaplanował(a) obiad: "${mealTitle}"! 🍳`, { type: 'meals', title: 'Planer Obiadów' })
             }
           }
           break
@@ -2636,6 +2669,10 @@ export const useDuoState = () => {
               item.completed_at = data.completed_at
               mealsList.value = [...mealsList.value]
               syncToStorage()
+              if (data.is_completed) {
+                const mealTitle = data.titlePl || data.title || item.titlePl || item.title || 'obiad'
+                triggerToast(`${senderName} oznaczył(a) obiad "${mealTitle}" jako zjedzony! 🍽️`, { type: 'meals', title: 'Planer Obiadów' })
+              }
             }
           }
           break
@@ -3109,6 +3146,17 @@ export const useDuoState = () => {
             .maybeSingle()
 
           if (dbProfile) {
+            // Synchronize and preserve modern password hash from database profile
+            if (dbProfile.avatar_color && dbProfile.avatar_color.includes('|')) {
+              const hashPart = dbProfile.avatar_color.split('|')[1]
+              if (hashPart && hashPart !== 'unverified') {
+                currentUserPasswordHash.value = hashPart
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('duonest_user_pwd_hash', hashPart)
+                }
+              }
+            }
+
             currentUser.value = {
               ...currentUser.value,
               ...dbProfile,
@@ -4125,18 +4173,40 @@ export const useDuoState = () => {
       } : undefined
     })
 
-    const currentHash = currentUserPasswordHash.value || ''
-    const cleanCurrentColor = getCleanAccentColor(currentUser.value.avatar_color)
-    const colorToSave = currentHash ? `${cleanCurrentColor}|${currentHash}` : cleanCurrentColor
-
-    if (db && isOnlineWithSupabase.value) {
-      safeDb(db.from('profiles').update({
+    if (db && isOnlineWithSupabase.value && currentUser.value.id) {
+      const profileDbUpdates: Record<string, any> = {
         name: currentUser.value.name,
-        avatar_color: colorToSave,
         love_note: currentUser.value.love_note,
         favorite_drink: currentUser.value.favorite_drink,
         favorite_treat: currentUser.value.favorite_treat
-      }).eq('id', currentUser.value.id))
+      }
+
+      // ONLY touch avatar_color in the DB if updates.avatar_color was explicitly provided
+      if (updates.avatar_color) {
+        const cleanNewColor = getCleanAccentColor(updates.avatar_color)
+        let hashToPreserve = currentUserPasswordHash.value || ''
+        if (!hashToPreserve && typeof window !== 'undefined') {
+          hashToPreserve = localStorage.getItem('duonest_user_pwd_hash') || ''
+        }
+        if (!hashToPreserve) {
+          try {
+            const { data: dbP } = await db.from('profiles').select('avatar_color').eq('id', currentUser.value.id).maybeSingle()
+            if (dbP?.avatar_color && dbP.avatar_color.includes('|')) {
+              hashToPreserve = dbP.avatar_color.split('|')[1] || ''
+              if (hashToPreserve && hashToPreserve !== 'unverified') {
+                currentUserPasswordHash.value = hashToPreserve
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('duonest_user_pwd_hash', hashToPreserve)
+                }
+              }
+            }
+          } catch (_) {}
+        }
+
+        profileDbUpdates.avatar_color = hashToPreserve ? `${cleanNewColor}|${hashToPreserve}` : cleanNewColor
+      }
+
+      safeDb(db.from('profiles').update(profileDbUpdates).eq('id', currentUser.value.id))
 
       if (partnership.value) {
         safeDb(db.from('partnerships').update({
@@ -4934,7 +5004,13 @@ export const useDuoState = () => {
     mealsList.value = [...mealsList.value]
     syncToStorage()
 
-    broadcastToPartner('MEAL_TOGGLE_COMPLETED', { id, is_completed: newStatus, completed_at: completedAt })
+    broadcastToPartner('MEAL_TOGGLE_COMPLETED', {
+      id,
+      title: item.title,
+      titlePl: item.titlePl,
+      is_completed: newStatus,
+      completed_at: completedAt
+    })
 
     const client = getCleanDbClient() || getSupabaseClient()
     const pId = partnership.value?.id || currentUser.value?.partnership_id

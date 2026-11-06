@@ -204,14 +204,15 @@ onBeforeUnmount(() => {
   height: 72px;
   border-radius: 22px;
   background: #ffffff;
-  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.15);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
   margin-bottom: 12px;
 }
 
 .verified-logo {
   width: 52px;
   height: 52px;
-  object-fit: contain;
+  border-radius: 14px;
+  object-fit: cover;
 }
 
 .brand-title {

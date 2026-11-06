@@ -104,6 +104,23 @@
             <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
           </svg>
 
+          <!-- MEALS & RECIPES -->
+          <svg
+            v-else-if="toast.type === 'meals'"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="toast-svg"
+          >
+            <path d="M18 2v8a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2V2" />
+            <path d="M15 12v10" />
+            <path d="M8 2v10" />
+            <path d="M5 2c0 4 3 6 3 6v14" />
+          </svg>
+
           <!-- MOOD -->
           <svg
             v-else-if="toast.type === 'mood'"
@@ -636,6 +653,12 @@ onUnmounted(() => {
 
 .icon-tasks {
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
+}
+
+.icon-meals {
+  background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
 }

@@ -7,6 +7,7 @@ export interface PushCategorySettings {
   calendar: boolean      // Wspólny terminarz i randki
   shopping: boolean      // Nowe pozycje na liście zakupów
   tasks: boolean         // Zadania domowe i punkty
+  meals: boolean         // Planer obiadów i posiłków
   partnerOnline: boolean // Wejście partnera do aplikacji
   wishlist: boolean      // Wishlista i marzenia partnera
   sound: boolean         // Dźwięk powiadomienia
@@ -19,6 +20,7 @@ const DEFAULT_PUSH_SETTINGS: PushCategorySettings = {
   calendar: true,
   shopping: true,
   tasks: true,
+  meals: true,
   partnerOnline: false, // domyślnie wyłączone, aby nie rozpraszać
   wishlist: true,       // Nowe marzenia i prezenty
   sound: true,
@@ -126,6 +128,9 @@ export const usePushNotifications = () => {
       } else if (newToast.type === 'tasks' || newToast.type === 'points') {
         category = 'tasks'
         targetUrl = '/tabs/tasks'
+      } else if (newToast.type === 'meals' || m.includes('obiad') || m.includes('posiłek') || m.includes('przepis')) {
+        category = 'meals'
+        targetUrl = '/tabs/meals'
       } else if (newToast.type === 'wishlist' || m.includes('marzeni') || m.includes('wishlist') || m.includes('prezent')) {
         category = 'wishlist'
         targetUrl = '/tabs/wishlist'
@@ -153,6 +158,15 @@ export const usePushNotifications = () => {
     try {
       localStorage.setItem(STORAGE_KEY_ENABLED, JSON.stringify(isPushEnabled.value))
       localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(pushSettings))
+      // Also cache for ServiceWorker background check
+      if ('caches' in window) {
+        caches.open('duonest-settings').then((cache) => {
+          cache.put('/push-settings.json', new Response(JSON.stringify({
+            enabled: isPushEnabled.value,
+            settings: { ...pushSettings }
+          }))).catch(() => {})
+        }).catch(() => {})
+      }
     } catch (_) {}
   }
 
@@ -426,7 +440,7 @@ export const usePushNotifications = () => {
       : 'DuoNest - Test Powiadomień 💌'
     const body = (typeof customBody === 'string' && customBody.trim())
       ? customBody
-      : `Wszystko działa idealnie! Gdy ${partnerName} wyśle Ci buziaka, marzenie lub doda zadanie, dowiesz się od razu.`
+      : `Wszystko działa idealnie! Gdy ${partnerName} wyśle Ci buziaka, zaplanuje obiad lub doda zadanie, dowiesz się od razu.`
     const url = (typeof customUrl === 'string' && customUrl.trim())
       ? customUrl
       : '/tabs/nest'

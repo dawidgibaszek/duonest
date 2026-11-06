@@ -467,43 +467,167 @@
         <!-- 2. TWÓJ KOLOR AKCENTU W GNIAZDKU -->
         <div class="dn-card accent-color-card">
           <div class="card-title-row">
-            <span class="section-tag" :style="{ color: currentUserAccentColor }">TWÓJ KOLOR AKCENTU</span>
+            <span class="section-tag" :style="{ color: selectedCustomColor }">
+              <ion-icon :icon="ioniconsColorPaletteOutline" />
+              <span>TWÓJ KOLOR AKCENTU</span>
+            </span>
             <span
               class="active-color-badge"
               :style="{
-                backgroundColor: hexToRgba(currentUserAccentColor, 0.15),
-                color: currentUserAccentColor,
-                borderColor: hexToRgba(currentUserAccentColor, 0.3)
+                backgroundColor: hexToRgba(selectedCustomColor, 0.15),
+                color: selectedCustomColor,
+                borderColor: hexToRgba(selectedCustomColor, 0.3)
               }"
             >
-              Aktywny kolor
+              {{ selectedCustomColor.toUpperCase() }}
             </span>
           </div>
-          <h4>Wybierz swój kolor akcentu</h4>
+          <h4>Wybierz swój kolor z pełnej palety</h4>
           <p class="section-desc">
-            Twój kolor bezpośrednio decyduje o tym, jak wyróżniają się Twoje zadania, zakupy, awatar i wszystkie elementy przypisane do Ciebie w aplikacji!
+            Przesuwaj suwaki, aby stworzyć własny odcień z całej palety barw. Twój kolor wyróżnia Twoje zadania, zakupy, awatar i wszystkie elementy przypisane do Ciebie!
           </p>
 
-          <!-- Color swatches grid -->
-          <div class="accent-palette-grid">
-            <button
-              type="button"
-              v-for="c in accentColorPresets"
-              :key="c.hex"
-              class="accent-color-btn"
-              :class="{ active: currentUserAccentColor === c.hex }"
-              :style="{ backgroundColor: c.hex }"
-              @click="handleSelectAccentColor(c.hex)"
-              :title="c.label"
-            >
-              <ion-icon v-if="currentUserAccentColor === c.hex" :icon="ioniconsCheckmark" class="color-check-icon" />
-            </button>
+          <!-- INTERACTIVE RGB COLOR PICKER WITH SLIDERS -->
+          <div class="rgb-picker-container">
+            <!-- Top Bar: Preview swatch, HEX code, RGB label & Apply Button -->
+            <div class="picker-top-row">
+              <div
+                class="color-swatch-disc"
+                :style="{ backgroundColor: selectedCustomColor }"
+                @click="openNativeColorPicker"
+                title="Dotknij, aby otworzyć koło kolorów"
+              >
+                <ion-icon :icon="ioniconsColorPaletteOutline" class="swatch-pipette-icon" />
+                <input
+                  type="color"
+                  ref="nativeColorInputRef"
+                  class="native-color-hidden-input"
+                  :value="selectedCustomColor"
+                  @input="onNativeColorChange"
+                />
+              </div>
+
+              <div class="color-meta-info">
+                <div class="hex-input-wrap">
+                  <span class="hash-label">#</span>
+                  <input
+                    type="text"
+                    class="hex-text-input"
+                    :value="selectedCustomColor.replace('#', '').toUpperCase()"
+                    @input="handleHexInput"
+                    placeholder="HEX"
+                    maxlength="6"
+                  />
+                </div>
+                <span class="rgb-label">{{ hexToRgbString(selectedCustomColor) }}</span>
+              </div>
+
+              <button
+                type="button"
+                class="apply-accent-btn"
+                :style="{
+                  backgroundColor: selectedCustomColor,
+                  color: isLightColor(selectedCustomColor) ? '#0f172a' : '#ffffff'
+                }"
+                :disabled="isSavingColor"
+                @click="handleSaveCustomColor"
+              >
+                <ion-spinner name="crescent" v-if="isSavingColor" class="save-color-spinner" />
+                <template v-else>
+                  <ion-icon :icon="ioniconsCheckmark" />
+                  <span>Zapisz</span>
+                </template>
+              </button>
+            </div>
+
+            <!-- SLIDER 1: ODCIEN (HUE 0-360) -->
+            <div class="slider-control-group">
+              <div class="slider-header-row">
+                <span class="slider-title">Odcień barwy (RGB)</span>
+                <span class="slider-value-pill">{{ pickerHue }}°</span>
+              </div>
+              <div class="slider-track-wrap">
+                <input
+                  type="range"
+                  min="0"
+                  max="360"
+                  step="1"
+                  v-model.number="pickerHue"
+                  class="duo-color-range hue-range"
+                />
+              </div>
+            </div>
+
+            <!-- SLIDER 2: NASYCENIE (SATURATION 5-100) -->
+            <div class="slider-control-group">
+              <div class="slider-header-row">
+                <span class="slider-title">Nasycenie (Intensywność)</span>
+                <span class="slider-value-pill">{{ pickerSaturation }}%</span>
+              </div>
+              <div class="slider-track-wrap">
+                <input
+                  type="range"
+                  min="5"
+                  max="100"
+                  step="1"
+                  v-model.number="pickerSaturation"
+                  class="duo-color-range saturation-range"
+                  :style="{
+                    background: `linear-gradient(to right, hsl(${pickerHue}, 5%, ${pickerLightness}%), hsl(${pickerHue}, 100%, ${pickerLightness}%))`
+                  }"
+                />
+              </div>
+            </div>
+
+            <!-- SLIDER 3: JASNOSC (LIGHTNESS 10-90) -->
+            <div class="slider-control-group">
+              <div class="slider-header-row">
+                <span class="slider-title">Jasność / Cień</span>
+                <span class="slider-value-pill">{{ pickerLightness }}%</span>
+              </div>
+              <div class="slider-track-wrap">
+                <input
+                  type="range"
+                  min="10"
+                  max="90"
+                  step="1"
+                  v-model.number="pickerLightness"
+                  class="duo-color-range lightness-range"
+                  :style="{
+                    background: `linear-gradient(to right, #000000 0%, hsl(${pickerHue}, ${pickerSaturation}%, 50%) 50%, #ffffff 100%)`
+                  }"
+                />
+              </div>
+            </div>
+
+            <!-- SZYBKIE INSPIRACJE KOLORYSTYCZNE -->
+            <div class="inspirations-section">
+              <span class="inspirations-label">Szybkie inspiracje:</span>
+              <div class="inspirations-chips-scroll">
+                <button
+                  type="button"
+                  v-for="c in quickColorInspirations"
+                  :key="c.hex"
+                  class="inspiration-swatch-btn"
+                  :class="{ active: selectedCustomColor.toLowerCase() === c.hex.toLowerCase() }"
+                  :style="{ backgroundColor: c.hex }"
+                  @click="handleSelectInspiration(c.hex)"
+                  :title="c.label"
+                >
+                  <ion-icon
+                    v-if="selectedCustomColor.toLowerCase() === c.hex.toLowerCase()"
+                    :icon="ioniconsCheckmark"
+                    class="swatch-check"
+                  />
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- LIVE PREVIEW BOX -->
-          <div class="live-preview-box" :style="{ borderColor: hexToRgba(currentUserAccentColor, 0.35) }">
+          <div class="live-preview-box" :style="{ borderColor: hexToRgba(selectedCustomColor, 0.35) }">
             <div class="preview-header">
-              <ion-icon :icon="ioniconsSparkles" class="preview-sparkle" :style="{ color: currentUserAccentColor }" />
+              <ion-icon :icon="ioniconsSparkles" class="preview-sparkle" :style="{ color: selectedCustomColor }" />
               <span>Podgląd na żywo Twojego stylu:</span>
             </div>
 
@@ -511,15 +635,15 @@
             <div
               class="sample-task-card"
               :style="{
-                borderLeft: `4px solid ${currentUserAccentColor}`,
-                backgroundColor: hexToRgba(currentUserAccentColor, 0.05)
+                borderLeft: `4px solid ${selectedCustomColor}`,
+                backgroundColor: hexToRgba(selectedCustomColor, 0.05)
               }"
             >
               <div
                 class="sample-checkbox"
                 :style="{
-                  backgroundColor: currentUserAccentColor,
-                  borderColor: currentUserAccentColor
+                  backgroundColor: selectedCustomColor,
+                  borderColor: selectedCustomColor
                 }"
               >
                 <ion-icon :icon="ioniconsCheckmark" />
@@ -530,9 +654,9 @@
                   <span
                     class="sample-pill"
                     :style="{
-                      backgroundColor: hexToRgba(currentUserAccentColor, 0.14),
-                      color: currentUserAccentColor,
-                      borderColor: hexToRgba(currentUserAccentColor, 0.3)
+                      backgroundColor: hexToRgba(selectedCustomColor, 0.14),
+                      color: selectedCustomColor,
+                      borderColor: hexToRgba(selectedCustomColor, 0.3)
                     }"
                   >
                     <ion-icon :icon="ioniconsPersonOutline" />
@@ -545,12 +669,17 @@
 
             <!-- Sample Avatar Preview -->
             <div class="sample-avatar-row">
-              <div class="sample-avatar-circle" :style="{ backgroundColor: currentUserAccentColor }">
+              <div class="sample-avatar-circle" :style="{ backgroundColor: selectedCustomColor }">
                 <span>{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
               </div>
-              <span class="sample-avatar-desc">
-                Twój awatar: <strong>{{ currentUser.name || 'Ty' }}</strong> (kliknij inny kolor powyżej, aby zmienić)
-              </span>
+              <div class="sample-avatar-text-col">
+                <span class="sample-avatar-desc">
+                  Twój awatar: <strong>{{ currentUser.name || 'Ty' }}</strong>
+                </span>
+                <span class="sample-avatar-sub">
+                  {{ currentUserAccentColor.toLowerCase() === selectedCustomColor.toLowerCase() ? 'Ten kolor jest aktualnie zapisany' : 'Przesuń suwaki i kliknij Zapisz' }}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -722,7 +851,25 @@
                 />
               </div>
 
-              <!-- 6. WISHLIST & GIFTS -->
+              <!-- 6. MEALS & DINNERS -->
+              <div class="push-toggle-item">
+                <div class="toggle-item-left">
+                  <div class="toggle-icon-wrap meals-icon-bg">
+                    <ion-icon :icon="ioniconsRestaurantOutline" />
+                  </div>
+                  <div class="toggle-item-info">
+                    <span class="toggle-name">Planer obiadów i posiłków</span>
+                    <span class="toggle-desc">Wspólne menu, nowe propozycje dań i ugotowane obiady</span>
+                  </div>
+                </div>
+                <ion-toggle
+                  :checked="pushSettings.meals"
+                  @ionChange="togglePushCategory('meals')"
+                  class="dn-push-toggle"
+                />
+              </div>
+
+              <!-- 7. WISHLIST & GIFTS -->
               <div class="push-toggle-item">
                 <div class="toggle-item-left">
                   <div class="toggle-icon-wrap wishlist-icon-bg">
@@ -740,7 +887,7 @@
                 />
               </div>
 
-              <!-- 7. PARTNER ONLINE -->
+              <!-- 8. PARTNER ONLINE -->
               <div class="push-toggle-item">
                 <div class="toggle-item-left">
                   <div class="toggle-icon-wrap online-icon-bg">
@@ -1334,26 +1481,156 @@ const handleSaveNestSettings = async () => {
   })
 }
 
-// Accent Color Presets (curated sophisticated shades of black & charcoal)
-const accentColorPresets = [
+// ==========================================================
+// CUSTOM RGB COLOR PICKER & HSL SLIDERS
+// ==========================================================
+const hexToHsl = (hex: string): { h: number; s: number; l: number } => {
+  let c = hex.replace('#', '').trim()
+  if (c.length === 3) c = c.split('').map(x => x + x).join('')
+  const r = parseInt(c.substring(0, 2), 16) / 255 || 0
+  const g = parseInt(c.substring(2, 4), 16) / 255 || 0
+  const b = parseInt(c.substring(4, 6), 16) / 255 || 0
+
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  let h = 0
+  let s = 0
+  const l = (max + min) / 2
+
+  if (max !== min) {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break
+      case g: h = (b - r) / d + 2; break
+      case b: h = (r - g) / d + 4; break
+    }
+    h /= 6
+  }
+  return {
+    h: Math.round(h * 360),
+    s: Math.round(s * 100),
+    l: Math.round(l * 100)
+  }
+}
+
+const hslToHex = (h: number, s: number, l: number): string => {
+  const sat = s / 100
+  const lit = l / 100
+  const a = sat * Math.min(lit, 1 - lit)
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12
+    const color = lit - a * Math.max(Math.min(k - 3, 9 - k, 1), -1)
+    return Math.round(255 * color).toString(16).padStart(2, '0')
+  }
+  return `#${f(0)}${f(8)}${f(4)}`
+}
+
+const isLightColor = (hex: string): boolean => {
+  let c = hex.replace('#', '').trim()
+  if (c.length === 3) c = c.split('').map(x => x + x).join('')
+  const r = parseInt(c.substring(0, 2), 16) || 0
+  const g = parseInt(c.substring(2, 4), 16) || 0
+  const b = parseInt(c.substring(4, 6), 16) || 0
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000
+  return yiq >= 150
+}
+
+const hexToRgbString = (hex: string): string => {
+  let c = hex.replace('#', '').trim()
+  if (c.length === 3) c = c.split('').map(x => x + x).join('')
+  const r = parseInt(c.substring(0, 2), 16) || 0
+  const g = parseInt(c.substring(2, 4), 16) || 0
+  const b = parseInt(c.substring(4, 6), 16) || 0
+  return `RGB: ${r}, ${g}, ${b}`
+}
+
+const initialHsl = hexToHsl(currentUserAccentColor.value || '#0f172a')
+const pickerHue = ref(initialHsl.h)
+const pickerSaturation = ref(initialHsl.s)
+const pickerLightness = ref(initialHsl.l)
+const isSavingColor = ref(false)
+const nativeColorInputRef = ref<HTMLInputElement | null>(null)
+
+const selectedCustomColor = computed(() => {
+  return hslToHex(pickerHue.value, pickerSaturation.value, pickerLightness.value)
+})
+
+const quickColorInspirations = [
+  { hex: '#f43f5e', label: 'Różana Miłość' },
+  { hex: '#e11d48', label: 'Głęboki Karmin' },
+  { hex: '#fb7185', label: 'Ciepły Koral' },
+  { hex: '#f59e0b', label: 'Złoty Bursztyn' },
+  { hex: '#10b981', label: 'Szmaragdowy Gaj' },
+  { hex: '#14b8a6', label: 'Morska Bryza' },
+  { hex: '#0284c7', label: 'Błękit Oceanu' },
+  { hex: '#6366f1', label: 'Indygo Zmierzchu' },
+  { hex: '#8b5cf6', label: 'Fiolet Lawendy' },
+  { hex: '#ec4899', label: 'Słodka Fuksja' },
   { hex: '#0f172a', label: 'Głęboki Obsydian' },
-  { hex: '#18181b', label: 'Matowy Antracyt' },
-  { hex: '#111827', label: 'Ciemny Karbon' },
-  { hex: '#1e293b', label: 'Grafitowy Łupkowy' },
-  { hex: '#1c1917', label: 'Ciepły Onyks' },
-  { hex: '#0a0a0c', label: 'Nocna Czerń' }
+  { hex: '#1e293b', label: 'Ciemny Grafit' }
 ]
 
-const handleSelectAccentColor = async (colorHex: string) => {
-  await updateMyProfile({ avatar_color: colorHex })
-  triggerToast('Zmieniono kolor akcentu! Zadania i elementy zostały zaktualizowane.')
-  confetti({
-    particleCount: 40,
-    spread: 50,
-    origin: { y: 0.6 },
-    colors: [colorHex, '#334155', '#94a3b8', '#cbd5e1']
-  })
+const syncPickerFromHex = (hex: string) => {
+  if (!hex || !hex.startsWith('#')) return
+  const cleanHex = hex.trim()
+  if (cleanHex.length !== 7 && cleanHex.length !== 4) return
+  const { h, s, l } = hexToHsl(cleanHex)
+  pickerHue.value = h
+  pickerSaturation.value = s
+  pickerLightness.value = l
 }
+
+const handleHexInput = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  let val = target.value.trim()
+  if (!val.startsWith('#')) val = '#' + val
+  if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+    syncPickerFromHex(val)
+  }
+}
+
+const handleSelectInspiration = (hex: string) => {
+  syncPickerFromHex(hex)
+}
+
+const openNativeColorPicker = () => {
+  nativeColorInputRef.value?.click()
+}
+
+const onNativeColorChange = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  if (target.value) {
+    syncPickerFromHex(target.value)
+  }
+}
+
+const handleSaveCustomColor = async () => {
+  if (isSavingColor.value) return
+  const colorToSave = selectedCustomColor.value
+  isSavingColor.value = true
+
+  try {
+    await updateMyProfile({ avatar_color: colorToSave })
+    triggerToast('Zapisano Twój unikalny kolor akcentu!')
+    confetti({
+      particleCount: 50,
+      spread: 60,
+      origin: { y: 0.6 },
+      colors: [colorToSave, '#ffffff', '#94a3b8', '#0f172a']
+    })
+  } catch (err: any) {
+    triggerToast('Nie udało się zapisać koloru: ' + (err?.message || err), { type: 'warning' })
+  } finally {
+    isSavingColor.value = false
+  }
+}
+
+watch(currentUserAccentColor, (newColor) => {
+  if (newColor && newColor.toLowerCase() !== selectedCustomColor.value.toLowerCase()) {
+    syncPickerFromHex(newColor)
+  }
+})
 
 // Personal Profile Modal
 const isEditProfileModalOpen = ref(false)
@@ -2776,36 +3053,288 @@ const handleRefresh = async (event: any) => {
   border: 1px solid currentColor;
 }
 
-.accent-palette-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 10px;
-  margin: 12px 0 16px 0;
+/* ========================================================== */
+/* RGB COLOR PICKER SLIDERS & CONTROLS                        */
+/* ========================================================== */
+.rgb-picker-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 16px;
+  margin: 14px 0 16px 0;
 }
 
-.accent-color-btn {
-  width: 100%;
-  aspect-ratio: 1;
+.picker-top-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.color-swatch-disc {
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  border: 3px solid transparent;
+  border: 3px solid #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.08);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
-  font-size: 18px;
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  position: relative;
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
 }
 
-.accent-color-btn:active {
+.color-swatch-disc:hover {
+  transform: scale(1.05);
+}
+
+.swatch-pipette-icon {
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.9);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+  pointer-events: none;
+}
+
+.native-color-hidden-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
+.color-meta-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+
+.hex-input-wrap {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 4px 10px;
+  max-width: 130px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.hash-label {
+  font-size: 13px;
+  font-weight: 800;
+  color: #94a3b8;
+  margin-right: 2px;
+}
+
+.hex-text-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 800;
+  font-family: monospace;
+  color: #0f172a;
+  outline: none;
+  letter-spacing: 0.05em;
+}
+
+.rgb-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  font-family: monospace;
+  padding-left: 2px;
+}
+
+.apply-accent-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  flex-shrink: 0;
+}
+
+.apply-accent-btn:active {
+  transform: scale(0.96);
+}
+
+.save-color-spinner {
+  width: 18px;
+  height: 18px;
+}
+
+.slider-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.slider-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.slider-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.slider-value-pill {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #0f172a;
+  background: #ffffff;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  font-family: monospace;
+}
+
+.slider-track-wrap {
+  width: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.duo-color-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.hue-range {
+  background: linear-gradient(
+    to right,
+    #ff0000 0%,
+    #ffff00 17%,
+    #00ff00 33%,
+    #00ffff 50%,
+    #0000ff 67%,
+    #ff00ff 83%,
+    #ff0000 100%
+  );
+}
+
+/* Custom thumb styling across webkit and moz */
+.duo-color-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2.5px solid #0f172a;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.duo-color-range::-webkit-slider-thumb:active {
+  transform: scale(1.18);
+}
+
+.duo-color-range::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2.5px solid #0f172a;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+/* Inspirations swatches */
+.inspirations-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.inspirations-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.inspirations-chips-scroll {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 6px 2px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.inspiration-swatch-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 16px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.inspiration-swatch-btn:active {
   transform: scale(0.92);
 }
 
-.accent-color-btn.active {
-  transform: scale(1.1);
-  border-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.35), 0 4px 10px rgba(0, 0, 0, 0.2);
+.inspiration-swatch-btn.active {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px #0f172a, 0 3px 8px rgba(0, 0, 0, 0.25);
+}
+
+.swatch-check {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+.sample-avatar-text-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sample-avatar-sub {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
 }
 
 .live-preview-box {
@@ -3148,6 +3677,7 @@ const handleRefresh = async (event: any) => {
 .calendar-icon-bg { background: #f1f5f9; color: #334155; }
 .shopping-icon-bg { background: #f8fafc; color: #18181b; }
 .tasks-icon-bg { background: #f1f5f9; color: #0f172a; }
+.meals-icon-bg { background: #f8fafc; color: #0f172a; }
 .wishlist-icon-bg { background: #f8fafc; color: #1e293b; }
 .online-icon-bg { background: #f1f5f9; color: #334155; }
 .sound-icon-bg { background: #f8fafc; color: #475569; }
