@@ -318,9 +318,11 @@
               type="button"
               class="header-action-btn"
               @click="openAddCookbookRecipeModal()"
+              title="Dodaj własny przepis do książki"
             >
               <ion-icon :icon="ioniconsAddOutline" />
-              <span>Nowy przepis</span>
+              <span class="btn-text-full">Nowy przepis</span>
+              <span class="btn-text-short">Dodaj</span>
             </button>
           </div>
         </div>
@@ -4038,34 +4040,47 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px;
+  padding: 10px 12px;
   border-radius: 14px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .saved-header-texts {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
   min-width: 0;
 }
 
 .saved-title-row {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .saved-hero-icon {
   font-size: 18px;
   color: #0f172a;
+  flex-shrink: 0;
 }
 
 .saved-heading {
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 800;
   color: #0f172a;
   margin: 0;
+  white-space: nowrap;
+  letter-spacing: -0.2px;
+  flex-shrink: 0;
+}
+
+.saved-title-row .count-chip {
+  flex-shrink: 0;
 }
 
 .saved-subheading {
@@ -5416,17 +5431,31 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 .saved-header-actions-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex-shrink: 0;
+  margin-left: auto;
+}
+
+.saved-header-actions-group .header-action-btn {
+  padding: 5px 9px;
+  font-size: 11.5px;
+  white-space: nowrap;
+  border-radius: 9px;
+  font-weight: 700;
+  gap: 4px;
+}
+
+.saved-header-actions-group .header-action-btn ion-icon {
+  font-size: 14px;
 }
 
 .saved-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 7px 11px;
-  border-radius: 10px;
-  font-size: 12px;
+  gap: 4px;
+  padding: 5px 8px;
+  border-radius: 9px;
+  font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -5453,8 +5482,25 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .saved-action-btn.import-btn ion-icon {
-  font-size: 14px;
+  font-size: 13.5px;
   color: #0f172a;
+}
+
+.saved-header-actions-group .btn-text-full {
+  display: inline;
+}
+
+.saved-header-actions-group .btn-text-short {
+  display: none;
+}
+
+@media (max-width: 440px) {
+  .saved-header-actions-group .btn-text-full {
+    display: none;
+  }
+  .saved-header-actions-group .btn-text-short {
+    display: inline;
+  }
 }
 
 .recipe-badge-source.import {
