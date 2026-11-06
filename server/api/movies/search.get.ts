@@ -1,7 +1,16 @@
-import { defineEventHandler, getQuery } from 'h3'
+import { defineEventHandler, getQuery, createError } from 'h3'
 import { normalizeTmdbItem, getTmdbHeadersAndParams, TmdbRawItem } from '../../utils/tmdb'
+import { checkRateLimit } from '../../utils/rateLimit'
 
 export default defineEventHandler(async (event) => {
+  const rl = checkRateLimit(event, { maxRequests: 40, windowMs: 60_000, keyPrefix: 'movie_search' })
+  if (!rl.allowed) {
+    throw createError({
+      statusCode: 429,
+      statusMessage: 'Zbyt wiele zapytań wyszukiwania. Spróbuj ponownie za chwilę.'
+    })
+  }
+
   const query = getQuery(event)
   const searchQuery = String(query.q || query.query || '').trim()
   const filterType = String(query.type || 'all').toLowerCase()

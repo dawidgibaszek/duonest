@@ -5,6 +5,7 @@ import {
   sendWebPushToSubscription,
   type PushNotificationPayload
 } from '~/server/utils/webPush'
+import { checkRateLimit, getClientIp } from '~/server/utils/rateLimit'
 
 // Helper to format partner actions into Polish titles, bodies, and URLs
 function formatPartnerAction(
@@ -224,6 +225,15 @@ function formatPartnerAction(
 }
 
 export default defineEventHandler(async (event) => {
+  const ip = getClientIp(event)
+  const rate = checkRateLimit(`push_send:${ip}`, 30, 60000)
+  if (!rate.allowed) {
+    throw createError({
+      statusCode: 429,
+      statusMessage: 'Zbyt wiele powiadomień. Odczekaj chwilę.'
+    })
+  }
+
   const config = useRuntimeConfig(event)
   const body = await readBody(event)
 
@@ -251,17 +261,50 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Authorization check: If sender and partnership provided, verify sender membership in partnership
+  if (body.partnershipId && body.senderUserId) {
+    const { data: part, error: pErr } = await supabase
+      .from('partnerships')
+      .select('partner1_id, partner2_id')
+      .eq('id', body.partnershipId)
+      .maybeSingle()
+
+    if (pErr || !part) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: 'Partnership not found'
+      })
+    }
+
+    if (part.partner1_id !== body.senderUserId && part.partner2_id !== body.senderUserId) {
+      throw createError({
+        statusCode: 403,
+        statusMessage: 'Unauthorized: Sender is not a member of this partnership'
+      })
+    }
+  }
+
+  // Sanitize redirect URL to prevent Open Redirect
+  const sanitizeUrl = (raw: string | undefined): string => {
+    if (!raw || typeof raw !== 'string') return '/tabs/nest'
+    const clean = raw.trim()
+    if (clean.startsWith('/') && !clean.startsWith('//') && !clean.includes('\\')) {
+      return clean
+    }
+    return '/tabs/nest'
+  }
+
   let finalPayload: PushNotificationPayload | null = null
 
   // 1. Either formatted directly:
   if (body.title && body.body) {
     finalPayload = {
-      title: body.title,
-      body: body.body,
-      icon: body.icon || '/pwa-192x192.png',
-      badge: body.badge || '/favicon.png',
+      title: String(body.title).slice(0, 120),
+      body: String(body.body).slice(0, 400),
+      icon: '/pwa-192x192.png',
+      badge: '/favicon.png',
       data: {
-        url: body.url || '/tabs/nest',
+        url: sanitizeUrl(body.url),
         category: body.category || 'nudges',
         ...(body.data || {})
       },
@@ -279,12 +322,12 @@ export default defineEventHandler(async (event) => {
       }
     }
     finalPayload = {
-      title: formatted.title,
-      body: formatted.body,
+      title: String(formatted.title).slice(0, 120),
+      body: String(formatted.body).slice(0, 400),
       icon: '/pwa-192x192.png',
       badge: '/favicon.png',
       data: {
-        url: formatted.url,
+        url: sanitizeUrl(formatted.url),
         category: formatted.category,
         action: body.action
       },

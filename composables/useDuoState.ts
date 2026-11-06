@@ -18,6 +18,8 @@ export interface Profile {
   points?: number
   last_seen_at?: string | null
   updated_at?: string | null
+  password_hash?: string | null
+  is_email_verified?: boolean
 }
 
 export interface Partnership {
@@ -314,6 +316,10 @@ const realtimeStatus = ref<'connected' | 'connecting' | 'disconnected'>('disconn
 const dbSchemaStatus = ref<'checking' | 'connected' | 'missing_tables'>('checking')
 const isPartnerOnline = ref(false)
 const partnerLastSeenAt = ref<string | null>(null)
+let loginFailures = 0
+let loginLockoutUntil = 0
+let pairingFailures = 0
+let pairingLockoutUntil = 0
 const NUDGE_COOLDOWN_MS = 24 * 60 * 60 * 1000 // 24 hours per nudge per user
 const lastNudgeSentAt = ref<number | null>(null)
 const nowTimestamp = ref(Date.now())
@@ -855,7 +861,7 @@ export const useDuoState = () => {
         if (partnerId) {
           const { data: pUser } = await client
             .from('profiles')
-            .select('*')
+            .select('id, name, email, avatar_url, avatar_color, pairing_code, partnership_id, current_mood, mood_note, mood_updated_at, love_note, favorite_drink, favorite_treat, points, last_seen_at, created_at, updated_at')
             .eq('id', partnerId)
             .maybeSingle()
 
@@ -865,6 +871,7 @@ export const useDuoState = () => {
               partnerUser.value = {
                 ...createInitialProfile(),
                 ...pUser,
+                password_hash: undefined,
                 name: pUser.name || (pUser.email ? pUser.email.split('@')[0] : 'Partner'),
                 love_note: (pUser.love_note === 'Budujemy nasze wspólne gniazdko!' || pUser.love_note === 'Cieszę się, że jesteśmy razem!') ? '' : (pUser.love_note || ''),
                 favorite_drink: pUser.favorite_drink === 'Kawa z mlekiem' ? '' : (pUser.favorite_drink || ''),
@@ -958,14 +965,19 @@ export const useDuoState = () => {
     const cleanEmail = sanitizeEmail(email)
     if (!cleanEmail) return { data: null, error: new Error('Wprowadź adres e-mail') }
 
+    if (loginLockoutUntil.value > Date.now()) {
+      const waitSec = Math.ceil((loginLockoutUntil.value - Date.now()) / 1000)
+      return { data: null, error: new Error(`Zbyt wiele nieudanych prób logowania. Odczekaj ${waitSec} s przed kolejną próbą.`) }
+    }
+
     try {
       clearSupabaseSessionStorage()
 
-      // Direct multi-strategy query to Supabase profiles by email using clean DB client
+      // Direct secure query to Supabase profiles by exact email
       let dbProfile: any = null
       let fetchErr: any = null
 
-      // Strategy 1: Case-insensitive ilike on email
+      // Strategy 1: Case-insensitive ilike on exact email
       const res1 = await dbClient
         .from('profiles')
         .select('*')
@@ -994,41 +1006,7 @@ export const useDuoState = () => {
         }
       }
 
-      // Strategy 3: Substring ilike match
-      if (!dbProfile) {
-        const res3 = await dbClient
-          .from('profiles')
-          .select('*')
-          .ilike('email', `%${cleanEmail}%`)
-          .limit(1)
-          .maybeSingle()
-        if (res3.data) {
-          dbProfile = res3.data
-          fetchErr = null
-        }
-      }
-
-      // Strategy 4: In-memory normalized scan over all profiles (bulletproof against invisible Unicode / formatting)
-      if (!dbProfile) {
-        const res4 = await dbClient
-          .from('profiles')
-          .select('*')
-        if (res4.data && res4.data.length > 0) {
-          const strippedTarget = cleanEmail.replace(/[^a-zA-Z0-9@.]/g, '').toLowerCase()
-          const matched = res4.data.find((p: any) => {
-            if (!p.email) return false
-            const pClean = sanitizeEmail(p.email)
-            if (pClean === cleanEmail) return true
-            return pClean.replace(/[^a-zA-Z0-9@.]/g, '').toLowerCase() === strippedTarget
-          })
-          if (matched) {
-            dbProfile = matched
-            fetchErr = null
-          }
-        }
-      }
-
-      // Strategy 5: Resilient fallback via global client
+      // Strategy 3: Resilient fallback via global client (exact ilike only)
       if (!dbProfile) {
         const authClient = getSupabaseClient()
         if (authClient) {
@@ -1063,26 +1041,38 @@ export const useDuoState = () => {
 
       // Validate password & email verification status
       const rawColor = dbProfile.avatar_color || '#0284c7'
-      let storedHash = ''
+      let storedHash = dbProfile.password_hash || ''
       let displayColor = '#0284c7'
-      let isUnverified = false
+      let isUnverified = dbProfile.is_email_verified === false
 
       if (rawColor.includes('|')) {
         const parts = rawColor.split('|')
         displayColor = parts[0] || '#0284c7'
-        storedHash = parts[1] || ''
-        isUnverified = parts[2] === 'unverified'
+        if (!storedHash) {
+          storedHash = parts[1] || ''
+        }
+        if (parts[2] === 'unverified') {
+          isUnverified = true
+        }
       } else {
         displayColor = rawColor
       }
 
       const isPasswordValid = await verifyPassword(password, storedHash)
       if (!isPasswordValid) {
+        loginFailures.value++
+        if (loginFailures.value >= 5) {
+          loginLockoutUntil.value = Date.now() + 30000
+        }
         return {
           data: null,
           error: new Error('Nieprawidłowe hasło. Sprawdź hasło i spróbuj ponownie.')
         }
       }
+
+      // Reset lockout counters on success
+      loginFailures.value = 0
+      loginLockoutUntil.value = 0
 
       // Check email verification for newly registered accounts
       if (isUnverified) {
@@ -1101,10 +1091,19 @@ export const useDuoState = () => {
           isUnverified = false
           try {
             await dbClient.from('profiles').update({
-              avatar_color: `${displayColor}|${storedHash}`,
+              avatar_color: displayColor,
+              password_hash: storedHash,
+              is_email_verified: true,
               updated_at: new Date().toISOString()
             }).eq('id', dbProfile.id)
-          } catch (_) {}
+          } catch (_) {
+            try {
+              await dbClient.from('profiles').update({
+                avatar_color: `${displayColor}|${storedHash}`,
+                updated_at: new Date().toISOString()
+              }).eq('id', dbProfile.id)
+            } catch (_) {}
+          }
         } else {
           return {
             data: null,
@@ -1113,16 +1112,28 @@ export const useDuoState = () => {
         }
       }
 
-      // If user profile had a legacy hash (h_ prefix), safely upgrade it now to modern SHA-256 in Supabase
+      // Upgrade legacy or inline hash to dedicated password_hash column
+      let modernHash = storedHash
       if (storedHash && storedHash.startsWith('h_')) {
-        const modernHash = await hashPassword(password)
+        modernHash = await hashPassword(password)
+      }
+
+      if (rawColor.includes('|') || storedHash.startsWith('h_') || !dbProfile.password_hash) {
         try {
           await dbClient.from('profiles').update({
-            avatar_color: `${displayColor}|${modernHash}`,
+            avatar_color: displayColor,
+            password_hash: modernHash,
             updated_at: new Date().toISOString()
           }).eq('id', dbProfile.id)
-          storedHash = modernHash
-        } catch (_) {}
+        } catch (_) {
+          try {
+            await dbClient.from('profiles').update({
+              avatar_color: `${displayColor}|${modernHash}`,
+              updated_at: new Date().toISOString()
+            }).eq('id', dbProfile.id)
+          } catch (_) {}
+        }
+        storedHash = modernHash
       }
 
       currentUserPasswordHash.value = storedHash
@@ -1215,7 +1226,9 @@ export const useDuoState = () => {
         email: cleanEmail,
         name: cleanName,
         avatar_url: null,
-        avatar_color: `#0284c7|${passHash}|unverified`,
+        avatar_color: '#0284c7',
+        password_hash: passHash,
+        is_email_verified: false,
         pairing_code: newPairingCode,
         partnership_id: null,
         current_mood: 'happy',
@@ -1225,10 +1238,19 @@ export const useDuoState = () => {
         favorite_treat: ''
       }
 
-      // 3. Insert into Supabase profiles
-      const { error: insertErr } = await dbClient
+      // 3. Insert into Supabase profiles (with fallback for legacy schema without password_hash)
+      let { error: insertErr } = await dbClient
         .from('profiles')
         .insert(newProfile)
+
+      if (insertErr && (insertErr.message?.includes('password_hash') || insertErr.message?.includes('is_email_verified'))) {
+        const fallbackProfile: any = { ...newProfile }
+        delete fallbackProfile.password_hash
+        delete fallbackProfile.is_email_verified
+        fallbackProfile.avatar_color = `#0284c7|${passHash}|unverified`
+        const resFb = await dbClient.from('profiles').insert(fallbackProfile)
+        insertErr = resFb.error
+      }
 
       if (insertErr) {
         console.error('Supabase profile creation error:', insertErr)
@@ -1399,23 +1421,6 @@ export const useDuoState = () => {
         }
       }
 
-      if (!dbProfile) {
-        const { data: allProfiles } = await dbClient.from('profiles').select('*')
-        if (allProfiles && allProfiles.length > 0) {
-          const strippedTarget = cleanEmail.replace(/[^a-zA-Z0-9@.]/g, '').toLowerCase()
-          const matched = allProfiles.find((p: any) => {
-            if (!p.email) return false
-            const pClean = sanitizeEmail(p.email)
-            if (pClean === cleanEmail) return true
-            return pClean.replace(/[^a-zA-Z0-9@.]/g, '').toLowerCase() === strippedTarget
-          })
-          if (matched) {
-            dbProfile = matched
-            profileErr = null
-          }
-        }
-      }
-
       if (profileErr && !dbProfile) {
         console.error('Error fetching profile for password reset:', profileErr)
         return { data: null, error: new Error('Błąd odczytu profilu: ' + (profileErr.message || profileErr)) }
@@ -1431,16 +1436,30 @@ export const useDuoState = () => {
       // 5. Update password hash directly in profiles table (AWAITED and verified with .select())
       const rawColor = dbProfile.avatar_color || '#0284c7'
       const displayColor = rawColor.includes('|') ? rawColor.split('|')[0] : rawColor
-      const updatedAvatarColor = `${displayColor}|${modernHash}`
 
-      const { data: updatedRows, error: updateErr } = await dbClient
+      let { data: updatedRows, error: updateErr } = await dbClient
         .from('profiles')
         .update({
-          avatar_color: updatedAvatarColor,
+          avatar_color: displayColor,
+          password_hash: modernHash,
+          is_email_verified: true,
           updated_at: new Date().toISOString()
         })
         .eq('id', dbProfile.id)
         .select()
+
+      if (updateErr && updateErr.message?.includes('password_hash')) {
+        const fbRes = await dbClient
+          .from('profiles')
+          .update({
+            avatar_color: `${displayColor}|${modernHash}`,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', dbProfile.id)
+          .select()
+        updatedRows = fbRes.data
+        updateErr = fbRes.error
+      }
 
       if (updateErr) {
         console.error('Failed to update password hash in profiles:', updateErr)
@@ -1627,13 +1646,15 @@ export const useDuoState = () => {
       }
 
       const rawColor = dbProfile.avatar_color || '#0284c7'
-      let storedHash = ''
+      let storedHash = dbProfile.password_hash || ''
       let displayColor = '#0284c7'
 
       if (rawColor.includes('|')) {
         const parts = rawColor.split('|')
         displayColor = parts[0] || '#0284c7'
-        storedHash = parts[1] || ''
+        if (!storedHash) {
+          storedHash = parts[1] || ''
+        }
       } else {
         displayColor = rawColor
       }
@@ -1651,17 +1672,30 @@ export const useDuoState = () => {
 
       // 3. Compute modern SHA-256 hash for the new password
       const modernHash = await hashPassword(newPassword)
-      const updatedColor = `${displayColor}|${modernHash}`
 
       // 4. Update password directly in profiles table (AWAITED and verified with .select())
-      const { data: updatedRows, error: updateErr } = await dbClient
+      let { data: updatedRows, error: updateErr } = await dbClient
         .from('profiles')
         .update({
-          avatar_color: updatedColor,
+          avatar_color: displayColor,
+          password_hash: modernHash,
           updated_at: new Date().toISOString()
         })
         .eq('id', userId)
         .select()
+
+      if (updateErr && updateErr.message?.includes('password_hash')) {
+        const fbRes = await dbClient
+          .from('profiles')
+          .update({
+            avatar_color: `${displayColor}|${modernHash}`,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', userId)
+          .select()
+        updatedRows = fbRes.data
+        updateErr = fbRes.error
+      }
 
       if (updateErr) {
         console.error('Password change error in profiles:', updateErr)
@@ -2174,7 +2208,7 @@ export const useDuoState = () => {
           if (partnerId) {
             const { data: pUser } = await client
               .from('profiles')
-              .select('*')
+              .select('id, name, email, avatar_url, avatar_color, pairing_code, partnership_id, current_mood, mood_note, mood_updated_at, love_note, favorite_drink, favorite_treat, points, last_seen_at, created_at, updated_at')
               .eq('id', partnerId)
               .maybeSingle()
             if (pUser) {
@@ -2184,6 +2218,7 @@ export const useDuoState = () => {
                 ...createInitialProfile(),
                 ...(partnerUser.value || {}),
                 ...pUser,
+                password_hash: undefined,
                 name: pUser.name || partnerUser.value?.name || 'Partner',
                 avatar_color: cleanPColor,
                 points: Number(pUser.points) || 0
@@ -3444,6 +3479,11 @@ export const useDuoState = () => {
       return { success: false, error: 'Wprowadź kod parowania lub adres e-mail partnera.' }
     }
 
+    if (pairingLockoutUntil.value > Date.now()) {
+      const waitSec = Math.ceil((pairingLockoutUntil.value - Date.now()) / 1000)
+      return { success: false, error: `Zbyt wiele nieudanych prób parowania. Odczekaj ${waitSec} s przed kolejną próbą.` }
+    }
+
     const trimmedInput = rawInput.trim()
     const myCleanEmail = sanitizeEmail(currentUser.value?.email || authUser.value?.email)
     const myCode = normalizePairingCode(currentUser.value?.pairing_code)
@@ -3466,13 +3506,14 @@ export const useDuoState = () => {
       return { success: false, error: 'Brak połączenia z bazą danych.' }
     }
 
-    // 1. Search for partner profile in Supabase
+    // 1. Search for partner profile in Supabase (requesting only safe public columns)
+    const safeProfileFields = 'id, name, email, avatar_url, avatar_color, pairing_code, partnership_id, points, created_at, last_seen_at'
     let foundPartnerProfile: Profile | null = null
 
     if (isEmailInput) {
       const { data } = await dbClient
         .from('profiles')
-        .select('*')
+        .select(safeProfileFields)
         .ilike('email', targetEmail)
         .order('created_at', { ascending: true })
         .limit(1)
@@ -3484,7 +3525,7 @@ export const useDuoState = () => {
     } else {
       const { data } = await dbClient
         .from('profiles')
-        .select('*')
+        .select(safeProfileFields)
         .eq('pairing_code', targetCode)
         .limit(1)
         .maybeSingle()
@@ -3492,13 +3533,13 @@ export const useDuoState = () => {
       if (data) {
         foundPartnerProfile = data
       } else {
-        // Fallback: search without "DN-" prefix or partial match if someone didn't include DN-
+        // Fallback: exact match without "DN-" prefix if user entered alphanumeric code
         const rawClean = trimmedInput.toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^DN/, '')
-        if (rawClean) {
+        if (rawClean && rawClean.length >= 6) {
           const { data: fbData } = await dbClient
             .from('profiles')
-            .select('*')
-            .ilike('pairing_code', `%${rawClean}%`)
+            .select(safeProfileFields)
+            .eq('pairing_code', `DN-${rawClean}`)
             .limit(1)
             .maybeSingle()
           if (fbData) {
@@ -3508,26 +3549,26 @@ export const useDuoState = () => {
       }
     }
 
-    // Fallback: in case user entered email prefix (e.g. without domain)
-    if (!foundPartnerProfile && !isEmailInput) {
-      const { data: emailMatch } = await dbClient
-        .from('profiles')
-        .select('*')
-        .ilike('email', `${trimmedInput.toLowerCase()}%`)
-        .limit(1)
-        .maybeSingle()
-      if (emailMatch) {
-        foundPartnerProfile = emailMatch
-      }
-    }
-
     if (!foundPartnerProfile) {
+      pairingFailures.value++
+      if (pairingFailures.value >= 5) {
+        pairingLockoutUntil.value = Date.now() + 60000
+      }
       return {
         success: false,
         error: isEmailInput
           ? `Nie znaleziono użytkownika o adresie: ${targetEmail}. Upewnij się, że partner założył konto w DuoNest.`
           : `Nie znaleziono partnera z kodem: ${targetCode || trimmedInput}. Upewnij się, że kod jest poprawny lub wpisz adres e-mail partnera.`
       }
+    }
+
+    // Reset pairing lockout on found profile
+    pairingFailures.value = 0
+    pairingLockoutUntil.value = 0
+
+    // Ensure partner avatar_color is sanitized and carries no legacy hash parts
+    if (foundPartnerProfile.avatar_color && foundPartnerProfile.avatar_color.includes('|')) {
+      foundPartnerProfile.avatar_color = foundPartnerProfile.avatar_color.split('|')[0]
     }
 
     // Cannot pair with oneself
@@ -4281,26 +4322,12 @@ export const useDuoState = () => {
       // ONLY touch avatar_color in the DB if updates.avatar_color was explicitly provided
       if (updates.avatar_color) {
         const cleanNewColor = getCleanAccentColor(updates.avatar_color)
-        let hashToPreserve = currentUserPasswordHash.value || ''
-        if (!hashToPreserve && typeof window !== 'undefined') {
-          hashToPreserve = localStorage.getItem('duonest_user_pwd_hash') || ''
-        }
-        if (!hashToPreserve) {
-          try {
-            const { data: dbP } = await db.from('profiles').select('avatar_color').eq('id', currentUser.value.id).maybeSingle()
-            if (dbP?.avatar_color && dbP.avatar_color.includes('|')) {
-              hashToPreserve = dbP.avatar_color.split('|')[1] || ''
-              if (hashToPreserve && hashToPreserve !== 'unverified') {
-                currentUserPasswordHash.value = hashToPreserve
-                if (typeof window !== 'undefined') {
-                  localStorage.setItem('duonest_user_pwd_hash', hashToPreserve)
-                }
-              }
-            }
-          } catch (_) {}
-        }
+        profileDbUpdates.avatar_color = cleanNewColor
 
-        profileDbUpdates.avatar_color = hashToPreserve ? `${cleanNewColor}|${hashToPreserve}` : cleanNewColor
+        const hashToPreserve = currentUserPasswordHash.value || (typeof window !== 'undefined' ? localStorage.getItem('duonest_user_pwd_hash') : '')
+        if (hashToPreserve) {
+          profileDbUpdates.password_hash = hashToPreserve
+        }
       }
 
       safeDb(db.from('profiles').update(profileDbUpdates).eq('id', currentUser.value.id))

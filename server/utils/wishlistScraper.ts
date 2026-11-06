@@ -210,33 +210,87 @@ export function extractPriceFromHtml(html: string): { price: string | null; curr
 }
 
 function isPrivateHost(hostname: string): boolean {
-  const host = hostname.toLowerCase().trim()
+  let host = hostname.toLowerCase().trim()
+
+  // Strip IPv6 brackets if present
+  if (host.startsWith('[') && host.endsWith(']')) {
+    host = host.slice(1, -1)
+  }
+
+  // Common loopback, internal domains and cloud metadata names
   if (
     host === 'localhost' ||
     host.endsWith('.localhost') ||
     host.endsWith('.local') ||
     host.endsWith('.internal') ||
     host.endsWith('.lan') ||
+    host.endsWith('.corp') ||
+    host.endsWith('.home') ||
     host === '0.0.0.0' ||
     host === '127.0.0.1' ||
     host === '::1' ||
-    host === '[::1]'
+    host === 'metadata.google.internal' ||
+    host === 'instance-data'
   ) {
     return true
   }
 
-  // IPv4 range checks
-  const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/
-  const match = host.match(ipv4Regex)
-  if (match) {
-    const oct1 = parseInt(match[1], 10)
-    const oct2 = parseInt(match[2], 10)
-    if (oct1 === 10) return true // 10.0.0.0/8
-    if (oct1 === 127) return true // 127.0.0.0/8
-    if (oct1 === 169 && oct2 === 254) return true // 169.254.0.0/16 Link-local / AWS metadata
-    if (oct1 === 172 && oct2 >= 16 && oct2 <= 31) return true // 172.16.0.0/12
-    if (oct1 === 192 && oct2 === 168) return true // 192.168.0.0/16
-    if (oct1 === 0) return true // 0.0.0.0/8
+  // Integer IP notation (e.g., 2130706433 = 127.0.0.1)
+  if (/^\d+$/.test(host)) {
+    const num = parseInt(host, 10)
+    if (!isNaN(num) && num >= 0 && num <= 4294967295) {
+      const b1 = (num >>> 24) & 255
+      const b2 = (num >>> 16) & 255
+      if (b1 === 127 || b1 === 10 || b1 === 0) return true
+      if (b1 === 169 && b2 === 254) return true
+      if (b1 === 172 && b2 >= 16 && b2 <= 31) return true
+      if (b1 === 192 && b2 === 168) return true
+    }
+  }
+
+  // Hexadecimal notation (e.g. 0x7f000001)
+  if (/^0x[0-9a-f]+$/i.test(host)) {
+    const num = parseInt(host, 16)
+    if (!isNaN(num) && num >= 0 && num <= 4294967295) {
+      const b1 = (num >>> 24) & 255
+      const b2 = (num >>> 16) & 255
+      if (b1 === 127 || b1 === 10 || b1 === 0) return true
+      if (b1 === 169 && b2 === 254) return true
+      if (b1 === 172 && b2 >= 16 && b2 <= 31) return true
+      if (b1 === 192 && b2 === 168) return true
+    }
+  }
+
+  // IPv4 dotted notation (including octal or decimal parts)
+  const ipv4Parts = host.split('.')
+  if (ipv4Parts.length === 4) {
+    const parsedOctets = ipv4Parts.map(part => {
+      if (part.startsWith('0x') || part.startsWith('0X')) return parseInt(part, 16)
+      if (part.startsWith('0') && part.length > 1) return parseInt(part, 8)
+      return parseInt(part, 10)
+    })
+
+    if (parsedOctets.every(o => !isNaN(o) && o >= 0 && o <= 255)) {
+      const [oct1, oct2] = parsedOctets
+      if (oct1 === 10) return true // 10.0.0.0/8
+      if (oct1 === 127) return true // 127.0.0.0/8
+      if (oct1 === 169 && oct2 === 254) return true // 169.254.0.0/16 Link-local / AWS metadata
+      if (oct1 === 172 && oct2 >= 16 && oct2 <= 31) return true // 172.16.0.0/12
+      if (oct1 === 192 && oct2 === 168) return true // 192.168.0.0/16
+      if (oct1 === 0) return true // 0.0.0.0/8
+      if (oct1 === 100 && oct2 === 100) return true // Carrier-grade NAT / Alibaba metadata
+    }
+  }
+
+  // IPv6 checks (loopback, link-local, ULA, IPv4-mapped)
+  if (host.includes(':')) {
+    if (host === '::1' || host === '::') return true
+    if (host.startsWith('fe80:') || host.startsWith('fe8') || host.startsWith('fe9') || host.startsWith('fea') || host.startsWith('feb')) return true
+    if (host.startsWith('fc00:') || host.startsWith('fd')) return true
+    if (host.startsWith('::ffff:')) {
+      const mappedIpv4 = host.replace('::ffff:', '')
+      return isPrivateHost(mappedIpv4)
+    }
   }
 
   return false
@@ -291,26 +345,53 @@ export async function processScrape(rawUrl: string): Promise<{
   const defaultLogoFallback = `https://www.google.com/s2/favicons?domain=${parsedUrl.hostname}&sz=128`
 
   try {
-    const response = await fetch(parsedUrl.href, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-        'Upgrade-Insecure-Requests': '1'
-      },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(8000)
-    })
+    let currentUrl = parsedUrl.href
+    let redirectCount = 0
+    let response: Response | null = null
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
+    // Safe redirect-following loop with per-hop SSRF validation
+    while (redirectCount <= 4) {
+      const res = await fetch(currentUrl, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-User': '?1',
+          'Upgrade-Insecure-Requests': '1'
+        },
+        redirect: 'manual',
+        signal: AbortSignal.timeout(7000)
+      })
+
+      // Inspect redirect response
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get('location')
+        if (!location) break
+        const nextUrl = new URL(location, currentUrl)
+        if (!['http:', 'https:'].includes(nextUrl.protocol) || isPrivateHost(nextUrl.hostname)) {
+          return {
+            success: false,
+            error: 'Niedozwolony cel przekierowania ze względów bezpieczeństwa.'
+          }
+        }
+        currentUrl = nextUrl.href
+        redirectCount++
+        continue
+      }
+
+      response = res
+      break
     }
 
+    if (!response || !response.ok) {
+      throw new Error(`HTTP ${response?.status || 500}`)
+    }
+
+    // Limit read size to prevent memory exhaustion
     const rawText = await response.text()
     const html = rawText.slice(0, 500000)
 

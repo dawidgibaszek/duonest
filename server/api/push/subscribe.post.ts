@@ -1,7 +1,17 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { configureWebPush, getSupabaseServerClient } from '~/server/utils/webPush'
+import { checkRateLimit, getClientIp } from '~/server/utils/rateLimit'
 
 export default defineEventHandler(async (event) => {
+  const ip = getClientIp(event)
+  const rate = checkRateLimit(`push_sub:${ip}`, 20, 60000)
+  if (!rate.allowed) {
+    throw createError({
+      statusCode: 429,
+      statusMessage: 'Zbyt wiele żądań rejestracji powiadomień. Odczekaj chwilę.'
+    })
+  }
+
   const config = useRuntimeConfig(event)
   const body = await readBody(event)
 
@@ -15,10 +25,21 @@ export default defineEventHandler(async (event) => {
   const { userId, partnershipId, subscription, userAgent } = body
   const { endpoint, keys } = subscription
 
-  if (!endpoint || !keys?.p256dh || !keys?.auth) {
+  if (
+    !endpoint ||
+    typeof endpoint !== 'string' ||
+    !endpoint.startsWith('https://') ||
+    endpoint.length > 1024 ||
+    !keys?.p256dh ||
+    typeof keys.p256dh !== 'string' ||
+    keys.p256dh.length > 256 ||
+    !keys?.auth ||
+    typeof keys.auth !== 'string' ||
+    keys.auth.length > 256
+  ) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Invalid subscription object: missing endpoint, p256dh, or auth key'
+      statusMessage: 'Invalid subscription object: invalid endpoint or cryptographic keys'
     })
   }
 

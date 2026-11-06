@@ -4,8 +4,18 @@ import {
   getSupabaseServerClient,
   sendWebPushToSubscription
 } from '~/server/utils/webPush'
+import { checkRateLimit, getClientIp } from '~/server/utils/rateLimit'
 
 export default defineEventHandler(async (event) => {
+  const ip = getClientIp(event)
+  const rate = checkRateLimit(`push_test:${ip}`, 6, 60000)
+  if (!rate.allowed) {
+    throw createError({
+      statusCode: 429,
+      statusMessage: 'Zbyt wiele powiadomień testowych. Odczekaj chwilę.'
+    })
+  }
+
   const config = useRuntimeConfig(event)
   const body = await readBody(event)
 

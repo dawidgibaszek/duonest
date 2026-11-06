@@ -1,5 +1,6 @@
-import { defineEventHandler, getQuery } from 'h3'
+import { defineEventHandler, getQuery, createError } from 'h3'
 import { normalizeTmdbItem, getTmdbHeadersAndParams, TmdbRawItem } from '../../utils/tmdb'
+import { checkRateLimit } from '../../utils/rateLimit'
 
 const GENRE_MAP: Record<string, { movie?: number; tv?: number }> = {
   all: {},
@@ -19,6 +20,14 @@ const GENRE_MAP: Record<string, { movie?: number; tv?: number }> = {
 }
 
 export default defineEventHandler(async (event) => {
+  const rl = checkRateLimit(event, { maxRequests: 30, windowMs: 60_000, keyPrefix: 'movie_random' })
+  if (!rl.allowed) {
+    throw createError({
+      statusCode: 429,
+      statusMessage: 'Zbyt wiele zapytań losowania. Spróbuj ponownie za chwilę.'
+    })
+  }
+
   const query = getQuery(event)
   const requestedType = String(query.type || 'all').toLowerCase()
   const requestedGenre = String(query.genre || 'all').toLowerCase()

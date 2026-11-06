@@ -30,6 +30,7 @@ create table if not exists public.profiles (
 alter table if exists public.profiles add column if not exists points integer not null default 0;
 alter table if exists public.profiles add column if not exists is_email_verified boolean default true;
 alter table if exists public.profiles add column if not exists last_seen_at timestamptz default now();
+alter table if exists public.profiles add column if not exists password_hash text;
 
 -- 2. PARTNERSHIPS TABLE
 create table if not exists public.partnerships (
@@ -183,6 +184,7 @@ alter table public.movies add column if not exists last_watched_episode integer 
 -- ==========================================================
 -- INDEXES FOR FAST REALTIME QUERIES
 -- ==========================================================
+create index if not exists idx_profiles_email on public.profiles(lower(email));
 create index if not exists idx_profiles_pairing_code on public.profiles(pairing_code);
 create index if not exists idx_profiles_partnership on public.profiles(partnership_id);
 create index if not exists idx_shopping_partnership on public.shopping_items(partnership_id);
@@ -302,6 +304,12 @@ begin
 exception when others then null;
 end $$;
 
+do $$
+begin
+  alter publication supabase_realtime add table public.meals;
+exception when others then null;
+end $$;
+
 -- ==========================================================
 -- 8. PUSH NOTIFICATION SUBSCRIPTIONS (Web Push API)
 -- ==========================================================
@@ -326,8 +334,13 @@ alter table public.push_subscriptions enable row level security;
 alter table public.partnerships add column if not exists pet_id text default null;
 alter table public.partnerships add column if not exists pet_name text default null;
 alter table public.partnerships add column if not exists pet_xp integer default 0;
+-- Security Hardening: Revoke public anon and authenticated access to push_subscriptions
+-- Endpoints and cryptographic keys (p256dh, auth) must only be queried by backend service role
+revoke all on table public.push_subscriptions from anon, authenticated;
+grant all on table public.push_subscriptions to service_role;
 drop policy if exists "Allow all on push_subscriptions" on public.push_subscriptions;
-create policy "Allow all on push_subscriptions" on public.push_subscriptions for all using (true) with check (true);
+create policy "Service role only on push_subscriptions" on public.push_subscriptions
+  for all to service_role using (true) with check (true);
 
 -- ==========================================================
 -- 11. MEALS & DINNER PLANNER (Wspólny planer obiadów i posiłków)
