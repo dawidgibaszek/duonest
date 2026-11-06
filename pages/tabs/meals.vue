@@ -754,10 +754,10 @@
       :is-open="showDetailsModal"
       @didDismiss="showDetailsModal = false"
       class="dn-meal-sheet-modal dn-recipe-details-modal"
-      :breakpoints="[0, 0.9, 1]"
-      :initial-breakpoint="0.9"
+      :breakpoints="[0, 1]"
+      :initial-breakpoint="1"
+      :expand-to-scroll="false"
       :handle="true"
-      handle-behavior="cycle"
       data-no-swipe="true"
     >
       <ion-header class="modal-custom-header ion-no-border">
@@ -805,7 +805,7 @@
         </div>
       </ion-header>
 
-      <ion-content class="ion-padding recipe-modal-content" v-if="activeSelectedMeal">
+      <ion-content class="ion-padding recipe-modal-content" :scroll-y="true" v-if="activeSelectedMeal">
         <div class="modal-recipe-body">
           <!-- Hero Image Banner with Glass Badges -->
           <div
@@ -1008,10 +1008,10 @@
       :is-open="showAssignModal"
       @didDismiss="showAssignModal = false"
       class="dn-meal-sheet-modal"
-      :breakpoints="[0, 0.75, 0.94]"
-      :initial-breakpoint="0.75"
+      :breakpoints="[0, 1]"
+      :initial-breakpoint="1"
+      :expand-to-scroll="false"
       :handle="true"
-      handle-behavior="cycle"
       data-no-swipe="true"
     >
       <ion-header class="modal-custom-header ion-no-border">
@@ -1037,7 +1037,7 @@
         </div>
       </ion-header>
 
-      <ion-content class="ion-padding custom-meal-modal-content" v-if="assignTargetMeal">
+      <ion-content class="ion-padding custom-meal-modal-content" :scroll-y="true" v-if="assignTargetMeal">
         <div class="assign-form">
           <div class="assign-meal-preview dn-card">
             <div
@@ -1156,10 +1156,10 @@
       :is-open="showAddCustomModal"
       @didDismiss="showAddCustomModal = false"
       class="dn-meal-sheet-modal dn-custom-meal-modal"
-      :breakpoints="[0, 0.82, 0.95]"
-      :initial-breakpoint="0.82"
+      :breakpoints="[0, 1]"
+      :initial-breakpoint="1"
+      :expand-to-scroll="false"
       :handle="true"
-      handle-behavior="cycle"
       data-no-swipe="true"
     >
       <ion-header class="modal-custom-header ion-no-border">
@@ -1188,7 +1188,7 @@
         </div>
       </ion-header>
 
-      <ion-content class="ion-padding custom-meal-modal-content">
+      <ion-content class="ion-padding custom-meal-modal-content" :scroll-y="true">
         <!-- Shortcut to import from URL or TikTok -->
         <button
           type="button"
@@ -1427,10 +1427,10 @@
       :is-open="showPickSavedModal"
       @didDismiss="showPickSavedModal = false"
       class="dn-meal-sheet-modal dn-pick-saved-modal"
-      :breakpoints="[0, 0.82, 0.96]"
-      :initial-breakpoint="0.82"
+      :breakpoints="[0, 1]"
+      :initial-breakpoint="1"
+      :expand-to-scroll="false"
       :handle="true"
-      handle-behavior="cycle"
       data-no-swipe="true"
     >
       <ion-header class="modal-custom-header ion-no-border">
@@ -1459,7 +1459,7 @@
         </div>
       </ion-header>
 
-      <ion-content class="ion-padding custom-meal-modal-content">
+      <ion-content class="ion-padding custom-meal-modal-content" :scroll-y="true">
         <div class="pick-saved-modal-body">
           <!-- Search in modal -->
           <div class="explore-search-container" v-if="savedRecipes.length > 0">
@@ -1618,10 +1618,10 @@
       :is-open="showImportModal"
       @didDismiss="closeImportModal"
       class="dn-meal-sheet-modal dn-import-recipe-modal"
-      :breakpoints="[0, 0.88, 0.98]"
-      :initial-breakpoint="0.88"
+      :breakpoints="[0, 1]"
+      :initial-breakpoint="1"
+      :expand-to-scroll="false"
       :handle="true"
-      handle-behavior="cycle"
       data-no-swipe="true"
     >
       <ion-header class="modal-custom-header ion-no-border">
@@ -1647,7 +1647,7 @@
         </div>
       </ion-header>
 
-      <ion-content class="ion-padding import-modal-content">
+      <ion-content class="ion-padding import-modal-content" :scroll-y="true">
         <!-- KROK 1: Wprowadzanie adresu URL -->
         <div v-if="!importedRecipePreview" class="import-input-step">
           <!-- Supported Platforms Chips -->
@@ -5573,7 +5573,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 .import-modal-content {
   --background: #ffffff;
   --padding-top: 14px;
-  --padding-bottom: 30px;
+  --padding-bottom: 50px;
   --padding-start: 16px;
   --padding-end: 16px;
 }
@@ -5746,7 +5746,8 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   display: flex;
   gap: 10px;
   align-items: center;
-  margin-top: 8px;
+  margin-top: 14px;
+  padding-bottom: 28px;
 }
 
 .change-link-btn {
