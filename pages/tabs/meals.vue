@@ -1115,7 +1115,7 @@
                 <div class="step-badge-number">{{ sIdx + 1 }}</div>
                 <div class="step-card-body">
                   <span class="step-counter-label">Krok {{ sIdx + 1 }}</span>
-                  <p class="step-instruction-text">{{ step }}</p>
+                  <p class="step-instruction-text">{{ cleanStepDisplay(step) }}</p>
                 </div>
               </div>
             </div>
@@ -3076,6 +3076,11 @@ const handleToggleSaveRecipe = async (meal: any) => {
   })
 }
 
+const cleanStepDisplay = (step: string): string => {
+  if (!step) return ''
+  return step.replace(/^(?:krok\s*\d+[\s.:-]*|\d+[\s.:)-]+)\s*/i, '').trim()
+}
+
 const openSavedRecipeDetails = (recipe: SavedRecipe) => {
   activeSelectedMeal.value = {
     ...recipe,
@@ -3248,6 +3253,7 @@ const handleFetchRecipeFromUrl = async () => {
         imageUrl: res.recipe.imageUrl || '',
         ingredients: res.recipe.ingredients || [],
         instructions: res.recipe.instructions || '',
+        instructionsSteps: res.recipe.instructionsSteps || [],
         recipeUrl: res.recipe.recipeUrl || cleanUrl,
         sourceName: res.recipe.sourceName || 'Zaimportowano z sieci',
         source: 'import',

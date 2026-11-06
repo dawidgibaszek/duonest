@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import type { ScrapedRecipeData } from './recipeScraper'
 
 const ALLOWED_CATEGORIES = [
@@ -16,8 +18,8 @@ const ALLOWED_CATEGORIES = [
 ]
 
 const CANDIDATE_MODELS = [
-  'openai/gpt-oss-120b',
   'qwen/qwen3.8-27b',
+  'openai/gpt-oss-120b',
   'openai/gpt-oss-20b',
   'llama-3.3-70b-versatile',
   'llama-3.1-8b-instant'
@@ -34,11 +36,9 @@ function resolveGroqApiKey(): string {
     if (key) return key
   } catch (_) {}
 
-  // Local development direct .env fallback if dev server hasn't reloaded env
-  if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
+  // Local development direct .env fallback
+  if (typeof process !== 'undefined') {
     try {
-      const fs = require('fs')
-      const path = require('path')
       const envPath = path.resolve(process.cwd(), '.env')
       if (fs.existsSync(envPath)) {
         const text = fs.readFileSync(envPath, 'utf8')
@@ -53,14 +53,41 @@ function resolveGroqApiKey(): string {
   return ''
 }
 
+function resolveGroqModel(): string {
+  let model = (process.env.GROQ_MODEL || '').trim()
+  if (model) return model
+
+  try {
+    // @ts-ignore
+    const config = useRuntimeConfig?.()
+    model = (config?.groqModel || '').trim()
+    if (model) return model
+  } catch (_) {}
+
+  if (typeof process !== 'undefined') {
+    try {
+      const envPath = path.resolve(process.cwd(), '.env')
+      if (fs.existsSync(envPath)) {
+        const text = fs.readFileSync(envPath, 'utf8')
+        const match = text.match(/^\s*GROQ_MODEL\s*=\s*(.*)?$/m)
+        if (match && match[1]) {
+          return match[1].trim().replace(/^["']|["']$/g, '')
+        }
+      }
+    } catch (_) {}
+  }
+
+  return 'qwen/qwen3.8-27b'
+}
+
 export async function formatRecipeWithGroq(scraped: ScrapedRecipeData): Promise<ScrapedRecipeData> {
   const apiKey = resolveGroqApiKey()
   if (!apiKey) {
     return scraped
   }
 
-  const userModel = (process.env.GROQ_MODEL || '').trim()
-  const modelsToTry = Array.from(new Set([userModel, ...CANDIDATE_MODELS].filter(Boolean)))
+  const userModel = resolveGroqModel()
+  const modelsToTry = Array.from(new Set([userModel, ...CANDIDATE_MODELS].filter(Boolean))).slice(0, 2)
   const endpoint = 'https://api.groq.com/openai/v1/chat/completions'
 
   try {
@@ -80,7 +107,7 @@ export async function formatRecipeWithGroq(scraped: ScrapedRecipeData): Promise<
     for (const model of modelsToTry) {
       try {
         const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 7000)
+        const timeoutId = setTimeout(() => controller.abort(), 4500)
 
         const response = await fetch(endpoint, {
           method: 'POST',
@@ -91,27 +118,44 @@ export async function formatRecipeWithGroq(scraped: ScrapedRecipeData): Promise<
           body: JSON.stringify({
             model,
             temperature: 0.2,
-            max_tokens: 1800,
+            max_tokens: 3200,
             response_format: { type: 'json_object' },
             messages: [
               {
                 role: 'system',
-                content: `Jesteś profesjonalnym kucharzem i asystentem aplikacji kulinarnej DuoNest dla par.
-Twoim zadaniem jest uporządkowanie, oczyszczenie i ujednolicenie zaimportowanego przepisu kulinarnego w języku polskim.
-Odpowiedz wyłącznie poprawnym obiektem JSON w formacie:
+                content: `Jesteś profesjonalnym szefem kuchni i asystentem aplikacji kulinarnej DuoNest dla par.
+Twoim celem jest przekształcenie surowego, zaimportowanego przepisu kulinarnego (lub opisu z TikToka/YouTube/bloga) w czytelny, uporządkowany i gotowy do gotowania przepis w języku polskim.
+
+Zwróć WYŁĄCZNIE poprawny obiekt JSON o strukturze:
 {
-  "title": "Czysta, krótka i apetyczna nazwa potrawy (bez dopisków typu blog, serwis czy social media)",
+  "title": "Zwięzła, apetyczna nazwa potrawy (usuń nazwy blogów, serwisów, dopiski typu najlepszy przepis, #hashtagi)",
   "category": "Dokładnie jedna kategoria z listy: Śniadania, Makarony, Drób, Wołowina, Wieprzowina, Ryby, Wegetariańskie, Zupy, Desery, Szybkie dania, Kolacje, Obiad domowy",
-  "ingredients": ["składnik 1 z miarą lub wagą", "składnik 2..."],
-  "instructionsSteps": ["Krok 1 przygotowania...", "Krok 2..."],
-  "instructions": "Całość instrukcji przygotowania w czytelnych akapitach"
+  "ingredients": [
+    "Ilość i nazwa składnika (np. 500 g piersi z kurczaka)",
+    "Ilość i nazwa kolejnego składnika..."
+  ],
+  "instructionsSteps": [
+    "Krótki i konkretny opis pierwszej czynności (bez przedrostka Krok 1)",
+    "Krótki i konkretny opis kolejnej czynności...",
+    "..."
+  ],
+  "instructions": "1. Pierwszy krok przygotowania...\\n\\n2. Drugi krok przygotowania...\\n\\n3. Trzeci krok przygotowania..."
 }
 
-Zasady:
-1. Składniki: każdy element na liście powinien być zwięzły i konkretny (np. '500 g piersi z kurczaka', '2 ząbki czosnku', '1 łyżka oliwy').
-2. Przygotowanie: podziel na logiczne, czytelne kroki w języku polskim. Usuń hashtagi, prośby o subskrypcję, odnośniki do profili społecznościowych itp.
-3. Kategoria: wybierz jedną z dozwolonych kategorii, która najlepiej pasuje do dania.
-4. Zachowaj oryginalne proporcje i sens dania.`
+Zasady formatowania:
+1. Składniki (ingredients):
+   - Każdy element na liście to czysty, precyzyjny składnik z miarą lub wagą na początku (np. '200 ml śmietanki 30%', '1 łyżeczka oregano', 'szczypta soli').
+   - Jeśli składniki były sklejone w jeden ciąg, bezwzględnie rozbij je na osobne pozycje.
+   - Usuń reklamy marek, odnośniki i zbędne uwagi.
+2. Kroki przygotowania (instructionsSteps oraz instructions):
+   - Podziel proces na 3 do 7 ponumerowanych, logicznych i chronologicznych kroków (np. przygotowanie/krojenie, smażenie/gotowanie, sos, łączenie składników, podanie).
+   - W 'instructionsSteps' podaj czyste opisy czynności (bez 'Krok 1:' czy '1.').
+   - W 'instructions' każdy krok MUSI być ponumerowany (1., 2., 3...) i oddzielony podwójnym znakiem nowej linii (\\n\\n).
+   - Bezwzględnie usuń zwroty ze stron i social mediów: 'zaobserwuj profil', 'subskrybuj', 'link w bio', 'zostaw serduszko', hashtagi.
+   - Styl: naturalny, profesjonalny, konkretny i przyjazny język polski.
+3. Kategoria:
+   - Wybierz dokładnie jedną najbardziej trafną kategorię z listy (np. makaron -> Makarony; ciasta/serniki -> Desery; omlety -> Śniadania).
+4. Zachowaj wierność oryginalnym proporcjom składników.`
               },
               {
                 role: 'user',
@@ -129,8 +173,9 @@ Zasady:
         }
 
         if (!response.ok) {
-          console.warn(`[Groq AI] Request returned status ${response.status} for model ${model}`)
-          return scraped
+          const errDetail = await response.text().catch(() => '')
+          console.warn(`[Groq AI] Request returned status ${response.status} for model ${model}: ${errDetail}`)
+          continue
         }
 
         const data = await response.json()
@@ -161,13 +206,25 @@ Zasady:
       return scraped
     }
 
-    const formattedTitle = typeof parsed.title === 'string' && parsed.title.trim()
-      ? parsed.title.trim().slice(0, 100)
-      : scraped.title
+    let formattedTitle = scraped.title
+    if (typeof parsed.title === 'string' && parsed.title.trim()) {
+      formattedTitle = parsed.title
+        .trim()
+        .replace(/^["'„”«»]+|["'„”«»]+$/g, '')
+        .replace(/#\S+/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 100)
+    }
 
     let formattedCategory = scraped.category
     if (typeof parsed.category === 'string' && ALLOWED_CATEGORIES.includes(parsed.category.trim())) {
       formattedCategory = parsed.category.trim()
+    } else if (typeof parsed.category === 'string') {
+      const match = ALLOWED_CATEGORIES.find(
+        (c) => c.toLowerCase() === parsed.category.trim().toLowerCase()
+      )
+      if (match) formattedCategory = match
     }
 
     let formattedIngredients = scraped.ingredients
@@ -181,20 +238,40 @@ Zasady:
       }
     }
 
-    let formattedSteps = scraped.instructionsSteps || []
+    let formattedSteps: string[] = []
     if (Array.isArray(parsed.instructionsSteps) && parsed.instructionsSteps.length > 0) {
-      const validSteps = parsed.instructionsSteps
+      formattedSteps = parsed.instructionsSteps
         .map((s: any) => (typeof s === 'string' ? s.trim() : ''))
+        .map((s: string) => s.replace(/^(?:krok\s*\d+[\s.:-]*|\d+[\s.:)-]+)\s*/i, '').trim())
+        .filter((s: string) => s && s.length > 5)
+    }
+
+    // If steps weren't parsed properly but instructions was, split instructions into steps
+    if (formattedSteps.length <= 1 && typeof parsed.instructions === 'string' && parsed.instructions.trim()) {
+      const splitSteps = parsed.instructions
+        .split(/(?:\r?\n)+|(?<=\.)\s*(?=\d+\.\s+)/)
+        .map((s: string) => s.replace(/^(?:krok\s*\d+[\s.:-]*|\d+[\s.:)-]+)\s*/i, '').trim())
         .filter((s: string) => s && s.length > 5)
 
-      if (validSteps.length > 0) {
-        formattedSteps = validSteps
+      if (splitSteps.length > 1) {
+        formattedSteps = splitSteps
       }
     }
 
-    const formattedInstructions = typeof parsed.instructions === 'string' && parsed.instructions.trim()
-      ? parsed.instructions.trim()
-      : (formattedSteps.length > 0 ? formattedSteps.join('\n\n') : scraped.instructions)
+    if (formattedSteps.length === 0 && scraped.instructionsSteps && scraped.instructionsSteps.length > 0) {
+      formattedSteps = scraped.instructionsSteps
+        .map((s: string) => s.replace(/^(?:krok\s*\d+[\s.:-]*|\d+[\s.:)-]+)\s*/i, '').trim())
+        .filter((s: string) => s && s.length > 5)
+    }
+
+    let formattedInstructions = ''
+    if (formattedSteps.length > 0) {
+      formattedInstructions = formattedSteps.map((step, idx) => `${idx + 1}. ${step}`).join('\n\n')
+    } else if (typeof parsed.instructions === 'string' && parsed.instructions.trim()) {
+      formattedInstructions = parsed.instructions.trim()
+    } else {
+      formattedInstructions = scraped.instructions || ''
+    }
 
     return {
       ...scraped,
