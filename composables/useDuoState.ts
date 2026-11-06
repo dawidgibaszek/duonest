@@ -2485,7 +2485,7 @@ export const useDuoState = () => {
             if (data.pet_name) partnership.value.pet_name = data.pet_name
             if (data.pet_xp !== undefined) partnership.value.pet_xp = data.pet_xp
             syncToStorage()
-            triggerToast(`${senderName} zaktualizował(a) Waszego zwierzaka! 🐾`, { type: 'love', title: 'Wspólny Zwierzak' })
+            triggerToast(`${senderName} zaktualizował(a) Waszego zwierzaka!`, { type: 'love', title: 'Wspólny Zwierzak' })
           }
           break
         }
@@ -2522,7 +2522,7 @@ export const useDuoState = () => {
           if (data && !milestonesList.value.some(m => m.id === data.id)) {
             milestonesList.value.push(data)
             syncToStorage()
-            triggerToast(`Partner dodał nowy wspólny cel: ${data.title}! 🎯`)
+            triggerToast(`Partner dodał nowy wspólny cel: ${data.title}!`)
           }
           break
         }
@@ -2550,7 +2550,7 @@ export const useDuoState = () => {
               m.is_completed = true
               m.completed_at = data.completed_at || new Date().toISOString()
               syncToStorage()
-              triggerToast(`Wspólna nagroda została odebrana: ${m.title}! 🎉`)
+              triggerToast(`Wspólna nagroda została odebrana: ${m.title}!`)
             }
           }
           break
@@ -2581,7 +2581,7 @@ export const useDuoState = () => {
             } else if (data.for_user_id === data.created_by) {
               label = 'do swojej wishlisty'
             }
-            triggerToast(`${senderName} dodał(a) ${label}: "${data.title}" 🎁`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
+            triggerToast(`${senderName} dodał(a) ${label}: "${data.title}"`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
           }
           break
         }
@@ -2592,7 +2592,7 @@ export const useDuoState = () => {
               const updated = { ...wishlistItems.value[idx], ...data.updates }
               wishlistItems.value = wishlistItems.value.map(w => w.id === data.id ? updated : w)
               syncToStorage()
-              triggerToast(`${senderName} zaktualizował(a) marzenie: "${updated.title}" ✨`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
+              triggerToast(`${senderName} zaktualizował(a) marzenie: "${updated.title}"`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
             } else if (data.item) {
               wishlistItems.value = [data.item, ...wishlistItems.value.filter(w => w.id !== data.item.id)]
               syncToStorage()
@@ -2616,7 +2616,7 @@ export const useDuoState = () => {
             syncToStorage()
             const item = wishlistItems.value.find(w => w.id === data.id)
             if (data.is_completed) {
-              triggerToast(`${senderName} spełnił(a) marzenie: "${item?.title || 'Marzenie'}"! 🎉✨`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
+              triggerToast(`${senderName} spełnił(a) marzenie: "${item?.title || 'Marzenie'}"!`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
             }
           }
           break
@@ -2634,7 +2634,7 @@ export const useDuoState = () => {
             if (!isDup) {
               moviesList.value = [data, ...moviesList.value]
               syncToStorage()
-              triggerToast(`${senderName} dodał(a) "${data.title}" do Waszej listy filmów! 🍿`, { type: 'movies', title: 'Filmy & Seriale' })
+              triggerToast(`${senderName} dodał(a) "${data.title}" do Waszej listy filmów!`, { type: 'movies', title: 'Filmy & Seriale' })
             }
           }
           break
@@ -2648,7 +2648,7 @@ export const useDuoState = () => {
               moviesList.value = moviesList.value.map(m => m.id === data.id ? updated : m)
               syncToStorage()
               if (data.last_reviewer_id && data.last_reviewer_id !== currentUser.value?.id) {
-                triggerToast(`${senderName} ocenił(a) film: "${prev.title}"! ⭐ Sprawdź recenzję.`, { type: 'movies', title: 'Nowa recenzja' })
+                triggerToast(`${senderName} ocenił(a) film: "${prev.title}"! Sprawdź recenzję.`, { type: 'movies', title: 'Nowa recenzja' })
               }
             } else {
               moviesList.value = [data, ...moviesList.value]
@@ -2677,7 +2677,7 @@ export const useDuoState = () => {
               moviesList.value = [...moviesList.value]
               syncToStorage()
               if (data.status === 'watched') {
-                triggerToast(`${senderName} oznaczył(a) "${item.title}" jako obejrzane! 🎉 Czas na recenzję.`, { type: 'movies', title: 'Filmy & Seriale' })
+                triggerToast(`${senderName} oznaczył(a) "${item.title}" jako obejrzane! Czas na recenzję.`, { type: 'movies', title: 'Filmy & Seriale' })
               }
             }
           }
@@ -2692,7 +2692,7 @@ export const useDuoState = () => {
               mealsList.value = [data, ...mealsList.value]
               syncToStorage()
               const mealTitle = data.titlePl || data.title || 'posiłek'
-              triggerToast(`${senderName} zaplanował(a) obiad: "${mealTitle}"! 🍳`, { type: 'meals', title: 'Planer Obiadów' })
+              triggerToast(`${senderName} zaplanował(a) obiad: "${mealTitle}"!`, { type: 'meals', title: 'Planer Obiadów' })
             }
           }
           break
@@ -2724,7 +2724,7 @@ export const useDuoState = () => {
               syncToStorage()
               if (data.is_completed) {
                 const mealTitle = data.titlePl || data.title || item.titlePl || item.title || 'obiad'
-                triggerToast(`${senderName} oznaczył(a) obiad "${mealTitle}" jako zjedzony! 🍽️`, { type: 'meals', title: 'Planer Obiadów' })
+                triggerToast(`${senderName} oznaczył(a) obiad "${mealTitle}" jako zjedzony!`, { type: 'meals', title: 'Planer Obiadów' })
               }
             }
           }
@@ -4509,7 +4509,7 @@ export const useDuoState = () => {
     if (db && partnership.value?.id) {
       safeDb(db.from('milestones').insert(newMilestone))
     }
-    triggerToast(`Dodano cel: ${newMilestone.title}! 🎯`)
+    triggerToast(`Dodano cel: ${newMilestone.title}!`)
     return newMilestone
   }
 
@@ -4553,7 +4553,7 @@ export const useDuoState = () => {
     if (db) {
       safeDb(db.from('milestones').update({ is_completed: true, completed_at: now }).eq('id', id))
     }
-    triggerToast(`Gratulacje! Nagroda "${m.title}" została odebrana! 🎉`)
+    triggerToast(`Gratulacje! Nagroda "${m.title}" została odebrana!`)
   }
 
   const reactivateMilestone = async (id: string) => {
@@ -4567,7 +4567,7 @@ export const useDuoState = () => {
     if (db) {
       safeDb(db.from('milestones').update({ is_completed: false, completed_at: null }).eq('id', id))
     }
-    triggerToast(`Cel "${m.title}" został ustawiony ponownie! 🚀`)
+    triggerToast(`Cel "${m.title}" został ustawiony ponownie!`)
   }
 
   // --- WISHLIST & GIFT CRUD ACTIONS ---
@@ -4618,8 +4618,8 @@ export const useDuoState = () => {
     }
 
     const msg = !newItem.is_visible_to_partner
-      ? `Dodano niespodziankę dla partnera (ukryte przed nim 🤫): "${newItem.title}"`
-      : `Dodano do listy marzeń: "${newItem.title}"! ✨`
+      ? `Dodano niespodziankę dla partnera (ukryte przed nim): "${newItem.title}"`
+      : `Dodano do listy marzeń: "${newItem.title}"!`
     triggerToast(msg)
 
     return newItem
@@ -4651,7 +4651,7 @@ export const useDuoState = () => {
       broadcastToPartner('WISHLIST_DELETE', { id })
     }
 
-    triggerToast(`Zaktualizowano marzenie: "${updated.title}"! ✨`)
+    triggerToast(`Zaktualizowano marzenie: "${updated.title}"!`)
     return updated
   }
 
@@ -4697,7 +4697,7 @@ export const useDuoState = () => {
       })
     }
 
-    triggerToast(newCompleted ? `Marzenie "${item.title}" zostało spełnione! 🎉` : `Oznaczono marzenie jako niespełnione.`)
+    triggerToast(newCompleted ? `Marzenie "${item.title}" zostało spełnione!` : `Oznaczono marzenie jako niespełnione.`)
   }
 
   let _refreshWishlistInFlight = false
@@ -4778,7 +4778,7 @@ export const useDuoState = () => {
     })
 
     if (existing) {
-      triggerToast(`"${existing.title}" znajduje się już na Waszej liście seansów! 🍿`, {
+      triggerToast(`"${existing.title}" znajduje się już na Waszej liście seansów!`, {
         type: 'movies',
         title: 'Już na liście'
       })
@@ -4819,7 +4819,7 @@ export const useDuoState = () => {
       safeDb(client.from('movies').insert(newDoc))
     }
 
-    triggerToast(`Dodano "${newDoc.title}" do Waszej listy! 🍿`, { type: 'movies', title: 'Filmy & Seriale' })
+    triggerToast(`Dodano "${newDoc.title}" do Waszej listy!`, { type: 'movies', title: 'Filmy & Seriale' })
     return newDoc
   }
 
@@ -4890,9 +4890,9 @@ export const useDuoState = () => {
     }
 
     if (newStatus === 'watched') {
-      triggerToast(`"${item.title}" oznaczono jako obejrzane! 🎉 Czas na recenzję.`, { type: 'movies', title: 'Filmy & Seriale' })
+      triggerToast(`"${item.title}" oznaczono jako obejrzane! Czas na recenzję.`, { type: 'movies', title: 'Filmy & Seriale' })
     } else if (newStatus === 'watching') {
-      triggerToast(`Zaczęliście seans "${item.title}"! 🍿`, { type: 'movies', title: 'Filmy & Seriale' })
+      triggerToast(`Zaczęliście seans "${item.title}"!`, { type: 'movies', title: 'Filmy & Seriale' })
     } else {
       triggerToast(`Przeniesiono "${item.title}" do planowanych.`)
     }
@@ -4931,7 +4931,7 @@ export const useDuoState = () => {
       safeDb(client.from('movies').update({ reviews }).eq('id', movieId))
     }
 
-    triggerToast(`Zapisano Twoją recenzję dla "${item.title}" (${rating}/10 ⭐)!`, { type: 'movies', title: 'Recenzje Filmowe' })
+    triggerToast(`Zapisano Twoją recenzję dla "${item.title}" (${rating}/10)!`, { type: 'movies', title: 'Recenzje Filmowe' })
   }
 
   const updateMovieProgress = async (id: string, season: number, episode: number) => {
@@ -4969,7 +4969,7 @@ export const useDuoState = () => {
       }).eq('id', id))
     }
 
-    triggerToast(`Zaktualizowano: ${item.title} (Sezon ${cleanSeason}, Odc. ${cleanEpisode})! 📺`, {
+    triggerToast(`Zaktualizowano: ${item.title} (Sezon ${cleanSeason}, Odc. ${cleanEpisode})!`, {
       type: 'movies',
       title: 'Postęp serialu'
     })
