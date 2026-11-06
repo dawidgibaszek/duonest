@@ -1380,6 +1380,7 @@ import { useRoute } from 'vue-router'
 import confetti from 'canvas-confetti'
 import { useDuoState } from '~/composables/useDuoState'
 import { usePushNotifications } from '~/composables/usePushNotifications'
+import { useConfirm } from '~/composables/useConfirm'
 import DuoIcon from '~/components/DuoIcon.vue'
 
 const route = useRoute()
@@ -1425,6 +1426,8 @@ const {
   toggleCategory: togglePushCategory,
   sendTestNotification
 } = usePushNotifications()
+
+const { confirm } = useConfirm()
 
 const currentCategory = ref<'relationship' | 'nest_settings'>(
   route.query.category === 'nest_settings' ? 'nest_settings' : 'relationship'
@@ -1787,9 +1790,19 @@ const handlePairWithCode = async () => {
   }
 }
 
-const handleDisconnect = () => {
-  disconnectPartnership()
-  navigateTo('/pairing', { replace: true })
+const handleDisconnect = async () => {
+  const confirmed = await confirm({
+    title: 'Rozłącz konto pary',
+    message: 'Czy na pewno chcesz rozłączyć połączenie z partnerem? Wspólne dane przestaną być synchronizowane.',
+    confirmText: 'Rozłącz parę',
+    cancelText: 'Anuluj',
+    type: 'danger',
+    icon: 'unlink'
+  })
+  if (confirmed) {
+    disconnectPartnership()
+    navigateTo('/pairing', { replace: true })
+  }
 }
 
 // Password Change inside Account Card
@@ -1867,7 +1880,17 @@ const handleChangePassword = async () => {
 }
 
 const handleSignOut = async () => {
-  await signOutUser()
+  const confirmed = await confirm({
+    title: 'Wyloguj się',
+    message: 'Czy na pewno chcesz wylogować się z aplikacji DuoNest?',
+    confirmText: 'Wyloguj',
+    cancelText: 'Zostań',
+    type: 'primary',
+    icon: 'logout'
+  })
+  if (confirmed) {
+    await signOutUser()
+  }
 }
 
 const handleRefresh = async (event: any) => {

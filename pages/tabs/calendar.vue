@@ -676,6 +676,7 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { useDuoState, type EventItem } from '~/composables/useDuoState'
+import { useConfirm } from '~/composables/useConfirm'
 import DuoIcon from '~/components/DuoIcon.vue'
 
 const {
@@ -694,6 +695,8 @@ const {
   hexToRgba,
   initSupabaseSync
 } = useDuoState()
+
+const { confirm } = useConfirm()
 
 // View modes: 'month' | 'week' | 'agenda'
 const activeViewMode = ref<'month' | 'week' | 'agenda'>('month')
@@ -1243,8 +1246,17 @@ const handleSaveEvent = async () => {
   }
 }
 
-const confirmDeleteEvent = (id: string, title: string) => {
-  if (confirm(`Czy na pewno chcesz usunąć plan "${title}"?`)) {
+const confirmDeleteEvent = async (id: string, title: string) => {
+  const confirmed = await confirm({
+    title: 'Usuń plan',
+    message: `Czy na pewno chcesz usunąć plan "${title}"?`,
+    itemHighlight: title,
+    confirmText: 'Usuń',
+    cancelText: 'Anuluj',
+    type: 'danger',
+    icon: 'trash'
+  })
+  if (confirmed) {
     deleteEvent(id)
   }
 }

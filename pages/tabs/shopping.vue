@@ -189,7 +189,7 @@
       <div class="completed-wrapper" v-if="filteredCompletedItems.length > 0">
         <div class="items-section-header completed-header">
           <span>KUPIONE ({{ filteredCompletedItems.length }})</span>
-          <button class="clear-btn" @click="clearCompletedShopping">
+          <button class="clear-btn" @click="handleClearCompleted">
             Wyczyść kupione
           </button>
         </div>
@@ -238,6 +238,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useDuoState } from '~/composables/useDuoState'
 import { usePetState } from '~/composables/usePetState'
+import { useConfirm } from '~/composables/useConfirm'
 import DuoIcon from '~/components/DuoIcon.vue'
 
 const {
@@ -255,6 +256,8 @@ const {
   hexToRgba,
   initSupabaseSync
 } = useDuoState()
+
+const { confirm } = useConfirm()
 
 const {
   hasPet,
@@ -407,6 +410,22 @@ const handleSwipeDelete = (id: string) => {
     navigator.vibrate([10, 30, 10])
   }
   deleteShoppingItem(id)
+}
+
+const handleClearCompleted = async () => {
+  const count = filteredCompletedItems.value.length
+  if (count === 0) return
+  const confirmed = await confirm({
+    title: 'Wyczyść kupione produkty',
+    message: `Czy na pewno chcesz usunąć wszystkie kupione produkty (${count}) z listy zakupów?`,
+    confirmText: 'Wyczyść kupione',
+    cancelText: 'Anuluj',
+    type: 'danger',
+    icon: 'trash'
+  })
+  if (confirmed) {
+    clearCompletedShopping()
+  }
 }
 
 const handleRefresh = async (event: any) => {

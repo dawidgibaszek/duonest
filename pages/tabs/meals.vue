@@ -244,7 +244,7 @@
                   <button
                     type="button"
                     class="meal-action-btn delete-btn"
-                    @click="handleDeleteMeal(day.meal.id)"
+                    @click.stop="handleDeleteMeal(day.meal.id, day.meal.title)"
                     title="Usuń z planu"
                   >
                     <ion-icon :icon="ioniconsTrashOutline" />
@@ -2065,6 +2065,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useDuoState, type MealItem, type MealIngredient } from '~/composables/useDuoState'
 import { usePetState } from '~/composables/usePetState'
+import { useConfirm } from '~/composables/useConfirm'
 
 const {
   shoppingItems,
@@ -2087,6 +2088,8 @@ const {
   refreshMeals,
   triggerToast
 } = useDuoState()
+
+const { confirm } = useConfirm()
 
 const {
   hasPet,
@@ -2486,8 +2489,19 @@ const handleToggleCompleted = async (meal: MealItem) => {
   await toggleMealCompleted(meal.id)
 }
 
-const handleDeleteMeal = async (id: string) => {
-  await deleteMeal(id)
+const handleDeleteMeal = async (id: string, mealTitle?: string) => {
+  const confirmed = await confirm({
+    title: 'Usuń obiad z planu',
+    message: mealTitle ? `Czy na pewno chcesz usunąć obiad "${mealTitle}" z jadłospisu na ten tydzień?` : 'Czy na pewno chcesz usunąć ten obiad z jadłospisu?',
+    itemHighlight: mealTitle || '',
+    confirmText: 'Usuń z planu',
+    cancelText: 'Anuluj',
+    type: 'danger',
+    icon: 'trash'
+  })
+  if (confirmed) {
+    await deleteMeal(id)
+  }
 }
 
 const handleAddMealIngredientsToShopping = async (meal: MealItem) => {
@@ -2990,7 +3004,16 @@ const isRecipeInSaved = (meal?: any): boolean => {
 const confirmDeleteSavedRecipe = async (recipe: SavedRecipe | any) => {
   if (!recipe) return
   const title = formatMealTitlePl(recipe.titlePl || recipe.title || recipe.name)
-  if (confirm(`Czy na pewno chcesz usunąć przepis "${title}" z Twoich przepisów?`)) {
+  const confirmed = await confirm({
+    title: 'Usuń przepis',
+    message: `Czy na pewno chcesz usunąć przepis "${title}" z Twoich przepisów?`,
+    itemHighlight: title,
+    confirmText: 'Usuń z książki',
+    cancelText: 'Anuluj',
+    type: 'danger',
+    icon: 'trash'
+  })
+  if (confirmed) {
     const key = recipe.key || (recipe.api_id ? `api_${recipe.api_id}` : (recipe.id ? `api_${recipe.id}` : `custom_${(recipe.title || '').trim().toLowerCase()}`))
     deletedSavedRecipeKeys.value.add(key)
     if (process.client) {

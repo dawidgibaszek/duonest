@@ -232,7 +232,7 @@
             <button
               type="button"
               class="card-btn delete-btn"
-              @click="handleDeleteItem(item.id)"
+              @click.stop="handleDeleteItem(item.id, item.title)"
               aria-label="Usuń"
             >
               <ion-icon :icon="ioniconsTrashOutline" />
@@ -485,7 +485,7 @@
                 type="button"
                 class="delete-item-btn"
                 :disabled="isSubmitting"
-                @click="handleDeleteItem(editingItemId)"
+                @click="handleDeleteItem(editingItemId, modalForm.title)"
               >
                 <ion-icon :icon="ioniconsTrashOutline" />
                 <span>Usuń</span>
@@ -514,6 +514,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useDuoState, type WishlistItem } from '~/composables/useDuoState'
+import { useConfirm } from '~/composables/useConfirm'
 import { formatSiteName, extractTitleFromUrl } from '~/utils/wishlistParser'
 
 const contentRef = ref<any>(null)
@@ -534,6 +535,8 @@ const {
   hexToRgba,
   triggerToast
 } = useDuoState()
+
+const { confirm } = useConfirm()
 
 // Subtab switcher to Movies
 const plannedMoviesCount = computed(() => {
@@ -964,7 +967,19 @@ const handleToggleCompleted = async (id: string) => {
 }
 
 // Delete item
-const handleDeleteItem = async (id: string) => {
+const handleDeleteItem = async (id: string, title?: string) => {
+  const itemTitle = title || wishlistItems.value.find(i => i.id === id)?.title || ''
+  const confirmed = await confirm({
+    title: 'Usuń marzenie',
+    message: itemTitle ? `Czy na pewno chcesz usunąć marzenie "${itemTitle}" z Waszej listy marzeń?` : 'Czy na pewno chcesz usunąć to marzenie z Waszej listy marzeń?',
+    itemHighlight: itemTitle,
+    confirmText: 'Usuń marzenie',
+    cancelText: 'Anuluj',
+    type: 'danger',
+    icon: 'trash'
+  })
+  if (!confirmed) return
+
   await deleteWishlistItem(id)
   if (isModalOpen.value && editingItemId.value === id) {
     closeModal()

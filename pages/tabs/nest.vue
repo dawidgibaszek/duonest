@@ -765,6 +765,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import confetti from 'canvas-confetti'
 import { useDuoState } from '~/composables/useDuoState'
 import { usePushNotifications } from '~/composables/usePushNotifications'
+import { useConfirm } from '~/composables/useConfirm'
 import DuoIcon from '~/components/DuoIcon.vue'
 
 const {
@@ -802,6 +803,8 @@ const {
   reactivateMilestone,
   initSupabaseSync
 } = useDuoState()
+
+const { confirm } = useConfirm()
 
 const { askPermissionAfterPairing } = usePushNotifications()
 
@@ -1191,10 +1194,21 @@ const saveMilestone = () => {
   closeMilestoneModal()
 }
 
-const removeCurrentMilestone = () => {
+const removeCurrentMilestone = async () => {
   if (editingMilestoneId.value) {
-    deleteMilestone(editingMilestoneId.value)
-    closeMilestoneModal()
+    const confirmed = await confirm({
+      title: 'Usuń wspólny cel',
+      message: 'Czy na pewno chcesz usunąć ten cel z Waszego Gniazdka?',
+      itemHighlight: milestoneForm.title || '',
+      confirmText: 'Usuń cel',
+      cancelText: 'Anuluj',
+      type: 'danger',
+      icon: 'trash'
+    })
+    if (confirmed) {
+      deleteMilestone(editingMilestoneId.value)
+      closeMilestoneModal()
+    }
   }
 }
 

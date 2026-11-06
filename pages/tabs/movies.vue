@@ -1781,6 +1781,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useDuoState, type MovieItem } from '~/composables/useDuoState'
+import { useConfirm } from '~/composables/useConfirm'
 import confetti from 'canvas-confetti'
 
 const {
@@ -1802,6 +1803,8 @@ const {
   partnerUserAccentColor,
   triggerToast
 } = useDuoState()
+
+const { confirm } = useConfirm()
 
 // Subtab switcher to Wishlist
 const uncompletedWishlistCount = computed(() => {
@@ -2687,8 +2690,17 @@ const toggleMovieStatus = async (movie: MovieItem, newStatus: 'planned' | 'watch
   }
 }
 
-const confirmDeleteMovie = (movie: MovieItem) => {
-  if (window.confirm(`Czy na pewno chcesz usunąć "${movie.title}" z Waszej listy filmów?`)) {
+const confirmDeleteMovie = async (movie: MovieItem) => {
+  const confirmed = await confirm({
+    title: 'Usuń z listy filmów',
+    message: `Czy na pewno chcesz usunąć "${movie.title}" z Waszej wspólnej listy?`,
+    itemHighlight: movie.title,
+    confirmText: 'Usuń film',
+    cancelText: 'Anuluj',
+    type: 'danger',
+    icon: 'trash'
+  })
+  if (confirmed) {
     deleteMovie(movie.id)
   }
 }
