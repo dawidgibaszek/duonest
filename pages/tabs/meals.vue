@@ -1917,6 +1917,16 @@
               <ion-icon :icon="importedRecipePreview.sourceName?.includes('TikTok') ? ioniconsPlayCircleOutline : ioniconsGlobeOutline" />
               <span>{{ importedRecipePreview.sourceName || 'Zaimportowano z sieci' }}</span>
             </div>
+            <div v-if="importedRecipePreview.aiFormatted" class="imported-ai-badge">
+              <ion-icon :icon="ioniconsSparklesOutline" />
+              <span>Uporządkowane przez AI</span>
+            </div>
+          </div>
+          <div v-else-if="importedRecipePreview.aiFormatted" class="imported-ai-top-bar">
+            <span class="imported-ai-pill">
+              <ion-icon :icon="ioniconsSparklesOutline" />
+              <span>Przepis uporządkowany przez Groq AI</span>
+            </span>
           </div>
 
           <!-- Title Edit Field -->
@@ -3243,7 +3253,8 @@ const handleFetchRecipeFromUrl = async () => {
         instructions: res.recipe.instructions || '',
         recipeUrl: res.recipe.recipeUrl || cleanUrl,
         sourceName: res.recipe.sourceName || 'Zaimportowano z sieci',
-        source: 'import'
+        source: 'import',
+        aiFormatted: !!res.recipe.aiFormatted
       }
       importTargetDate.value = ''
     } else {
@@ -6666,6 +6677,53 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 .imported-source-badge ion-icon {
   font-size: 13px;
   color: #38bdf8;
+}
+
+.imported-ai-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.imported-ai-badge ion-icon {
+  font-size: 13px;
+  color: #fbbf24;
+}
+
+.imported-ai-top-bar {
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.imported-ai-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #fde68a;
+}
+
+.imported-ai-pill ion-icon {
+  font-size: 14px;
+  color: #d97706;
 }
 
 .imported-ingredients-list {

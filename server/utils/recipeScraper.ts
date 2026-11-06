@@ -13,6 +13,8 @@ export function decodeHtmlEntities(str: string): string {
     .trim()
 }
 
+import { formatRecipeWithGroq } from './groqRecipeFormatter'
+
 export interface ScrapedRecipeData {
   title: string
   category: string
@@ -25,6 +27,7 @@ export interface ScrapedRecipeData {
   source: 'import'
   sourceName?: string
   authorName?: string
+  aiFormatted?: boolean
 }
 
 export function isPrivateHost(host: string): boolean {
@@ -643,20 +646,24 @@ export async function processRecipeImport(rawUrl: string): Promise<{
   const hostname = parsedUrl.hostname.toLowerCase()
 
   try {
+    let recipe: ScrapedRecipeData
+
     // 1. TikTok
     if (hostname.includes('tiktok.com')) {
-      const recipe = await scrapeTikTok(parsedUrl.href)
-      return { success: true, recipe }
+      recipe = await scrapeTikTok(parsedUrl.href)
+    } else if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
+      // 2. YouTube
+      recipe = await scrapeYouTube(parsedUrl.href)
+    } else {
+      // 3. Regular recipe site
+      recipe = await scrapeRecipeWebsite(parsedUrl.href)
     }
 
-    // 2. YouTube
-    if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
-      const recipe = await scrapeYouTube(parsedUrl.href)
-      return { success: true, recipe }
+    // 4. AI formatting via Groq (graceful fallback if Groq is unconfigured or unavailable)
+    if (recipe) {
+      recipe = await formatRecipeWithGroq(recipe)
     }
 
-    // 3. Regular recipe site
-    const recipe = await scrapeRecipeWebsite(parsedUrl.href)
     return { success: true, recipe }
   } catch (err: any) {
     return {
