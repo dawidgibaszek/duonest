@@ -16,10 +16,22 @@
               </div>
             </div>
 
-            <button class="new-event-btn" @click="openAddModalForDate(selectedDateStr)">
-              <ion-icon :icon="ioniconsAddOutline" />
-              <span>Dodaj plan</span>
-            </button>
+            <div class="header-buttons-group">
+              <button
+                type="button"
+                class="header-sync-btn"
+                @click="showSyncModal = true"
+                title="Synchronizuj z kalendarzem w telefonie, Google, Apple i Outlook"
+                aria-label="Synchronizacja kalendarza"
+              >
+                <ion-icon :icon="ioniconsSyncOutline" />
+                <span>Synchronizuj</span>
+              </button>
+              <button class="new-event-btn" @click="openAddModalForDate(selectedDateStr)">
+                <ion-icon :icon="ioniconsAddOutline" />
+                <span>Dodaj plan</span>
+              </button>
+            </div>
           </div>
         </div>
       </ion-toolbar>
@@ -316,6 +328,14 @@
                 >
                   <ion-icon :icon="evt.is_completed ? ioniconsCheckmarkCircle : ioniconsCheckmarkCircleOutline" />
                 </button>
+                <button
+                  class="icon-action-btn sync-action-btn"
+                  @click="handleQuickExportEvent(evt)"
+                  title="Dodaj do kalendarza w telefonie / Google / Apple"
+                  aria-label="Dodaj do zewnętrznego kalendarza"
+                >
+                  <ion-icon :icon="ioniconsCalendarOutline" />
+                </button>
                 <button class="icon-action-btn" @click="openEditModal(evt)" title="Edytuj">
                   <ion-icon :icon="ioniconsPencilOutline" />
                 </button>
@@ -444,6 +464,14 @@
                     :title="evt.is_completed ? 'Oznacz jako niezrealizowane' : 'Oznacz jako zrealizowane'"
                   >
                     <ion-icon :icon="evt.is_completed ? ioniconsCheckmarkCircle : ioniconsCheckmarkCircleOutline" />
+                  </button>
+                  <button
+                    class="icon-action-btn sync-action-btn"
+                    @click="handleQuickExportEvent(evt)"
+                    title="Dodaj do kalendarza w telefonie / Google / Apple"
+                    aria-label="Dodaj do zewnętrznego kalendarza"
+                  >
+                    <ion-icon :icon="ioniconsCalendarOutline" />
                   </button>
                   <button class="icon-action-btn" @click="openEditModal(evt)" title="Edytuj">
                     <ion-icon :icon="ioniconsPencilOutline" />
@@ -657,6 +685,37 @@
               />
             </div>
 
+            <!-- QUICK SYNC TO EXTERNAL CALENDAR (when editing) -->
+            <div class="modal-sync-box" v-if="isEditingMode && editingEventId">
+              <span class="modal-sync-label">Synchronizacja z kalendarzem w telefonie:</span>
+              <div class="modal-sync-buttons-row">
+                <button
+                  type="button"
+                  class="modal-sync-chip google"
+                  @click="addCurrentEditingEventToGoogle"
+                >
+                  <ion-icon :icon="ioniconsLogoGoogle" />
+                  <span>Google</span>
+                </button>
+                <button
+                  type="button"
+                  class="modal-sync-chip apple"
+                  @click="downloadCurrentEditingEventIcs"
+                >
+                  <ion-icon :icon="ioniconsLogoApple" />
+                  <span>Apple / .ics</span>
+                </button>
+                <button
+                  type="button"
+                  class="modal-sync-chip outlook"
+                  @click="addCurrentEditingEventToOutlook"
+                >
+                  <ion-icon :icon="ioniconsLogoWindows" />
+                  <span>Outlook</span>
+                </button>
+              </div>
+            </div>
+
             <!-- SUBMIT BUTTON -->
             <button type="submit" class="dn-button-sea submit-btn" :disabled="!modalForm.title.trim() || isSubmitting">
               <ion-spinner v-if="isSubmitting" name="crescent" style="width: 18px; height: 18px;" />
@@ -666,6 +725,20 @@
           </form>
         </ion-content>
       </ion-modal>
+
+      <!-- CALENDAR SYNC MODAL (APPLE, GOOGLE, OUTLOOK, WEBCAL, IMPORT/EXPORT) -->
+      <DuoCalendarSyncModal
+        :is-open="showSyncModal"
+        @close="showSyncModal = false"
+      />
+
+      <!-- QUICK SINGLE EVENT SYNC ACTION SHEET -->
+      <ion-action-sheet
+        :is-open="showEventSyncActionSheet"
+        :header="`Dodaj do kalendarza: ${selectedSyncEvent?.title || ''}`"
+        :buttons="eventSyncActionSheetButtons"
+        @didDismiss="showEventSyncActionSheet = false"
+      />
 
       <!-- Floating bottom tab bar spacer so content never gets obscured -->
       <div class="tab-bottom-spacer" style="height: 105px;" aria-hidden="true"></div>
@@ -678,6 +751,18 @@ import { ref, computed, reactive, onMounted } from 'vue'
 import { useDuoState, type EventItem } from '~/composables/useDuoState'
 import { useConfirm } from '~/composables/useConfirm'
 import DuoIcon from '~/components/DuoIcon.vue'
+import DuoCalendarSyncModal from '~/components/DuoCalendarSyncModal.vue'
+import {
+  generateGoogleCalendarUrl,
+  generateOutlookCalendarUrl,
+  generateSingleEventIcs,
+  downloadIcsFile
+} from '~/utils/calendarSync'
+import {
+  logoGoogle as ioniconsLogoGoogle,
+  logoApple as ioniconsLogoApple,
+  logoWindows as ioniconsLogoWindows
+} from 'ionicons/icons'
 
 const {
   eventsList,
@@ -703,6 +788,96 @@ const activeViewMode = ref<'month' | 'week' | 'agenda'>('month')
 
 // Category Filter
 const selectedCategoryFilter = ref<string>('all')
+
+// Calendar Synchronization State
+const showSyncModal = ref(false)
+const selectedSyncEvent = ref<EventItem | null>(null)
+const showEventSyncActionSheet = ref(false)
+
+const handleQuickExportEvent = (event: EventItem) => {
+  selectedSyncEvent.value = event
+  showEventSyncActionSheet.value = true
+}
+
+const addSelectedEventToGoogle = () => {
+  if (!selectedSyncEvent.value) return
+  const url = generateGoogleCalendarUrl(selectedSyncEvent.value)
+  if (typeof window !== 'undefined') window.open(url, '_blank', 'noopener')
+  showEventSyncActionSheet.value = false
+}
+
+const addSelectedEventToOutlook = () => {
+  if (!selectedSyncEvent.value) return
+  const url = generateOutlookCalendarUrl(selectedSyncEvent.value)
+  if (typeof window !== 'undefined') window.open(url, '_blank', 'noopener')
+  showEventSyncActionSheet.value = false
+}
+
+const downloadSelectedEventIcs = () => {
+  if (!selectedSyncEvent.value) return
+  const icsContent = generateSingleEventIcs(selectedSyncEvent.value)
+  const filename = `${selectedSyncEvent.value.title.replace(/[^a-zA-Z0-9żźćńółęąśŻŹĆŃÓŁĘĄŚ_-]/g, '_')}.ics`
+  downloadIcsFile(filename, icsContent)
+  triggerToast('Pobrano plik planu (.ics)')
+  showEventSyncActionSheet.value = false
+}
+
+const eventSyncActionSheetButtons = computed(() => [
+  {
+    text: 'Kalendarz Google',
+    icon: ioniconsLogoGoogle,
+    handler: () => {
+      addSelectedEventToGoogle()
+    }
+  },
+  {
+    text: 'Kalendarz Apple / Telefon (.ics)',
+    icon: ioniconsLogoApple,
+    handler: () => {
+      downloadSelectedEventIcs()
+    }
+  },
+  {
+    text: 'Microsoft Outlook',
+    icon: ioniconsLogoWindows,
+    handler: () => {
+      addSelectedEventToOutlook()
+    }
+  },
+  {
+    text: 'Anuluj',
+    role: 'cancel',
+    handler: () => {
+      showEventSyncActionSheet.value = false
+    }
+  }
+])
+
+const addCurrentEditingEventToGoogle = () => {
+  if (!editingEventId.value) return
+  const ev = eventsList.value.find(e => e.id === editingEventId.value)
+  if (!ev) return
+  const url = generateGoogleCalendarUrl(ev)
+  if (typeof window !== 'undefined') window.open(url, '_blank', 'noopener')
+}
+
+const downloadCurrentEditingEventIcs = () => {
+  if (!editingEventId.value) return
+  const ev = eventsList.value.find(e => e.id === editingEventId.value)
+  if (!ev) return
+  const icsContent = generateSingleEventIcs(ev)
+  const filename = `${ev.title.replace(/[^a-zA-Z0-9żźćńółęąśŻŹĆŃÓŁĘĄŚ_-]/g, '_')}.ics`
+  downloadIcsFile(filename, icsContent)
+  triggerToast('Pobrano plik planu (.ics)')
+}
+
+const addCurrentEditingEventToOutlook = () => {
+  if (!editingEventId.value) return
+  const ev = eventsList.value.find(e => e.id === editingEventId.value)
+  if (!ev) return
+  const url = generateOutlookCalendarUrl(ev)
+  if (typeof window !== 'undefined') window.open(url, '_blank', 'noopener')
+}
 
 onMounted(async () => {
   try {
@@ -1313,6 +1488,55 @@ const handleRefresh = async (event: any) => {
   border: 1px solid #e2e8f0;
   padding: 2px 8px;
   border-radius: 999px;
+}
+
+.header-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.header-sync-btn {
+  height: 34px;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 0 11px;
+  font-size: 12.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.header-sync-btn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.header-sync-btn:active {
+  transform: scale(0.96);
+  background: #f1f5f9;
+}
+
+.header-sync-btn ion-icon {
+  font-size: 16px;
+  color: #0284c7;
+}
+
+@media (max-width: 400px) {
+  .header-sync-btn span {
+    display: none;
+  }
+  .header-sync-btn {
+    padding: 0 9px;
+  }
 }
 
 .new-event-btn {
@@ -2675,5 +2899,74 @@ const handleRefresh = async (event: any) => {
   border: 1px solid transparent;
   display: inline-flex;
   align-items: center;
+}
+
+.icon-action-btn.sync-action-btn {
+  color: #0284c7;
+}
+
+.icon-action-btn.sync-action-btn:hover {
+  background: #e0f2fe;
+  border-color: #bae6fd;
+}
+
+/* Modal sync box in event edit modal */
+.modal-sync-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+}
+
+.modal-sync-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.modal-sync-buttons-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.modal-sync-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.modal-sync-chip:active {
+  transform: scale(0.96);
+}
+
+.modal-sync-chip.google {
+  color: #2563eb;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.modal-sync-chip.apple {
+  color: #0f172a;
+}
+
+.modal-sync-chip.outlook {
+  color: #0284c7;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
 }
 </style>
