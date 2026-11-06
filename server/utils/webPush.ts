@@ -77,7 +77,8 @@ export async function sendWebPushToSubscription(
       category: payload.data?.category,
       ...(payload.data || {})
     },
-    vibrate: payload.vibrate || [120, 60, 120, 60, 180],
+    vibrate: payload.vibrate !== undefined ? payload.vibrate : [120, 60, 120, 60, 180],
+    silent: payload.silent === true,
     tag: payload.tag || 'duonest-' + Date.now(),
     renotify: payload.renotify !== false
   })

@@ -21,6 +21,7 @@ create table if not exists public.profiles (
   favorite_drink text default 'Kawa z mlekiem',
   favorite_treat text default 'Czekolada',
   points integer not null default 0,
+  last_seen_at timestamptz default now(),
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -28,6 +29,7 @@ create table if not exists public.profiles (
 -- Migration safety for existing deployments
 alter table if exists public.profiles add column if not exists points integer not null default 0;
 alter table if exists public.profiles add column if not exists is_email_verified boolean default true;
+alter table if exists public.profiles add column if not exists last_seen_at timestamptz default now();
 
 -- 2. PARTNERSHIPS TABLE
 create table if not exists public.partnerships (

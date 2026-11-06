@@ -37,31 +37,44 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  const notificationOptions = {
-    body: payload.body,
-    icon: payload.icon || '/pwa-192x192.png',
-    badge: payload.badge || '/favicon.png',
-    data: payload.data,
-    vibrate: [120, 60, 120, 60, 180],
-    tag: payload.tag || 'duonest-alert-' + Date.now(),
-    renotify: true,
-    requireInteraction: false
-  }
-
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (windowClients) => {
-      // Check if user has muted this category in local settings
+      let isSilent = payload.silent === true
+      let vibratePattern = payload.vibrate !== undefined ? payload.vibrate : [120, 60, 120, 60, 180]
+
+      // Check if user has muted this category, sound, or vibration in local settings
       const category = payload.data && payload.data.category
-      if (category && 'caches' in self) {
+      if ('caches' in self) {
         try {
           const cache = await caches.open('duonest-settings')
           const resp = await cache.match('/push-settings.json')
           if (resp) {
             const prefData = await resp.json()
             if (prefData.enabled === false) return
-            if (prefData.settings && prefData.settings[category] === false) return
+            if (category && prefData.settings && prefData.settings[category] === false) return
+
+            if (prefData.settings) {
+              if (prefData.settings.sound === false) {
+                isSilent = true
+              }
+              if (prefData.settings.vibrate === false) {
+                vibratePattern = []
+              }
+            }
           }
         } catch (_) {}
+      }
+
+      const notificationOptions = {
+        body: payload.body,
+        icon: payload.icon || '/pwa-192x192.png',
+        badge: payload.badge || '/favicon.png',
+        data: payload.data,
+        vibrate: vibratePattern,
+        silent: isSilent,
+        tag: payload.tag || 'duonest-alert-' + Date.now(),
+        renotify: true,
+        requireInteraction: false
       }
 
       // Check if user is currently inside the app (any window/tab is visible or focused)

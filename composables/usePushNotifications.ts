@@ -34,7 +34,7 @@ const isPushEnabled = ref(false)
 const isPostPairingPromptOpen = ref(false)
 const postPairingPartnerName = ref('Partner')
 const isSubscribing = ref(false)
-const pushSettings = reactive<PushCategorySettings>({ ...DEFAULT_PUSH_SETTINGS })
+export const pushSettings = reactive<PushCategorySettings>({ ...DEFAULT_PUSH_SETTINGS })
 
 let isInitialized = false
 
@@ -42,6 +42,57 @@ let isInitialized = false
 const STORAGE_KEY_ENABLED = 'duonest_push_enabled'
 const STORAGE_KEY_SETTINGS = 'duonest_push_settings'
 const STORAGE_KEY_PROMPT_SHOWN = 'duonest_push_prompt_shown'
+
+// High-fidelity web audio synthesizer for in-app alert chimes (zero latency, zero network)
+export const playNotificationChime = () => {
+  if (typeof window === 'undefined') return
+  if (pushSettings.sound === false) return
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioCtx) return
+    const ctx = new AudioCtx()
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {})
+    }
+    const now = ctx.currentTime
+
+    // Note 1: E5 (659.25 Hz)
+    const osc1 = ctx.createOscillator()
+    const gain1 = ctx.createGain()
+    osc1.type = 'sine'
+    osc1.frequency.setValueAtTime(659.25, now)
+    gain1.gain.setValueAtTime(0, now)
+    gain1.gain.linearRampToValueAtTime(0.18, now + 0.02)
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35)
+    osc1.connect(gain1)
+    gain1.connect(ctx.destination)
+    osc1.start(now)
+    osc1.stop(now + 0.35)
+
+    // Note 2: B5 (987.77 Hz) - harmonic sparkle
+    const osc2 = ctx.createOscillator()
+    const gain2 = ctx.createGain()
+    osc2.type = 'sine'
+    osc2.frequency.setValueAtTime(987.77, now + 0.08)
+    gain2.gain.setValueAtTime(0, now + 0.08)
+    gain2.gain.linearRampToValueAtTime(0.22, now + 0.10)
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55)
+    osc2.connect(gain2)
+    gain2.connect(ctx.destination)
+    osc2.start(now + 0.08)
+    osc2.stop(now + 0.55)
+  } catch (_) {}
+}
+
+export const playNotificationHaptic = (pattern: number[] = [120, 60, 120]) => {
+  if (typeof window === 'undefined' || !('navigator' in window)) return
+  if (pushSettings.vibrate === false) return
+  try {
+    if ('vibrate' in navigator) {
+      navigator.vibrate(pattern)
+    }
+  } catch (_) {}
+}
 
 export const usePushNotifications = () => {
   const { currentUser, partnerUser, triggerToast, activeToastItem } = useDuoState()
@@ -346,9 +397,25 @@ export const usePushNotifications = () => {
   }
 
   // Toggle individual category
-  const toggleCategory = (key: keyof PushCategorySettings) => {
-    pushSettings[key] = !pushSettings[key]
+  const toggleCategory = (key: keyof PushCategorySettings, val?: boolean) => {
+    const nextVal = val !== undefined ? val : !pushSettings[key]
+    if (pushSettings[key] === nextVal) return
+    pushSettings[key] = nextVal
     persistSettings()
+
+    if (key === 'sound') {
+      if (pushSettings.sound) {
+        triggerToast('Włączono dźwięki powiadomień i alertów.', { type: 'info' })
+      } else {
+        triggerToast('Wyciszono dźwięki powiadomień i alertów.', { type: 'info' })
+      }
+    } else if (key === 'vibrate') {
+      if (pushSettings.vibrate) {
+        triggerToast('Włączono wibracje telefonu.', { type: 'info' })
+      } else {
+        triggerToast('Wyłączono wibracje telefonu.', { type: 'info' })
+      }
+    }
   }
 
   // Check if user is currently looking at the app in the foreground
@@ -372,12 +439,18 @@ export const usePushNotifications = () => {
     const finalBody = typeof body === 'string' ? body : String(body || '')
     const finalUrl = (typeof url === 'string' && url.trim()) ? url : '/tabs/nest'
 
+    // Play in-app audio chime if allowed
+    if (pushSettings.sound !== false) {
+      playNotificationChime()
+    }
+
     // Do NOT show system push notifications when the user is currently inside the active app!
     if (!force && isAppInForeground()) {
       return
     }
 
-    const vibratePattern = pushSettings.vibrate ? [120, 60, 120, 60, 180] : undefined
+    const isSilent = pushSettings.sound === false
+    const vibratePattern = pushSettings.vibrate ? [120, 60, 120, 60, 180] : []
 
     try {
       if ('serviceWorker' in navigator) {
@@ -388,6 +461,7 @@ export const usePushNotifications = () => {
             icon: '/pwa-192x192.png',
             badge: '/favicon.png',
             vibrate: vibratePattern,
+            silent: isSilent,
             data: { url: finalUrl },
             tag: 'duonest-' + Date.now(),
             renotify: true
@@ -401,8 +475,9 @@ export const usePushNotifications = () => {
         body: finalBody,
         icon: '/pwa-192x192.png',
         badge: '/favicon.png',
-        vibrate: vibratePattern
-      })
+        vibrate: vibratePattern,
+        silent: isSilent
+      } as any)
     } catch (err) {
       console.warn('sendDirectNotification error:', err)
     }
@@ -437,7 +512,7 @@ export const usePushNotifications = () => {
     const partnerName = partnerUser.value?.name || 'Partner'
     const title = (typeof customTitle === 'string' && customTitle.trim())
       ? customTitle
-      : 'DuoNest - Test Powiadomień 💌'
+      : 'DuoNest - Test Powiadomień'
     const body = (typeof customBody === 'string' && customBody.trim())
       ? customBody
       : `Wszystko działa idealnie! Gdy ${partnerName} wyśle Ci buziaka, zaplanuje obiad lub doda zadanie, dowiesz się od razu.`
@@ -453,7 +528,9 @@ export const usePushNotifications = () => {
           body: {
             userId: currentUser.value.id,
             title,
-            body
+            body,
+            vibrate: pushSettings.vibrate ? [120, 60, 120, 60, 180] : [],
+            silent: !pushSettings.sound
           }
         })
         if (res?.success && (res.sentCount || 0) > 0) {
@@ -467,6 +544,14 @@ export const usePushNotifications = () => {
     // Fallback to direct client notification if server hasn't received subscription yet or local env
     if (!sentViaServer) {
       sendDirectNotification(title, body, url, true)
+    }
+
+    // Play in-app audio/haptic feedback
+    if (pushSettings.sound) {
+      playNotificationChime()
+    }
+    if (pushSettings.vibrate) {
+      playNotificationHaptic([120, 60, 180])
     }
 
     triggerToast('Wysłano testowe powiadomienie na Twoje urządzenie!', { type: 'success', title: 'Powiadomienie Push' })
@@ -489,6 +574,8 @@ export const usePushNotifications = () => {
     toggleCategory,
     dispatchPushIfAllowed,
     sendDirectNotification,
-    sendTestNotification
+    sendTestNotification,
+    playNotificationChime,
+    playNotificationHaptic
   }
 }

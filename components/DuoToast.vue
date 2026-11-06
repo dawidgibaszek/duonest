@@ -219,6 +219,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useDuoState } from '~/composables/useDuoState'
+import { playNotificationChime, playNotificationHaptic, pushSettings } from '~/composables/usePushNotifications'
 
 const { activeToastItem, dismissToast } = useDuoState()
 
@@ -318,6 +319,14 @@ watch(
       }, 350)
 
       startAutoDismissTimer(toast.value.duration || 4000)
+
+      // In-app alert chime and vibration feedback honoring user preferences
+      if (pushSettings.sound !== false) {
+        playNotificationChime()
+      }
+      if (pushSettings.vibrate !== false) {
+        playNotificationHaptic([25])
+      }
     } else {
       clearTimeout(timerId)
       timerId = null
@@ -328,7 +337,7 @@ watch(
 
 const hapticFeedback = () => {
   try {
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    if (pushSettings.vibrate !== false && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate(10)
     }
   } catch (_) {}

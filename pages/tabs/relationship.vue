@@ -774,7 +774,7 @@
                 </div>
                 <ion-toggle
                   :checked="pushSettings.nudges"
-                  @ionChange="togglePushCategory('nudges')"
+                  @ionChange="togglePushCategory('nudges', $event.detail?.checked)"
                   class="dn-push-toggle"
                 />
               </div>
@@ -792,7 +792,7 @@
                 </div>
                 <ion-toggle
                   :checked="pushSettings.mood"
-                  @ionChange="togglePushCategory('mood')"
+                  @ionChange="togglePushCategory('mood', $event.detail?.checked)"
                   class="dn-push-toggle"
                 />
               </div>
@@ -810,7 +810,7 @@
                 </div>
                 <ion-toggle
                   :checked="pushSettings.calendar"
-                  @ionChange="togglePushCategory('calendar')"
+                  @ionChange="togglePushCategory('calendar', $event.detail?.checked)"
                   class="dn-push-toggle"
                 />
               </div>
@@ -828,7 +828,7 @@
                 </div>
                 <ion-toggle
                   :checked="pushSettings.shopping"
-                  @ionChange="togglePushCategory('shopping')"
+                  @ionChange="togglePushCategory('shopping', $event.detail?.checked)"
                   class="dn-push-toggle"
                 />
               </div>
@@ -846,7 +846,7 @@
                 </div>
                 <ion-toggle
                   :checked="pushSettings.tasks"
-                  @ionChange="togglePushCategory('tasks')"
+                  @ionChange="togglePushCategory('tasks', $event.detail?.checked)"
                   class="dn-push-toggle"
                 />
               </div>
@@ -864,7 +864,7 @@
                 </div>
                 <ion-toggle
                   :checked="pushSettings.meals"
-                  @ionChange="togglePushCategory('meals')"
+                  @ionChange="togglePushCategory('meals', $event.detail?.checked)"
                   class="dn-push-toggle"
                 />
               </div>
@@ -882,7 +882,7 @@
                 </div>
                 <ion-toggle
                   :checked="pushSettings.wishlist"
-                  @ionChange="togglePushCategory('wishlist')"
+                  @ionChange="togglePushCategory('wishlist', $event.detail?.checked)"
                   class="dn-push-toggle"
                 />
               </div>
@@ -900,13 +900,14 @@
                 </div>
                 <ion-toggle
                   :checked="pushSettings.partnerOnline"
-                  @ionChange="togglePushCategory('partnerOnline')"
+                  @ionChange="togglePushCategory('partnerOnline', $event.detail?.checked)"
                   class="dn-push-toggle"
                 />
               </div>
             </div>
 
             <span class="group-title-label mt-label">SYGNALIZACJA I DŹWIĘK</span>
+            <p class="group-sub-desc">Ustawienia te sterują dźwiękiem i haptyką alertów w aplikacji oraz wyciszaniem powiadomień telefonu.</p>
             <div class="push-toggles-list">
               <!-- 7. SOUND -->
               <div class="push-toggle-item">
@@ -916,12 +917,12 @@
                   </div>
                   <div class="toggle-item-info">
                     <span class="toggle-name">Dźwięk powiadomienia</span>
-                    <span class="toggle-desc">Sygnał dźwiękowy przy nowym powiadomieniu</span>
+                    <span class="toggle-desc">Sygnał dźwiękowy przy alertach i powiadomieniach</span>
                   </div>
                 </div>
                 <ion-toggle
                   :checked="pushSettings.sound"
-                  @ionChange="togglePushCategory('sound')"
+                  @ionChange="togglePushCategory('sound', $event.detail?.checked)"
                   class="dn-push-toggle"
                 />
               </div>
@@ -934,12 +935,12 @@
                   </div>
                   <div class="toggle-item-info">
                     <span class="toggle-name">Wibracja telefonu</span>
-                    <span class="toggle-desc">Impuls haptyczny przy nadejściu powiadomienia</span>
+                    <span class="toggle-desc">Impuls haptyczny przy nadejściu powiadomień</span>
                   </div>
                 </div>
                 <ion-toggle
                   :checked="pushSettings.vibrate"
-                  @ionChange="togglePushCategory('vibrate')"
+                  @ionChange="togglePushCategory('vibrate', $event.detail?.checked)"
                   class="dn-push-toggle"
                 />
               </div>

@@ -11,10 +11,22 @@
             </div>
           </div>
           <div class="header-actions-group">
-            <div class="couple-indicator-badge" @click="navigateTo('/tabs/relationship')">
-              <span class="online-indicator-dot" :class="{ 'is-live': isPartnerOnline }"></span>
-              <span class="partner-name-tag">{{ partnerUser?.name || 'Partner' }}</span>
-              <span class="online-tag-pill" v-if="isPartnerOnline">online</span>
+            <div
+              class="couple-indicator-badge"
+              :class="{ 'is-online': isPartnerOnline }"
+              @click="navigateTo('/tabs/relationship')"
+              :title="isPartnerOnline ? `${partnerUser?.name || 'Partner'} jest teraz online` : `Ostatnia aktywność: ${partnerLastActiveText}`"
+            >
+              <div class="partner-avatar-mini" :style="{ backgroundColor: partnerUserAccentColor }">
+                <span class="avatar-initial">{{ (partnerUser?.name || 'P').charAt(0).toUpperCase() }}</span>
+                <span class="status-pip" :class="{ 'is-online': isPartnerOnline }"></span>
+              </div>
+              <div class="partner-status-col">
+                <span class="partner-name-tag">{{ partnerUser?.name || 'Partner' }}</span>
+                <span class="partner-activity-tag" :class="{ 'is-online': isPartnerOnline }">
+                  {{ isPartnerOnline ? 'online' : partnerLastActiveText }}
+                </span>
+              </div>
             </div>
             <button
               class="quick-gear-btn"
@@ -713,7 +725,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import confetti from 'canvas-confetti'
 import { useDuoState } from '~/composables/useDuoState'
 import { usePushNotifications } from '~/composables/usePushNotifications'
@@ -731,6 +743,7 @@ const {
   tasksList,
   eventsList,
   isPartnerOnline,
+  partnerLastSeenAt,
   sendNudge,
   hasSentDailyNudge,
   formattedNextNudgeTime,
@@ -756,13 +769,84 @@ const {
 
 const { askPermissionAfterPairing } = usePushNotifications()
 
+const liveNowMs = ref(Date.now())
+let activityTimer: any = null
+
 onMounted(async () => {
+  if (typeof window !== 'undefined') {
+    activityTimer = setInterval(() => {
+      liveNowMs.value = Date.now()
+    }, 20000)
+  }
+
   try {
     await initSupabaseSync()
   } catch (_) {}
 
   if (partnership.value) {
     askPermissionAfterPairing(partnerUser.value?.name || 'Partner')
+  }
+})
+
+onUnmounted(() => {
+  if (activityTimer) {
+    clearInterval(activityTimer)
+    activityTimer = null
+  }
+})
+
+const partnerLastActiveText = computed(() => {
+  const _ = liveNowMs.value
+  if (isPartnerOnline.value) return 'online'
+  if (!partnerLastSeenAt.value) return 'offline'
+
+  try {
+    const date = new Date(partnerLastSeenAt.value)
+    const timeMs = date.getTime()
+    if (isNaN(timeMs)) return 'offline'
+    const now = Date.now()
+    const diffSec = Math.floor((now - timeMs) / 1000)
+
+    if (diffSec < 60) return 'przed chwilą'
+
+    const diffMin = Math.floor(diffSec / 60)
+    if (diffMin < 60) {
+      return `${diffMin} min temu`
+    }
+
+    const diffHours = Math.floor(diffMin / 60)
+    if (diffHours < 24) {
+      const nowDay = new Date(now).getDate()
+      const dateDay = date.getDate()
+      if (nowDay === dateDay) {
+        if (diffHours === 1) return '1 godz. temu'
+        if (diffHours >= 2 && diffHours <= 4) return `${diffHours} godz. temu`
+        return `${diffHours} godz. temu`
+      }
+    }
+
+    const nowZero = new Date(now)
+    nowZero.setHours(0, 0, 0, 0)
+    const dateZero = new Date(date)
+    dateZero.setHours(0, 0, 0, 0)
+    const diffCalendarDays = Math.round((nowZero.getTime() - dateZero.getTime()) / (24 * 60 * 60 * 1000))
+
+    const hh = String(date.getHours()).padStart(2, '0')
+    const mm = String(date.getMinutes()).padStart(2, '0')
+
+    if (diffCalendarDays === 1) {
+      return `wczoraj ${hh}:${mm}`
+    }
+
+    if (diffCalendarDays > 1 && diffCalendarDays < 7) {
+      return `${diffCalendarDays} dni temu`
+    }
+
+    const dd = String(date.getDate()).padStart(2, '0')
+    const mo = String(date.getMonth() + 1).padStart(2, '0')
+    return `${dd}.${mo}`
+  } catch (_) {
+    return 'offline'
   }
 })
 
@@ -1172,64 +1256,117 @@ const handleRefresh = async (event: any) => {
 }
 
 .couple-indicator-badge {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  gap: 7px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #16a34a;
+  padding: 3px 10px 3px 4px;
   cursor: pointer;
-  transition: transform 0.15s ease;
-  max-width: 170px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: 175px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.couple-indicator-badge:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 .couple-indicator-badge:active {
   transform: scale(0.96);
 }
 
+.couple-indicator-badge.is-online {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+  box-shadow: 0 1px 3px rgba(22, 163, 74, 0.1);
+}
+
+.partner-avatar-mini {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+.avatar-initial {
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.status-pip {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #94a3b8;
+  border: 2px solid #ffffff;
+  transition: all 0.2s ease;
+}
+
+.status-pip.is-online {
+  background: #16a34a;
+  box-shadow: 0 0 6px rgba(22, 163, 74, 0.7);
+  animation: pulsePip 2s infinite ease-in-out;
+}
+
+@keyframes pulsePip {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.15); opacity: 0.75; }
+}
+
+.partner-status-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  line-height: 1.15;
+}
+
 .partner-name-tag {
-  max-width: 100px;
+  max-width: 95px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
-  display: inline-block;
+  color: #0f172a;
+  letter-spacing: -0.2px;
 }
 
-.online-indicator-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #94a3b8;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
+.couple-indicator-badge.is-online .partner-name-tag {
+  color: #14532d;
 }
 
-.online-indicator-dot.is-live {
-  background: #16a34a;
-  box-shadow: 0 0 6px rgba(22, 163, 74, 0.6);
-  animation: pulseDot 2s infinite ease-in-out;
+.partner-activity-tag {
+  max-width: 95px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9.5px;
+  font-weight: 500;
+  color: #64748b;
+  margin-top: 1px;
 }
 
-@keyframes pulseDot {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.3); opacity: 0.5; }
-}
-
-.online-tag-pill {
-  font-size: 9px;
-  font-weight: 800;
+.partner-activity-tag.is-online {
+  color: #16a34a;
+  font-weight: 700;
   text-transform: uppercase;
-  background: #16a34a;
-  color: #ffffff;
-  padding: 1px 5px;
-  border-radius: 999px;
-  flex-shrink: 0;
+  letter-spacing: 0.3px;
+  font-size: 9px;
 }
 
 /* ========================================================== */

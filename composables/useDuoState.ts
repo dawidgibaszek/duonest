@@ -16,6 +16,8 @@ export interface Profile {
   favorite_drink?: string | null
   favorite_treat?: string | null
   points?: number
+  last_seen_at?: string | null
+  updated_at?: string | null
 }
 
 export interface Partnership {
@@ -311,6 +313,7 @@ const isOnlineWithSupabase = ref(true)
 const realtimeStatus = ref<'connected' | 'connecting' | 'disconnected'>('disconnected')
 const dbSchemaStatus = ref<'checking' | 'connected' | 'missing_tables'>('checking')
 const isPartnerOnline = ref(false)
+const partnerLastSeenAt = ref<string | null>(null)
 const NUDGE_COOLDOWN_MS = 24 * 60 * 60 * 1000 // 24 hours per nudge per user
 const lastNudgeSentAt = ref<number | null>(null)
 const nowTimestamp = ref(Date.now())
@@ -628,6 +631,11 @@ export const useDuoState = () => {
       }
     }
 
+    const savedLastSeen = loadFromStorage<string | null>('duonest_partner_last_seen', null)
+    if (savedLastSeen) {
+      partnerLastSeenAt.value = savedLastSeen
+    }
+
     const savedShopping = loadFromStorage<ShoppingItem[]>('duonest_shopping', [])
     if (savedShopping.length > 0) shoppingItems.value = savedShopping
 
@@ -851,21 +859,29 @@ export const useDuoState = () => {
             .eq('id', partnerId)
             .maybeSingle()
 
-          if (pUser) {
-            const rawPartnerColor = pUser.avatar_color || '#0d9488'
-            const cleanPartnerColor = rawPartnerColor.includes('|') ? rawPartnerColor.split('|')[0] : rawPartnerColor
-            partnerUser.value = {
-              ...createInitialProfile(),
-              ...pUser,
-              name: pUser.name || (pUser.email ? pUser.email.split('@')[0] : 'Partner'),
-              love_note: (pUser.love_note === 'Budujemy nasze wspólne gniazdko!' || pUser.love_note === 'Cieszę się, że jesteśmy razem!') ? '' : (pUser.love_note || ''),
-              favorite_drink: pUser.favorite_drink === 'Kawa z mlekiem' ? '' : (pUser.favorite_drink || ''),
-              favorite_treat: pUser.favorite_treat === 'Czekolada' ? '' : (pUser.favorite_treat || ''),
-              avatar_color: cleanPartnerColor,
-              points: Number(pUser.points) || 0
+            if (pUser) {
+              const rawPartnerColor = pUser.avatar_color || '#0d9488'
+              const cleanPartnerColor = rawPartnerColor.includes('|') ? rawPartnerColor.split('|')[0] : rawPartnerColor
+              partnerUser.value = {
+                ...createInitialProfile(),
+                ...pUser,
+                name: pUser.name || (pUser.email ? pUser.email.split('@')[0] : 'Partner'),
+                love_note: (pUser.love_note === 'Budujemy nasze wspólne gniazdko!' || pUser.love_note === 'Cieszę się, że jesteśmy razem!') ? '' : (pUser.love_note || ''),
+                favorite_drink: pUser.favorite_drink === 'Kawa z mlekiem' ? '' : (pUser.favorite_drink || ''),
+                favorite_treat: pUser.favorite_treat === 'Czekolada' ? '' : (pUser.favorite_treat || ''),
+                avatar_color: cleanPartnerColor,
+                points: Number(pUser.points) || 0
+              }
+              saveToStorage('duonest_partner_user', partnerUser.value)
+
+              const lastActive = pUser.last_seen_at || pUser.updated_at || pUser.mood_updated_at || null
+              if (lastActive) {
+                if (!partnerLastSeenAt.value || new Date(lastActive).getTime() > new Date(partnerLastSeenAt.value).getTime()) {
+                  partnerLastSeenAt.value = lastActive
+                  saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
+                }
+              }
             }
-            saveToStorage('duonest_partner_user', partnerUser.value)
-          }
         }
         await loadSupabaseData(partnershipId)
       }
@@ -2173,6 +2189,14 @@ export const useDuoState = () => {
                 points: Number(pUser.points) || 0
               }
               saveToStorage('duonest_partner_user', partnerUser.value)
+
+              const lastActive = pUser.last_seen_at || pUser.updated_at || pUser.mood_updated_at || null
+              if (lastActive) {
+                if (!partnerLastSeenAt.value || new Date(lastActive).getTime() > new Date(partnerLastSeenAt.value).getTime()) {
+                  partnerLastSeenAt.value = lastActive
+                  saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
+                }
+              }
             }
           }
         }
@@ -2241,10 +2265,16 @@ export const useDuoState = () => {
         const users = Object.keys(presenceState)
         const partnerIsHere = users.some(uid => uid !== currentUser.value.id)
         isPartnerOnline.value = partnerIsHere
+        if (partnerIsHere) {
+          partnerLastSeenAt.value = new Date().toISOString()
+          saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
+        }
       })
       .on('presence', { event: 'join' }, ({ key }: any) => {
         if (key !== currentUser.value.id) {
           isPartnerOnline.value = true
+          partnerLastSeenAt.value = new Date().toISOString()
+          saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
           triggerToast(`${partnerUser.value?.name || 'Partner'} jest teraz w aplikacji!`)
           // Synchronize our profile silently to the newly joined partner immediately
           broadcastToPartner('PROFILE_SYNC', {
@@ -2259,6 +2289,8 @@ export const useDuoState = () => {
       .on('presence', { event: 'leave' }, ({ key }: any) => {
         if (key !== currentUser.value.id) {
           isPartnerOnline.value = false
+          partnerLastSeenAt.value = new Date().toISOString()
+          saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
         }
       })
 
@@ -2267,7 +2299,15 @@ export const useDuoState = () => {
       const { action, senderId, senderName, data } = envelope.payload || {}
       if (senderId === currentUser.value.id) return // ignore own echoes
 
+      // Partner performed an action, so partner is active right now
+      partnerLastSeenAt.value = new Date().toISOString()
+      saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
+
       switch (action) {
+        case 'HEARTBEAT': {
+          isPartnerOnline.value = true
+          break
+        }
         case 'PARTNERSHIP_DISCONNECT': {
           if (activePartnershipChannel && client) {
             try { client.removeChannel(activePartnershipChannel) } catch (_) {}
@@ -2940,6 +2980,11 @@ export const useDuoState = () => {
               const raw = payload.new.avatar_color
               partnerUser.value.avatar_color = raw.includes('|') ? raw.split('|')[0] : raw
             }
+            if (payload.new.last_seen_at || payload.new.updated_at || payload.new.mood_updated_at) {
+              const lastActive = payload.new.last_seen_at || payload.new.updated_at || payload.new.mood_updated_at
+              partnerLastSeenAt.value = lastActive
+              saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
+            }
           }
           syncToStorage()
         }
@@ -3110,6 +3155,56 @@ export const useDuoState = () => {
     })
   }
 
+  // Send periodic heartbeat to keep presence and last_seen_at current
+  let heartbeatTimer: any = null
+  let lastHeartbeatSentAt = 0
+
+  const sendHeartbeat = async (force: boolean = false) => {
+    if (typeof window === 'undefined') return
+    if (!currentUser.value?.id) return
+    const now = Date.now()
+    if (!force && now - lastHeartbeatSentAt < 30000) return
+    lastHeartbeatSentAt = now
+
+    const nowIso = new Date(now).toISOString()
+    currentUser.value.last_seen_at = nowIso
+
+    // Broadcast heartbeat over active partnership channel
+    if (activePartnershipChannel) {
+      try {
+        await broadcastToPartner('HEARTBEAT', { at: nowIso })
+      } catch (_) {}
+    }
+
+    // Silently update profiles in Supabase if partnership exists
+    if (currentUser.value.partnership_id) {
+      const client = getCleanDbClient() || getSupabaseClient()
+      if (client) {
+        try {
+          await client
+            .from('profiles')
+            .update({ last_seen_at: nowIso, updated_at: nowIso })
+            .eq('id', currentUser.value.id)
+        } catch (_) {}
+      }
+    }
+  }
+
+  // Setup heartbeat interval (runs every 45s if visible)
+  if (typeof window !== 'undefined' && !heartbeatTimer) {
+    heartbeatTimer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        sendHeartbeat()
+      }
+    }, 45000)
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        sendHeartbeat(true)
+      }
+    })
+  }
+
   // Check and sync with Supabase tables if active session/tables exist
   const initSupabaseSync = async () => {
     initializeClientState()
@@ -3183,6 +3278,8 @@ export const useDuoState = () => {
           await loadPartnershipAndPartner(partnership.value.id, currentUser.value?.id || '')
           subscribeToPartnershipRealtime(partnership.value.id)
         }
+
+        sendHeartbeat(true)
       }
     } catch (err) {
       console.warn('initSupabaseSync attempt:', err)
@@ -5099,6 +5196,7 @@ export const useDuoState = () => {
     dbSchemaStatus,
     realtimeStatus,
     isPartnerOnline,
+    partnerLastSeenAt,
     activeToastMessage,
     activeToastItem,
     nestLevel,

@@ -52,7 +52,8 @@ export default defineEventHandler(async (event) => {
       category: 'nudges'
     },
     tag: 'duonest-test-' + Date.now(),
-    vibrate: [120, 60, 120, 60, 180]
+    vibrate: body.vibrate !== undefined ? body.vibrate : [120, 60, 120, 60, 180],
+    silent: body.silent === true
   }
 
   let sent = 0
