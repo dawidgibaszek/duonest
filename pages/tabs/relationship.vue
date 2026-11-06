@@ -1616,7 +1616,7 @@ const handleSaveCustomColor = async () => {
 
   try {
     await updateMyProfile({ avatar_color: colorToSave })
-    triggerToast('Zapisano Twój unikalny kolor akcentu!')
+    triggerToast('Zapisano kolor')
     confetti({
       particleCount: 50,
       spread: 60,
@@ -1624,7 +1624,7 @@ const handleSaveCustomColor = async () => {
       colors: [colorToSave, '#ffffff', '#94a3b8', '#0f172a']
     })
   } catch (err: any) {
-    triggerToast('Nie udało się zapisać koloru: ' + (err?.message || err), { type: 'warning' })
+    triggerToast('Błąd zapisu koloru', { type: 'warning' })
   } finally {
     isSavingColor.value = false
   }
@@ -1767,7 +1767,7 @@ const copyPairingCode = async () => {
     setTimeout(() => {
       copyStatus.value = 'Kopiuj'
     }, 2500)
-    triggerToast('Kod skopiowany do schowka!')
+    triggerToast('Skopiowano kod')
   } catch (e) {
     copyStatus.value = 'DN-CODE'
   }

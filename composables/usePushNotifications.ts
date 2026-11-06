@@ -224,7 +224,7 @@ export const usePushNotifications = () => {
   // Request browser permission
   const requestPermission = async (): Promise<boolean> => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
-      triggerToast('Powiadomienia nie są wspierane na tym urządzeniu lub przeglądarce.', { type: 'warning' })
+      triggerToast('Powiadomienia nieobsługiwane', { type: 'warning' })
       return false
     }
 
@@ -235,7 +235,7 @@ export const usePushNotifications = () => {
       if (res === 'granted') {
         isPushEnabled.value = true
         persistSettings()
-        triggerToast('Powiadomienia zostały pomyślnie włączone! 💌', { type: 'love', title: 'Powiadomienia DuoNest' })
+        triggerToast('Włączono powiadomienia', { type: 'love' })
         
         // Attempt background push registration
         await registerServiceWorkerSubscription()
@@ -243,7 +243,7 @@ export const usePushNotifications = () => {
       } else if (res === 'denied') {
         isPushEnabled.value = false
         persistSettings()
-        triggerToast('Uprawnienie do powiadomień zostało zablokowane w przeglądarce.', { type: 'warning' })
+        triggerToast('Powiadomienia zablokowane', { type: 'warning' })
         return false
       } else {
         isPushEnabled.value = false
@@ -362,20 +362,19 @@ export const usePushNotifications = () => {
       if (permission.value !== 'granted') {
         const granted = await requestPermission()
         if (!granted && permission.value === 'denied') {
-          triggerToast('Odblokuj powiadomienia w ustawieniach przeglądarki (ikona kłódki przy adresie).', {
-            type: 'warning',
-            title: 'Wymagane uprawnienie'
+          triggerToast('Odblokuj w przeglądarce', {
+            type: 'warning'
           })
         }
       } else {
         isPushEnabled.value = true
         persistSettings()
-        triggerToast('Włączono powiadomienia na tym urządzeniu.', { type: 'success' })
+        triggerToast('Włączono powiadomienia', { type: 'success' })
       }
     } else {
       isPushEnabled.value = false
       persistSettings()
-      triggerToast('Powiadomienia push zostały wyłączone.', { type: 'info' })
+      triggerToast('Wyłączono powiadomienia', { type: 'info' })
 
       // Unsubscribe from browser PushManager & delete subscription from server
       try {
@@ -405,15 +404,15 @@ export const usePushNotifications = () => {
 
     if (key === 'sound') {
       if (pushSettings.sound) {
-        triggerToast('Włączono dźwięki powiadomień i alertów.', { type: 'info' })
+        triggerToast('Włączono dźwięki', { type: 'info' })
       } else {
-        triggerToast('Wyciszono dźwięki powiadomień i alertów.', { type: 'info' })
+        triggerToast('Wyciszono dźwięki', { type: 'info' })
       }
     } else if (key === 'vibrate') {
       if (pushSettings.vibrate) {
-        triggerToast('Włączono wibracje telefonu.', { type: 'info' })
+        triggerToast('Włączono wibracje', { type: 'info' })
       } else {
-        triggerToast('Wyłączono wibracje telefonu.', { type: 'info' })
+        triggerToast('Wyłączono wibracje', { type: 'info' })
       }
     }
   }
@@ -554,7 +553,7 @@ export const usePushNotifications = () => {
       playNotificationHaptic([120, 60, 180])
     }
 
-    triggerToast('Wysłano testowe powiadomienie na Twoje urządzenie!', { type: 'success', title: 'Powiadomienie Push' })
+    triggerToast('Wysłano powiadomienie testowe', { type: 'success' })
   }
 
   return {

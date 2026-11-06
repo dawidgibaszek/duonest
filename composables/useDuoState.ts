@@ -1913,7 +1913,7 @@ export const useDuoState = () => {
       },
       async (payload: any) => {
         if (payload.eventType === 'DELETE') {
-          triggerToast('Twoje konto zostało usunięte z bazy danych. Zostałeś wylogowany.', {
+          triggerToast('Zostałeś wylogowany', {
             type: 'warning',
             title: 'Konto usunięte'
           })
@@ -2114,7 +2114,7 @@ export const useDuoState = () => {
         }
 
         if (!dbProfile) {
-          triggerToast('Twoje konto nie istnieje w bazie danych. Zostałeś wylogowany.', {
+          triggerToast('Zostałeś wylogowany', {
             type: 'warning',
             title: 'Konto nie istnieje'
           })
@@ -2292,7 +2292,7 @@ export const useDuoState = () => {
           isPartnerOnline.value = true
           partnerLastSeenAt.value = new Date().toISOString()
           saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
-          triggerToast(`${partnerUser.value?.name || 'Partner'} jest teraz w aplikacji!`)
+          triggerToast(`${partnerUser.value?.name || 'Partner'} jest online`)
           // Synchronize our profile silently to the newly joined partner immediately
           broadcastToPartner('PROFILE_SYNC', {
             profile: currentUser.value,
@@ -2331,7 +2331,7 @@ export const useDuoState = () => {
             activePartnershipChannel = null
           }
           clearPartnershipData()
-          triggerToast('Wasze Gniazdko zostało rozłączone przez partnera.', {
+          triggerToast('Rozłączono Gniazdko', {
             type: 'warning',
             title: 'Gniazdko rozłączone'
           })
@@ -2346,7 +2346,7 @@ export const useDuoState = () => {
             eventsList.value.push(data)
             eventsList.value.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
             syncToStorage()
-            triggerToast(`${senderName} dodał(a) nowy plan: "${data.title}"`)
+            triggerToast(`${senderName} dodał(a) plan`)
           }
           break
         }
@@ -2357,7 +2357,7 @@ export const useDuoState = () => {
               eventsList.value[idx] = { ...eventsList.value[idx], ...data.updates }
               eventsList.value.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
               syncToStorage()
-              triggerToast(`${senderName} zaktualizował(a) plan: "${eventsList.value[idx].title}"`)
+              triggerToast(`${senderName} zmienił(a) plan`)
             }
           }
           break
@@ -2367,7 +2367,7 @@ export const useDuoState = () => {
             const deleted = eventsList.value.find(e => e.id === data.id)
             eventsList.value = eventsList.value.filter(e => e.id !== data.id)
             syncToStorage()
-            if (deleted) triggerToast(`${senderName} usunął(a) plan: "${deleted.title}"`)
+            if (deleted) triggerToast(`${senderName} usunął(a) plan`)
           }
           break
         }
@@ -2381,7 +2381,7 @@ export const useDuoState = () => {
               }
               syncToStorage()
               if (data.is_completed) {
-                triggerToast(`Wydarzenie "${ev.title}" zostało zrealizowane! Gratulacje!`)
+                triggerToast('Plan zrealizowany')
               }
             }
           }
@@ -2393,7 +2393,7 @@ export const useDuoState = () => {
           if (data && !shoppingItems.value.some(i => i.id === data.id)) {
             shoppingItems.value.unshift(data)
             syncToStorage()
-            triggerToast(`${senderName} dodał(a) do listy zakupów: ${data.title}`)
+            triggerToast(`${senderName} dodał(a) zakupy`)
           }
           break
         }
@@ -2425,7 +2425,7 @@ export const useDuoState = () => {
           if (data && !tasksList.value.some(t => t.id === data.id)) {
             tasksList.value.unshift(data)
             syncToStorage()
-            triggerToast(`${senderName} dodał(a) nowe zadanie: ${data.title}`)
+            triggerToast(`${senderName} dodał(a) zadanie`)
           }
           break
         }
@@ -2464,7 +2464,7 @@ export const useDuoState = () => {
               }
               syncToStorage()
               if (data.is_completed) {
-                triggerToast(`${senderName} ukończył(a) zadanie: "${task.title}" (+${task.points} pkt)!`)
+                triggerToast(`${senderName} ukończył(a) zadanie`)
               }
             }
           }
@@ -2485,7 +2485,7 @@ export const useDuoState = () => {
             if (data.pet_name) partnership.value.pet_name = data.pet_name
             if (data.pet_xp !== undefined) partnership.value.pet_xp = data.pet_xp
             syncToStorage()
-            triggerToast(`${senderName} zaktualizował(a) Waszego zwierzaka!`, { type: 'love', title: 'Wspólny Zwierzak' })
+            triggerToast('Zwierzak zaktualizowany', { type: 'love' })
           }
           break
         }
@@ -2497,7 +2497,7 @@ export const useDuoState = () => {
             partnerUser.value.mood_note = data.note || ''
             partnerUser.value.mood_updated_at = new Date().toISOString()
             syncToStorage()
-            triggerToast(`${senderName} zmienił(a) swój nastrój!`)
+            triggerToast(`${senderName} zmienił(a) nastrój`)
           }
           break
         }
@@ -2512,7 +2512,7 @@ export const useDuoState = () => {
               }
             }
             syncToStorage()
-            triggerToast(`${senderName} przesłał(a) Ci gest: ${data.message || data.nudge_type}!`)
+            triggerToast(`${senderName} przesłał(a) gest`)
           }
           break
         }
@@ -2522,7 +2522,7 @@ export const useDuoState = () => {
           if (data && !milestonesList.value.some(m => m.id === data.id)) {
             milestonesList.value.push(data)
             syncToStorage()
-            triggerToast(`Partner dodał nowy wspólny cel: ${data.title}!`)
+            triggerToast('Partner dodał cel')
           }
           break
         }
@@ -2550,7 +2550,7 @@ export const useDuoState = () => {
               m.is_completed = true
               m.completed_at = data.completed_at || new Date().toISOString()
               syncToStorage()
-              triggerToast(`Wspólna nagroda została odebrana: ${m.title}!`)
+              triggerToast('Nagroda odebrana')
             }
           }
           break
@@ -2581,7 +2581,7 @@ export const useDuoState = () => {
             } else if (data.for_user_id === data.created_by) {
               label = 'do swojej wishlisty'
             }
-            triggerToast(`${senderName} dodał(a) ${label}: "${data.title}"`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
+            triggerToast(`${senderName} dodał(a) marzenie`, { type: 'wishlist' })
           }
           break
         }
@@ -2592,7 +2592,7 @@ export const useDuoState = () => {
               const updated = { ...wishlistItems.value[idx], ...data.updates }
               wishlistItems.value = wishlistItems.value.map(w => w.id === data.id ? updated : w)
               syncToStorage()
-              triggerToast(`${senderName} zaktualizował(a) marzenie: "${updated.title}"`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
+              triggerToast(`${senderName} zmienił(a) marzenie`, { type: 'wishlist' })
             } else if (data.item) {
               wishlistItems.value = [data.item, ...wishlistItems.value.filter(w => w.id !== data.item.id)]
               syncToStorage()
@@ -2605,7 +2605,7 @@ export const useDuoState = () => {
             const deleted = wishlistItems.value.find(w => w.id === data.id)
             wishlistItems.value = wishlistItems.value.filter(w => w.id !== data.id)
             syncToStorage()
-            if (deleted) triggerToast(`${senderName} usunął(a) marzenie: "${deleted.title}"`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
+            if (deleted) triggerToast(`${senderName} usunął(a) marzenie`, { type: 'wishlist' })
           }
           break
         }
@@ -2616,7 +2616,7 @@ export const useDuoState = () => {
             syncToStorage()
             const item = wishlistItems.value.find(w => w.id === data.id)
             if (data.is_completed) {
-              triggerToast(`${senderName} spełnił(a) marzenie: "${item?.title || 'Marzenie'}"!`, { type: 'wishlist', title: 'Wishlista & Prezenty' })
+              triggerToast('Marzenie spełnione', { type: 'wishlist' })
             }
           }
           break
@@ -2634,7 +2634,7 @@ export const useDuoState = () => {
             if (!isDup) {
               moviesList.value = [data, ...moviesList.value]
               syncToStorage()
-              triggerToast(`${senderName} dodał(a) "${data.title}" do Waszej listy filmów!`, { type: 'movies', title: 'Filmy & Seriale' })
+              triggerToast(`${senderName} dodał(a) film`, { type: 'movies' })
             }
           }
           break
@@ -2648,7 +2648,7 @@ export const useDuoState = () => {
               moviesList.value = moviesList.value.map(m => m.id === data.id ? updated : m)
               syncToStorage()
               if (data.last_reviewer_id && data.last_reviewer_id !== currentUser.value?.id) {
-                triggerToast(`${senderName} ocenił(a) film: "${prev.title}"! Sprawdź recenzję.`, { type: 'movies', title: 'Nowa recenzja' })
+                triggerToast(`${senderName} ocenił(a) film`, { type: 'movies' })
               }
             } else {
               moviesList.value = [data, ...moviesList.value]
@@ -2663,7 +2663,7 @@ export const useDuoState = () => {
             moviesList.value = moviesList.value.filter(m => m.id !== data.id)
             syncToStorage()
             if (deleted) {
-              triggerToast(`${senderName} usunął(a) "${deleted.title}" z listy filmów.`, { type: 'movies', title: 'Filmy & Seriale' })
+              triggerToast(`${senderName} usunął(a) film`, { type: 'movies' })
             }
           }
           break
@@ -2677,7 +2677,7 @@ export const useDuoState = () => {
               moviesList.value = [...moviesList.value]
               syncToStorage()
               if (data.status === 'watched') {
-                triggerToast(`${senderName} oznaczył(a) "${item.title}" jako obejrzane! Czas na recenzję.`, { type: 'movies', title: 'Filmy & Seriale' })
+                triggerToast(`${senderName} obejrzał(a) film`, { type: 'movies' })
               }
             }
           }
@@ -2691,8 +2691,7 @@ export const useDuoState = () => {
             if (!exists) {
               mealsList.value = [data, ...mealsList.value]
               syncToStorage()
-              const mealTitle = data.titlePl || data.title || 'posiłek'
-              triggerToast(`${senderName} zaplanował(a) obiad: "${mealTitle}"!`, { type: 'meals', title: 'Planer Obiadów' })
+              triggerToast(`${senderName} zaplanował(a) obiad`, { type: 'meals' })
             }
           }
           break
@@ -2723,8 +2722,7 @@ export const useDuoState = () => {
               mealsList.value = [...mealsList.value]
               syncToStorage()
               if (data.is_completed) {
-                const mealTitle = data.titlePl || data.title || item.titlePl || item.title || 'obiad'
-                triggerToast(`${senderName} oznaczył(a) obiad "${mealTitle}" jako zjedzony!`, { type: 'meals', title: 'Planer Obiadów' })
+                triggerToast(`${senderName} zjadł(a) obiad`, { type: 'meals' })
               }
             }
           }
@@ -2773,7 +2771,7 @@ export const useDuoState = () => {
             }
             syncToStorage()
             if (data.is_manual_edit) {
-              triggerToast(`${data.profile.name || 'Partner'} zaktualizował(a) swój profil!`)
+              triggerToast('Partner zaktualizował profil')
             }
           }
           break
@@ -3116,7 +3114,7 @@ export const useDuoState = () => {
         })
       } catch (_) {}
 
-      triggerToast(`Połączono z: ${partnerUser.value.name}! Witamy w Gniazdku!`)
+      triggerToast('Połączono z partnerem')
 
       // Clean up pairing channel and switch to partnership channel
       setTimeout(() => {
@@ -3145,7 +3143,7 @@ export const useDuoState = () => {
             currentUser.value.partnership_id = newPId
             await loadPartnershipAndPartner(newPId, myId)
             syncToStorage()
-            triggerToast(`Konta zostały pomyślnie połączone! Witamy w Gniazdku!`)
+            triggerToast('Połączono z partnerem')
             setTimeout(() => {
               try { client.removeChannel(pairChan) } catch (_) {}
               activePairingChannel = null
@@ -3590,7 +3588,7 @@ export const useDuoState = () => {
 
         subscribeToPartnershipRealtime(existingPart.id)
         subscribeToSecurityChannel(currentUser.value.id, existingPart.id)
-        triggerToast(`Połączono z: ${partnerUser.value.name}! Witamy w Gniazdku!`)
+        triggerToast('Połączono z partnerem')
         return { success: true }
       }
     }
@@ -3697,7 +3695,7 @@ export const useDuoState = () => {
     subscribeToPartnershipRealtime(newPartnershipId)
     subscribeToSecurityChannel(currentUser.value.id, newPartnershipId)
 
-    triggerToast(`Konta zostały pomyślnie sparowane! Witajcie w Waszym Gniazdku!`)
+    triggerToast('Konta sparowane')
     return { success: true }
   }
 
@@ -3746,7 +3744,7 @@ export const useDuoState = () => {
     }
 
     clearPartnershipData()
-    triggerToast('Rozłączono partnerstwo.', { type: 'warning', title: 'Rozłączono' })
+    triggerToast('Rozłączono konto', { type: 'warning' })
     if (typeof window !== 'undefined') {
       navigateTo('/pairing', { replace: true })
     }
@@ -4023,7 +4021,7 @@ export const useDuoState = () => {
     if (db) {
       safeDb(db.from('events').insert(newEvent))
     }
-    triggerToast('Dodano plan do Waszego terminarza!')
+    triggerToast('Dodano plan')
     return newEvent
   }
 
@@ -4066,7 +4064,7 @@ export const useDuoState = () => {
     if (db) {
       safeDb(db.from('events').update(sanitizedUpdates).eq('id', id))
     }
-    triggerToast('Zaktualizowano plan w terminarzu.')
+    triggerToast('Zaktualizowano plan')
   }
 
   const toggleEventCompleted = async (id: string) => {
@@ -4100,7 +4098,7 @@ export const useDuoState = () => {
     if (db) {
       safeDb(db.from('events').update({ is_completed: ev.is_completed }).eq('id', id))
     }
-    triggerToast(ev.is_completed ? 'Wydarzenie zrealizowane! +10 pkt dla Ciebie' : 'Oznaczono jako nadchodzące.')
+    triggerToast(ev.is_completed ? 'Plan zrealizowany (+10 pkt)' : 'Oznaczono jako nadchodzący')
   }
 
   const deleteEvent = async (id: string) => {
@@ -4114,7 +4112,7 @@ export const useDuoState = () => {
     if (db) {
       safeDb(db.from('events').delete().eq('id', id))
     }
-    triggerToast('Usunięto plan z kalendarza.')
+    triggerToast('Usunięto plan')
   }
 
   // --- MOOD & NUDGES ACTIONS ---
@@ -4144,7 +4142,7 @@ export const useDuoState = () => {
         }))
       }
     }
-    triggerToast('Zaktualizowano Twój nastrój!')
+    triggerToast('Zmieniono nastrój')
   }
 
   const lastNudgeSentTimestamp = computed(() => {
@@ -4191,7 +4189,7 @@ export const useDuoState = () => {
 
     // Limit: only 1 nudge per person per 24 hours
     if (hasSentDailyNudge.value) {
-      triggerToast(`Dzisiejsze szturchnięcie zostało już wysłane! Kolejne za: ${formattedNextNudgeTime.value}.`)
+      triggerToast('Szturchnięcie już wysłane')
       return false
     }
 
@@ -4202,7 +4200,7 @@ export const useDuoState = () => {
       }
 
       if (hasSentDailyNudge.value) {
-        triggerToast(`Dzisiejsze szturchnięcie zostało już wysłane! Kolejne za: ${formattedNextNudgeTime.value}.`)
+        triggerToast('Szturchnięcie już wysłane')
         return false
       }
 
@@ -4242,7 +4240,7 @@ export const useDuoState = () => {
         }
       }
 
-      triggerToast(`Wysłano dzisiejsze szturchnięcie do ${partnerUser.value.name}! (+5 pkt)`)
+      triggerToast('Wysłano szturchnięcie (+5 pkt)')
       return true
     } finally {
       isSendingNudgeInProgress = false
@@ -4267,7 +4265,7 @@ export const useDuoState = () => {
         anniversary_date: partnership.value.anniversary_date
       }).eq('id', partnership.value.id))
     }
-    triggerToast('Zapisano ustawienia Waszego Gniazdka.')
+    triggerToast('Zapisano ustawienia')
   }
 
   // --- PROFILE & PERSONAL DATA MANAGEMENT ---
@@ -4356,7 +4354,7 @@ export const useDuoState = () => {
       }
     }
 
-    triggerToast('Zaktualizowano Twój profil!')
+    triggerToast('Zapisano profil')
   }
 
   // Days together calculation
@@ -4509,7 +4507,7 @@ export const useDuoState = () => {
     if (db && partnership.value?.id) {
       safeDb(db.from('milestones').insert(newMilestone))
     }
-    triggerToast(`Dodano cel: ${newMilestone.title}!`)
+    triggerToast('Dodano cel')
     return newMilestone
   }
 
@@ -4526,7 +4524,7 @@ export const useDuoState = () => {
     if (db) {
       safeDb(db.from('milestones').update(updates).eq('id', id))
     }
-    triggerToast('Zaktualizowano cel nagrody.')
+    triggerToast('Zaktualizowano cel')
   }
 
   const deleteMilestone = async (id: string) => {
@@ -4538,7 +4536,7 @@ export const useDuoState = () => {
     if (db) {
       safeDb(db.from('milestones').delete().eq('id', id))
     }
-    triggerToast(`Usunięto cel: ${item?.title || ''}.`)
+    triggerToast('Usunięto cel')
   }
 
   const claimMilestone = async (id: string) => {
@@ -4553,7 +4551,7 @@ export const useDuoState = () => {
     if (db) {
       safeDb(db.from('milestones').update({ is_completed: true, completed_at: now }).eq('id', id))
     }
-    triggerToast(`Gratulacje! Nagroda "${m.title}" została odebrana!`)
+    triggerToast('Odebrano nagrodę')
   }
 
   const reactivateMilestone = async (id: string) => {
@@ -4567,7 +4565,7 @@ export const useDuoState = () => {
     if (db) {
       safeDb(db.from('milestones').update({ is_completed: false, completed_at: null }).eq('id', id))
     }
-    triggerToast(`Cel "${m.title}" został ustawiony ponownie!`)
+    triggerToast('Wznowiono cel')
   }
 
   // --- WISHLIST & GIFT CRUD ACTIONS ---
@@ -4617,10 +4615,7 @@ export const useDuoState = () => {
       broadcastToPartner('WISHLIST_ADD', newItem)
     }
 
-    const msg = !newItem.is_visible_to_partner
-      ? `Dodano niespodziankę dla partnera (ukryte przed nim): "${newItem.title}"`
-      : `Dodano do listy marzeń: "${newItem.title}"!`
-    triggerToast(msg)
+    triggerToast(!newItem.is_visible_to_partner ? 'Dodano niespodziankę' : 'Dodano marzenie')
 
     return newItem
   }
@@ -4651,7 +4646,7 @@ export const useDuoState = () => {
       broadcastToPartner('WISHLIST_DELETE', { id })
     }
 
-    triggerToast(`Zaktualizowano marzenie: "${updated.title}"!`)
+    triggerToast('Zaktualizowano marzenie')
     return updated
   }
 
@@ -4670,7 +4665,7 @@ export const useDuoState = () => {
       broadcastToPartner('WISHLIST_DELETE', { id })
     }
 
-    triggerToast(`Usunięto z listy marzeń: "${item.title}".`)
+    triggerToast('Usunięto marzenie')
   }
 
   const toggleWishlistCompleted = async (id: string) => {
@@ -4697,7 +4692,7 @@ export const useDuoState = () => {
       })
     }
 
-    triggerToast(newCompleted ? `Marzenie "${item.title}" zostało spełnione!` : `Oznaczono marzenie jako niespełnione.`)
+    triggerToast(newCompleted ? 'Spełniono marzenie' : 'Cofnięto spełnienie')
   }
 
   let _refreshWishlistInFlight = false
@@ -4778,9 +4773,8 @@ export const useDuoState = () => {
     })
 
     if (existing) {
-      triggerToast(`"${existing.title}" znajduje się już na Waszej liście seansów!`, {
-        type: 'movies',
-        title: 'Już na liście'
+      triggerToast('Film jest już na liście', {
+        type: 'movies'
       })
       return existing
     }
@@ -4819,7 +4813,7 @@ export const useDuoState = () => {
       safeDb(client.from('movies').insert(newDoc))
     }
 
-    triggerToast(`Dodano "${newDoc.title}" do Waszej listy!`, { type: 'movies', title: 'Filmy & Seriale' })
+    triggerToast('Dodano film', { type: 'movies' })
     return newDoc
   }
 
@@ -4860,7 +4854,7 @@ export const useDuoState = () => {
       safeDb(client.from('movies').delete().eq('id', id))
     }
 
-    triggerToast(`Usunięto "${item.title}" z listy filmów.`)
+    triggerToast('Usunięto film')
   }
 
   const toggleMovieWatched = async (id: string, targetStatus?: 'planned' | 'watching' | 'watched') => {
@@ -4890,11 +4884,11 @@ export const useDuoState = () => {
     }
 
     if (newStatus === 'watched') {
-      triggerToast(`"${item.title}" oznaczono jako obejrzane! Czas na recenzję.`, { type: 'movies', title: 'Filmy & Seriale' })
+      triggerToast('Obejrzano film', { type: 'movies' })
     } else if (newStatus === 'watching') {
-      triggerToast(`Zaczęliście seans "${item.title}"!`, { type: 'movies', title: 'Filmy & Seriale' })
+      triggerToast('Rozpoczęto seans', { type: 'movies' })
     } else {
-      triggerToast(`Przeniesiono "${item.title}" do planowanych.`)
+      triggerToast('Przeniesiono do planowanych')
     }
   }
 
@@ -4931,7 +4925,7 @@ export const useDuoState = () => {
       safeDb(client.from('movies').update({ reviews }).eq('id', movieId))
     }
 
-    triggerToast(`Zapisano Twoją recenzję dla "${item.title}" (${rating}/10)!`, { type: 'movies', title: 'Recenzje Filmowe' })
+    triggerToast('Zapisano recenzję', { type: 'movies' })
   }
 
   const updateMovieProgress = async (id: string, season: number, episode: number) => {
@@ -4969,9 +4963,8 @@ export const useDuoState = () => {
       }).eq('id', id))
     }
 
-    triggerToast(`Zaktualizowano: ${item.title} (Sezon ${cleanSeason}, Odc. ${cleanEpisode})!`, {
-      type: 'movies',
-      title: 'Postęp serialu'
+    triggerToast('Zaktualizowano postęp', {
+      type: 'movies'
     })
   }
 
@@ -5072,7 +5065,7 @@ export const useDuoState = () => {
         if (client && pId) {
           safeDb(client.from('meals').upsert(updated))
         }
-        triggerToast(`Zaktualizowano w Twoich przepisach: "${newDoc.title}"`)
+        triggerToast('Zaktualizowano przepis')
         return updated
       }
 
@@ -5089,9 +5082,9 @@ export const useDuoState = () => {
     }
 
     if (cleanDate) {
-      triggerToast(`Zaplanowano obiad: "${newDoc.title}"`)
+      triggerToast('Zaplanowano obiad')
     } else {
-      triggerToast(`Dodano do Twoich przepisów: "${newDoc.title}"`)
+      triggerToast('Dodano przepis')
     }
     return newDoc
   }
@@ -5133,7 +5126,7 @@ export const useDuoState = () => {
       safeDb(client.from('meals').delete().eq('id', id))
     }
 
-    triggerToast(`Usunięto obiad "${item.title}" z planu.`)
+    triggerToast('Usunięto z planu')
   }
 
   const deleteSavedRecipe = async (recipe: { key?: string; api_id?: string; title?: string; rawTitle?: string; titlePl?: string }) => {
@@ -5171,8 +5164,7 @@ export const useDuoState = () => {
       }
     }
 
-    const displayName = recipe.titlePl || recipe.title || 'przepis'
-    triggerToast(`Usunięto "${displayName}" z Twoich przepisów.`)
+    triggerToast('Usunięto przepis')
   }
 
   const toggleMealCompleted = async (id: string) => {
@@ -5202,7 +5194,7 @@ export const useDuoState = () => {
     }
 
     if (newStatus) {
-      triggerToast(`Smacznego! Obiad "${item.title}" zjedzony.`)
+      triggerToast('Obiad zjedzony')
     }
   }
 
@@ -5215,7 +5207,7 @@ export const useDuoState = () => {
       await addShoppingItem(title, 'Spożywcze', '1')
       count++
     }
-    triggerToast(`Dodano ${count} składników do Listy Zakupów!`)
+    triggerToast('Dodano do zakupów')
     return count
   }
 

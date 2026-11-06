@@ -161,7 +161,7 @@ export const usePetState = () => {
       partnership.value.pet_id = def.id
       partnership.value.pet_name = newName
     }
-    triggerToast(`Twój nowy pupil to: ${def.emoji} ${newName}!`, { type: 'love', title: 'Wspólny Zwierzak' })
+    triggerToast('Wybrano pupila', { type: 'love' })
     triggerPetAnimation('happy')
   }
 
@@ -174,7 +174,7 @@ export const usePetState = () => {
     } else if (partnership.value) {
       partnership.value.pet_name = clean
     }
-    triggerToast(`Zmieniono imię zwierzaka na: "${clean}" 🐾`, { type: 'love', title: 'Wspólny Zwierzak' })
+    triggerToast('Zmieniono imię pupila', { type: 'love' })
   }
 
   return {

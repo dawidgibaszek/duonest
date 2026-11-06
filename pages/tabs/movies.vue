@@ -2121,7 +2121,7 @@ const openApiKeyPrompt = () => {
     if (clean) {
       localStorage.setItem('duonest_tmdb_api_key', clean)
       apiKeyWarning.value = ''
-      triggerToast('Zapisano klucz bazy filmów!', { type: 'movies', title: 'Katalog filmów' })
+      triggerToast('Zapisano klucz API', { type: 'movies' })
       if (tmdbSearchQuery.value) {
         executeSearch()
       } else {
@@ -2184,9 +2184,8 @@ const isAlreadyInList = (itemOrTmdbId?: any, optionalTitle?: string | null): boo
 const addFromTmdb = async (item: any, status: 'planned' | 'watched' | 'watching' = 'planned') => {
   if (!item) return
   if (isAlreadyInList(item)) {
-    triggerToast(`"${item.title}" znajduje się już na Waszej liście seansów! 🍿`, {
-      type: 'movies',
-      title: 'Już na liście'
+    triggerToast('Film jest już na liście', {
+      type: 'movies'
     })
     return
   }
@@ -2435,9 +2434,8 @@ const acceptRandomMovie = async (movie: any) => {
   const existing = movie.id ? moviesList.value.find(m => m.id === movie.id) : findMovieInList(movie)
   if (existing) {
     await toggleMovieStatus(existing, 'watching')
-    triggerToast(`Rozpoczęto seans "${existing.title}"! 🍿`, {
-      type: 'movies',
-      title: 'Kino we dwoje'
+    triggerToast('Rozpoczęto seans', {
+      type: 'movies'
     })
   } else {
     await addMovie({
@@ -2453,9 +2451,8 @@ const acceptRandomMovie = async (movie: any) => {
       vote_average: movie.vote_average,
       status: 'watching'
     })
-    triggerToast(`Dodano seans "${movie.title}" jako oglądany! 🍿`, {
-      type: 'movies',
-      title: 'Kino we dwoje'
+    triggerToast('Obejrzano film', {
+      type: 'movies'
     })
   }
 
@@ -2472,9 +2469,8 @@ const acceptRandomMovie = async (movie: any) => {
 
 const addRandomToPlanned = async (movie: any) => {
   if (isAlreadyInList(movie)) {
-    triggerToast(`Film "${movie.title}" jest już na Waszej liście!`, {
-      type: 'movies',
-      title: 'Kino we dwoje'
+    triggerToast('Film jest już na liście', {
+      type: 'movies'
     })
     return
   }
@@ -2493,9 +2489,8 @@ const addRandomToPlanned = async (movie: any) => {
     status: 'planned'
   })
 
-  triggerToast(`Zapisano "${movie.title}" do Waszej listy planowanych seansów! 📌`, {
-    type: 'movies',
-    title: 'Kino we dwoje'
+  triggerToast('Dodano do planowanych', {
+    type: 'movies'
   })
 
   try {
@@ -2538,9 +2533,8 @@ const openManualAddModal = () => {
 
 const openManualAddWithTitle = (title: string) => {
   if (isAlreadyInList(title)) {
-    triggerToast(`"${title}" znajduje się już na Waszej liście seansów! 🍿`, {
-      type: 'movies',
-      title: 'Już na liście'
+    triggerToast('Film jest już na liście', {
+      type: 'movies'
     })
     return
   }
@@ -2561,9 +2555,8 @@ const submitManualAdd = async () => {
   if (!title) return
 
   if (isAlreadyInList(title)) {
-    triggerToast(`"${title}" znajduje się już na Waszej liście seansów!`, {
-      type: 'movies',
-      title: 'Już na liście'
+    triggerToast('Film jest już na liście', {
+      type: 'movies'
     })
     return
   }
@@ -2742,9 +2735,8 @@ const scheduleMovieDate = async (movie: any) => {
     currentUser.value?.name || 'Wspólnie'
   )
 
-  triggerToast(`Dodano seans "${movie.title}" do Terminarza! (+10 pkt po seansie) 📅🍿`, {
-    type: 'calendar',
-    title: 'Terminarz'
+  triggerToast('Dodano do terminarza', {
+    type: 'calendar'
   })
 }
 

@@ -791,7 +791,7 @@ const handleScrapeUrl = async () => {
     formTarget.value = resolveDefaultTarget()
     isModalOpen.value = true
     urlInput.value = ''
-    triggerToast(resNotice || 'Pobrano dane ze sklepu! Sprawdź i dostosuj szczegóły.')
+    triggerToast(resNotice || 'Pobrano dane')
   } else {
     // Pure manual fallback
     let fallbackSite = ''
@@ -814,7 +814,7 @@ const handleScrapeUrl = async () => {
     isModalOpen.value = true
     urlInput.value = ''
     scrapeError.value = 'Wpisz szczegóły przedmiotu ręcznie.'
-    triggerToast('Wpisz szczegóły marzenia ręcznie ✨')
+    triggerToast('Wpisz dane ręcznie')
   }
 
   isScraping.value = false

@@ -321,7 +321,7 @@ const generateMyQrCode = async () => {
 const saveMyName = () => {
   if (myNameInput.value.trim()) {
     updateMyName(myNameInput.value.trim())
-    triggerToast('Zaktualizowano Twoje imię!')
+    triggerToast('Zapisano imię')
   }
 }
 
@@ -329,12 +329,12 @@ const copyCode = async () => {
   try {
     await navigator.clipboard.writeText(currentUser.value.pairing_code)
     copied.value = true
-    triggerToast('Kod skopiowany do schowka!')
+    triggerToast('Skopiowano kod')
     setTimeout(() => {
       copied.value = false
     }, 2500)
   } catch {
-    triggerToast(`Twój kod: ${currentUser.value.pairing_code}`)
+    triggerToast(currentUser.value.pairing_code)
   }
 }
 
@@ -510,7 +510,7 @@ const handleFileUpload = async (e: Event) => {
       submitPairing(code)
     } else {
       scannerStatusText.value = 'Nie rozpoznano kodu QR na tym zdjęciu. Upewnij się, że kod jest wyraźny lub wpisz kod ręcznie.'
-      triggerToast('Nie rozpoznano kodu QR na wybranym zdjęciu.')
+      triggerToast('Nie wykryto kodu QR', { type: 'warning' })
     }
   } catch (err) {
     scannerStatusText.value = 'Błąd odczytu zdjęcia. Spróbuj innego pliku lub wpisz kod ręcznie.'
@@ -697,7 +697,7 @@ onMounted(async () => {
           clearInterval(pairingPollInterval)
           pairingPollInterval = null
         }
-        triggerToast(`Połączono z: ${partnerUser.value?.name || 'Partnerem'}! Witamy w Gniazdku!`)
+        triggerToast('Połączono z partnerem')
         confetti({
           particleCount: 120,
           spread: 75,
