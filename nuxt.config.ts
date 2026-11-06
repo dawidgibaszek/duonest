@@ -50,7 +50,7 @@ export default defineNuxtConfig({
     vapidSubject: process.env.VAPID_SUBJECT || 'mailto:kontakt@duonestapp.pl',
     tmdbApiKey: process.env.TMDB_API_KEY || '',
     groqApiKey: process.env.GROQ_API_KEY || '',
-    groqModel: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+    groqModel: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
 
     public: {
       supabaseUrl: process.env.SUPABASE_URL || process.env.NUXT_PUBLIC_SUPABASE_URL || ('https://' + 'hfvgobhxiuchchblaajq.supabase.co'),

@@ -15,13 +15,52 @@ const ALLOWED_CATEGORIES = [
   'Obiad domowy'
 ]
 
+const CANDIDATE_MODELS = [
+  'openai/gpt-oss-120b',
+  'qwen/qwen3.8-27b',
+  'openai/gpt-oss-20b',
+  'llama-3.3-70b-versatile',
+  'llama-3.1-8b-instant'
+]
+
+function resolveGroqApiKey(): string {
+  let key = (process.env.GROQ_API_KEY || '').trim()
+  if (key) return key
+
+  try {
+    // @ts-ignore
+    const config = useRuntimeConfig?.()
+    key = (config?.groqApiKey || '').trim()
+    if (key) return key
+  } catch (_) {}
+
+  // Local development direct .env fallback if dev server hasn't reloaded env
+  if (typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
+    try {
+      const fs = require('fs')
+      const path = require('path')
+      const envPath = path.resolve(process.cwd(), '.env')
+      if (fs.existsSync(envPath)) {
+        const text = fs.readFileSync(envPath, 'utf8')
+        const match = text.match(/^\s*GROQ_API_KEY\s*=\s*(.*)?$/m)
+        if (match && match[1]) {
+          return match[1].trim().replace(/^["']|["']$/g, '')
+        }
+      }
+    } catch (_) {}
+  }
+
+  return ''
+}
+
 export async function formatRecipeWithGroq(scraped: ScrapedRecipeData): Promise<ScrapedRecipeData> {
-  const apiKey = (process.env.GROQ_API_KEY || '').trim()
+  const apiKey = resolveGroqApiKey()
   if (!apiKey) {
     return scraped
   }
 
-  const model = (process.env.GROQ_MODEL || 'llama-3.3-70b-versatile').trim()
+  const userModel = (process.env.GROQ_MODEL || '').trim()
+  const modelsToTry = Array.from(new Set([userModel, ...CANDIDATE_MODELS].filter(Boolean)))
   const endpoint = 'https://api.groq.com/openai/v1/chat/completions'
 
   try {
@@ -36,24 +75,28 @@ export async function formatRecipeWithGroq(scraped: ScrapedRecipeData): Promise<
       source: scraped.sourceName || ''
     }
 
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 7000)
+    let parsed: any = null
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.2,
-        max_tokens: 1800,
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'system',
-            content: `Jesteś profesjonalnym kucharzem i asystentem aplikacji kulinarnej DuoNest dla par.
+    for (const model of modelsToTry) {
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 7000)
+
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model,
+            temperature: 0.2,
+            max_tokens: 1800,
+            response_format: { type: 'json_object' },
+            messages: [
+              {
+                role: 'system',
+                content: `Jesteś profesjonalnym kucharzem i asystentem aplikacji kulinarnej DuoNest dla par.
 Twoim zadaniem jest uporządkowanie, oczyszczenie i ujednolicenie zaimportowanego przepisu kulinarnego w języku polskim.
 Odpowiedz wyłącznie poprawnym obiektem JSON w formacie:
 {
@@ -69,34 +112,48 @@ Zasady:
 2. Przygotowanie: podziel na logiczne, czytelne kroki w języku polskim. Usuń hashtagi, prośby o subskrypcję, odnośniki do profili społecznościowych itp.
 3. Kategoria: wybierz jedną z dozwolonych kategorii, która najlepiej pasuje do dania.
 4. Zachowaj oryginalne proporcje i sens dania.`
-          },
-          {
-            role: 'user',
-            content: JSON.stringify(promptPayload)
+              },
+              {
+                role: 'user',
+                content: JSON.stringify(promptPayload)
+              }
+            ]
+          }),
+          signal: controller.signal
+        }).finally(() => clearTimeout(timeoutId))
+
+        if (response.status === 404) {
+          // Model not found or not available in current Groq account, fallback to next model
+          console.warn(`[Groq AI] Model ${model} not available (404), trying fallback model...`)
+          continue
+        }
+
+        if (!response.ok) {
+          console.warn(`[Groq AI] Request returned status ${response.status} for model ${model}`)
+          return scraped
+        }
+
+        const data = await response.json()
+        const content = data?.choices?.[0]?.message?.content
+        if (!content) {
+          continue
+        }
+
+        try {
+          parsed = JSON.parse(content)
+        } catch (_) {
+          const match = content.match(/\{[\s\S]*\}/)
+          if (match) {
+            parsed = JSON.parse(match[0])
           }
-        ]
-      }),
-      signal: controller.signal
-    }).finally(() => clearTimeout(timeoutId))
+        }
 
-    if (!response.ok) {
-      console.warn(`[Groq AI] Request returned status ${response.status}`)
-      return scraped
-    }
-
-    const data = await response.json()
-    const content = data?.choices?.[0]?.message?.content
-    if (!content) {
-      return scraped
-    }
-
-    let parsed: any = null
-    try {
-      parsed = JSON.parse(content)
-    } catch (_) {
-      const match = content.match(/\{[\s\S]*\}/)
-      if (match) {
-        parsed = JSON.parse(match[0])
+        if (parsed && typeof parsed === 'object') {
+          break
+        }
+      } catch (err: any) {
+        console.warn(`[Groq AI] Attempt failed with model ${model}:`, err?.message || err)
+        continue
       }
     }
 
