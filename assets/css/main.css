@@ -523,3 +523,57 @@ ion-textarea .native-wrapper {
   display: none !important;
 }
 
+/* ========================================================================== */
+/* Global DuoNest Action Sheet & Native Dialog Fallback Styling                */
+/* ========================================================================== */
+ion-action-sheet {
+  --background: #ffffff;
+  --button-background: #ffffff;
+  --button-background-activated: #f1f5f9;
+  --button-background-hover: #f8fafc;
+  --button-color: #0f172a;
+  --button-color-activated: #0f172a;
+  --button-color-hover: #0f172a;
+  --color: #0f172a;
+  --backdrop-opacity: 0.58;
+}
+
+ion-action-sheet::part(backdrop) {
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+ion-action-sheet::part(container) {
+  border-radius: 28px 28px 0 0;
+  border-top: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 -12px 40px rgba(15, 23, 42, 0.22);
+}
+
+ion-action-sheet .action-sheet-group {
+  border-radius: 20px;
+  background: #ffffff;
+}
+
+ion-action-sheet .action-sheet-title {
+  color: #0f172a;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+ion-action-sheet .action-sheet-button {
+  font-weight: 600;
+  font-size: 14.5px;
+  color: #0f172a;
+}
+
+ion-action-sheet .action-sheet-button.action-sheet-destructive {
+  color: #dc2626 !important;
+}
+
+ion-action-sheet .action-sheet-button.action-sheet-cancel {
+  font-weight: 700;
+  color: #475569;
+}
+
+

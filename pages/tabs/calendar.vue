@@ -752,11 +752,12 @@
       />
 
       <!-- QUICK SINGLE EVENT SYNC ACTION SHEET -->
-      <ion-action-sheet
+      <DuoActionSheet
         :is-open="showEventSyncActionSheet"
-        :header="`Dodaj do kalendarza: ${selectedSyncEvent?.title || ''}`"
+        title="Dodaj do kalendarza"
+        :subtitle="selectedSyncEvent?.title || 'Wybierz aplikację kalendarza'"
         :buttons="eventSyncActionSheetButtons"
-        @didDismiss="showEventSyncActionSheet = false"
+        @dismiss="showEventSyncActionSheet = false"
       />
 
       <!-- Floating bottom tab bar spacer so content never gets obscured -->
@@ -844,6 +845,7 @@ const downloadSelectedEventIcs = () => {
 const eventSyncActionSheetButtons = computed(() => [
   {
     text: 'Kalendarz Google',
+    description: 'Otwórz w aplikacji Google lub przeglądarce',
     icon: ioniconsLogoGoogle,
     handler: () => {
       addSelectedEventToGoogle()
@@ -851,6 +853,7 @@ const eventSyncActionSheetButtons = computed(() => [
   },
   {
     text: 'Kalendarz Apple / Telefon (.ics)',
+    description: 'Pobierz plik do otwarcia na iPhone, iPad lub Mac',
     icon: ioniconsLogoApple,
     handler: () => {
       downloadSelectedEventIcs()
@@ -858,6 +861,7 @@ const eventSyncActionSheetButtons = computed(() => [
   },
   {
     text: 'Microsoft Outlook',
+    description: 'Dodaj do kalendarza Outlook online',
     icon: ioniconsLogoWindows,
     handler: () => {
       addSelectedEventToOutlook()

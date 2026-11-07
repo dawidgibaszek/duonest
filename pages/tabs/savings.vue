@@ -695,11 +695,12 @@
     </ion-modal>
 
     <!-- 4. ACTION SHEET: OPCJE CELU -->
-    <ion-action-sheet
+    <DuoActionSheet
       :is-open="isActionSheetOpen"
-      @didDismiss="isActionSheetOpen = false"
-      :header="activeGoalForAction?.title || 'Opcje celu'"
+      :title="activeGoalForAction?.title || 'Opcje skarbonki'"
+      subtitle="Zarządzaj tą skarbonką lub zmień jej stan"
       :buttons="goalActionButtons"
+      @dismiss="isActionSheetOpen = false"
     />
   </ion-page>
 </template>
@@ -1142,14 +1143,16 @@ const openGoalActions = (goal: SavingsGoal) => {
 
 const goalActionButtons = computed(() => [
   {
-    text: 'Wpłać środki',
+    text: 'Wpłać lub wypłać środki',
+    description: 'Zmień aktualną kwotę oszczędności w tej skarbonce',
     icon: ioniconsAddOutline,
     handler: () => {
       if (activeGoalForAction.value) openDepositModal(activeGoalForAction.value)
     }
   },
   {
-    text: 'Zobacz historię wpłat',
+    text: 'Zobacz historię operacji',
+    description: 'Przeglądaj wszystkie wpłaty i wypłaty w tej skarbonce',
     icon: ioniconsTimeOutline,
     handler: () => {
       if (activeGoalForAction.value) openHistoryModal(activeGoalForAction.value)
@@ -1157,6 +1160,7 @@ const goalActionButtons = computed(() => [
   },
   {
     text: 'Edytuj skarbonkę',
+    description: 'Zmień kwotę docelową, nazwę, kategorię lub termin',
     icon: ioniconsCreateOutline,
     handler: () => {
       if (activeGoalForAction.value) openEditModal(activeGoalForAction.value)
@@ -1164,7 +1168,9 @@ const goalActionButtons = computed(() => [
   },
   {
     text: 'Usuń skarbonkę',
+    description: 'Bezpowrotnie skasuj ten cel wraz z historią',
     role: 'destructive',
+    danger: true,
     icon: ioniconsTrashOutline,
     handler: async () => {
       if (!activeGoalForAction.value) return

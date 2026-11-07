@@ -259,6 +259,7 @@ const onTouchStart = (e: TouchEvent) => {
     target?.closest('ion-alert') ||
     target?.closest('ion-popover') ||
     target?.closest('ion-action-sheet') ||
+    target?.closest('.duo-action-sheet-overlay') ||
     target?.closest('ion-range') ||
     hasHorizontalScroll(target)
   ) {
