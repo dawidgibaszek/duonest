@@ -289,7 +289,7 @@ const translateAuthError = (err: any): string => {
     return 'Wykryliśmy stare konto DuoNest przypisane do tego adresu e-mail. Bezpiecznie przywracamy dostęp do wcześniej istniejącego profilu.'
   }
   if (msg.includes('Invalid login credentials') || msg.includes('Nieprawidłowe hasło')) {
-    return 'Nieprawidłowe hasło. Sprawdź hasło i spróbuj ponownie.'
+    return 'Nie udało się zalogować. Jeśli używasz konta sprzed migracji, wybierz „Przywróć dostęp do starego konta”. W pozostałych przypadkach wybierz „Nie pamiętasz hasła?”, aby ustawić nowe hasło.'
   }
   if (msg.includes('User already registered') || msg.includes('już istnieje')) {
     return 'Konto z tym adresem e-mail już istnieje. Przełącz na logowanie.'
