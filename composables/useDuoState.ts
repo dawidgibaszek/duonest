@@ -905,14 +905,43 @@ export const useDuoState = () => {
         }
       }
 
-      const { data: profileId, error: profileIdError } = await client.rpc('my_profile_id')
-      const { data: dbProfile } = profileIdError || !profileId
-        ? { data: null }
-        : await client
+      // 1. Try my_profile_id RPC
+      let profileId: string | null = null
+      try {
+        const { data: pId } = await client.rpc('my_profile_id')
+        if (pId) profileId = pId
+      } catch (_) {}
+
+      // 2. Fetch profile by ID or by auth_user_id
+      let dbProfile: any = null
+      if (profileId) {
+        const { data: p } = await client
           .from('profiles')
           .select(PROFILE_SELECT_FIELDS)
           .eq('id', profileId)
           .maybeSingle()
+        dbProfile = p
+      }
+
+      // Fallback 1: Query directly by auth_user_id
+      if (!dbProfile && user?.id) {
+        const { data: p } = await client
+          .from('profiles')
+          .select(PROFILE_SELECT_FIELDS)
+          .eq('auth_user_id', user.id)
+          .maybeSingle()
+        dbProfile = p
+      }
+
+      // Fallback 2: Query directly by id = user.id
+      if (!dbProfile && user?.id) {
+        const { data: p } = await client
+          .from('profiles')
+          .select(PROFILE_SELECT_FIELDS)
+          .eq('id', user.id)
+          .maybeSingle()
+        dbProfile = p
+      }
 
       if (dbProfile) {
         legacyRecoveryState.value = { email: userEmail || null, reason: 'none' }
@@ -1111,15 +1140,23 @@ export const useDuoState = () => {
     loginLockoutUntil.value = 0
     authUser.value = data.user
     authSession.value = data.session
-    const hasProfile = await syncUserProfileWithAuth(data.user)
+    let hasProfile = await syncUserProfileWithAuth(data.user)
+
+    if (!hasProfile) {
+      // Attempt link_profile_to_auth RPC in case it's a legacy profile needing link
+      try {
+        await authClient.rpc('link_profile_to_auth')
+      } catch (_) {}
+      hasProfile = await syncUserProfileWithAuth(data.user)
+    }
 
     if (!hasProfile) {
       const recoveryState = legacyRecoveryState.value
-      if (recoveryState.email) {
+      if (recoveryState.email && recoveryState.reason === 'missing-link') {
         await authClient.auth.signOut()
         return {
           data: null,
-          error: new Error(`Masz stare konto DuoNest powiązane z adresem ${recoveryState.email}. Bezpieczne odzyskanie danych jest wymagane, więc przejdź do formularza przywracania dostępu.`)
+          error: new Error(`Profil powiązany z adresem ${recoveryState.email} wymaga dokończenia aktywacji. Skorzystaj z opcji przywracania dostępu.`)
         }
       }
       await authClient.auth.signOut()
@@ -1177,18 +1214,27 @@ export const useDuoState = () => {
             data: {
               needsEmailVerification: false,
               email: cleanEmail,
-              needsLegacyRecovery: true
+              needsLegacyRecovery: true,
+              isExistingUser: false,
+              session: data.session,
+              user: data.user
             },
             error: null
           }
         }
       }
 
+      // Supabase returns user with empty identities when user already exists
+      const isExistingUser = !!(data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0)
+
       return {
         data: {
-          needsEmailVerification: !data.session,
+          needsEmailVerification: !data.session && !isExistingUser,
           email: cleanEmail,
-          needsLegacyRecovery: false
+          needsLegacyRecovery: false,
+          isExistingUser,
+          session: data.session,
+          user: data.user
         },
         error: null
       }
@@ -5049,6 +5095,7 @@ export const useDuoState = () => {
     verifyEmailForProfile,
     resendVerificationEmail,
     legacyRecoveryState,
+    syncUserProfileWithAuth,
     changeUserPassword
   }
 }

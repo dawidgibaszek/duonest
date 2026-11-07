@@ -231,7 +231,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useDuoState, getSupabaseClient, clearSupabaseSessionStorage, sanitizeEmail } from '~/composables/useDuoState'
+import { useDuoState, getSupabaseClient, sanitizeEmail } from '~/composables/useDuoState'
 
 const route = useRoute()
 const {
@@ -241,6 +241,7 @@ const {
   completePasswordReset,
   resendVerificationEmail,
   legacyRecoveryState,
+  syncUserProfileWithAuth,
   isPaired,
   currentUser,
   partnership,
@@ -281,6 +282,20 @@ const switchMode = (newMode: 'login' | 'register' | 'forgot' | 'legacy-recovery'
   mode.value = newMode
   errorMessage.value = ''
   successMessage.value = ''
+  if (typeof window !== 'undefined' && window.history?.replaceState) {
+    const url = new URL(window.location.href)
+    url.searchParams.delete('legacy')
+    url.searchParams.delete('recovery')
+    url.searchParams.delete('mode')
+    url.searchParams.delete('forgot')
+    if (newMode === 'forgot') {
+      url.searchParams.set('forgot', '1')
+    } else if (newMode === 'legacy-recovery') {
+      url.searchParams.set('mode', 'legacy-recovery')
+    }
+    const cleanUrl = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '')
+    window.history.replaceState({}, '', cleanUrl)
+  }
 }
 
 const handleGoogleSignIn = async () => {
@@ -322,13 +337,13 @@ const handleGoogleSignIn = async () => {
 const translateAuthError = (err: any): string => {
   const msg = err?.message || err?.error_description || String(err)
   if (msg.includes('Masz stare konto DuoNest') || msg.includes('Bezpieczne odzyskanie danych jest wymagane')) {
-    return 'Wykryliśmy stare konto DuoNest przypisane do tego adresu e-mail. Bezpiecznie przywracamy dostęp do wcześniej istniejącego profilu.'
+    return 'Wykryliśmy konto powiązane z tym adresem e-mail. Trwa synchronizacja danych...'
   }
   if (msg.includes('Invalid login credentials') || msg.includes('Nieprawidłowe hasło')) {
-    return 'Nie udało się zalogować. Jeśli używasz konta sprzed migracji, wybierz „Przywróć dostęp do starego konta”. W pozostałych przypadkach wybierz „Nie pamiętasz hasła?”, aby ustawić nowe hasło.'
+    return 'Nieprawidłowy adres e-mail lub hasło. Upewnij się, że wpisujesz poprawne hasło lub wybierz „Nie pamiętasz hasła?”, aby ustawić nowe.'
   }
   if (msg.includes('User already registered') || msg.includes('już istnieje')) {
-    return 'Konto z tym adresem e-mail już istnieje. Przełącz na logowanie.'
+    return 'Konto z tym adresem e-mail już istnieje. Zaloguj się powyżej lub skorzystaj z „Nie pamiętasz hasła?”.'
   }
   if (msg.includes('Password should be at least 6 characters') || msg.includes('co najmniej 6')) {
     return 'Hasło musi mieć co najmniej 6 znaków.'
@@ -376,18 +391,32 @@ onMounted(async () => {
     return
   }
 
-  // 2. Check if user came from 'forgot=1'
+  // 2. Check if an active authenticated session already exists
+  const supabase = getSupabaseClient()
+  if (supabase) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
+        const hasProfile = await syncUserProfileWithAuth(session.user)
+        if (hasProfile) {
+          const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id) ? '/tabs/nest' : '/pairing'
+          window.location.replace(destination)
+          return
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 3. Set email from URL if provided
+  if (urlParams.get('email')) {
+    emailInput.value = sanitizeEmail(urlParams.get('email'))
+  }
+
+  // 4. Check if user came from query params
   if (route?.query?.forgot === '1') {
     mode.value = 'forgot'
   } else if (route?.query?.legacy === '1' || route?.query?.recovery === '1' || route?.query?.mode === 'legacy-recovery') {
     mode.value = 'legacy-recovery'
-  }
-
-  // 3. Clear any leftover stale recovery tokens and storage
-  clearSupabaseSessionStorage()
-
-  if (urlParams.get('email')) {
-    emailInput.value = sanitizeEmail(urlParams.get('email'))
   }
 })
 
@@ -402,9 +431,9 @@ const handleSubmit = async () => {
     if (mode.value === 'login') {
       const { error } = await signInWithEmail(emailInput.value, passwordInput.value)
       if (error) {
-        const isLegacyRecoveryError = String(error.message || '').includes('stare konto DuoNest') || String(error.message || '').includes('Bezpieczne odzyskanie danych')
+        const isLegacyRecoveryError = String(error.message || '').includes('wymaga dokończenia aktywacji')
         if (isLegacyRecoveryError) {
-          mode.value = 'legacy-recovery'
+          switchMode('legacy-recovery')
           emailInput.value = sanitizeEmail(emailInput.value)
         }
         errorMessage.value = translateAuthError(error)
@@ -421,9 +450,9 @@ const handleSubmit = async () => {
         nameInput.value
       )
       if (error) {
-        const isLegacyRecoveryError = String(error.message || '').includes('stare konto DuoNest') || String(error.message || '').includes('Bezpieczne odzyskanie danych')
+        const isLegacyRecoveryError = String(error.message || '').includes('wymaga dokończenia aktywacji')
         if (isLegacyRecoveryError) {
-          mode.value = 'legacy-recovery'
+          switchMode('legacy-recovery')
           emailInput.value = sanitizeEmail(emailInput.value)
         }
         errorMessage.value = translateAuthError(error)
@@ -442,9 +471,9 @@ const handleSubmit = async () => {
     } else if (mode.value === 'forgot') {
       const { error } = await requestPasswordReset(emailInput.value)
       if (error) {
-        const isLegacyRecoveryError = String(error.message || '').includes('stare konto DuoNest') || String(error.message || '').includes('Bezpieczne odzyskanie danych')
+        const isLegacyRecoveryError = String(error.message || '').includes('wymaga dokończenia aktywacji')
         if (isLegacyRecoveryError) {
-          mode.value = 'legacy-recovery'
+          switchMode('legacy-recovery')
           emailInput.value = sanitizeEmail(emailInput.value)
         }
         errorMessage.value = translateAuthError(error)
@@ -454,33 +483,59 @@ const handleSubmit = async () => {
 
       successMessage.value = 'Jeśli podany adres e-mail istnieje w bazie, przesłana została wiadomość z bezpiecznym linkiem oraz 6-cyfrowym kodem weryfikacyjnym. Sprawdź swoją skrzynkę (w tym folder SPAM).'
     } else if (mode.value === 'legacy-recovery') {
+      const cleanEmail = sanitizeEmail(emailInput.value)
+
+      // Step 1: If user already migrated their credentials, attempt direct login first
+      const { data: signInData, error: signInError } = await signInWithEmail(cleanEmail, passwordInput.value)
+      if (!signInError && signInData?.user) {
+        const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id) ? '/tabs/nest' : '/pairing'
+        window.location.href = destination
+        return
+      }
+
+      // Step 2: Attempt signUp to create auth credentials and link legacy profile
       const { data, error } = await signUpWithEmail(
-        emailInput.value,
+        cleanEmail,
         passwordInput.value,
         nameInput.value
       )
 
       if (error) {
+        const errMsg = String(error.message || '')
+        if (errMsg.includes('User already registered') || errMsg.includes('already exists') || errMsg.includes('już istnieje')) {
+          switchMode('login')
+          emailInput.value = cleanEmail
+          errorMessage.value = `Konto dla ${cleanEmail} jest już aktywne. Zaloguj się powyżej swoim hasłem lub skorzystaj z „Nie pamiętasz hasła?”.`
+          isLoading.value = false
+          return
+        }
         errorMessage.value = translateAuthError(error)
         isLoading.value = false
         return
       }
 
-      if (data?.needsLegacyRecovery) {
-        mode.value = 'legacy-recovery'
-        emailInput.value = sanitizeEmail(emailInput.value)
-        errorMessage.value = 'Wykryliśmy stare konto DuoNest przypisane do tego adresu e-mail. Bezpiecznie przywracamy dostęp do wcześniej istniejącego profilu.'
+      if (data?.isExistingUser) {
+        switchMode('login')
+        emailInput.value = cleanEmail
+        errorMessage.value = `Konto dla ${cleanEmail} zostało już wcześniej pomyślnie zmigrowane i jest aktywne. Zaloguj się powyżej swoim hasłem lub skorzystaj z „Nie pamiętasz hasła?”.`
         isLoading.value = false
+        return
+      }
+
+      if (data?.session || (!data?.needsEmailVerification && !data?.needsLegacyRecovery)) {
+        const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id) ? '/tabs/nest' : '/pairing'
+        window.location.href = destination
         return
       }
 
       if (data?.needsEmailVerification) {
-        successMessage.value = `Sprawdzamy, czy istnieje stare konto DuoNest dla ${emailInput.value}. Jeśli tak, odzyskamy je po adresie e-mail bez utraty danych. Na ten adres wysłaliśmy link aktywacyjny, a po potwierdzeniu konto zostanie ponownie połączone z istniejącym profilem.`
+        successMessage.value = `Wysłaliśmy link aktywacyjny na adres ${cleanEmail}. Kliknij w link w odebranej wiadomości, aby potwierdzić konto i dokończyć odzyskiwanie danych.`
         isLoading.value = false
         return
       }
 
-      successMessage.value = 'Konto zostało odtworzone na podstawie adresu e-mail. Dotychczasowe dane profilu są zachowane i zostaną ponownie połączone z Twoim kontem.'
+      successMessage.value = 'Konto zostało pomyślnie zaktualizowane. Możesz się teraz zalogować.'
+      switchMode('login')
     }
   } catch (err: any) {
     errorMessage.value = translateAuthError(err)
@@ -491,7 +546,7 @@ const handleSubmit = async () => {
 
 watch(legacyRecoveryState, (state) => {
   if (state.reason === 'missing-link' && state.email) {
-    mode.value = 'legacy-recovery'
+    switchMode('legacy-recovery')
     emailInput.value = sanitizeEmail(state.email)
   }
 }, { immediate: true })
