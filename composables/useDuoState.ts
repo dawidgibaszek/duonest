@@ -187,6 +187,34 @@ export interface MealItem {
   titlePl?: string
 }
 
+export interface SavingsGoal {
+  id: string
+  partnership_id: string
+  title: string
+  category: 'travel' | 'home' | 'gadget' | 'date' | 'emergency' | 'other'
+  target_amount: number
+  current_amount: number
+  currency: string
+  target_date?: string | null
+  icon?: string
+  color?: string
+  is_completed: boolean
+  completed_at?: string | null
+  created_by?: string | null
+  created_at: string
+  updated_at?: string
+}
+
+export interface SavingsContribution {
+  id: string
+  goal_id: string
+  partnership_id: string
+  user_id: string | null
+  amount: number
+  note?: string | null
+  created_at: string
+}
+
 // Helpers for unique code generation
 const generateUniqueCode = () => {
   const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'
@@ -278,9 +306,11 @@ const milestonesList = ref<NestMilestone[]>([])
 const wishlistItems = ref<WishlistItem[]>([])
 const moviesList = ref<MovieItem[]>([])
 const mealsList = ref<MealItem[]>([])
+const savingsGoals = ref<SavingsGoal[]>([])
+const savingsContributions = ref<SavingsContribution[]>([])
 
 // Active sub-tabs for grouped navigation
-export const activeDailySubTab = ref<'shopping' | 'tasks' | 'meals'>('shopping')
+export const activeDailySubTab = ref<'shopping' | 'tasks' | 'meals' | 'savings'>('shopping')
 export const activeOrgSubTab = activeDailySubTab
 export const activeTasksMainTab = ref<'tasks' | 'pet'>('tasks')
 export const activeLeisureSubTab = ref<'movies' | 'wishlist'>('movies')
@@ -341,7 +371,7 @@ if (typeof window !== 'undefined' && !nudgeTickerInterval) {
 }
 
 // Enhanced DuoNest Toast Types & Reactive State
-export type ToastType = 'success' | 'love' | 'points' | 'calendar' | 'shopping' | 'tasks' | 'meals' | 'mood' | 'wishlist' | 'info' | 'warning'
+export type ToastType = 'success' | 'love' | 'points' | 'calendar' | 'shopping' | 'tasks' | 'meals' | 'mood' | 'wishlist' | 'savings' | 'info' | 'warning'
 
 export interface DuoToastItem {
   id: string
@@ -353,6 +383,9 @@ export interface DuoToastItem {
 
 export const inferToastMetadata = (msg: string): { title: string; type: ToastType } => {
   const m = msg.toLowerCase()
+  if (m.includes('skarbonk') || m.includes('wpłac') || m.includes('wypłac') || m.includes('oszczędn') || m.includes('cel')) {
+    return { title: 'Skarbonki & Cele', type: 'savings' }
+  }
   if (m.includes('marzeni') || m.includes('wishlist') || m.includes('prezent')) {
     return { title: 'Wishlista & Prezenty', type: 'wishlist' }
   }
@@ -485,6 +518,7 @@ let lastSecurityVerifiedAt = 0
 let isSecurityVerifying = false
 let hasShownSecurityMigrationToast = false
 let isLoggingOut = false
+let activeInitSyncPromise: Promise<void> | null = null
 
 export const clearStaleSupabaseCookies = () => {
   if (typeof document === 'undefined') return
@@ -707,6 +741,20 @@ export const useDuoState = () => {
       mealsList.value = savedMeals
     } else {
       mealsList.value = []
+    }
+
+    const savedSavingsGoals = loadFromStorage<SavingsGoal[]>('duonest_savings_goals', [])
+    if (savedSavingsGoals && savedSavingsGoals.length > 0) {
+      savingsGoals.value = savedSavingsGoals
+    } else {
+      savingsGoals.value = []
+    }
+
+    const savedSavingsContribs = loadFromStorage<SavingsContribution[]>('duonest_savings_contributions', [])
+    if (savedSavingsContribs && savedSavingsContribs.length > 0) {
+      savingsContributions.value = savedSavingsContribs
+    } else {
+      savingsContributions.value = []
     }
 
     if (typeof window !== 'undefined' && currentUser.value?.id) {
@@ -969,6 +1017,8 @@ export const useDuoState = () => {
     wishlistItems.value = []
     moviesList.value = []
     mealsList.value = []
+    savingsGoals.value = []
+    savingsContributions.value = []
     lastNudgeSentAt.value = null
     if (typeof window !== 'undefined') {
       localStorage.removeItem('duonest_partner_user')
@@ -981,6 +1031,8 @@ export const useDuoState = () => {
       localStorage.removeItem('duonest_wishlist')
       localStorage.removeItem('duonest_movies')
       localStorage.removeItem('duonest_meals')
+      localStorage.removeItem('duonest_savings_goals')
+      localStorage.removeItem('duonest_savings_contributions')
     }
     syncToStorage()
   }
@@ -997,6 +1049,8 @@ export const useDuoState = () => {
     wishlistItems.value = []
     moviesList.value = []
     mealsList.value = []
+    savingsGoals.value = []
+    savingsContributions.value = []
     lastNudgeSentAt.value = null
     if (typeof window !== 'undefined') {
       localStorage.removeItem('duonest_auth_user')
@@ -1013,6 +1067,8 @@ export const useDuoState = () => {
       localStorage.removeItem('duonest_wishlist')
       localStorage.removeItem('duonest_movies')
       localStorage.removeItem('duonest_meals')
+      localStorage.removeItem('duonest_savings_goals')
+      localStorage.removeItem('duonest_savings_contributions')
     }
   }
 
@@ -1335,22 +1391,38 @@ export const useDuoState = () => {
     saveToStorage('duonest_wishlist', wishlistItems.value)
     saveToStorage('duonest_movies', moviesList.value)
     saveToStorage('duonest_meals', mealsList.value)
+    saveToStorage('duonest_savings_goals', savingsGoals.value)
+    saveToStorage('duonest_savings_contributions', savingsContributions.value)
   }
 
   const broadcastToPartner = (action: string, payload: any) => {
     if (activePartnershipChannel) {
       try {
-        activePartnershipChannel.send({
-          type: 'broadcast',
-          event: 'duo_sync',
-          payload: {
-            action,
-            senderId: currentUser.value.id,
-            senderName: currentUser.value.name,
-            timestamp: new Date().toISOString(),
-            data: payload
-          }
-        })
+        const envelope = {
+          action,
+          senderId: currentUser.value.id,
+          senderName: currentUser.value.name,
+          timestamp: new Date().toISOString(),
+          data: payload
+        }
+
+        const channel = activePartnershipChannel
+        const canPush = Boolean(
+          channel?.channelAdapter?.canPush?.() ||
+          channel?.state === 'joined' ||
+          channel?.subState === 'SUBSCRIBED'
+        )
+
+        if (canPush) {
+          channel.send({
+            type: 'broadcast',
+            event: 'duo_sync',
+            payload: envelope
+          })
+        } else if (typeof channel?.httpSend === 'function') {
+          // Explicitly use httpSend() to satisfy Supabase Realtime SDK deprecation guidelines
+          channel.httpSend('duo_sync', envelope).catch(() => {})
+        }
       } catch (err) {
         console.warn('Realtime broadcast error:', err)
       }
@@ -1376,7 +1448,10 @@ export const useDuoState = () => {
         'MILESTONE_CLAIM',
         'MEAL_ADD',
         'MEAL_UPDATE',
-        'MEAL_TOGGLE_COMPLETED'
+        'MEAL_TOGGLE_COMPLETED',
+        'SAVINGS_GOAL_ADD',
+        'SAVINGS_CONTRIBUTION_ADD',
+        'SAVINGS_GOAL_UPDATE'
       ]
 
       if (actionsForPush.includes(action)) {
@@ -2231,6 +2306,76 @@ export const useDuoState = () => {
           }
           break
         }
+        case 'SAVINGS_GOAL_ADD': {
+          if (data?.id && !savingsGoals.value.some(g => g.id === data.id)) {
+            savingsGoals.value = [data, ...savingsGoals.value]
+            syncToStorage()
+            triggerToast(`${senderName} dodał(a) nową skarbonkę: ${data.title}`, { type: 'savings' })
+          }
+          break
+        }
+        case 'SAVINGS_GOAL_UPDATE': {
+          if (data?.id) {
+            const idx = savingsGoals.value.findIndex(g => g.id === data.id)
+            if (idx !== -1) {
+              savingsGoals.value[idx] = { ...savingsGoals.value[idx], ...data.updates }
+              syncToStorage()
+            }
+          }
+          break
+        }
+        case 'SAVINGS_GOAL_DELETE': {
+          if (data?.id) {
+            savingsGoals.value = savingsGoals.value.filter(g => g.id !== data.id)
+            savingsContributions.value = savingsContributions.value.filter(c => c.goal_id !== data.id)
+            syncToStorage()
+            triggerToast(`${senderName} usunął(a) skarbonkę`, { type: 'savings' })
+          }
+          break
+        }
+        case 'SAVINGS_CONTRIBUTION_ADD': {
+          if (data?.contribution?.id) {
+            const exists = savingsContributions.value.some(c => c.id === data.contribution.id)
+            if (!exists) {
+              savingsContributions.value = [data.contribution, ...savingsContributions.value]
+            }
+            let goalTitle = data.goalTitle || 'skarbonkę'
+            if (data.goalId && typeof data.newCurrentAmount === 'number') {
+              const goal = savingsGoals.value.find(g => g.id === data.goalId)
+              if (goal) {
+                goalTitle = goal.title
+                goal.current_amount = data.newCurrentAmount
+                goal.is_completed = Boolean(data.isCompleted)
+                if (data.isCompleted && !goal.completed_at) {
+                  goal.completed_at = new Date().toISOString()
+                }
+              }
+            }
+            syncToStorage()
+            if (data.isCompleted) {
+              triggerToast(`Cel zrealizowany! ${senderName} i Ty osiągnęliście: ${goalTitle}!`, { type: 'savings' })
+            } else if (Number(data.contribution.amount) > 0) {
+              triggerToast(`${senderName} dorzucił(a) +${data.contribution.amount} zł do skarbonki: ${goalTitle}!`, { type: 'savings' })
+            } else {
+              triggerToast(`${senderName} wypłacił(a) ${Math.abs(data.contribution.amount)} zł ze skarbonki: ${goalTitle}`, { type: 'savings' })
+            }
+          }
+          break
+        }
+        case 'SAVINGS_CONTRIBUTION_DELETE': {
+          if (data?.id) {
+            savingsContributions.value = savingsContributions.value.filter(c => c.id !== data.id)
+            if (data.goalId && typeof data.newCurrentAmount === 'number') {
+              const goal = savingsGoals.value.find(g => g.id === data.goalId)
+              if (goal) {
+                goal.current_amount = data.newCurrentAmount
+                goal.is_completed = Boolean(data.isCompleted)
+              }
+            }
+            syncToStorage()
+          }
+          break
+        }
         case 'PARTNERSHIP_UPDATE': {
           if (data && partnership.value) {
             partnership.value = { ...partnership.value, ...data }
@@ -2282,6 +2427,8 @@ export const useDuoState = () => {
             events: eventsList.value,
             milestones: milestonesList.value,
             wishlist: shareableWishlist,
+            savingsGoals: savingsGoals.value,
+            savingsContributions: savingsContributions.value,
             partnership: partnership.value,
             userMood: {
               mood: currentUser.value.current_mood,
@@ -2317,6 +2464,12 @@ export const useDuoState = () => {
                 }
               }
               wishlistItems.value = Array.from(existingMap.values())
+            }
+            if (Array.isArray(data.savingsGoals) && data.savingsGoals.length > 0) {
+              savingsGoals.value = data.savingsGoals
+            }
+            if (Array.isArray(data.savingsContributions) && data.savingsContributions.length > 0) {
+              savingsContributions.value = data.savingsContributions
             }
             if (data.partnership && partnership.value) {
               if (data.partnership.nest_name) partnership.value.nest_name = data.partnership.nest_name
@@ -2440,6 +2593,35 @@ export const useDuoState = () => {
           }
         } else if (payload.eventType === 'DELETE') {
           mealsList.value = mealsList.value.filter(m => m.id !== payload.old.id)
+          syncToStorage()
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'savings_goals', filter: `partnership_id=eq.${partnershipId}` }, (payload: any) => {
+        if (payload.eventType === 'INSERT') {
+          if (!savingsGoals.value.some(g => g.id === payload.new.id)) {
+            savingsGoals.value.unshift(payload.new)
+            syncToStorage()
+          }
+        } else if (payload.eventType === 'UPDATE') {
+          const idx = savingsGoals.value.findIndex(g => g.id === payload.new.id)
+          if (idx !== -1) {
+            savingsGoals.value[idx] = payload.new
+            syncToStorage()
+          }
+        } else if (payload.eventType === 'DELETE') {
+          savingsGoals.value = savingsGoals.value.filter(g => g.id !== payload.old.id)
+          savingsContributions.value = savingsContributions.value.filter(c => c.goal_id !== payload.old.id)
+          syncToStorage()
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'savings_contributions', filter: `partnership_id=eq.${partnershipId}` }, (payload: any) => {
+        if (payload.eventType === 'INSERT') {
+          if (!savingsContributions.value.some(c => c.id === payload.new.id)) {
+            savingsContributions.value.unshift(payload.new)
+            syncToStorage()
+          }
+        } else if (payload.eventType === 'DELETE') {
+          savingsContributions.value = savingsContributions.value.filter(c => c.id !== payload.old.id)
           syncToStorage()
         }
       })
@@ -2621,9 +2803,16 @@ export const useDuoState = () => {
     currentUser.value.last_seen_at = nowIso
 
     if (activePartnershipChannel) {
-      try {
-        await broadcastToPartner('HEARTBEAT', { at: nowIso })
-      } catch (_) {}
+      const canPush = Boolean(
+        activePartnershipChannel?.channelAdapter?.canPush?.() ||
+        activePartnershipChannel?.state === 'joined' ||
+        activePartnershipChannel?.subState === 'SUBSCRIBED'
+      )
+      if (canPush) {
+        try {
+          await broadcastToPartner('HEARTBEAT', { at: nowIso })
+        } catch (_) {}
+      }
     }
 
     if (currentUser.value.partnership_id) {
@@ -2653,78 +2842,90 @@ export const useDuoState = () => {
     })
   }
 
-  const initSupabaseSync = async () => {
-    initializeClientState()
-    const client = getCleanDbClient() || getSupabaseClient()
-    if (!client || !authUser.value?.id) return
-
-    if (currentUser.value?.id && authUser.value) {
-      const isAllowed = await verifyUserAndPartnershipAccess(true)
-      if (!isAllowed) return
+  const initSupabaseSync = async (force: boolean = false): Promise<void> => {
+    if (activeInitSyncPromise && !force) {
+      return activeInitSyncPromise
     }
 
-    isOnlineWithSupabase.value = true
+    activeInitSyncPromise = (async () => {
+      initializeClientState()
+      const client = getCleanDbClient() || getSupabaseClient()
+      if (!client || !authUser.value?.id) return
 
-    try {
-      const { error: testErr } = await client.from('profiles').select('id').limit(1)
-      if (testErr && (testErr.code === 'PGRST205' || testErr.message?.includes('schema cache'))) {
-        dbSchemaStatus.value = 'missing_tables'
-        if (process.dev) {
-          console.warn('Supabase Realtime connected. Database tables not found in schema cache.')
-        }
-      } else {
-        dbSchemaStatus.value = 'connected'
-        if (process.dev) {
-          console.log('Supabase PostgreSQL database tables connected!')
-        }
-
-        if (currentUser.value?.id && authUser.value?.id) {
-          const { data: dbProfile } = await client
-            .from('profiles')
-            .select(PROFILE_SELECT_FIELDS)
-            .eq('id', currentUser.value.id)
-            .maybeSingle()
-
-          if (dbProfile) {
-            currentUser.value = {
-              ...currentUser.value,
-              ...dbProfile,
-              name: dbProfile.name || currentUser.value.name || '',
-              avatar_color: getCleanAccentColor(dbProfile.avatar_color, currentUser.value.avatar_color || '#0f172a'),
-              partnership_id: dbProfile.partnership_id || null,
-              points: Number(dbProfile.points) || 0
-            }
-            syncToStorage()
-          }
-
-          const effectivePartnershipId = dbProfile?.partnership_id || partnership.value?.id
-          if (effectivePartnershipId) {
-            await loadPartnershipAndPartner(effectivePartnershipId, currentUser.value.id)
-            subscribeToPartnershipRealtime(effectivePartnershipId)
-          } else if (currentUser.value?.pairing_code) {
-            subscribeToPairingChannel(currentUser.value.pairing_code)
-          }
-
-          if (currentUser.value?.id) {
-            subscribeToSecurityChannel(currentUser.value.id, effectivePartnershipId)
-          }
-        } else if (partnership.value?.id && authUser.value?.id) {
-          await loadPartnershipAndPartner(partnership.value.id, currentUser.value?.id || '')
-          subscribeToPartnershipRealtime(partnership.value.id)
-        }
-
-        sendHeartbeat(true)
+      if (currentUser.value?.id && authUser.value) {
+        const isAllowed = await verifyUserAndPartnershipAccess(true)
+        if (!isAllowed) return
       }
-    } catch (err) {
-      console.warn('initSupabaseSync attempt:', err)
-    }
+
+      isOnlineWithSupabase.value = true
+
+      try {
+        const { error: testErr } = await client.from('profiles').select('id').limit(1)
+        if (testErr && (testErr.code === 'PGRST205' || testErr.message?.includes('schema cache'))) {
+          dbSchemaStatus.value = 'missing_tables'
+          if (process.dev) {
+            console.warn('Supabase Realtime connected. Database tables not found in schema cache.')
+          }
+        } else {
+          dbSchemaStatus.value = 'connected'
+          if (process.dev) {
+            console.log('Supabase PostgreSQL database tables connected!')
+          }
+
+          if (currentUser.value?.id && authUser.value?.id) {
+            const { data: dbProfile } = await client
+              .from('profiles')
+              .select(PROFILE_SELECT_FIELDS)
+              .eq('id', currentUser.value.id)
+              .maybeSingle()
+
+            if (dbProfile) {
+              currentUser.value = {
+                ...currentUser.value,
+                ...dbProfile,
+                name: dbProfile.name || currentUser.value.name || '',
+                avatar_color: getCleanAccentColor(dbProfile.avatar_color, currentUser.value.avatar_color || '#0f172a'),
+                partnership_id: dbProfile.partnership_id || null,
+                points: Number(dbProfile.points) || 0
+              }
+              syncToStorage()
+            }
+
+            const effectivePartnershipId = dbProfile?.partnership_id || partnership.value?.id
+            if (effectivePartnershipId) {
+              await loadPartnershipAndPartner(effectivePartnershipId, currentUser.value.id)
+              subscribeToPartnershipRealtime(effectivePartnershipId)
+            } else if (currentUser.value?.pairing_code) {
+              subscribeToPairingChannel(currentUser.value.pairing_code)
+            }
+
+            if (currentUser.value?.id) {
+              subscribeToSecurityChannel(currentUser.value.id, effectivePartnershipId)
+            }
+          } else if (partnership.value?.id && authUser.value?.id) {
+            await loadPartnershipAndPartner(partnership.value.id, currentUser.value?.id || '')
+            subscribeToPartnershipRealtime(partnership.value.id)
+          }
+
+          sendHeartbeat(false)
+        }
+      } catch (err) {
+        console.warn('initSupabaseSync attempt:', err)
+      }
+    })().finally(() => {
+      setTimeout(() => {
+        activeInitSyncPromise = null
+      }, 500)
+    })
+
+    return activeInitSyncPromise
   }
 
   const loadSupabaseData = async (partnershipId: string) => {
     const client = getCleanDbClient() || getSupabaseClient()
     if (!client) return
     try {
-      const [shops, tasks, evts, ndgs, wshs, movs, mls, mlsList] = await Promise.all([
+      const [shops, tasks, evts, ndgs, wshs, movs, mls, mlsList, svgGoals, svgContribs] = await Promise.all([
         client.from('shopping_items').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         client.from('tasks').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         client.from('events').select('*').eq('partnership_id', partnershipId).order('start_time', { ascending: true }),
@@ -2732,7 +2933,9 @@ export const useDuoState = () => {
         client.from('wishlist_items').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         client.from('movies').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         client.from('milestones').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
-        client.from('meals').select('*').eq('partnership_id', partnershipId).order('date', { ascending: true })
+        client.from('meals').select('*').eq('partnership_id', partnershipId).order('date', { ascending: true }),
+        client.from('savings_goals').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
+        client.from('savings_contributions').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false })
       ])
 
       if (shops.data) {
@@ -2759,6 +2962,12 @@ export const useDuoState = () => {
       }
       if (mlsList?.data) {
         mealsList.value = mlsList.data
+      }
+      if (svgGoals?.data) {
+        savingsGoals.value = svgGoals.data
+      }
+      if (svgContribs?.data) {
+        savingsContributions.value = svgContribs.data
       }
 
       syncToStorage()
@@ -4473,6 +4682,258 @@ export const useDuoState = () => {
     } catch (_) {}
   }
 
+  const addSavingsGoal = async (payload: {
+    title: string
+    target_amount: number
+    initial_deposit?: number
+    category?: 'travel' | 'home' | 'gadget' | 'date' | 'emergency' | 'other'
+    currency?: string
+    target_date?: string | null
+    icon?: string
+    color?: string
+  }): Promise<SavingsGoal | null> => {
+    if (!partnership.value?.id) return null
+    if (!await verifyUserAndPartnershipAccess()) return null
+
+    const cleanTitle = (payload.title || '').trim().replace(/\s+/g, ' ').slice(0, 100)
+    if (!cleanTitle) return null
+
+    const targetAmount = Math.max(1, Math.min(999999999, Math.round((Number(payload.target_amount) || 0) * 100) / 100))
+    if (!Number.isFinite(targetAmount) || targetAmount <= 0) return null
+
+    const initialDeposit = Math.max(0, Math.min(targetAmount, Math.round((Number(payload.initial_deposit) || 0) * 100) / 100))
+
+    const cleanCategory = ['travel', 'home', 'gadget', 'date', 'emergency', 'other'].includes(payload.category || '')
+      ? (payload.category as any)
+      : 'travel'
+
+    const cleanCurrency = ['PLN', 'EUR', 'USD', 'GBP'].includes(payload.currency || '')
+      ? (payload.currency as string)
+      : 'PLN'
+
+    const cleanTargetDate = payload.target_date && /^\d{4}-\d{2}-\d{2}$/.test(payload.target_date)
+      ? payload.target_date
+      : null
+
+    const cleanIcon = ['airplane', 'home', 'gadget', 'date', 'shield', 'sparkles', 'car', 'gift'].includes(payload.icon || '')
+      ? (payload.icon as string)
+      : 'airplane'
+
+    const cleanColor = payload.color && /^#[0-9a-fA-F]{6}$/.test(payload.color)
+      ? payload.color
+      : '#0284c7'
+
+    const goalId = 'svg_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36)
+    const isCompleted = initialDeposit >= targetAmount && targetAmount > 0
+
+    const newGoal: SavingsGoal = {
+      id: goalId,
+      partnership_id: partnership.value.id,
+      title: cleanTitle,
+      category: cleanCategory,
+      target_amount: targetAmount,
+      current_amount: initialDeposit,
+      currency: cleanCurrency,
+      target_date: cleanTargetDate,
+      icon: cleanIcon,
+      color: cleanColor,
+      is_completed: isCompleted,
+      completed_at: isCompleted ? new Date().toISOString() : null,
+      created_by: currentUser.value.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    savingsGoals.value = [newGoal, ...savingsGoals.value]
+
+    let initialContrib: SavingsContribution | null = null
+    if (initialDeposit > 0) {
+      initialContrib = {
+        id: 'sct_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
+        goal_id: goalId,
+        partnership_id: partnership.value.id,
+        user_id: currentUser.value.id,
+        amount: initialDeposit,
+        note: 'Wpłata początkowa',
+        created_at: new Date().toISOString()
+      }
+      savingsContributions.value = [initialContrib, ...savingsContributions.value]
+    }
+
+    syncToStorage()
+    broadcastToPartner('SAVINGS_GOAL_ADD', newGoal)
+    if (initialContrib) {
+      broadcastToPartner('SAVINGS_CONTRIBUTION_ADD', {
+        goalId,
+        goalTitle: cleanTitle,
+        contribution: initialContrib,
+        newCurrentAmount: initialDeposit,
+        isCompleted
+      })
+    }
+
+    const client = getCleanDbClient() || getSupabaseClient()
+    if (client && isOnlineWithSupabase.value) {
+      safeDb(client.from('savings_goals').insert(newGoal))
+      if (initialContrib) {
+        safeDb(client.from('savings_contributions').insert(initialContrib))
+      }
+    }
+
+    triggerToast('Utworzono nową skarbonkę!')
+    return newGoal
+  }
+
+  const updateSavingsGoal = async (id: string, updates: Partial<SavingsGoal>): Promise<boolean> => {
+    if (!await verifyUserAndPartnershipAccess()) return false
+    const goal = savingsGoals.value.find(g => g.id === id)
+    if (!goal) return false
+
+    const safeUpdates: Partial<SavingsGoal> = {
+      updated_at: new Date().toISOString()
+    }
+
+    if (typeof updates.title === 'string' && updates.title.trim()) {
+      safeUpdates.title = updates.title.trim().replace(/\s+/g, ' ').slice(0, 100)
+    }
+    if (typeof updates.target_amount === 'number' && updates.target_amount > 0) {
+      safeUpdates.target_amount = Math.round(updates.target_amount * 100) / 100
+      safeUpdates.is_completed = goal.current_amount >= safeUpdates.target_amount
+    }
+    if (updates.category && ['travel', 'home', 'gadget', 'date', 'emergency', 'other'].includes(updates.category)) {
+      safeUpdates.category = updates.category
+    }
+    if (updates.target_date !== undefined) {
+      safeUpdates.target_date = updates.target_date && /^\d{4}-\d{2}-\d{2}$/.test(updates.target_date) ? updates.target_date : null
+    }
+    if (updates.icon && ['airplane', 'home', 'gadget', 'date', 'shield', 'sparkles', 'car', 'gift'].includes(updates.icon)) {
+      safeUpdates.icon = updates.icon
+    }
+    if (updates.color && /^#[0-9a-fA-F]{6}$/.test(updates.color)) {
+      safeUpdates.color = updates.color
+    }
+
+    Object.assign(goal, safeUpdates)
+    syncToStorage()
+
+    broadcastToPartner('SAVINGS_GOAL_UPDATE', { id, title: goal.title, updates: safeUpdates })
+
+    const client = getCleanDbClient() || getSupabaseClient()
+    if (client && isOnlineWithSupabase.value) {
+      safeDb(client.from('savings_goals').update(safeUpdates).eq('id', id).eq('partnership_id', goal.partnership_id))
+    }
+
+    triggerToast('Zaktualizowano cel')
+    return true
+  }
+
+  const deleteSavingsGoal = async (id: string): Promise<boolean> => {
+    if (!await verifyUserAndPartnershipAccess()) return false
+    const goal = savingsGoals.value.find(g => g.id === id)
+    if (!goal) return false
+
+    savingsGoals.value = savingsGoals.value.filter(g => g.id !== id)
+    savingsContributions.value = savingsContributions.value.filter(c => c.goal_id !== id)
+    syncToStorage()
+
+    broadcastToPartner('SAVINGS_GOAL_DELETE', { id })
+
+    const client = getCleanDbClient() || getSupabaseClient()
+    if (client && isOnlineWithSupabase.value) {
+      safeDb(client.from('savings_goals').delete().eq('id', id).eq('partnership_id', goal.partnership_id))
+    }
+
+    triggerToast('Usunięto skarbonkę')
+    return true
+  }
+
+  const addSavingsContribution = async (goalId: string, amount: number, note?: string): Promise<boolean> => {
+    if (!partnership.value?.id) return false
+    if (!await verifyUserAndPartnershipAccess()) return false
+    const goal = savingsGoals.value.find(g => g.id === goalId)
+    if (!goal) return false
+
+    const cleanAmount = Math.round((Number(amount) || 0) * 100) / 100
+    if (!Number.isFinite(cleanAmount) || cleanAmount === 0) return false
+
+    const cleanNote = (note || '').trim().slice(0, 150) || null
+
+    const contributionId = 'sct_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36)
+    const newContrib: SavingsContribution = {
+      id: contributionId,
+      goal_id: goalId,
+      partnership_id: partnership.value.id,
+      user_id: currentUser.value.id,
+      amount: cleanAmount,
+      note: cleanNote,
+      created_at: new Date().toISOString()
+    }
+
+    savingsContributions.value = [newContrib, ...savingsContributions.value]
+
+    const newCurrent = Math.max(0, Math.round((goal.current_amount + cleanAmount) * 100) / 100)
+    const nowCompleted = newCurrent >= goal.target_amount && goal.target_amount > 0
+
+    goal.current_amount = newCurrent
+    goal.is_completed = nowCompleted
+    if (nowCompleted && !goal.completed_at) {
+      goal.completed_at = new Date().toISOString()
+    }
+    goal.updated_at = new Date().toISOString()
+
+    syncToStorage()
+
+    broadcastToPartner('SAVINGS_CONTRIBUTION_ADD', {
+      goalId,
+      goalTitle: goal.title,
+      contribution: newContrib,
+      newCurrentAmount: newCurrent,
+      isCompleted: nowCompleted
+    })
+
+    const client = getCleanDbClient() || getSupabaseClient()
+    if (client && isOnlineWithSupabase.value) {
+      safeDb(client.from('savings_contributions').insert(newContrib))
+    }
+
+    triggerToast(cleanAmount > 0 ? `Wpłacono ${cleanAmount} zł do skarbonki!` : `Wypłacono ${Math.abs(cleanAmount)} zł`)
+    return true
+  }
+
+  const deleteSavingsContribution = async (id: string): Promise<boolean> => {
+    if (!await verifyUserAndPartnershipAccess()) return false
+    const contrib = savingsContributions.value.find(c => c.id === id)
+    if (!contrib) return false
+
+    const goal = savingsGoals.value.find(g => g.id === contrib.goal_id)
+
+    savingsContributions.value = savingsContributions.value.filter(c => c.id !== id)
+
+    if (goal) {
+      const remainingForGoal = savingsContributions.value.filter(c => c.goal_id === goal.id)
+      const recalculated = remainingForGoal.reduce((sum, c) => sum + (Number(c.amount) || 0), 0)
+      goal.current_amount = Math.max(0, Math.round(recalculated * 100) / 100)
+      goal.is_completed = goal.current_amount >= goal.target_amount && goal.target_amount > 0
+    }
+
+    syncToStorage()
+
+    broadcastToPartner('SAVINGS_CONTRIBUTION_DELETE', {
+      id,
+      goalId: contrib.goal_id,
+      newCurrentAmount: goal?.current_amount,
+      isCompleted: goal?.is_completed
+    })
+
+    const client = getCleanDbClient() || getSupabaseClient()
+    if (client && isOnlineWithSupabase.value) {
+      safeDb(client.from('savings_contributions').delete().eq('id', id).eq('partnership_id', contrib.partnership_id))
+    }
+
+    triggerToast('Usunięto wpis z historii')
+    return true
+  }
+
   return {
     authUser,
     authSession,
@@ -4492,6 +4953,13 @@ export const useDuoState = () => {
     wishlistItems,
     moviesList,
     mealsList,
+    savingsGoals,
+    savingsContributions,
+    addSavingsGoal,
+    updateSavingsGoal,
+    deleteSavingsGoal,
+    addSavingsContribution,
+    deleteSavingsContribution,
     addWishlistItem,
     updateWishlistItem,
     deleteWishlistItem,

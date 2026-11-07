@@ -10,6 +10,7 @@ export interface PushCategorySettings {
   meals: boolean         // Planer obiadów i posiłków
   partnerOnline: boolean // Wejście partnera do aplikacji
   wishlist: boolean      // Wishlista i marzenia partnera
+  savings: boolean       // Skarbonki i cele finansowe
   sound: boolean         // Dźwięk powiadomienia
   vibrate: boolean       // Wibracja telefonu
 }
@@ -23,6 +24,7 @@ const DEFAULT_PUSH_SETTINGS: PushCategorySettings = {
   meals: true,
   partnerOnline: false, // domyślnie wyłączone, aby nie rozpraszać
   wishlist: true,       // Nowe marzenia i prezenty
+  savings: true,        // Skarbonki i cele finansowe
   sound: true,
   vibrate: true
 }
@@ -182,14 +184,17 @@ export const usePushNotifications = () => {
       } else if (newToast.type === 'meals' || m.includes('obiad') || m.includes('posiłek') || m.includes('przepis')) {
         category = 'meals'
         targetUrl = '/tabs/meals'
-      } else if (newToast.type === 'wishlist' || m.includes('marzeni') || m.includes('wishlist') || m.includes('prezent')) {
+      } else if (newToast.type === 'wishlist' || newToast.type === 'movies' || m.includes('marzeni') || m.includes('wishlist') || m.includes('prezent') || m.includes('film') || m.includes('seans')) {
         category = 'wishlist'
-        targetUrl = '/tabs/wishlist'
+        targetUrl = (newToast.type === 'movies' || m.includes('film') || m.includes('seans')) ? '/tabs/movies' : '/tabs/wishlist'
+      } else if (newToast.type === 'savings' || m.includes('skarbonk') || m.includes('wpłac') || m.includes('wypłac') || m.includes('cel')) {
+        category = 'savings'
+        targetUrl = '/tabs/savings'
       } else if (newToast.type === 'mood') {
         category = 'mood'
       } else if (newToast.type === 'love') {
         category = 'nudges'
-      } else if (m.includes('w aplikacji')) {
+      } else if (m.includes('w aplikacji') || m.includes('jest online')) {
         category = 'partnerOnline'
       }
 

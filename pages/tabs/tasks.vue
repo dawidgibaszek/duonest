@@ -65,6 +65,15 @@
 
           <button
             type="button"
+            class="main-tab-pill"
+            @click="handleSwitchToSavings"
+          >
+            <ion-icon :icon="ioniconsWalletOutline" />
+            <span>Skarbonki</span>
+          </button>
+
+          <button
+            type="button"
             class="main-tab-pill pet-tab-pill"
             :class="{ active: activeDailySubTab === 'tasks' && activeMainTab === 'pet' }"
             @click="handleSwitchToPet"
@@ -926,6 +935,10 @@ const handleSwitchToShopping = () => {
 
 const handleSwitchToMeals = () => {
   activeDailySubTab.value = 'meals'
+}
+
+const handleSwitchToSavings = () => {
+  activeDailySubTab.value = 'savings'
 }
 
 onMounted(async () => {

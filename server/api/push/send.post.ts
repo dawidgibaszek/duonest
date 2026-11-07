@@ -208,7 +208,7 @@ function formatPartnerAction(
         title: `Nagroda odblokowana!`,
         body: `${name} odebrał(a) Wasz cel: ${milestoneTitle}!`,
         url: '/tabs/nest',
-        category: 'milestones'
+        category: 'tasks'
       }
     }
 
@@ -243,6 +243,60 @@ function formatPartnerAction(
         }
       }
       return null
+    }
+
+    case 'SAVINGS_GOAL_ADD': {
+      const goalTitle = data?.title || 'nowy cel'
+      const target = data?.target_amount ? ` (${data.target_amount} zł)` : ''
+      return {
+        title: `Nowa skarbonka!`,
+        body: `${name} utworzył(a) cel: ${goalTitle}${target}`,
+        url: '/tabs/savings',
+        category: 'savings'
+      }
+    }
+
+    case 'SAVINGS_CONTRIBUTION_ADD': {
+      const goalTitle = data?.goalTitle || data?.title || 'wspólny cel'
+      const amount = Number(data?.contribution?.amount ?? data?.amount ?? 0)
+      const isCompleted = Boolean(data?.isCompleted)
+      const newCurrent = data?.newCurrentAmount !== undefined ? ` (uzbierano ${data.newCurrentAmount} zł)` : ''
+
+      if (isCompleted) {
+        return {
+          title: `Cel zrealizowany! 🎯`,
+          body: `Gratulacje! Razem osiągnęliście cel: ${goalTitle}!`,
+          url: '/tabs/savings',
+          category: 'savings'
+        }
+      }
+
+      if (amount > 0) {
+        return {
+          title: `Wpłata do skarbonki!`,
+          body: `${name} dorzucił(a) +${amount} zł na cel: ${goalTitle}${newCurrent}`,
+          url: '/tabs/savings',
+          category: 'savings'
+        }
+      } else if (amount < 0) {
+        return {
+          title: `Wypłata ze skarbonki`,
+          body: `${name} wypłacił(a) ${Math.abs(amount)} zł ze skarbonki: ${goalTitle}`,
+          url: '/tabs/savings',
+          category: 'savings'
+        }
+      }
+      return null
+    }
+
+    case 'SAVINGS_GOAL_UPDATE': {
+      const goalTitle = data?.updates?.title || data?.title || 'skarbonkę'
+      return {
+        title: `Skarbonka zaktualizowana`,
+        body: `${name} zaktualizował(a) cel: ${goalTitle}`,
+        url: '/tabs/savings',
+        category: 'savings'
+      }
     }
 
     default:

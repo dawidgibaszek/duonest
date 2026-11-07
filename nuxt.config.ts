@@ -14,6 +14,26 @@ export default defineNuxtConfig({
     '@vite-pwa/nuxt'
   ],
 
+  vite: {
+    optimizeDeps: {
+      include: [
+        'canvas-confetti',
+        'ionicons/icons',
+        'qrcode',
+        '@supabase/supabase-js'
+      ]
+    },
+    server: {
+      watch: {
+        usePolling: false
+      },
+      ws: {
+        clientPort: 3000,
+        port: 3000
+      }
+    }
+  },
+
   nitro: {
     preset: process.env.NITRO_PRESET || (process.env.NETLIFY ? 'netlify' : undefined),
     prerender: {

@@ -44,6 +44,15 @@
 
           <button
             type="button"
+            class="main-tab-pill"
+            @click="switchToSavings"
+          >
+            <ion-icon :icon="ioniconsWalletOutline" />
+            <span>Skarbonki</span>
+          </button>
+
+          <button
+            type="button"
             class="main-tab-pill pet-tab-pill"
             @click="switchToPet"
           >
@@ -427,6 +436,10 @@ const switchToTasks = () => {
 
 const switchToMeals = () => {
   activeDailySubTab.value = 'meals'
+}
+
+const switchToSavings = () => {
+  activeDailySubTab.value = 'savings'
 }
 
 const switchToPet = () => {

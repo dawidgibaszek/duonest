@@ -144,6 +144,22 @@
           <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
         </svg>
 
+        <!-- SAVINGS & GOALS -->
+        <svg
+          v-else-if="toast.type === 'savings'"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.3"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="toast-svg"
+        >
+          <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+          <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+          <path d="M18 12a2 2 0 0 0 0 4h4v-4z" />
+        </svg>
+
         <!-- MOOD -->
         <svg
           v-else-if="toast.type === 'mood'"
@@ -525,6 +541,11 @@ onUnmounted(() => {
 .icon-wishlist {
   background: #fef9c3;
   color: #a16207;
+}
+
+.icon-savings {
+  background: #f1f5f9;
+  color: #0f172a;
 }
 
 .icon-mood {

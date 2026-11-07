@@ -195,4 +195,45 @@ begin
   alter publication supabase_realtime add table public.nudges;
 exception when others then null;
 end $$;
+
+-- 14. SAVINGS GOALS & CONTRIBUTIONS
+create table if not exists public.savings_goals (
+  id text primary key,
+  partnership_id text not null,
+  title text not null,
+  category text not null default 'travel',
+  target_amount numeric(12,2) not null check (target_amount > 0),
+  current_amount numeric(12,2) not null default 0,
+  currency text not null default 'PLN',
+  target_date text,
+  icon text not null default 'airplane',
+  color text not null default '#0f172a',
+  is_completed boolean not null default false,
+  completed_at timestamptz,
+  created_by text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create table if not exists public.savings_contributions (
+  id text primary key,
+  goal_id text not null,
+  partnership_id text not null,
+  user_id text,
+  amount numeric(12,2) not null,
+  note text,
+  created_at timestamptz default now()
+);
+
+do $$
+begin
+  alter publication supabase_realtime add table public.savings_goals;
+exception when others then null;
+end $$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.savings_contributions;
+exception when others then null;
+end $$;
 `

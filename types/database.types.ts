@@ -275,6 +275,88 @@ export interface Database {
           created_at?: string
         }
       }
+      savings_goals: {
+        Row: {
+          id: string
+          partnership_id: string
+          title: string
+          category: string
+          target_amount: number
+          current_amount: number
+          currency: string
+          target_date: string | null
+          icon: string
+          color: string
+          is_completed: boolean
+          completed_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          partnership_id: string
+          title: string
+          category?: string
+          target_amount: number
+          current_amount?: number
+          currency?: string
+          target_date?: string | null
+          icon?: string
+          color?: string
+          is_completed?: boolean
+          completed_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          partnership_id?: string
+          title?: string
+          category?: string
+          target_amount?: number
+          current_amount?: number
+          currency?: string
+          target_date?: string | null
+          icon?: string
+          color?: string
+          is_completed?: boolean
+          completed_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      savings_contributions: {
+        Row: {
+          id: string
+          goal_id: string
+          partnership_id: string
+          user_id: string | null
+          amount: number
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          goal_id: string
+          partnership_id: string
+          user_id?: string | null
+          amount: number
+          note?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          goal_id?: string
+          partnership_id?: string
+          user_id?: string | null
+          amount?: number
+          note?: string | null
+          created_at?: string
+        }
+      }
     }
   }
 }

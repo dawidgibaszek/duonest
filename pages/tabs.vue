@@ -21,6 +21,9 @@
           <div v-show="activeDailySubTab === 'meals'" class="subtab-fill-container">
             <TabMeals />
           </div>
+          <div v-show="activeDailySubTab === 'savings'" class="subtab-fill-container">
+            <TabSavings />
+          </div>
         </div>
         <div class="tab-slide" :class="{ 'is-active': activeTabIndex === 2 }">
           <TabCalendar />
@@ -127,13 +130,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
 import { useDuoState } from '~/composables/useDuoState'
 
 import TabNest from '~/pages/tabs/nest.vue'
 import TabShopping from '~/pages/tabs/shopping.vue'
 import TabTasks from '~/pages/tabs/tasks.vue'
 import TabMeals from '~/pages/tabs/meals.vue'
+import TabSavings from '~/pages/tabs/savings.vue'
 import TabCalendar from '~/pages/tabs/calendar.vue'
 import TabWishlist from '~/pages/tabs/wishlist.vue'
 import TabMovies from '~/pages/tabs/movies.vue'
@@ -498,11 +501,13 @@ const goToTab = (index: number) => {
 
 const handleDailyTabClick = () => {
   if (activeTabIndex.value === 1) {
-    // Cycle between shopping -> tasks -> meals -> shopping
+    // Cycle between shopping -> tasks -> meals -> savings -> shopping
     if (activeDailySubTab.value === 'shopping') {
       activeDailySubTab.value = 'tasks'
     } else if (activeDailySubTab.value === 'tasks') {
       activeDailySubTab.value = 'meals'
+    } else if (activeDailySubTab.value === 'meals') {
+      activeDailySubTab.value = 'savings'
     } else {
       activeDailySubTab.value = 'shopping'
     }
@@ -539,7 +544,7 @@ const handleResize = () => {
 
 // Synchronize active tab from initial route URL
 const syncTabFromRoute = (animate: boolean = false) => {
-  const path = route.path
+  const path = route?.path || (typeof window !== 'undefined' ? window.location.pathname : '')
   let idx = 0
 
   if (path.includes('nest')) {
@@ -553,6 +558,9 @@ const syncTabFromRoute = (animate: boolean = false) => {
   } else if (path.includes('meals') || path.includes('dinner')) {
     idx = 1
     activeDailySubTab.value = 'meals'
+  } else if (path.includes('savings') || path.includes('budget') || path.includes('skarbonki')) {
+    idx = 1
+    activeDailySubTab.value = 'savings'
   } else if (path.includes('daily') || path.includes('organization') || path.includes('organizacja')) {
     idx = 1
   } else if (path.includes('calendar')) {
@@ -614,7 +622,7 @@ onUnmounted(() => {
   window.removeEventListener('orientationchange', handleResize)
 })
 
-watch(() => route.path, () => {
+watch(() => route?.path, () => {
   syncTabFromRoute(true)
 })
 

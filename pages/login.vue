@@ -231,7 +231,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
 import { useDuoState, getSupabaseClient, clearSupabaseSessionStorage, sanitizeEmail } from '~/composables/useDuoState'
 
 const route = useRoute()
@@ -251,9 +250,9 @@ const {
 initializeClientState()
 
 const mode = ref<'login' | 'register' | 'forgot' | 'legacy-recovery'>(
-  route.query.forgot === '1'
+  route?.query?.forgot === '1'
     ? 'forgot'
-    : (route.query.legacy === '1' || route.query.recovery === '1' || route.query.mode === 'legacy-recovery')
+    : (route?.query?.legacy === '1' || route?.query?.recovery === '1' || route?.query?.mode === 'legacy-recovery')
       ? 'legacy-recovery'
       : 'login'
 )
@@ -378,9 +377,9 @@ onMounted(async () => {
   }
 
   // 2. Check if user came from 'forgot=1'
-  if (route.query.forgot === '1') {
+  if (route?.query?.forgot === '1') {
     mode.value = 'forgot'
-  } else if (route.query.legacy === '1' || route.query.recovery === '1' || route.query.mode === 'legacy-recovery') {
+  } else if (route?.query?.legacy === '1' || route?.query?.recovery === '1' || route?.query?.mode === 'legacy-recovery') {
     mode.value = 'legacy-recovery'
   }
 

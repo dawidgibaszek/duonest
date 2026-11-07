@@ -887,7 +887,25 @@
                 />
               </div>
 
-              <!-- 8. PARTNER ONLINE -->
+              <!-- 8. SAVINGS & GOALS -->
+              <div class="push-toggle-item">
+                <div class="toggle-item-left">
+                  <div class="toggle-icon-wrap savings-icon-bg">
+                    <ion-icon :icon="ioniconsWalletOutline" />
+                  </div>
+                  <div class="toggle-item-info">
+                    <span class="toggle-name">Skarbonki i cele finansowe</span>
+                    <span class="toggle-desc">Wpłaty, wypłaty, nowe cele i zrealizowane skarbonki</span>
+                  </div>
+                </div>
+                <ion-toggle
+                  :checked="pushSettings.savings"
+                  @ionChange="togglePushCategory('savings', $event.detail?.checked)"
+                  class="dn-push-toggle"
+                />
+              </div>
+
+              <!-- 9. PARTNER ONLINE -->
               <div class="push-toggle-item">
                 <div class="toggle-item-left">
                   <div class="toggle-icon-wrap online-icon-bg">
@@ -1377,7 +1395,6 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
 import confetti from 'canvas-confetti'
 import { useDuoState } from '~/composables/useDuoState'
 import { usePushNotifications } from '~/composables/usePushNotifications'
@@ -1431,10 +1448,10 @@ const {
 const { confirm } = useConfirm()
 
 const currentCategory = ref<'relationship' | 'nest_settings'>(
-  route.query.category === 'nest_settings' ? 'nest_settings' : 'relationship'
+  route?.query?.category === 'nest_settings' ? 'nest_settings' : 'relationship'
 )
 
-watch(() => route.query.category, (newCat) => {
+watch(() => route?.query?.category, (newCat) => {
   if (newCat === 'nest_settings' || newCat === 'relationship') {
     currentCategory.value = newCat
   }
@@ -3709,6 +3726,7 @@ const handleRefresh = async (event: any) => {
 .tasks-icon-bg { background: #f1f5f9; color: #0f172a; }
 .meals-icon-bg { background: #f8fafc; color: #0f172a; }
 .wishlist-icon-bg { background: #f8fafc; color: #1e293b; }
+.savings-icon-bg { background: #f1f5f9; color: #0f172a; }
 .online-icon-bg { background: #f1f5f9; color: #334155; }
 .sound-icon-bg { background: #f8fafc; color: #475569; }
 .vibrate-icon-bg { background: #f1f5f9; color: #64748b; }
