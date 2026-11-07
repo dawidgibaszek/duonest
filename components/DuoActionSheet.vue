@@ -154,34 +154,28 @@ const handleOverlayClick = () => {
   handleCancelClick()
 }
 
-const handleActionClick = async (btn: DuoActionSheetButton) => {
+const handleActionClick = (btn: DuoActionSheetButton) => {
   emit('select', btn)
+  close()
   if (btn.handler) {
     try {
-      const result = await btn.handler()
-      if (result === false) {
-        return
-      }
+      btn.handler()
     } catch (err) {
       console.error('[DuoActionSheet] Handler error:', err)
     }
   }
-  close()
 }
 
-const handleCancelClick = async () => {
+const handleCancelClick = () => {
   emit('cancel')
+  close()
   if (cancelBtnItem.value?.handler) {
     try {
-      const result = await cancelBtnItem.value.handler()
-      if (result === false) {
-        return
-      }
+      cancelBtnItem.value.handler()
     } catch (err) {
       console.error('[DuoActionSheet] Cancel handler error:', err)
     }
   }
-  close()
 }
 
 // Keyboard ESC handling
@@ -244,7 +238,7 @@ onUnmounted(() => {
 .duo-action-sheet-overlay {
   position: fixed;
   inset: 0;
-  z-index: 999999;
+  z-index: 60000;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;

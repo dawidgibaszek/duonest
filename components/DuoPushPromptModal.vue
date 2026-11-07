@@ -121,7 +121,7 @@ const {
 .duo-push-overlay {
   position: fixed;
   inset: 0;
-  z-index: 999998;
+  z-index: 80000;
   background: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);

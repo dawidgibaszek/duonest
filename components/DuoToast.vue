@@ -448,7 +448,7 @@ onUnmounted(() => {
   justify-content: center;
   align-items: flex-start;
   pointer-events: none;
-  z-index: 999999;
+  z-index: 2000000;
 }
 
 /* ========================================================== */

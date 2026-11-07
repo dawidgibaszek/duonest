@@ -214,7 +214,7 @@ onUnmounted(() => {
 .duo-confirm-overlay {
   position: fixed;
   inset: 0;
-  z-index: 99999;
+  z-index: 1000000;
   display: flex;
   align-items: center;
   justify-content: center;
