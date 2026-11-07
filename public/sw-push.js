@@ -1,5 +1,61 @@
 // DuoNest - Service Worker Push Notification Handler
-// Listens for background Web Push events and notification interactions
+// Listens for background Web Push events, notification interactions, and manages app icon badge (Badging API)
+
+// --- Badging API Helpers ---
+async function getBadgeCount() {
+  try {
+    if ('caches' in self) {
+      const cache = await caches.open('duonest-badge')
+      const resp = await cache.match('/badge-count.json')
+      if (resp) {
+        const data = await resp.json()
+        return typeof data.count === 'number' ? data.count : 0
+      }
+    }
+  } catch (_) {}
+  return 0
+}
+
+async function setBadgeCount(count) {
+  try {
+    if ('caches' in self) {
+      const cache = await caches.open('duonest-badge')
+      await cache.put(
+        '/badge-count.json',
+        new Response(JSON.stringify({ count, updatedAt: Date.now() }), {
+          headers: { 'Content-Type': 'application/json' }
+        })
+      )
+    }
+  } catch (_) {}
+}
+
+async function incrementBadgeCount() {
+  const current = await getBadgeCount()
+  const next = current + 1
+  await setBadgeCount(next)
+  if (self.navigator && 'setAppBadge' in self.navigator) {
+    try {
+      await self.navigator.setAppBadge(next)
+    } catch (e) {
+      console.warn('[SW] setAppBadge error:', e)
+    }
+  }
+  return next
+}
+
+async function clearAppBadge() {
+  await setBadgeCount(0)
+  if (self.navigator && 'clearAppBadge' in self.navigator) {
+    try {
+      await self.navigator.clearAppBadge()
+    } catch (_) {}
+  } else if (self.navigator && 'setAppBadge' in self.navigator) {
+    try {
+      await self.navigator.setAppBadge(0)
+    } catch (_) {}
+  }
+}
 
 self.addEventListener('install', () => {
   self.skipWaiting()
@@ -7,6 +63,12 @@ self.addEventListener('install', () => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim())
+})
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'DUONEST_CLEAR_BADGE') {
+    event.waitUntil(clearAppBadge())
+  }
 })
 
 self.addEventListener('push', (event) => {
@@ -94,7 +156,11 @@ self.addEventListener('push', (event) => {
         return
       }
 
-      // User is outside the app (browser minimized, screen locked, or other tab) -> show system push
+      // User is outside the app (browser minimized, screen locked, or other tab)
+      // 1. Increment app icon badge count since user has not launched/viewed the app yet
+      await incrementBadgeCount()
+
+      // 2. Show system push notification
       return self.registration.showNotification(payload.title, notificationOptions)
     })
   )
@@ -113,7 +179,11 @@ self.addEventListener('notificationclick', (event) => {
   const finalUrl = new URL(targetPath, self.location.origin).href
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+    (async () => {
+      // User tapped notification -> clear app icon badge
+      await clearAppBadge()
+
+      const windowClients = await clients.matchAll({ type: 'window', includeUncontrolled: true })
       // If a DuoNest window is already open, focus and navigate it
       for (const client of windowClients) {
         if ('focus' in client && client.url.startsWith(self.location.origin)) {
@@ -125,7 +195,7 @@ self.addEventListener('notificationclick', (event) => {
       if (clients.openWindow) {
         return clients.openWindow(finalUrl)
       }
-    })
+    })()
   )
 })
 

@@ -96,6 +96,105 @@ export const playNotificationHaptic = (pattern: number[] = [120, 60, 120]) => {
   } catch (_) {}
 }
 
+// --- Badging API (PWA Icon Unread Badge) ---
+export const clearAppBadge = async () => {
+  if (typeof window === 'undefined') return
+
+  // 1. Clear badge using client Badging API
+  if ('clearAppBadge' in navigator) {
+    try {
+      await (navigator as any).clearAppBadge()
+    } catch (_) {}
+  } else if ('setAppBadge' in navigator) {
+    try {
+      await (navigator as any).setAppBadge(0)
+    } catch (_) {}
+  }
+
+  // 2. Clear cache storage so Service Worker knows the badge count is reset
+  if ('caches' in window) {
+    try {
+      const cache = await caches.open('duonest-badge')
+      await cache.put(
+        '/badge-count.json',
+        new Response(JSON.stringify({ count: 0, updatedAt: Date.now() }), {
+          headers: { 'Content-Type': 'application/json' }
+        })
+      )
+    } catch (_) {}
+  }
+
+  // 3. Clear localStorage tracking
+  try {
+    localStorage.setItem('duonest_badge_count', '0')
+    localStorage.setItem('duonest_last_app_active_ts', String(Date.now()))
+  } catch (_) {}
+
+  // 4. Message active Service Worker to clear its badge count immediately
+  try {
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'DUONEST_CLEAR_BADGE' })
+    }
+  } catch (_) {}
+}
+
+export const incrementAppBadge = async () => {
+  if (typeof window === 'undefined') return
+
+  let next = 1
+  if ('caches' in window) {
+    try {
+      const cache = await caches.open('duonest-badge')
+      const resp = await cache.match('/badge-count.json')
+      if (resp) {
+        const data = await resp.json()
+        next = (Number(data.count) || 0) + 1
+      }
+      await cache.put(
+        '/badge-count.json',
+        new Response(JSON.stringify({ count: next, updatedAt: Date.now() }), {
+          headers: { 'Content-Type': 'application/json' }
+        })
+      )
+    } catch (_) {
+      next = 1
+    }
+  }
+
+  try {
+    localStorage.setItem('duonest_badge_count', String(next))
+  } catch (_) {}
+
+  if ('setAppBadge' in navigator) {
+    try {
+      await (navigator as any).setAppBadge(next)
+    } catch (_) {}
+  }
+}
+
+let hasBadgeListeners = false
+export const initBadgeListeners = () => {
+  if (typeof window === 'undefined') return
+  if (hasBadgeListeners) return
+  hasBadgeListeners = true
+
+  // Clear badge upon opening or launching the app
+  clearAppBadge()
+
+  // Clear badge whenever the user returns to the app from background or unlocks phone
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        clearAppBadge()
+      }
+    })
+  }
+
+  window.addEventListener('focus', () => {
+    clearAppBadge()
+  })
+}
+
 export const usePushNotifications = () => {
   const { currentUser, partnerUser, authSession, triggerToast, activeToastItem } = useDuoState()
 
@@ -104,6 +203,9 @@ export const usePushNotifications = () => {
     if (typeof window === 'undefined') return
     if (isInitialized) return
     isInitialized = true
+
+    // Initialize Badging API listeners (clears badge on launch / resume)
+    initBadgeListeners()
 
     // Check browser support for Notification & ServiceWorker
     const hasNotification = 'Notification' in window
@@ -457,6 +559,9 @@ export const usePushNotifications = () => {
       return
     }
 
+    // App is in background/minimized -> increment badge counter for unread push notifications
+    await incrementAppBadge()
+
     const isSilent = pushSettings.sound === false
     const vibratePattern = pushSettings.vibrate ? [120, 60, 120, 60, 180] : []
 
@@ -586,6 +691,8 @@ export const usePushNotifications = () => {
     sendDirectNotification,
     sendTestNotification,
     playNotificationChime,
-    playNotificationHaptic
+    playNotificationHaptic,
+    clearAppBadge,
+    incrementAppBadge
   }
 }

@@ -19,11 +19,12 @@ import DuoPushPromptModal from '~/components/DuoPushPromptModal.vue'
 import DuoConfirmModal from '~/components/DuoConfirmModal.vue'
 
 const { initSupabaseSync } = useDuoState()
-const { initPushNotifications } = usePushNotifications()
+const { initPushNotifications, clearAppBadge } = usePushNotifications()
 
 onMounted(() => {
   initSupabaseSync()
   initPushNotifications()
+  clearAppBadge()
 })
 </script>
 
