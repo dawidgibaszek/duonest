@@ -195,9 +195,10 @@
             <div class="social-buttons-stack">
               <button
                 type="button"
-                class="social-btn social-google disabled-btn"
-                disabled
-                title="Logowanie przez Google będzie dostępne wkrótce"
+                class="social-btn social-google"
+                :disabled="isGoogleLoading"
+                @click="handleGoogleSignIn"
+                title="Kontynuuj z Google"
               >
                 <svg class="social-icon" viewBox="0 0 24 24" width="20" height="20">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -205,8 +206,7 @@
                   <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                   <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                 </svg>
-                <span class="social-text">Kontynuuj z Google</span>
-                <span class="soon-badge">Wkrótce</span>
+                <span class="social-text">{{ isGoogleLoading ? 'Łączenie z Google…' : 'Kontynuuj z Google' }}</span>
               </button>
 
               <button
@@ -262,6 +262,7 @@ const passwordInput = ref('')
 const nameInput = ref('')
 const showPassword = ref(false)
 const isLoading = ref(false)
+const isGoogleLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
@@ -281,6 +282,42 @@ const switchMode = (newMode: 'login' | 'register' | 'forgot' | 'legacy-recovery'
   mode.value = newMode
   errorMessage.value = ''
   successMessage.value = ''
+}
+
+const handleGoogleSignIn = async () => {
+  if (isGoogleLoading.value) return
+
+  const supabase = getSupabaseClient()
+  if (!supabase) {
+    errorMessage.value = 'Brak połączenia z systemem logowania. Spróbuj ponownie.'
+    return
+  }
+
+  isGoogleLoading.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+
+  try {
+    sessionStorage.setItem('duonest_google_oauth_started_at', String(Date.now()))
+    const redirectTo = new URL('/verified?source=google', window.location.origin).toString()
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo,
+        queryParams: { prompt: 'select_account' }
+      }
+    })
+
+    if (error) {
+      sessionStorage.removeItem('duonest_google_oauth_started_at')
+      errorMessage.value = translateAuthError(error)
+      isGoogleLoading.value = false
+    }
+  } catch (error: any) {
+    sessionStorage.removeItem('duonest_google_oauth_started_at')
+    errorMessage.value = translateAuthError(error)
+    isGoogleLoading.value = false
+  }
 }
 
 const translateAuthError = (err: any): string => {
@@ -846,6 +883,15 @@ const handleResendVerification = async () => {
   cursor: not-allowed;
   position: relative;
   transition: background 0.15s ease;
+}
+
+.social-google {
+  cursor: pointer;
+}
+
+.social-google:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .social-icon {

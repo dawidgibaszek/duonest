@@ -742,14 +742,16 @@ export const useDuoState = () => {
 
       if (!hasAuthListener) {
         hasAuthListener = true
-        supabase.auth.onAuthStateChange(async (event: string, session: any) => {
+        supabase.auth.onAuthStateChange((event: string, session: any) => {
           if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             if (session?.user) {
               authUser.value = session.user
               authSession.value = session
               saveToStorage('duonest_auth_user', session.user)
               saveToStorage('duonest_auth_session', session)
-              await syncUserProfileWithAuth(session.user)
+              setTimeout(() => {
+                void syncUserProfileWithAuth(session.user)
+              }, 0)
             }
           } else if (event === 'SIGNED_OUT') {
             if (authUser.value || authSession.value) {
@@ -1211,8 +1213,14 @@ export const useDuoState = () => {
       if (error || !data.user || sanitizeEmail(data.user.email || '') !== clean) {
         return { success: false, error: 'Adres e-mail musi zostać potwierdzony przez Supabase Auth.' }
       }
-      await authClient.rpc('link_profile_to_auth')
-      await syncUserProfileWithAuth(data.user)
+      const { error: linkError } = await authClient.rpc('link_profile_to_auth')
+      if (linkError && process.dev) {
+        console.warn('link_profile_to_auth RPC failed:', linkError.message)
+      }
+      const profileSynced = await syncUserProfileWithAuth(data.user)
+      if (!profileSynced) {
+        return { success: false, error: 'Nie udało się powiązać konta z profilem DuoNest.' }
+      }
       return { success: true, email: clean }
     } catch (err: any) {
       return { success: false, error: err?.message || String(err) }

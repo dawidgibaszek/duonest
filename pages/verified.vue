@@ -14,10 +14,13 @@
         <div class="dn-card verified-card">
           <!-- ICON BADGE -->
           <div class="celebrate-badge-wrapper">
-            <div class="celebrate-circle">
-              <ion-icon :icon="ioniconsCheckmarkCircle" class="check-icon" />
+            <div class="celebrate-circle" :class="{ 'error-state': googleAuthError }">
+              <ion-icon
+                :icon="googleAuthError ? ioniconsCloseCircle : ioniconsCheckmarkCircle"
+                :class="googleAuthError ? 'error-icon' : 'check-icon'"
+              />
             </div>
-            <div class="sparkles-row">
+            <div v-if="!googleAuthError" class="sparkles-row">
               <span>✨</span>
               <span>🕊️</span>
               <span>✨</span>
@@ -26,14 +29,12 @@
 
           <!-- STATUS PILL -->
           <div class="status-pill-container">
-            <span class="status-pill">Konto Aktywne</span>
+            <span class="status-pill">{{ isGoogleOAuth ? (googleAuthError ? 'Logowanie nieudane' : 'Logowanie przez Google') : 'Konto Aktywne' }}</span>
           </div>
 
           <!-- HEADINGS -->
-          <h2 class="verified-heading">Adres e-mail zweryfikowany!</h2>
-          <p class="verified-desc">
-            Twoje konto w DuoNest zostało pomyślnie aktywowane. Możesz się już zalogować i zacząć budować wspólne gniazdko ze swoją drugą połówką.
-          </p>
+          <h2 class="verified-heading">{{ verifiedHeading }}</h2>
+          <p class="verified-desc">{{ verifiedDescription }}</p>
 
           <!-- VERIFIED EMAIL BADGE -->
           <div class="email-badge" v-if="verifiedEmail">
@@ -46,15 +47,15 @@
             <button
               type="button"
               class="primary-btn"
-              @click="goToLogin"
+              @click="handlePrimaryAction"
             >
-              <span>Przejdź do logowania</span>
+              <span>{{ primaryActionLabel }}</span>
               <ion-icon :icon="ioniconsArrowForwardOutline" />
             </button>
           </div>
 
           <!-- COUNTDOWN HINT -->
-          <p class="redirect-hint">
+          <p class="redirect-hint" v-if="!isGoogleOAuth || googleOAuthComplete">
             Automatyczne przekierowanie za <strong>{{ countdown }}</strong> s...
           </p>
         </div>
@@ -69,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import {
   IonPage,
   IonContent,
@@ -77,28 +78,153 @@ import {
 } from '@ionic/vue'
 import {
   checkmarkCircle as ioniconsCheckmarkCircle,
+  closeCircle as ioniconsCloseCircle,
   arrowForwardOutline as ioniconsArrowForwardOutline,
   mailOutline as ioniconsMailOutline
 } from 'ionicons/icons'
 import { useDuoState, getSupabaseClient } from '~/composables/useDuoState'
 
-const { verifyEmailForProfile } = useDuoState()
+const { verifyEmailForProfile, isPaired, currentUser, partnership, initializeClientState } = useDuoState()
 
 const verifiedEmail = ref('')
 const countdown = ref(6)
+const isGoogleOAuth = ref(false)
+const googleOAuthComplete = ref(false)
+const googleAuthError = ref('')
 let timer: any = null
+
+const verifiedHeading = computed(() => {
+  if (!isGoogleOAuth.value) return 'Adres e-mail zweryfikowany!'
+  if (googleAuthError.value) return 'Nie udało się zalogować'
+  return googleOAuthComplete.value ? 'Logowanie przez Google zakończone' : 'Trwa logowanie przez Google…'
+})
+
+const verifiedDescription = computed(() => {
+  if (!isGoogleOAuth.value) {
+    return 'Twoje konto w DuoNest zostało pomyślnie aktywowane. Możesz się już zalogować i zacząć budować wspólne gniazdko ze swoją drugą połówką.'
+  }
+  if (googleAuthError.value) return googleAuthError.value
+  if (googleOAuthComplete.value) return 'Za chwilę przejdziesz do swojego Gniazdka lub konfiguracji parowania.'
+  return 'Weryfikujemy konto Google i bezpiecznie łączymy je z profilem DuoNest.'
+})
+
+const primaryActionLabel = computed(() => {
+  if (isGoogleOAuth.value && !googleAuthError.value) return 'Przejdź do DuoNest'
+  return 'Przejdź do logowania'
+})
+
+const getPostAuthDestination = () => (
+  isPaired.value || currentUser.value?.partnership_id || partnership.value?.id
+    ? '/tabs/nest'
+    : '/pairing'
+)
 
 const goToLogin = () => {
   if (timer) clearInterval(timer)
   window.location.href = '/login'
 }
 
+const handlePrimaryAction = () => {
+  if (isGoogleOAuth.value && googleOAuthComplete.value) {
+    window.location.replace(getPostAuthDestination())
+    return
+  }
+  goToLogin()
+}
+
 onMounted(async () => {
   if (typeof window === 'undefined') return
 
+  initializeClientState()
   const search = window.location.search || ''
   const hash = window.location.hash || ''
   const urlParams = new URLSearchParams(search)
+  const hashParams = new URLSearchParams(hash.replace(/^#/, ''))
+
+  const googleOAuthStartedAt = Number(sessionStorage.getItem('duonest_google_oauth_started_at'))
+  sessionStorage.removeItem('duonest_google_oauth_started_at')
+  isGoogleOAuth.value = urlParams.get('source') === 'google'
+    || (Number.isFinite(googleOAuthStartedAt) && Date.now() - googleOAuthStartedAt < 10 * 60 * 1000)
+  if (isGoogleOAuth.value) {
+    const callbackError = urlParams.get('error_description')
+      || urlParams.get('error')
+      || hashParams.get('error_description')
+      || hashParams.get('error')
+    if (callbackError) {
+      googleAuthError.value = 'Autoryzacja Google nie powiodła się. Wróć do logowania i spróbuj ponownie.'
+      return
+    }
+
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      googleAuthError.value = 'Nie udało się połączyć z systemem logowania. Spróbuj ponownie.'
+      return
+    }
+
+    let authUser = null as any
+    const code = urlParams.get('code')
+    if (code) {
+      const { data: authData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+      if (exchangeError || !authData.session?.user) {
+        googleAuthError.value = 'Nie udało się potwierdzić logowania Google. Wróć do logowania i spróbuj ponownie.'
+        return
+      }
+      authUser = authData.session.user
+    } else {
+      const accessToken = hashParams.get('access_token')
+      const refreshToken = hashParams.get('refresh_token')
+      if (!accessToken || !refreshToken) {
+        googleAuthError.value = 'Link logowania Google jest nieprawidłowy lub wygasł. Wróć do logowania i spróbuj ponownie.'
+        return
+      }
+
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken
+      })
+      if (sessionError) {
+        googleAuthError.value = 'Nie udało się potwierdzić logowania Google. Wróć do logowania i spróbuj ponownie.'
+        return
+      }
+
+      const { data: userData, error: userError } = await supabase.auth.getUser()
+      if (userError || !userData.user) {
+        googleAuthError.value = 'Sesja Google jest nieprawidłowa lub wygasła. Wróć do logowania i spróbuj ponownie.'
+        return
+      }
+      authUser = userData.user
+    }
+
+    const providers = authUser.app_metadata?.providers || []
+    if (authUser.app_metadata?.provider !== 'google' && !providers.includes('google')) {
+      googleAuthError.value = 'Ta sesja nie została uwierzytelniona przez Google. Wróć do logowania i spróbuj ponownie.'
+      return
+    }
+
+    const email = String(authUser.email || '').trim().toLowerCase()
+    if (!email) {
+      googleAuthError.value = 'Google nie zwróciło adresu e-mail. Sprawdź ustawienia dostawcy i spróbuj ponownie.'
+      return
+    }
+
+    verifiedEmail.value = email
+    const profileResult = await verifyEmailForProfile(email)
+    if (!profileResult.success) {
+      googleAuthError.value = 'Nie udało się bezpiecznie powiązać konta z profilem DuoNest. Skontaktuj się z pomocą.'
+      return
+    }
+
+    googleOAuthComplete.value = true
+    countdown.value = 2
+    timer = setInterval(() => {
+      countdown.value--
+      if (countdown.value <= 0) {
+        clearInterval(timer)
+        window.location.replace(getPostAuthDestination())
+      }
+    }, 1000)
+    return
+  }
 
   // 1. Check query parameter
   if (urlParams.get('email')) {
@@ -255,6 +381,17 @@ onBeforeUnmount(() => {
 .check-icon {
   font-size: 40px;
   color: #16a34a;
+}
+
+.celebrate-circle.error-state {
+  background: #fef2f2;
+  border-color: #fecaca;
+  animation: none;
+}
+
+.error-icon {
+  font-size: 40px;
+  color: #dc2626;
 }
 
 .sparkles-row {

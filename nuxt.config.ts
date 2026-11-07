@@ -62,6 +62,11 @@ export default defineNuxtConfig({
 
   supabase: {
     redirect: false, // Manual auth management for couple onboarding/pairing flow
+    clientOptions: {
+      auth: {
+        detectSessionInUrl: false
+      }
+    },
     url: process.env.SUPABASE_URL || process.env.NUXT_PUBLIC_SUPABASE_URL || ('https://' + 'hfvgobhxiuchchblaajq.supabase.co'),
     key: process.env.SUPABASE_KEY || process.env.NUXT_PUBLIC_SUPABASE_KEY || ['sb_publishable_', 'kQsFx4GuieBdbGJaEl3eDg_', 'RE0FD9lR'].join('')
   },
