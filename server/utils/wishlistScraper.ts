@@ -7,6 +7,7 @@ import {
   formatSlugToTitle,
   extractTitleFromUrl
 } from '../../utils/wishlistParser'
+import { fetchPublicUrl } from './safeExternalFetch'
 
 export interface ScrapedProductData {
   title: string
@@ -351,8 +352,7 @@ export async function processScrape(rawUrl: string): Promise<{
 
     // Safe redirect-following loop with per-hop SSRF validation
     while (redirectCount <= 4) {
-      const res = await fetch(currentUrl, {
-        method: 'GET',
+      const res = await fetchPublicUrl(currentUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -363,8 +363,8 @@ export async function processScrape(rawUrl: string): Promise<{
           'Sec-Fetch-User': '?1',
           'Upgrade-Insecure-Requests': '1'
         },
-        redirect: 'manual',
-        signal: AbortSignal.timeout(7000)
+        timeoutMs: 7000,
+        maxBytes: 1_500_000
       })
 
       // Inspect redirect response

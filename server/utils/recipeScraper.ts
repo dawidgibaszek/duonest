@@ -14,6 +14,7 @@ export function decodeHtmlEntities(str: string): string {
 }
 
 import { formatRecipeWithGroq } from './groqRecipeFormatter'
+import { fetchPublicUrl } from './safeExternalFetch'
 
 export interface ScrapedRecipeData {
   title: string
@@ -237,36 +238,6 @@ async function scrapeTikTok(targetUrl: string): Promise<ScrapedRecipeData> {
     } catch (_) {}
   }
 
-  // 3. Fallback: Direct page meta extraction
-  if (!title || !coverUrl) {
-    try {
-      const pageRes = await fetch(targetUrl, {
-        headers: {
-          'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.html)',
-          'Accept': 'text/html,application/xhtml+xml'
-        },
-        signal: AbortSignal.timeout(5000)
-      })
-      if (pageRes.ok) {
-        const html = await pageRes.text()
-        const ogTitle = extractMetaTag(html, 'og:title')
-        const ogDesc = extractMetaTag(html, 'og:description')
-        const ogImg = extractMetaTag(html, 'og:image') || extractMetaTag(html, 'twitter:image')
-
-        if (ogTitle && !ogTitle.includes('Visit TikTok') && !ogTitle.includes('Odwiedź TikToka')) {
-          if (!title) title = cleanRecipeTitle(ogTitle).slice(0, 90)
-        }
-        if (ogDesc && !ogDesc.includes('Watch, follow') && !ogDesc.includes('Oglądaj, obserwuj')) {
-          if (!description) description = ogDesc.trim()
-          if (!title) title = cleanRecipeTitle(ogDesc.split(/\r?\n+/)[0] || ogDesc).slice(0, 90)
-        }
-        if (ogImg && !coverUrl && !ogImg.includes('tiktok-logo')) {
-          coverUrl = ogImg
-        }
-      }
-    } catch (_) {}
-  }
-
   // Final fallbacks if video was extremely minimal
   if (!title) {
     try {
@@ -335,16 +306,15 @@ async function scrapeRecipeWebsite(targetUrl: string): Promise<ScrapedRecipeData
 
   // Safe redirect-following loop with per-hop SSRF validation
   while (redirectCount <= 4) {
-    const res = await fetch(currentUrl, {
-      method: 'GET',
+    const res = await fetchPublicUrl(currentUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7',
         'Upgrade-Insecure-Requests': '1'
       },
-      redirect: 'manual',
-      signal: AbortSignal.timeout(8000)
+      timeoutMs: 8000,
+      maxBytes: 1_500_000
     })
 
     if (res.status >= 300 && res.status < 400) {
@@ -649,7 +619,7 @@ export async function processRecipeImport(rawUrl: string): Promise<{
     let recipe: ScrapedRecipeData
 
     // 1. TikTok
-    if (hostname.includes('tiktok.com')) {
+    if (hostname === 'tiktok.com' || hostname.endsWith('.tiktok.com')) {
       recipe = await scrapeTikTok(parsedUrl.href)
     } else if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
       // 2. YouTube

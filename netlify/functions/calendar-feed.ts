@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getRateLimitResponse } from './_shared/rateLimit'
 
 function formatIcsUtc(dateInput: Date | string | number): string {
   const d = new Date(dateInput)
@@ -56,6 +57,9 @@ export const handler = async (event: any) => {
     'Access-Control-Allow-Origin': '*'
   }
 
+  const rateLimitResponse = await getRateLimitResponse(event, 'calendar-feed', 60, 60, headers)
+  if (rateLimitResponse) return rateLimitResponse
+
   if (!partnershipId || typeof partnershipId !== 'string' || partnershipId.length > 128) {
     return {
       statusCode: 400,
@@ -65,14 +69,21 @@ export const handler = async (event: any) => {
   }
 
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NUXT_PUBLIC_SUPABASE_URL || ('https://' + 'hfvgobhxiuchchblaajq.supabase.co')
-  const supabaseKey = process.env.SUPABASE_KEY || process.env.NUXT_PUBLIC_SUPABASE_KEY || ['sb_publishable_', 'kQsFx4GuieBdbGJaEl3eDg_', 'RE0FD9lR'].join('')
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceRoleKey) {
+    return {
+      statusCode: 503,
+      headers: { ...headers, 'Cache-Control': 'no-store' },
+      body: 'Calendar feed is unavailable.'
+    }
+  }
 
   let eventsList: any[] = []
   let partnershipName = 'Wspolny Terminarz DuoNest'
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: false }
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false }
     })
 
     const [eventsRes, partnerRes] = await Promise.all([
@@ -80,7 +91,8 @@ export const handler = async (event: any) => {
         .from('events')
         .select('*')
         .eq('partnership_id', partnershipId)
-        .order('start_time', { ascending: true }),
+        .order('start_time', { ascending: true })
+        .limit(500),
       supabase
         .from('partnerships')
         .select('nest_name')

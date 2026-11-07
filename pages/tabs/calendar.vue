@@ -531,13 +531,32 @@
       <!-- ============================================== -->
       <!-- MODAL DODAWANIA I EDYCJI PLANU DLA PAR         -->
       <!-- ============================================== -->
-      <ion-modal :is-open="showEventModal" @didDismiss="closeEventModal">
-        <ion-header>
+      <ion-modal
+        :is-open="showEventModal"
+        @didDismiss="closeEventModal"
+        class="dn-form-sheet-modal"
+        :breakpoints="[0, 0.92, 1]"
+        :initial-breakpoint="0.92"
+        :handle="true"
+        data-no-swipe="true"
+      >
+        <ion-header class="dn-form-sheet-header ion-no-border">
+          <div class="dn-form-sheet-handle-spacer" aria-hidden="true"></div>
           <ion-toolbar>
-            <ion-title>{{ isEditingMode ? 'Edytuj Plan dla Par' : 'Nowy Plan dla Par' }}</ion-title>
-            <ion-buttons slot="end">
-              <ion-button @click="closeEventModal">Anuluj</ion-button>
-            </ion-buttons>
+            <div class="dn-form-sheet-heading">
+              <div class="dn-form-sheet-title-row">
+                <div class="dn-form-sheet-icon">
+                  <ion-icon :icon="ioniconsCalendarOutline" />
+                </div>
+                <div class="dn-form-sheet-title-text">
+                  <h3 class="dn-form-sheet-title">{{ isEditingMode ? 'Edytuj wspólny plan' : 'Nowy wspólny plan' }}</h3>
+                  <span class="dn-form-sheet-subtitle">Zaplanujcie coś razem</span>
+                </div>
+              </div>
+              <button type="button" class="dn-form-sheet-close" @click="closeEventModal" aria-label="Zamknij">
+                <ion-icon :icon="ioniconsCloseOutline" />
+              </button>
+            </div>
           </ion-toolbar>
         </ion-header>
 

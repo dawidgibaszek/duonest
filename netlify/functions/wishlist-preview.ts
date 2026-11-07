@@ -1,4 +1,5 @@
 import { processScrape } from '../../server/utils/wishlistScraper'
+import { getRateLimitResponse } from './_shared/rateLimit'
 
 // Netlify Functions Handler
 export const handler = async (event: any) => {
@@ -12,6 +13,9 @@ export const handler = async (event: any) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers: corsHeaders }
   }
+
+  const rateLimitResponse = await getRateLimitResponse(event, 'wishlist-preview', 15, 60, corsHeaders)
+  if (rateLimitResponse) return rateLimitResponse
 
   try {
     let urlParam = ''

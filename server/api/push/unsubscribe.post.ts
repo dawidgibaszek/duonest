@@ -1,10 +1,9 @@
 import { defineEventHandler, readBody, createError } from 'h3'
-import { getSupabaseServerClient } from '~/server/utils/webPush'
-import { checkRateLimit, getClientIp } from '~/server/utils/rateLimit'
+import { getAuthenticatedPushContext } from '~/server/utils/pushAuth'
+import { checkRateLimit } from '~/server/utils/rateLimit'
 
 export default defineEventHandler(async (event) => {
-  const ip = getClientIp(event)
-  const rate = checkRateLimit(`push_unsub:${ip}`, 20, 60000)
+  const rate = await checkRateLimit(event, { maxRequests: 20, windowMs: 60000, keyPrefix: 'push_unsub' })
   if (!rate.allowed) {
     throw createError({
       statusCode: 429,
@@ -15,25 +14,20 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
   const body = await readBody(event)
 
-  if (!body || !body.endpoint || typeof body.endpoint !== 'string' || !body.endpoint.startsWith('https://')) {
+  if (!body || !body.endpoint || typeof body.endpoint !== 'string') {
     throw createError({
       statusCode: 400,
       statusMessage: 'Missing or invalid endpoint URL'
     })
   }
 
-  const supabase = getSupabaseServerClient(config)
-  if (!supabase) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'Supabase server client not available'
-    })
-  }
+  const { supabase, profile } = await getAuthenticatedPushContext(event, config)
 
   const { error } = await supabase
     .from('push_subscriptions')
     .delete()
     .eq('endpoint', body.endpoint)
+    .eq('user_id', profile.id)
 
   if (error) {
     console.error('[WebPush] Error deleting push subscription:', error)

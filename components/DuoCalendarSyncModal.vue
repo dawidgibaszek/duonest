@@ -8,6 +8,7 @@
     :handle="true"
   >
     <ion-header class="modal-custom-header ion-no-border">
+      <div class="dn-form-sheet-handle-spacer" aria-hidden="true"></div>
       <div class="sync-modal-header">
         <div class="sync-title-box">
           <div class="sync-title-icon-badge">
@@ -67,8 +68,8 @@
           </div>
           <h4>Automatyczna synchronizacja</h4>
           <p>
-            Gdy Ty lub partner dodacie, zmienicie lub usuniecie wspólne plany w DuoNest,
-            Twój kalendarz w telefonie zaktualizuje się samoczynnie.
+            Zmiany i usunięcia wykonane w DuoNest pojawią się po odświeżeniu subskrypcji przez Twój kalendarz.
+            Synchronizacja działa w jedną stronę; edycje w Google, Apple lub Outlooku nie zmieniają planów w DuoNest.
           </p>
         </div>
 

@@ -131,25 +131,25 @@ alter table public.nudges enable row level security;
 
 -- Open policies for anon & authenticated couple access
 drop policy if exists "Allow all on profiles" on public.profiles;
-create policy "Allow all on profiles" on public.profiles for all using (true) with check (true);
+create policy "DuoNest bootstrap deny on profiles" on public.profiles for all using (false) with check (false);
 
 drop policy if exists "Allow all on partnerships" on public.partnerships;
-create policy "Allow all on partnerships" on public.partnerships for all using (true) with check (true);
+create policy "DuoNest bootstrap deny on partnerships" on public.partnerships for all using (false) with check (false);
 
 drop policy if exists "Allow all on shopping_items" on public.shopping_items;
-create policy "Allow all on shopping_items" on public.shopping_items for all using (true) with check (true);
+create policy "DuoNest bootstrap deny on shopping_items" on public.shopping_items for all using (false) with check (false);
 
 drop policy if exists "Allow all on tasks" on public.tasks;
-create policy "Allow all on tasks" on public.tasks for all using (true) with check (true);
+create policy "DuoNest bootstrap deny on tasks" on public.tasks for all using (false) with check (false);
 
 drop policy if exists "Allow all on events" on public.events;
-create policy "Allow all on events" on public.events for all using (true) with check (true);
+create policy "DuoNest bootstrap deny on events" on public.events for all using (false) with check (false);
 
 drop policy if exists "Allow all on mood_logs" on public.mood_logs;
-create policy "Allow all on mood_logs" on public.mood_logs for all using (true) with check (true);
+create policy "DuoNest bootstrap deny on mood_logs" on public.mood_logs for all using (false) with check (false);
 
 drop policy if exists "Allow all on nudges" on public.nudges;
-create policy "Allow all on nudges" on public.nudges for all using (true) with check (true);
+create policy "DuoNest bootstrap deny on nudges" on public.nudges for all using (false) with check (false);
 
 -- ==========================================================
 -- ENABLE REALTIME REPLICATION ON ALL TABLES

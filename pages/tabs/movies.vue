@@ -2028,8 +2028,9 @@ const onSearchInput = () => {
 
 const fetchTmdbApi = async (path: string, params: URLSearchParams): Promise<any> => {
   const customKey = getStoredTmdbApiKey()
-  if (customKey) params.set('apiKey', customKey)
   const queryString = params.toString() ? `?${params.toString()}` : ''
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (customKey) headers['X-TMDB-API-Key'] = customKey
 
   const funcName = path.replace('/api/movies/', 'movies-')
   const endpoints = [
@@ -2040,7 +2041,7 @@ const fetchTmdbApi = async (path: string, params: URLSearchParams): Promise<any>
   for (const ep of endpoints) {
     try {
       const resp = await fetch(ep, {
-        headers: { Accept: 'application/json' }
+        headers
       })
       const contentType = resp.headers.get('content-type') || ''
       if (resp.ok && contentType.includes('application/json')) {

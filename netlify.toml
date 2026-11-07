@@ -5,8 +5,7 @@
 [build.environment]
   NODE_VERSION = "22"
   NITRO_PRESET = "netlify"
-  SECRETS_SCAN_ENABLED = "false"
-  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_KEY,NUXT_PUBLIC_SUPABASE_KEY,SUPABASE_URL,NUXT_PUBLIC_SUPABASE_URL,GROQ_API_KEY"
+  SECRETS_SCAN_ENABLED = "true"
 
 [functions]
   directory = "netlify/functions"

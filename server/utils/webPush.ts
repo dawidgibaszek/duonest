@@ -43,14 +43,33 @@ export function configureWebPush(config: any) {
 
 export function getSupabaseServerClient(config: any) {
   const url = config.public?.supabaseUrl || process.env.SUPABASE_URL || process.env.NUXT_PUBLIC_SUPABASE_URL
-  const key = config.public?.supabaseKey || process.env.SUPABASE_KEY || process.env.NUXT_PUBLIC_SUPABASE_KEY
+  const key = config.supabaseServiceRoleKey || process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) {
-    console.error('[WebPush] Supabase URL or Key missing')
+    console.error('[WebPush] Supabase URL or service role key missing')
     return null
   }
   return createClient(url, key, {
-    auth: { persistSession: false }
+    auth: { persistSession: false, autoRefreshToken: false }
   })
+}
+
+export function isAllowedPushEndpoint(endpoint: string): boolean {
+  try {
+    const url = new URL(endpoint)
+    const allowedHosts = new Set([
+      'fcm.googleapis.com',
+      'updates.push.services.mozilla.com',
+      'push.services.mozilla.com',
+      'web.push.apple.com'
+    ])
+    return url.protocol === 'https:'
+      && !url.username
+      && !url.password
+      && (!url.port || url.port === '443')
+      && allowedHosts.has(url.hostname.toLowerCase())
+  } catch {
+    return false
+  }
 }
 
 export async function sendWebPushToSubscription(
@@ -59,6 +78,8 @@ export async function sendWebPushToSubscription(
   subRecord: { id?: string; endpoint: string; p256dh: string; auth: string },
   payload: PushNotificationPayload
 ): Promise<boolean> {
+  if (!isAllowedPushEndpoint(subRecord.endpoint)) return false
+
   const pushSubscription = {
     endpoint: subRecord.endpoint,
     keys: {

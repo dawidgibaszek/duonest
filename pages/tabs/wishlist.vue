@@ -279,6 +279,7 @@
       data-no-swipe="true"
     >
       <ion-header class="modal-custom-header">
+        <div class="dn-form-sheet-handle-spacer" aria-hidden="true"></div>
         <ion-toolbar>
           <div class="modal-header-inner">
             <div class="modal-title-wrap">

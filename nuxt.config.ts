@@ -46,6 +46,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     // Server-only keys (never exposed to client browser)
+    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
     vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || '',
     vapidSubject: process.env.VAPID_SUBJECT || 'mailto:kontakt@duonestapp.pl',
     tmdbApiKey: process.env.TMDB_API_KEY || '',

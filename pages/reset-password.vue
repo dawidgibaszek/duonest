@@ -25,7 +25,7 @@
             </div>
             <h2 class="subview-title">Weryfikacja kodem lub nowy link</h2>
             <p class="subview-desc">
-              Jeśli link w wiadomości wygasł (np. został wstępnie sprawdzony przez zabezpieczenia poczty Apple Mail), możesz wpisać <strong>6-cyfrowy kod</strong> z otrzymanego e-maila lub wygenerować nowy.
+              Jeśli link w wiadomości wygasł (np. został wstępnie sprawdzony przez zabezpieczenia poczty Apple Mail), możesz wpisać <strong>6-cyfrowy kod</strong> z otrzymanego e-maila lub wygenerować nowy. Dla starych kont, które nie zostały jeszcze połączone z nowym loginem, bezpieczniej jest wrócić do logowania i wybrać <strong>Przywróć dostęp do starego konta</strong>.
             </p>
 
             <!-- OTP CODE FORM -->

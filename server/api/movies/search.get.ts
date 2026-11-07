@@ -1,9 +1,9 @@
-import { defineEventHandler, getQuery, createError } from 'h3'
+import { defineEventHandler, getQuery, getHeader, createError } from 'h3'
 import { normalizeTmdbItem, getTmdbHeadersAndParams, TmdbRawItem } from '../../utils/tmdb'
 import { checkRateLimit } from '../../utils/rateLimit'
 
 export default defineEventHandler(async (event) => {
-  const rl = checkRateLimit(event, { maxRequests: 40, windowMs: 60_000, keyPrefix: 'movie_search' })
+  const rl = await checkRateLimit(event, { maxRequests: 40, windowMs: 60_000, keyPrefix: 'movie_search' })
   if (!rl.allowed) {
     throw createError({
       statusCode: 429,
@@ -15,9 +15,11 @@ export default defineEventHandler(async (event) => {
   const searchQuery = String(query.q || query.query || '').trim().slice(0, 80)
   const filterType = String(query.type || 'all').toLowerCase().slice(0, 10)
   const runtimeConfig = useRuntimeConfig()
+  const requestApiKey = getHeader(event, 'x-tmdb-api-key')
 
   // Use only server-side configured API key (Zero Trust: do not trust incoming query parameters for sensitive API credentials)
   const apiKey = String(
+    requestApiKey ||
     runtimeConfig.tmdbApiKey ||
     process.env.TMDB_API_KEY ||
     ''

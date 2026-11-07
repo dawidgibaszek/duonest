@@ -391,7 +391,7 @@
           <!-- Hero Stage Card -->
           <div class="dn-card pet-stage-card">
             <!-- Floating Dialogue Bubble -->
-            <div class="pet-dialogue-bubble">
+            <div class="pet-dialogue-bubble" aria-live="polite">
               <span class="dialogue-tail" />
               <span class="dialogue-text">{{ petSpeechText }}</span>
             </div>
@@ -565,13 +565,32 @@
       </div>
 
       <!-- MODAL DLA NOWEGO ZADANIA -->
-      <ion-modal :is-open="showAddModal" @didDismiss="showAddModal = false">
-        <ion-header>
+      <ion-modal
+        :is-open="showAddModal"
+        @didDismiss="showAddModal = false"
+        class="dn-form-sheet-modal"
+        :breakpoints="[0, 0.92, 1]"
+        :initial-breakpoint="0.92"
+        :handle="true"
+        data-no-swipe="true"
+      >
+        <ion-header class="dn-form-sheet-header ion-no-border">
+          <div class="dn-form-sheet-handle-spacer" aria-hidden="true"></div>
           <ion-toolbar>
-            <ion-title>Nowe Zadanie Domowe</ion-title>
-            <ion-buttons slot="end">
-              <ion-button @click="showAddModal = false">Anuluj</ion-button>
-            </ion-buttons>
+            <div class="dn-form-sheet-heading">
+              <div class="dn-form-sheet-title-row">
+                <div class="dn-form-sheet-icon">
+                  <ion-icon :icon="ioniconsCheckboxOutline" />
+                </div>
+                <div class="dn-form-sheet-title-text">
+                  <h3 class="dn-form-sheet-title">Nowe zadanie domowe</h3>
+                  <span class="dn-form-sheet-subtitle">Podzielcie się obowiązkami</span>
+                </div>
+              </div>
+              <button type="button" class="dn-form-sheet-close" @click="showAddModal = false" aria-label="Zamknij">
+                <ion-icon :icon="ioniconsCloseOutline" />
+              </button>
+            </div>
           </ion-toolbar>
         </ion-header>
 
@@ -664,6 +683,24 @@
                   {{ rec.label }}
                 </button>
               </div>
+
+              <div v-if="newTaskIsRecurring && newTaskInterval === 'custom'" class="custom-interval-fields">
+                <label class="custom-interval-field">
+                  <span>Dni</span>
+                  <ion-input v-model.number="customIntervalDays" type="number" min="0" max="3650" inputmode="numeric" class="modal-input" />
+                </label>
+                <label class="custom-interval-field">
+                  <span>Godziny</span>
+                  <ion-input v-model.number="customIntervalHours" type="number" min="0" max="23" inputmode="numeric" class="modal-input" />
+                </label>
+                <label class="custom-interval-field">
+                  <span>Minuty</span>
+                  <ion-input v-model.number="customIntervalMinutes" type="number" min="0" max="59" inputmode="numeric" class="modal-input" />
+                </label>
+                <span class="sub-label" :class="{ 'interval-error': !isCustomIntervalValid }">
+                  {{ isCustomIntervalValid ? `Powtarzaj co ${formatCustomInterval(customIntervalTotalMinutes)}` : 'Ustaw przedział większy niż 0 minut.' }}
+                </span>
+              </div>
             </div>
 
             <div class="form-group">
@@ -682,7 +719,7 @@
               </div>
             </div>
 
-            <button type="submit" class="dn-button-sea submit-task-btn" :disabled="!newTaskTitle.trim() || isSubmitting">
+            <button type="submit" class="dn-button-sea submit-task-btn" :disabled="!newTaskTitle.trim() || isSubmitting || (newTaskIsRecurring && newTaskInterval === 'custom' && !isCustomIntervalValid)">
               <ion-spinner v-if="isSubmitting" name="crescent" style="width: 18px; height: 18px;" />
               <ion-icon v-else :icon="ioniconsCheckmarkOutline" />
               <span>Dodaj Zadanie</span>
@@ -701,6 +738,7 @@
         :handle="true"
       >
         <ion-header class="modal-custom-header">
+          <div class="dn-form-sheet-handle-spacer" aria-hidden="true"></div>
           <ion-toolbar>
             <div class="modal-header-inner">
               <div class="modal-title-wrap">
@@ -1109,6 +1147,9 @@ const newTaskDesc = ref('')
 const newTaskAssignee = ref<string | null>(null)
 const newTaskIsRecurring = ref(false)
 const newTaskInterval = ref('weekly')
+const customIntervalDays = ref(0)
+const customIntervalHours = ref(0)
+const customIntervalMinutes = ref(0)
 const newTaskPoints = ref(15)
 const isSubmitting = ref(false)
 
@@ -1116,8 +1157,46 @@ const recurrenceOptions = [
   { value: 'daily', label: 'Codziennie' },
   { value: 'weekly', label: 'Co tydzień' },
   { value: 'biweekly', label: 'Co 2 tygodnie' },
-  { value: 'monthly', label: 'Raz w miesiącu' }
+  { value: 'monthly', label: 'Raz w miesiącu' },
+  { value: 'custom', label: 'Własny' }
 ]
+
+const customIntervalTotalMinutes = computed(() => {
+  return Math.max(0, Number(customIntervalDays.value) || 0) * 1440
+    + Math.max(0, Number(customIntervalHours.value) || 0) * 60
+    + Math.max(0, Number(customIntervalMinutes.value) || 0)
+})
+
+const isCustomIntervalValid = computed(() => {
+  return customIntervalTotalMinutes.value > 0
+    && Number(customIntervalDays.value) >= 0
+    && Number(customIntervalDays.value) <= 3650
+    && Number(customIntervalHours.value) >= 0
+    && Number(customIntervalHours.value) <= 23
+    && Number(customIntervalMinutes.value) >= 0
+    && Number(customIntervalMinutes.value) <= 59
+})
+
+const formatPolishIntervalUnit = (value: number, singular: string, plural: string, genitivePlural: string) => {
+  const lastTwoDigits = value % 100
+  if (value === 1) return `${value} ${singular}`
+  if (lastTwoDigits >= 12 && lastTwoDigits <= 14) return `${value} ${genitivePlural}`
+  const lastDigit = value % 10
+  return `${value} ${lastDigit >= 2 && lastDigit <= 4 ? plural : genitivePlural}`
+}
+
+const formatCustomInterval = (totalMinutes: number) => {
+  const days = Math.floor(totalMinutes / 1440)
+  const hours = Math.floor((totalMinutes % 1440) / 60)
+  const minutes = totalMinutes % 60
+  const parts: string[] = []
+
+  if (days) parts.push(formatPolishIntervalUnit(days, 'dzień', 'dni', 'dni'))
+  if (hours) parts.push(formatPolishIntervalUnit(hours, 'godzina', 'godziny', 'godzin'))
+  if (minutes) parts.push(formatPolishIntervalUnit(minutes, 'minuta', 'minuty', 'minut'))
+
+  return parts.join(' i ')
+}
 
 const uncompletedTasksCount = computed(() => {
   return tasksList.value.filter(t => !t.is_completed).length
@@ -1164,6 +1243,13 @@ const getAssigneeClass = (assignedTo?: string | null) => {
 }
 
 const getRecurrenceLabel = (interval?: string | null) => {
+  if (interval?.startsWith('custom:')) {
+    const totalMinutes = Number(interval.slice('custom:'.length))
+    return Number.isFinite(totalMinutes) && totalMinutes > 0
+      ? `Co ${formatCustomInterval(totalMinutes)}`
+      : 'Własny przedział'
+  }
+
   switch (interval) {
     case 'daily': return 'Codziennie'
     case 'weekly': return 'Co tydzień'
@@ -1216,13 +1302,18 @@ const handleCreateTask = async () => {
   try {
     const cleanDesc = newTaskDesc.value.trim().slice(0, 500)
     const cleanPoints = Math.max(1, Math.min(100, Number(newTaskPoints.value) || 15))
+    const recurrenceInterval = newTaskInterval.value === 'custom'
+      ? `custom:${customIntervalTotalMinutes.value}`
+      : newTaskInterval.value
+
+    if (newTaskIsRecurring.value && newTaskInterval.value === 'custom' && !isCustomIntervalValid.value) return
 
     await addTask(
       cleanTitle,
       cleanDesc,
       newTaskAssignee.value,
       newTaskIsRecurring.value,
-      newTaskInterval.value,
+      recurrenceInterval,
       cleanPoints
     )
     showAddModal.value = false
@@ -1230,6 +1321,10 @@ const handleCreateTask = async () => {
     newTaskDesc.value = ''
     newTaskAssignee.value = null
     newTaskIsRecurring.value = false
+    newTaskInterval.value = 'weekly'
+    customIntervalDays.value = 0
+    customIntervalHours.value = 0
+    customIntervalMinutes.value = 0
     newTaskPoints.value = 15
   } finally {
     isSubmitting.value = false
@@ -1559,6 +1654,35 @@ const handleRefresh = async (event: any) => {
   border-color: #0f172a;
 }
 
+.custom-interval-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.custom-interval-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.custom-interval-field .modal-input {
+  width: 100%;
+  min-width: 0;
+  --padding-start: 10px;
+  --padding-end: 10px;
+}
+
+.interval-error {
+  grid-column: 1 / -1;
+  color: #b91c1c;
+}
+
 .points-selector-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1815,10 +1939,10 @@ const handleRefresh = async (event: any) => {
 /* Hero Stage Card */
 .pet-stage-card {
   margin: 12px 16px 16px;
-  padding: 24px 20px 18px;
-  background: radial-gradient(circle at 50% 35%, #fff5f7 0%, #ffffff 80%);
-  border: 1px solid rgba(251, 207, 232, 0.6);
-  border-radius: 24px;
+  padding: 20px 18px 18px;
+  background: linear-gradient(155deg, #fff8fb 0%, #ffffff 58%, #f5fbfa 100%);
+  border: 1px solid #f1dce7;
+  border-radius: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1830,13 +1954,19 @@ const handleRefresh = async (event: any) => {
 /* Speech Bubble */
 .pet-dialogue-bubble {
   position: relative;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: #ffffff;
   border: 1px solid #fbcfe8;
   border-radius: 16px;
+  width: min(100%, 310px);
+  height: 88px;
+  flex: 0 0 88px;
   padding: 10px 16px;
-  max-width: 280px;
   text-align: center;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
   box-shadow: 0 4px 14px rgba(219, 39, 119, 0.08);
   animation: float-bubble 3.2s ease-in-out infinite;
 }
@@ -1859,10 +1989,15 @@ const handleRefresh = async (event: any) => {
 }
 
 .dialogue-text {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
   font-size: 13px;
   font-weight: 700;
   color: #475569;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 /* Stage Area with Pedestal */
@@ -1871,7 +2006,12 @@ const handleRefresh = async (event: any) => {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+  min-height: 196px;
   padding: 16px 0 10px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(253, 242, 248, 0.72));
   cursor: pointer;
   user-select: none;
 }
@@ -1900,8 +2040,10 @@ const handleRefresh = async (event: any) => {
   width: 100%;
   margin-top: 12px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   padding-top: 12px;
   border-top: 1px dashed rgba(244, 114, 182, 0.25);
 }
@@ -1915,7 +2057,7 @@ const handleRefresh = async (event: any) => {
   font-size: 20px;
   font-weight: 800;
   color: #0f172a;
-  letter-spacing: -0.3px;
+  letter-spacing: 0;
   overflow-wrap: break-word;
   word-break: break-word;
 }
@@ -1967,6 +2109,9 @@ const handleRefresh = async (event: any) => {
 }
 
 .pet-stat-card {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
   padding: 18px 20px;
   border-radius: 22px;
   background: #ffffff;

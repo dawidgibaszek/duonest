@@ -1,11 +1,11 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import {
   configureWebPush,
-  getSupabaseServerClient,
   sendWebPushToSubscription,
   type PushNotificationPayload
 } from '~/server/utils/webPush'
-import { checkRateLimit, getClientIp } from '~/server/utils/rateLimit'
+import { getAuthenticatedPushContext } from '~/server/utils/pushAuth'
+import { checkRateLimit } from '~/server/utils/rateLimit'
 
 // Helper to format partner actions into Polish titles, bodies, and URLs
 function formatPartnerAction(
@@ -113,6 +113,16 @@ function formatPartnerAction(
       }
     }
 
+    case 'EVENT_UPDATE': {
+      const evtTitle = data?.updates?.title || 'wspólny plan'
+      return {
+        title: `Wspólny terminarz`,
+        body: `${name} zmienił(a) szczegóły planu: ${evtTitle}`,
+        url: '/tabs/calendar',
+        category: 'calendar'
+      }
+    }
+
     case 'EVENT_TOGGLE_COMPLETED': {
       if (data?.is_completed) {
         const evtTitle = data?.title || 'plan'
@@ -136,6 +146,16 @@ function formatPartnerAction(
       }
     }
 
+    case 'WISHLIST_UPDATE': {
+      const wishTitle = data?.updates?.title || data?.item?.title || 'marzenie'
+      return {
+        title: `Wishlista i marzenia`,
+        body: `${name} zaktualizował(a) marzenie: ${wishTitle}`,
+        url: '/tabs/wishlist',
+        category: 'wishlist'
+      }
+    }
+
     case 'WISHLIST_TOGGLE_COMPLETED': {
       if (data?.is_completed) {
         const wishTitle = data?.title || 'marzenie'
@@ -154,6 +174,16 @@ function formatPartnerAction(
       return {
         title: `Kino we dwoje`,
         body: `${name} dodał(a) do listy filmów: ${movieTitle}`,
+        url: '/tabs/movies',
+        category: 'wishlist'
+      }
+    }
+
+    case 'MOVIE_UPDATE': {
+      const movieTitle = data?.title || 'listę filmów'
+      return {
+        title: `Kino we dwoje`,
+        body: `${name} zaktualizował(a) film: ${movieTitle}`,
         url: '/tabs/movies',
         category: 'wishlist'
       }
@@ -221,8 +251,7 @@ function formatPartnerAction(
 }
 
 export default defineEventHandler(async (event) => {
-  const ip = getClientIp(event)
-  const rate = checkRateLimit(`push_send:${ip}`, 30, 60000)
+  const rate = await checkRateLimit(event, { maxRequests: 30, windowMs: 60000, keyPrefix: 'push_send' })
   if (!rate.allowed) {
     throw createError({
       statusCode: 429,
@@ -249,42 +278,29 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const supabase = getSupabaseServerClient(config)
-  if (!supabase) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'Supabase server client not available'
-    })
+  const { supabase, profile } = await getAuthenticatedPushContext(event, config)
+  const partnershipId = profile.partnership_id
+  if (!partnershipId) {
+    throw createError({ statusCode: 403, statusMessage: 'An active partnership is required' })
   }
 
-  // Authorization check: If partnership provided, verify sender membership in partnership
-  if (body.partnershipId) {
-    if (!body.senderUserId) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Sender user ID required for partnership push'
-      })
-    }
+  const { data: part, error: partnershipError } = await supabase
+    .from('partnerships')
+    .select('id, partner1_id, partner2_id')
+    .eq('id', partnershipId)
+    .maybeSingle()
 
-    const { data: part, error: pErr } = await supabase
-      .from('partnerships')
-      .select('partner1_id, partner2_id')
-      .eq('id', body.partnershipId)
-      .maybeSingle()
+  if (partnershipError || !part) {
+    throw createError({ statusCode: 403, statusMessage: 'Partnership is unavailable' })
+  }
 
-    if (pErr || !part) {
-      throw createError({
-        statusCode: 404,
-        statusMessage: 'Partnership not found'
-      })
-    }
-
-    if (part.partner1_id !== body.senderUserId && part.partner2_id !== body.senderUserId) {
-      throw createError({
-        statusCode: 403,
-        statusMessage: 'Unauthorized: Sender is not a member of this partnership'
-      })
-    }
+  const partnerId = part.partner1_id === profile.id
+    ? part.partner2_id
+    : part.partner2_id === profile.id
+      ? part.partner1_id
+      : null
+  if (!partnerId) {
+    throw createError({ statusCode: 403, statusMessage: 'Authenticated profile is not a partnership member' })
   }
 
   // Sanitize redirect URL to prevent Open Redirect
@@ -299,25 +315,8 @@ export default defineEventHandler(async (event) => {
 
   let finalPayload: PushNotificationPayload | null = null
 
-  // 1. Either formatted directly:
-  if (body.title && body.body) {
-    finalPayload = {
-      title: String(body.title).slice(0, 120),
-      body: String(body.body).slice(0, 400),
-      icon: '/pwa-192x192.png',
-      badge: '/favicon.png',
-      data: {
-        url: sanitizeUrl(body.url),
-        category: body.category || 'nudges',
-        ...(body.data || {})
-      },
-      tag: body.tag || 'duonest-' + Date.now(),
-      vibrate: body.vibrate || [120, 60, 120, 60, 180],
-      renotify: true
-    }
-  } else if (body.action) {
-    // 2. Or formatted from high-level partner action:
-    const formatted = formatPartnerAction(body.action, body.payload, body.senderName)
+  if (typeof body.action === 'string' && body.action.length <= 64) {
+    const formatted = formatPartnerAction(body.action, body.payload, profile.name || 'Twój Partner')
     if (!formatted) {
       return {
         success: true,
@@ -350,19 +349,7 @@ export default defineEventHandler(async (event) => {
   // Find target subscriptions:
   let query = supabase.from('push_subscriptions').select('id, endpoint, p256dh, auth, user_id')
 
-  if (body.targetUserId) {
-    query = query.eq('user_id', body.targetUserId)
-  } else if (body.partnershipId) {
-    query = query.eq('partnership_id', body.partnershipId)
-    if (body.senderUserId) {
-      query = query.neq('user_id', body.senderUserId)
-    }
-  } else {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Must specify targetUserId or partnershipId'
-    })
-  }
+  query = query.eq('user_id', partnerId)
 
   const { data: subscriptions, error } = await query
 

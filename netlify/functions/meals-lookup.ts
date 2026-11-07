@@ -1,4 +1,5 @@
 import { lookupMealById } from '../../server/utils/meals'
+import { getRateLimitResponse } from './_shared/rateLimit'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,6 +12,9 @@ export const handler = async (event: any) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers: corsHeaders }
   }
+
+  const rateLimitResponse = await getRateLimitResponse(event, 'meals-lookup', 60, 60, corsHeaders)
+  if (rateLimitResponse) return rateLimitResponse
 
   try {
     const query = event.queryStringParameters || {}

@@ -3,7 +3,7 @@ import { lookupMealById } from '../../utils/meals'
 import { checkRateLimit } from '../../utils/rateLimit'
 
 export default defineEventHandler(async (event) => {
-  const rl = checkRateLimit(event, { maxRequests: 60, windowMs: 60_000, keyPrefix: 'meals_lookup' })
+  const rl = await checkRateLimit(event, { maxRequests: 60, windowMs: 60_000, keyPrefix: 'meals_lookup' })
   if (!rl.allowed) {
     throw createError({
       statusCode: 429,

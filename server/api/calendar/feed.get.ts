@@ -1,6 +1,6 @@
 import { defineEventHandler, getQuery, setHeader, createError } from 'h3'
 import { getSupabaseServerClient } from '~/server/utils/webPush'
-import { checkRateLimit, getClientIp } from '~/server/utils/rateLimit'
+import { checkRateLimit } from '~/server/utils/rateLimit'
 
 function formatIcsUtc(dateInput: Date | string | number): string {
   const d = new Date(dateInput)
@@ -47,8 +47,7 @@ function getCategoryLabelPl(category: string): string {
 }
 
 export default defineEventHandler(async (event) => {
-  const ip = getClientIp(event)
-  const rate = checkRateLimit(`cal_feed:${ip}`, 60, 60000)
+  const rate = await checkRateLimit(event, { maxRequests: 60, windowMs: 60000, keyPrefix: 'cal_feed' })
   if (!rate.allowed) {
     throw createError({
       statusCode: 429,
@@ -79,7 +78,8 @@ export default defineEventHandler(async (event) => {
           .from('events')
           .select('*')
           .eq('partnership_id', partnershipId)
-          .order('start_time', { ascending: true }),
+          .order('start_time', { ascending: true })
+          .limit(500),
         supabase
           .from('partnerships')
           .select('nest_name')

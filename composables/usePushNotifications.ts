@@ -95,7 +95,7 @@ export const playNotificationHaptic = (pattern: number[] = [120, 60, 120]) => {
 }
 
 export const usePushNotifications = () => {
-  const { currentUser, partnerUser, triggerToast, activeToastItem } = useDuoState()
+  const { currentUser, partnerUser, authSession, triggerToast, activeToastItem } = useDuoState()
 
   // Initialize environment detection and stored preferences
   const initPushNotifications = () => {
@@ -278,9 +278,10 @@ export const usePushNotifications = () => {
         if (sub && currentUser.value?.id) {
           await $fetch('/api/push/subscribe', {
             method: 'POST',
+            headers: authSession.value?.access_token
+              ? { Authorization: `Bearer ${authSession.value.access_token}` }
+              : undefined,
             body: {
-              userId: currentUser.value.id,
-              partnershipId: currentUser.value.partnership_id || null,
               subscription: sub.toJSON(),
               userAgent: navigator.userAgent
             }
@@ -384,6 +385,9 @@ export const usePushNotifications = () => {
           if (sub) {
             await $fetch('/api/push/unsubscribe', {
               method: 'POST',
+              headers: authSession.value?.access_token
+                ? { Authorization: `Bearer ${authSession.value.access_token}` }
+                : undefined,
               body: { endpoint: sub.endpoint }
             }).catch(() => {})
             await sub.unsubscribe().catch(() => {})
@@ -524,8 +528,10 @@ export const usePushNotifications = () => {
       try {
         const res = await $fetch<{ success: boolean; sentCount?: number }>('/api/push/test', {
           method: 'POST',
+          headers: authSession.value?.access_token
+            ? { Authorization: `Bearer ${authSession.value.access_token}` }
+            : undefined,
           body: {
-            userId: currentUser.value.id,
             title,
             body,
             vibrate: pushSettings.vibrate ? [120, 60, 120, 60, 180] : [],

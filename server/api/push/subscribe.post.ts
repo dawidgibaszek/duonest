@@ -1,10 +1,10 @@
 import { defineEventHandler, readBody, createError } from 'h3'
-import { configureWebPush, getSupabaseServerClient } from '~/server/utils/webPush'
-import { checkRateLimit, getClientIp } from '~/server/utils/rateLimit'
+import { configureWebPush, isAllowedPushEndpoint } from '~/server/utils/webPush'
+import { getAuthenticatedPushContext } from '~/server/utils/pushAuth'
+import { checkRateLimit } from '~/server/utils/rateLimit'
 
 export default defineEventHandler(async (event) => {
-  const ip = getClientIp(event)
-  const rate = checkRateLimit(`push_sub:${ip}`, 20, 60000)
+  const rate = await checkRateLimit(event, { maxRequests: 20, windowMs: 60000, keyPrefix: 'push_sub' })
   if (!rate.allowed) {
     throw createError({
       statusCode: 429,
@@ -15,20 +15,20 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
   const body = await readBody(event)
 
-  if (!body || !body.userId || !body.subscription) {
+  if (!body || !body.subscription) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Missing userId or subscription object'
+      statusMessage: 'Missing subscription object'
     })
   }
 
-  const { userId, partnershipId, subscription, userAgent } = body
+  const { subscription, userAgent } = body
   const { endpoint, keys } = subscription
 
   if (
     !endpoint ||
     typeof endpoint !== 'string' ||
-    !endpoint.startsWith('https://') ||
+    !isAllowedPushEndpoint(endpoint) ||
     endpoint.length > 1024 ||
     !keys?.p256dh ||
     typeof keys.p256dh !== 'string' ||
@@ -43,34 +43,41 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const supabase = getSupabaseServerClient(config)
-  if (!supabase) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'Supabase server client not available'
-    })
-  }
+  const { supabase, profile } = await getAuthenticatedPushContext(event, config)
 
-  // Ensure VAPID is configured
   configureWebPush(config)
 
-  const { data, error } = await supabase
+  const { data: existingSubscription, error: existingError } = await supabase
     .from('push_subscriptions')
-    .upsert(
-      {
-        user_id: userId,
-        partnership_id: partnershipId || null,
-        endpoint,
-        p256dh: keys.p256dh,
-        auth: keys.auth,
-        user_agent: userAgent || null,
-        updated_at: new Date().toISOString()
-      },
-      { onConflict: 'endpoint' }
-    )
-    .select()
+    .select('user_id')
+    .eq('endpoint', endpoint)
+    .maybeSingle()
+
+  if (existingError) {
+    throw createError({ statusCode: 500, statusMessage: 'Unable to verify push subscription ownership' })
+  }
+  if (existingSubscription && existingSubscription.user_id !== profile.id) {
+    throw createError({ statusCode: 403, statusMessage: 'Push endpoint belongs to another account' })
+  }
+
+  const subscriptionRecord = {
+    user_id: profile.id,
+    partnership_id: profile.partnership_id || null,
+    endpoint,
+    p256dh: keys.p256dh,
+    auth: keys.auth,
+    user_agent: typeof userAgent === 'string' ? userAgent.slice(0, 512) : null,
+    updated_at: new Date().toISOString()
+  }
+  const query = existingSubscription
+    ? supabase.from('push_subscriptions').update(subscriptionRecord).eq('endpoint', endpoint).eq('user_id', profile.id)
+    : supabase.from('push_subscriptions').insert(subscriptionRecord)
+  const { data, error } = await query.select('id')
 
   if (error) {
+    if (error.code === '23505') {
+      throw createError({ statusCode: 403, statusMessage: 'Push endpoint belongs to another account' })
+    }
     console.error('[WebPush] Error saving push subscription:', error)
     throw createError({
       statusCode: 500,

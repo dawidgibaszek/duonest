@@ -1,8 +1,9 @@
 import { normalizeTmdbItem, getTmdbHeadersAndParams, TmdbRawItem } from '../../server/utils/tmdb'
+import { getRateLimitResponse } from './_shared/rateLimit'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-TMDB-API-Key',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Content-Type': 'application/json'
 }
@@ -12,11 +13,15 @@ export const handler = async (event: any) => {
     return { statusCode: 204, headers: corsHeaders }
   }
 
+  const rateLimitResponse = await getRateLimitResponse(event, 'movies-trending', 40, 60, corsHeaders)
+  if (rateLimitResponse) return rateLimitResponse
+
   const query = event.queryStringParameters || {}
   const categoryType = String(query.type || 'all').toLowerCase()
+  const requestApiKey = Object.entries(event.headers || {}).find(([name]) => name.toLowerCase() === 'x-tmdb-api-key')?.[1]
 
   const apiKey = String(
-    query.apiKey ||
+    requestApiKey ||
     process.env.TMDB_API_KEY ||
     process.env.NUXT_TMDB_API_KEY ||
     process.env.NUXT_PUBLIC_TMDB_API_KEY ||
@@ -60,7 +65,8 @@ export const handler = async (event: any) => {
 
     const response = await fetch(url.toString(), {
       method: 'GET',
-      headers
+      headers,
+      signal: AbortSignal.timeout(6000)
     })
 
     if (!response.ok) {

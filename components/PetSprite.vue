@@ -22,12 +22,25 @@
       }"
     />
 
+    <canvas
+      ref="previousCanvasRef"
+      :width="32"
+      :height="32"
+      class="pet-canvas pet-canvas-previous"
+      :class="{ 'is-visible': isSpriteTransitioning }"
+      :style="{
+        width: `${32 * scale}px`,
+        height: `${32 * scale}px`
+      }"
+    />
+
     <!-- Canvas Sprite Renderer -->
     <canvas
       ref="canvasRef"
       :width="32"
       :height="32"
-      class="pet-canvas"
+      class="pet-canvas pet-canvas-current"
+      :class="{ 'is-hidden': isSpriteTransitioning }"
       :style="{
         width: `${32 * scale}px`,
         height: `${32 * scale}px`
@@ -78,8 +91,11 @@ const emit = defineEmits<{
 }>()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
+const previousCanvasRef = ref<HTMLCanvasElement | null>(null)
 const showHeart = ref(false)
+const isSpriteTransitioning = ref(false)
 let heartTimeout: any = null
+let spriteLoadSequence = 0
 
 // Animation frame state
 let currentFrame = 0
@@ -151,6 +167,16 @@ const drawFrame = (frameIndex: number) => {
   ctx.drawImage(currentImage, sx, sy, 32, 32, 0, 0, 32, 32)
 }
 
+const copyCurrentFrame = () => {
+  const canvas = canvasRef.value
+  const previousCanvas = previousCanvasRef.value
+  const ctx = previousCanvas?.getContext('2d')
+  if (!canvas || !previousCanvas || !ctx) return
+
+  ctx.clearRect(0, 0, 32, 32)
+  if (currentImage) ctx.drawImage(canvas, 0, 0, 32, 32)
+}
+
 // Main animation tick loop
 const stepAnimation = (timestamp: number) => {
   if (!isComponentMounted) return
@@ -182,14 +208,28 @@ const stepAnimation = (timestamp: number) => {
 
 // Switch animation or pet cleanly
 const updateSpriteSource = async () => {
+  const loadSequence = ++spriteLoadSequence
+  copyCurrentFrame()
+  isSpriteTransitioning.value = true
+
   try {
     currentFrame = 0
     lastFrameTime = 0
     const img = await loadSpriteImage(props.pet, props.animation)
+    if (!isComponentMounted || loadSequence !== spriteLoadSequence) return
+
     currentImage = img
     drawFrame(0)
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (isComponentMounted && loadSequence === spriteLoadSequence) {
+          isSpriteTransitioning.value = false
+        }
+      })
+    })
   } catch (e) {
-    // Graceful fallback
+    if (loadSequence === spriteLoadSequence) isSpriteTransitioning.value = false
   }
 }
 
@@ -252,11 +292,29 @@ onUnmounted(() => {
 }
 
 .pet-canvas {
-  position: relative;
+  position: absolute;
+  inset: 0;
   z-index: 2;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   display: block;
+  transition: opacity 180ms ease;
+}
+
+.pet-canvas-previous {
+  opacity: 0;
+}
+
+.pet-canvas-previous.is-visible {
+  opacity: 1;
+}
+
+.pet-canvas-current {
+  z-index: 3;
+}
+
+.pet-canvas-current.is-hidden {
+  opacity: 0;
 }
 
 /* Soft Ground Shadow */

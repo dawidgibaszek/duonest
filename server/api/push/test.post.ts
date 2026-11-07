@@ -1,14 +1,13 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import {
   configureWebPush,
-  getSupabaseServerClient,
   sendWebPushToSubscription
 } from '~/server/utils/webPush'
-import { checkRateLimit, getClientIp } from '~/server/utils/rateLimit'
+import { getAuthenticatedPushContext } from '~/server/utils/pushAuth'
+import { checkRateLimit } from '~/server/utils/rateLimit'
 
 export default defineEventHandler(async (event) => {
-  const ip = getClientIp(event)
-  const rate = checkRateLimit(`push_test:${ip}`, 6, 60000)
+  const rate = await checkRateLimit(event, { maxRequests: 6, windowMs: 60000, keyPrefix: 'push_test' })
   if (!rate.allowed) {
     throw createError({
       statusCode: 429,
@@ -19,11 +18,8 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
   const body = await readBody(event)
 
-  if (!body || !body.userId) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Missing userId'
-    })
+  if (!body) {
+    throw createError({ statusCode: 400, statusMessage: 'Missing request body' })
   }
 
   const wp = configureWebPush(config)
@@ -34,18 +30,12 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const supabase = getSupabaseServerClient(config)
-  if (!supabase) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'Supabase server client not available'
-    })
-  }
+  const { supabase, profile } = await getAuthenticatedPushContext(event, config)
 
   const { data: subscriptions, error } = await supabase
     .from('push_subscriptions')
     .select('id, endpoint, p256dh, auth')
-    .eq('user_id', body.userId)
+    .eq('user_id', profile.id)
 
   if (error || !subscriptions || subscriptions.length === 0) {
     return {

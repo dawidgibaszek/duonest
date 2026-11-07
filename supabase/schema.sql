@@ -8,6 +8,7 @@ create extension if not exists "uuid-ossp";
 -- 1. PROFILES TABLE
 create table if not exists public.profiles (
   id text primary key,
+  auth_user_id uuid unique references auth.users(id) on delete set null,
   email text,
   name text not null default 'Użytkownik',
   avatar_url text,
@@ -30,7 +31,6 @@ create table if not exists public.profiles (
 alter table if exists public.profiles add column if not exists points integer not null default 0;
 alter table if exists public.profiles add column if not exists is_email_verified boolean default true;
 alter table if exists public.profiles add column if not exists last_seen_at timestamptz default now();
-alter table if exists public.profiles add column if not exists password_hash text;
 
 -- 2. PARTNERSHIPS TABLE
 create table if not exists public.partnerships (
@@ -210,36 +210,26 @@ alter table public.milestones enable row level security;
 alter table public.wishlist_items enable row level security;
 alter table public.movies enable row level security;
 
--- Open policies for anon & authenticated couple access
+-- Fail closed until the auth/RLS migration installs ownership-aware policies.
 drop policy if exists "Allow all on profiles" on public.profiles;
-create policy "Allow all on profiles" on public.profiles for all using (true) with check (true);
 
 drop policy if exists "Allow all on partnerships" on public.partnerships;
-create policy "Allow all on partnerships" on public.partnerships for all using (true) with check (true);
 
 drop policy if exists "Allow all on shopping_items" on public.shopping_items;
-create policy "Allow all on shopping_items" on public.shopping_items for all using (true) with check (true);
 
 drop policy if exists "Allow all on tasks" on public.tasks;
-create policy "Allow all on tasks" on public.tasks for all using (true) with check (true);
 
 drop policy if exists "Allow all on events" on public.events;
-create policy "Allow all on events" on public.events for all using (true) with check (true);
 
 drop policy if exists "Allow all on mood_logs" on public.mood_logs;
-create policy "Allow all on mood_logs" on public.mood_logs for all using (true) with check (true);
 
 drop policy if exists "Allow all on nudges" on public.nudges;
-create policy "Allow all on nudges" on public.nudges for all using (true) with check (true);
 
 drop policy if exists "Allow all on milestones" on public.milestones;
-create policy "Allow all on milestones" on public.milestones for all using (true) with check (true);
 
 drop policy if exists "Allow all on wishlist_items" on public.wishlist_items;
-create policy "Allow all on wishlist_items" on public.wishlist_items for all using (true) with check (true);
 
 drop policy if exists "Allow all on movies" on public.movies;
-create policy "Allow all on movies" on public.movies for all using (true) with check (true);
 
 -- ==========================================================
 -- ENABLE REALTIME REPLICATION ON ALL TABLES
@@ -375,7 +365,81 @@ alter table public.meals enable row level security;
 alter table if exists public.meals alter column date drop not null;
 alter table if exists public.meals alter column date set default '';
 drop policy if exists "Allow all on meals" on public.meals;
-create policy "Allow all on meals" on public.meals for all using (true) with check (true);
+create policy "Meals fail closed until auth migration" on public.meals for all using (false) with check (false);
+
+create table if not exists public.api_rate_limits (
+  bucket_key text primary key,
+  window_started_at timestamptz not null,
+  request_count integer not null check (request_count > 0)
+);
+
+alter table public.api_rate_limits enable row level security;
+revoke all on table public.api_rate_limits from public, anon, authenticated;
+grant select, insert, update, delete on table public.api_rate_limits to service_role;
+
+drop policy if exists "Service role only on api_rate_limits" on public.api_rate_limits;
+create policy "Service role only on api_rate_limits" on public.api_rate_limits
+  for all to service_role using (true) with check (true);
+
+create or replace function public.consume_api_rate_limit(
+  p_bucket_key text,
+  p_limit integer,
+  p_window_seconds integer
+)
+returns table(allowed boolean, retry_after_seconds integer)
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  current_window timestamptz;
+  current_count integer;
+begin
+  if p_bucket_key is null or length(p_bucket_key) > 160
+    or p_limit < 1 or p_limit > 10000
+    or p_window_seconds < 1 or p_window_seconds > 3600 then
+    raise exception 'Invalid rate limit parameters';
+  end if;
+
+  insert into public.api_rate_limits as limits (bucket_key, window_started_at, request_count)
+  values (p_bucket_key, pg_catalog.statement_timestamp(), 1)
+  on conflict (bucket_key) do update
+  set
+    window_started_at = case
+      when limits.window_started_at + pg_catalog.make_interval(secs => p_window_seconds) <= pg_catalog.statement_timestamp()
+        then pg_catalog.statement_timestamp()
+      else limits.window_started_at
+    end,
+    request_count = case
+      when limits.window_started_at + pg_catalog.make_interval(secs => p_window_seconds) <= pg_catalog.statement_timestamp()
+        then 1
+      when limits.request_count < p_limit + 1 then limits.request_count + 1
+      else p_limit + 1
+    end
+  returning limits.window_started_at, limits.request_count
+  into current_window, current_count;
+
+  if pg_catalog.mod(pg_catalog.hashtext(p_bucket_key)::bigint, 100) = 0 then
+    delete from public.api_rate_limits
+    where window_started_at < pg_catalog.statement_timestamp() - interval '1 day';
+  end if;
+
+  return query
+  select
+    current_count <= p_limit,
+    case
+      when pg_catalog.ceil(extract(epoch from (
+        current_window + pg_catalog.make_interval(secs => p_window_seconds) - pg_catalog.statement_timestamp()
+      )))::integer < 1 then 1
+      else pg_catalog.ceil(extract(epoch from (
+        current_window + pg_catalog.make_interval(secs => p_window_seconds) - pg_catalog.statement_timestamp()
+      )))::integer
+    end;
+end;
+$$;
+
+revoke all on function public.consume_api_rate_limit(text, integer, integer) from public, anon, authenticated;
+grant execute on function public.consume_api_rate_limit(text, integer, integer) to service_role;
 
 
 

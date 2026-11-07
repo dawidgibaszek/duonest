@@ -44,10 +44,22 @@
             </p>
           </div>
 
+          <!-- LEGACY ACCOUNT RECOVERY SUBHEADER -->
+          <div class="auth-subview-header" v-else-if="mode === 'legacy-recovery'">
+            <button type="button" class="back-link-btn" @click="switchMode('login')">
+              <ion-icon :icon="ioniconsArrowBackOutline" />
+              <span>Wróć do logowania</span>
+            </button>
+            <h2 class="subview-title">Przywróć dostęp do starego konta</h2>
+            <p class="subview-desc">
+              Jeśli Twoje stare konto DuoNest istnieje w bazie pod tym samym adresem e-mail, odzyskamy je bez utraty danych. Zostanie ono ponownie przypisane do tego samego profilu, a Ty będziesz mógł ustawić nowe hasło i kontynuować bez tracenia partnera, list, zadań i ustawień.
+            </p>
+          </div>
+
           <!-- FORM -->
           <form @submit.prevent="handleSubmit" class="auth-form">
-            <!-- NAME FIELD (ONLY REGISTER) -->
-            <div class="form-field" v-if="mode === 'register'">
+            <!-- NAME FIELD (ONLY REGISTER & LEGACY RECOVERY) -->
+            <div class="form-field" v-if="mode === 'register' || mode === 'legacy-recovery'">
               <label class="field-label">Twoje imię</label>
               <div class="input-container">
                 <ion-icon :icon="ioniconsPersonOutline" class="field-icon" />
@@ -81,8 +93,8 @@
               </div>
             </div>
 
-            <!-- PASSWORD FIELD (LOGIN & REGISTER) -->
-            <div class="form-field" v-if="mode === 'login' || mode === 'register'">
+            <!-- PASSWORD FIELD (LOGIN, REGISTER & LEGACY RECOVERY) -->
+            <div class="form-field" v-if="mode === 'login' || mode === 'register' || mode === 'legacy-recovery'">
               <div class="field-label-row">
                 <label class="field-label">Hasło</label>
                 <span class="password-hint" v-if="mode === 'register'">min. 6 znaków</span>
@@ -118,6 +130,15 @@
               >
                 Nie pamiętasz hasła?
               </button>
+            </div>
+
+            <div class="legacy-recovery-note" v-if="mode === 'login' || mode === 'forgot'">
+              <p>
+                Masz stare konto z poprzedniej wersji DuoNest i nie możesz się zalogować?
+                <button type="button" class="inline-legacy-link" @click="switchMode('legacy-recovery')">
+                  Przywróć dostęp do starego konta
+                </button>
+              </p>
             </div>
 
             <!-- FRIENDLY ERROR BANNER -->
@@ -156,6 +177,7 @@
                 {{
                   mode === 'login' ? 'Zaloguj się' :
                   mode === 'register' ? 'Utwórz konto' :
+                  mode === 'legacy-recovery' ? 'Utwórz nowe hasło i aktywuj konto' :
                   'Wyślij link resetujący'
                 }}
               </span>
@@ -208,7 +230,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useDuoState, getSupabaseClient, clearSupabaseSessionStorage, sanitizeEmail } from '~/composables/useDuoState'
 
@@ -219,6 +241,7 @@ const {
   requestPasswordReset,
   completePasswordReset,
   resendVerificationEmail,
+  legacyRecoveryState,
   isPaired,
   currentUser,
   partnership,
@@ -227,7 +250,13 @@ const {
 
 initializeClientState()
 
-const mode = ref<'login' | 'register' | 'forgot'>(route.query.forgot === '1' ? 'forgot' : 'login')
+const mode = ref<'login' | 'register' | 'forgot' | 'legacy-recovery'>(
+  route.query.forgot === '1'
+    ? 'forgot'
+    : (route.query.legacy === '1' || route.query.recovery === '1' || route.query.mode === 'legacy-recovery')
+      ? 'legacy-recovery'
+      : 'login'
+)
 const emailInput = ref('')
 const passwordInput = ref('')
 const nameInput = ref('')
@@ -242,13 +271,13 @@ const isFormValid = computed(() => {
     return hasEmail
   }
   const hasPass = passwordInput.value.length >= 6
-  if (mode.value === 'register') {
+  if (mode.value === 'register' || mode.value === 'legacy-recovery') {
     return hasEmail && hasPass && nameInput.value.trim().length > 0
   }
   return hasEmail && hasPass
 })
 
-const switchMode = (newMode: 'login' | 'register' | 'forgot') => {
+const switchMode = (newMode: 'login' | 'register' | 'forgot' | 'legacy-recovery') => {
   mode.value = newMode
   errorMessage.value = ''
   successMessage.value = ''
@@ -256,6 +285,9 @@ const switchMode = (newMode: 'login' | 'register' | 'forgot') => {
 
 const translateAuthError = (err: any): string => {
   const msg = err?.message || err?.error_description || String(err)
+  if (msg.includes('Masz stare konto DuoNest') || msg.includes('Bezpieczne odzyskanie danych jest wymagane')) {
+    return 'Wykryliśmy stare konto DuoNest przypisane do tego adresu e-mail. Bezpiecznie przywracamy dostęp do wcześniej istniejącego profilu.'
+  }
   if (msg.includes('Invalid login credentials') || msg.includes('Nieprawidłowe hasło')) {
     return 'Nieprawidłowe hasło. Sprawdź hasło i spróbuj ponownie.'
   }
@@ -311,6 +343,8 @@ onMounted(async () => {
   // 2. Check if user came from 'forgot=1'
   if (route.query.forgot === '1') {
     mode.value = 'forgot'
+  } else if (route.query.legacy === '1' || route.query.recovery === '1' || route.query.mode === 'legacy-recovery') {
+    mode.value = 'legacy-recovery'
   }
 
   // 3. Clear any leftover stale recovery tokens and storage
@@ -332,6 +366,11 @@ const handleSubmit = async () => {
     if (mode.value === 'login') {
       const { error } = await signInWithEmail(emailInput.value, passwordInput.value)
       if (error) {
+        const isLegacyRecoveryError = String(error.message || '').includes('stare konto DuoNest') || String(error.message || '').includes('Bezpieczne odzyskanie danych')
+        if (isLegacyRecoveryError) {
+          mode.value = 'legacy-recovery'
+          emailInput.value = sanitizeEmail(emailInput.value)
+        }
         errorMessage.value = translateAuthError(error)
         isLoading.value = false
         return
@@ -346,6 +385,11 @@ const handleSubmit = async () => {
         nameInput.value
       )
       if (error) {
+        const isLegacyRecoveryError = String(error.message || '').includes('stare konto DuoNest') || String(error.message || '').includes('Bezpieczne odzyskanie danych')
+        if (isLegacyRecoveryError) {
+          mode.value = 'legacy-recovery'
+          emailInput.value = sanitizeEmail(emailInput.value)
+        }
         errorMessage.value = translateAuthError(error)
         isLoading.value = false
         return
@@ -362,12 +406,45 @@ const handleSubmit = async () => {
     } else if (mode.value === 'forgot') {
       const { error } = await requestPasswordReset(emailInput.value)
       if (error) {
+        const isLegacyRecoveryError = String(error.message || '').includes('stare konto DuoNest') || String(error.message || '').includes('Bezpieczne odzyskanie danych')
+        if (isLegacyRecoveryError) {
+          mode.value = 'legacy-recovery'
+          emailInput.value = sanitizeEmail(emailInput.value)
+        }
         errorMessage.value = translateAuthError(error)
         isLoading.value = false
         return
       }
 
       successMessage.value = 'Jeśli podany adres e-mail istnieje w bazie, przesłana została wiadomość z bezpiecznym linkiem oraz 6-cyfrowym kodem weryfikacyjnym. Sprawdź swoją skrzynkę (w tym folder SPAM).'
+    } else if (mode.value === 'legacy-recovery') {
+      const { data, error } = await signUpWithEmail(
+        emailInput.value,
+        passwordInput.value,
+        nameInput.value
+      )
+
+      if (error) {
+        errorMessage.value = translateAuthError(error)
+        isLoading.value = false
+        return
+      }
+
+      if (data?.needsLegacyRecovery) {
+        mode.value = 'legacy-recovery'
+        emailInput.value = sanitizeEmail(emailInput.value)
+        errorMessage.value = 'Wykryliśmy stare konto DuoNest przypisane do tego adresu e-mail. Bezpiecznie przywracamy dostęp do wcześniej istniejącego profilu.'
+        isLoading.value = false
+        return
+      }
+
+      if (data?.needsEmailVerification) {
+        successMessage.value = `Sprawdzamy, czy istnieje stare konto DuoNest dla ${emailInput.value}. Jeśli tak, odzyskamy je po adresie e-mail bez utraty danych. Na ten adres wysłaliśmy link aktywacyjny, a po potwierdzeniu konto zostanie ponownie połączone z istniejącym profilem.`
+        isLoading.value = false
+        return
+      }
+
+      successMessage.value = 'Konto zostało odtworzone na podstawie adresu e-mail. Dotychczasowe dane profilu są zachowane i zostaną ponownie połączone z Twoim kontem.'
     }
   } catch (err: any) {
     errorMessage.value = translateAuthError(err)
@@ -375,6 +452,13 @@ const handleSubmit = async () => {
     isLoading.value = false
   }
 }
+
+watch(legacyRecoveryState, (state) => {
+  if (state.reason === 'missing-link' && state.email) {
+    mode.value = 'legacy-recovery'
+    emailInput.value = sanitizeEmail(state.email)
+  }
+}, { immediate: true })
 
 const handleResendVerification = async () => {
   if (!emailInput.value) {
@@ -612,6 +696,29 @@ const handleResendVerification = async () => {
   justify-content: flex-end;
   margin-top: -6px;
   margin-bottom: 2px;
+}
+
+.legacy-recovery-note {
+  margin: 2px 0 12px;
+}
+
+.legacy-recovery-note p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.inline-legacy-link {
+  display: inline;
+  background: transparent;
+  border: none;
+  color: #0f172a;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  text-decoration: underline;
 }
 
 .forgot-link-btn {

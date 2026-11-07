@@ -18,9 +18,9 @@ export interface Profile {
   points?: number
   last_seen_at?: string | null
   updated_at?: string | null
-  password_hash?: string | null
-  is_email_verified?: boolean
 }
+
+const PROFILE_SELECT_FIELDS = 'id, name, avatar_url, avatar_color, partnership_id, current_mood, mood_note, mood_updated_at, love_note, favorite_drink, favorite_treat, points, last_seen_at, created_at, updated_at'
 
 export interface Partnership {
   id: string
@@ -57,7 +57,9 @@ export interface TaskItem {
   is_recurring: boolean
   recurrence_interval?: string | null // 'none' | 'daily' | 'weekly' | 'monthly'
   is_completed: boolean
+  completed_at?: string | null
   points: number
+  points_awarded?: number
   created_by?: string | null
   completed_by?: string | null
   created_at: string
@@ -73,6 +75,9 @@ export interface EventItem {
   end_time?: string | null
   category: 'date' | 'trip' | 'home' | 'anniversary' | 'work' | 'other'
   is_completed?: boolean
+  completed_at?: string | null
+  completed_by?: string | null
+  points_awarded?: number
   is_surprise?: boolean
   planner_name?: string | null
   created_by?: string | null
@@ -255,6 +260,10 @@ export const hexToRgba = (hex: string, alpha = 0.15): string => {
 const authUser = ref<any>(null)
 const authSession = ref<any>(null)
 const isAuthLoading = ref(true)
+const legacyRecoveryState = ref<{ email: string | null, reason: 'none' | 'missing-link' | 'ambiguous' | 'unconfirmed' }>({
+  email: null,
+  reason: 'none'
+})
 let hasAuthListener = false
 
 const currentUser = ref<Profile>(createInitialProfile())
@@ -393,10 +402,6 @@ watch(activeToastMessage, (val) => {
 })
 const isStateInitialized = ref(false)
 
-const currentUserPasswordHash = ref<string>(
-  typeof window !== 'undefined' ? (localStorage.getItem('duonest_user_pwd_hash') || '') : ''
-)
-
 export const sanitizeEmail = (email: string | null | undefined): string => {
   if (!email) return ''
   return email
@@ -478,6 +483,7 @@ let securityLifecycleBound = false
 let securityCheckInterval: any = null
 let lastSecurityVerifiedAt = 0
 let isSecurityVerifying = false
+let hasShownSecurityMigrationToast = false
 let isLoggingOut = false
 
 export const clearStaleSupabaseCookies = () => {
@@ -516,22 +522,7 @@ export const clearSupabaseSessionStorage = () => {
 }
 
 export const getCleanDbClient = () => {
-  if (cleanDbClient) return cleanDbClient
-  try {
-    const cfg = getSupabaseConfig()
-    cleanDbClient = createClient(cfg.url, cfg.key, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-        storageKey: 'duonest_clean_db_anon'
-      }
-    })
-    return cleanDbClient
-  } catch (err) {
-    console.warn('Clean DB client init:', err)
-    return null
-  }
+  return getSupabaseClient()
 }
 
 export const getSupabaseClient = () => {
@@ -579,6 +570,30 @@ export const safeDb = (operation: any) => {
   }
 }
 
+const mergeShoppingQuantities = (current: string | null | undefined, incoming: string): string | null => {
+  const currentValue = current?.trim() || ''
+  const incomingValue = incoming.trim()
+  if (!currentValue && !incomingValue) return '2'
+  if (!currentValue) return incomingValue || null
+  if (!incomingValue) return currentValue
+
+  const parse = (value: string) => {
+    const match = value.match(/^(\d+(?:[.,]\d+)?)\s*(.*)$/)
+    if (!match) return null
+    const amount = Number(match[1].replace(',', '.'))
+    return Number.isFinite(amount) ? { amount, unit: match[2].trim() } : null
+  }
+
+  const currentQuantity = parse(currentValue)
+  const incomingQuantity = parse(incomingValue)
+  if (!currentQuantity || !incomingQuantity) return null
+  if (currentQuantity.unit.toLocaleLowerCase('pl-PL') !== incomingQuantity.unit.toLocaleLowerCase('pl-PL')) return null
+
+  const amount = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 3 })
+    .format(currentQuantity.amount + incomingQuantity.amount)
+  return currentQuantity.unit ? `${amount} ${currentQuantity.unit}` : amount
+}
+
 export const useDuoState = () => {
   const supabase = getSupabaseClient()
   const db = getCleanDbClient() || supabase
@@ -587,12 +602,13 @@ export const useDuoState = () => {
     if (typeof window === 'undefined' || isStateInitialized.value) return
     isStateInitialized.value = true
 
-    const savedAuthUser = loadFromStorage<any>('duonest_auth_user', null)
     const savedAuthSession = loadFromStorage<any>('duonest_auth_session', null)
-    if (savedAuthUser) {
-      authUser.value = savedAuthUser
-      authSession.value = savedAuthSession
+    if (savedAuthSession?.access_token?.startsWith?.('duonest_direct_')) {
+      localStorage.removeItem('duonest_auth_user')
+      localStorage.removeItem('duonest_auth_session')
     }
+    authUser.value = null
+    authSession.value = null
 
     const savedUser = loadFromStorage<Profile | null>('duonest_current_user', null)
     if (savedUser) {
@@ -712,13 +728,11 @@ export const useDuoState = () => {
           saveToStorage('duonest_auth_session', session)
           syncUserProfileWithAuth(session.user)
         } else {
-          if (!savedAuthSession) {
-            authUser.value = null
-            authSession.value = null
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem('duonest_auth_user')
-              localStorage.removeItem('duonest_auth_session')
-            }
+          authUser.value = null
+          authSession.value = null
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('duonest_auth_user')
+            localStorage.removeItem('duonest_auth_session')
           }
         }
         isAuthLoading.value = false
@@ -738,8 +752,7 @@ export const useDuoState = () => {
               await syncUserProfileWithAuth(session.user)
             }
           } else if (event === 'SIGNED_OUT') {
-            const isDirectAuth = authSession.value?.access_token?.startsWith?.('duonest_direct_')
-            if (!isDirectAuth && (authUser.value || authSession.value)) {
+            if (authUser.value || authSession.value) {
               authUser.value = null
               authSession.value = null
               clearAllDuoState()
@@ -763,69 +776,119 @@ export const useDuoState = () => {
     setupSecurityLifecycleListeners()
   }
 
-  const syncUserProfileWithAuth = async (user: any) => {
-    const client = getCleanDbClient() || supabase
-    if (!user || !client) return
+  const findLegacyProfileByEmail = async (user: any) => {
+    const client = getSupabaseClient()
+    if (!user || !client) return null
+
+    const email = sanitizeEmail(user.email || '')
+    const confirmed = Boolean(user.email_confirmed_at || user.confirmed_at)
+    if (!email || !confirmed) return null
 
     try {
-      const cleanEmail = sanitizeEmail(user.email)
-      let dbProfile: any = null
+      const { data, error } = await client
+        .from('profiles')
+        .select('id, name, email, avatar_url, avatar_color, pairing_code, partnership_id, current_mood, mood_note, mood_updated_at, love_note, favorite_drink, favorite_treat, points, last_seen_at, created_at, updated_at')
+        .ilike('email', email)
+        .order('created_at', { ascending: true })
 
-      if (cleanEmail) {
-        const { data } = await client
-          .from('profiles')
-          .select('*')
-          .ilike('email', cleanEmail)
-          .order('created_at', { ascending: true })
-          .limit(1)
-          .maybeSingle()
-        dbProfile = data
+      if (error) {
+        if (process.dev) {
+          console.warn('findLegacyProfileByEmail query error:', error)
+        }
+        return null
       }
 
-      if (!dbProfile && user.id) {
-        const { data } = await client
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .limit(1)
-          .maybeSingle()
-        dbProfile = data
+      const matches = (data || []).filter((profile: any) => sanitizeEmail(profile.email || '') === email)
+      if (matches.length !== 1) return null
+      return matches[0]
+    } catch (err) {
+      if (process.dev) {
+        console.warn('findLegacyProfileByEmail error:', err)
       }
+      return null
+    }
+  }
+
+  const hydrateCurrentUserFromProfile = async (profile: any, user: any) => {
+    if (!profile) return
+
+    const client = getSupabaseClient()
+    const { data: authorizedPairingCode } = client
+      ? await client.rpc('get_my_pairing_code')
+      : { data: null }
+    const pairingCode = authorizedPairingCode || profile.pairing_code || ''
+    currentUser.value = {
+      ...createInitialProfile(),
+      ...profile,
+      email: user.email || profile.email || null,
+      pairing_code: pairingCode,
+      avatar_color: getCleanAccentColor(profile.avatar_color, '#0284c7'),
+      points: Number(profile.points) || 0
+    }
+    syncToStorage()
+
+    if (profile.partnership_id) {
+      await loadPartnershipAndPartner(profile.partnership_id, profile.id)
+      subscribeToPartnershipRealtime(profile.partnership_id)
+    } else if (currentUser.value?.pairing_code) {
+      subscribeToPairingChannel(currentUser.value.pairing_code)
+    }
+    subscribeToSecurityChannel(profile.id, profile.partnership_id)
+  }
+
+  const syncUserProfileWithAuth = async (user: any): Promise<boolean> => {
+    const client = getSupabaseClient()
+    if (!user || !client) return false
+
+    try {
+      const userEmail = sanitizeEmail(user.email || '')
+      legacyRecoveryState.value = { email: userEmail || null, reason: 'none' }
+
+      // Legacy profile migration must be based on email and must retain the original
+      // profile row, partnership references, lists, and history. We never create a
+      // separate profile when a unique old profile already exists for the same email.
+      try {
+        await client.rpc('link_profile_to_auth')
+      } catch (rpcError) {
+        if (process.dev) {
+          console.warn('link_profile_to_auth RPC unavailable or skipped:', rpcError)
+        }
+      }
+
+      const { data: profileId, error: profileIdError } = await client.rpc('my_profile_id')
+      const { data: dbProfile } = profileIdError || !profileId
+        ? { data: null }
+        : await client
+          .from('profiles')
+          .select(PROFILE_SELECT_FIELDS)
+          .eq('id', profileId)
+          .maybeSingle()
 
       if (dbProfile) {
-        const rawColor = dbProfile.avatar_color || '#0284c7'
-        let cleanColor = '#0284c7'
-        if (rawColor.includes('|')) {
-          const parts = rawColor.split('|')
-          cleanColor = parts[0] || '#0284c7'
-          if (parts[1]) {
-            currentUserPasswordHash.value = parts[1]
-            if (typeof window !== 'undefined') localStorage.setItem('duonest_user_pwd_hash', parts[1])
-          }
-        } else {
-          cleanColor = rawColor
-        }
-
-        currentUser.value = {
-          ...createInitialProfile(),
-          ...dbProfile,
-          avatar_color: cleanColor,
-          points: Number(dbProfile.points) || 0
-        }
-        syncToStorage()
-
-        if (dbProfile.partnership_id) {
-          await loadPartnershipAndPartner(dbProfile.partnership_id, dbProfile.id)
-          subscribeToPartnershipRealtime(dbProfile.partnership_id)
-        } else if (currentUser.value?.pairing_code) {
-          subscribeToPairingChannel(currentUser.value.pairing_code)
-        }
-        subscribeToSecurityChannel(dbProfile.id, dbProfile.partnership_id)
+        legacyRecoveryState.value = { email: userEmail || null, reason: 'none' }
+        await hydrateCurrentUserFromProfile(dbProfile, user)
+        return true
       }
+
+      const legacyProfile = await findLegacyProfileByEmail(user)
+      if (legacyProfile) {
+        legacyRecoveryState.value = { email: userEmail || null, reason: 'none' }
+        await hydrateCurrentUserFromProfile(legacyProfile, user)
+        return true
+      }
+
+      if (userEmail) {
+        legacyRecoveryState.value = {
+          email: userEmail,
+          reason: 'missing-link'
+        }
+      }
+      return false
     } catch (err) {
       if (process.dev) {
         console.warn('syncUserProfileWithAuth error:', err)
       }
+      return false
     }
   }
 
@@ -854,7 +917,7 @@ export const useDuoState = () => {
         if (partnerId) {
           const { data: pUser } = await client
             .from('profiles')
-            .select('id, name, email, avatar_url, avatar_color, pairing_code, partnership_id, current_mood, mood_note, mood_updated_at, love_note, favorite_drink, favorite_treat, points, last_seen_at, created_at, updated_at')
+            .select('id, name, avatar_url, avatar_color, partnership_id, current_mood, mood_note, mood_updated_at, love_note, favorite_drink, favorite_treat, points, last_seen_at, created_at, updated_at')
             .eq('id', partnerId)
             .maybeSingle()
 
@@ -865,7 +928,7 @@ export const useDuoState = () => {
               ...createInitialProfile(),
               ...pUser,
               password_hash: undefined,
-              name: pUser.name || (pUser.email ? pUser.email.split('@')[0] : 'Partner'),
+              name: pUser.name || 'Partner',
               love_note: (pUser.love_note === 'Budujemy nasze wspólne gniazdko!' || pUser.love_note === 'Cieszę się, że jesteśmy razem!') ? '' : (pUser.love_note || ''),
               favorite_drink: pUser.favorite_drink === 'Kawa z mlekiem' ? '' : (pUser.favorite_drink || ''),
               favorite_treat: pUser.favorite_treat === 'Czekolada' ? '' : (pUser.favorite_treat || ''),
@@ -933,7 +996,6 @@ export const useDuoState = () => {
     moviesList.value = []
     mealsList.value = []
     lastNudgeSentAt.value = null
-    currentUserPasswordHash.value = ''
     if (typeof window !== 'undefined') {
       localStorage.removeItem('duonest_auth_user')
       localStorage.removeItem('duonest_auth_session')
@@ -952,10 +1014,25 @@ export const useDuoState = () => {
     }
   }
 
+  const toRealtimeProfileSnapshot = (profile: Profile) => ({
+    id: profile.id,
+    name: profile.name,
+    avatar_url: profile.avatar_url,
+    avatar_color: profile.avatar_color,
+    partnership_id: profile.partnership_id,
+    current_mood: profile.current_mood,
+    mood_note: profile.mood_note,
+    mood_updated_at: profile.mood_updated_at,
+    love_note: profile.love_note,
+    favorite_drink: profile.favorite_drink,
+    favorite_treat: profile.favorite_treat,
+    last_seen_at: profile.last_seen_at
+  })
+
   const signInWithEmail = async (email: string, password: string) => {
-    const dbClient = getCleanDbClient() || getSupabaseClient()
-    if (!dbClient) return { data: null, error: new Error('Brak połączenia z systemem') }
+    const authClient = getSupabaseClient()
     const cleanEmail = sanitizeEmail(email)
+    if (!authClient) return { data: null, error: new Error('Brak połączenia z systemem') }
     if (!cleanEmail) return { data: null, error: new Error('Wprowadź adres e-mail') }
 
     if (loginLockoutUntil.value > Date.now()) {
@@ -963,217 +1040,45 @@ export const useDuoState = () => {
       return { data: null, error: new Error(`Zbyt wiele nieudanych prób logowania. Odczekaj ${waitSec} s przed kolejną próbą.`) }
     }
 
-    try {
-      clearSupabaseSessionStorage()
-
-      let dbProfile: any = null
-      let fetchErr: any = null
-
-      const res1 = await dbClient
-        .from('profiles')
-        .select('*')
-        .ilike('email', cleanEmail)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle()
-
-      if (res1.data) {
-        dbProfile = res1.data
-      } else {
-        fetchErr = res1.error
-      }
-
-      if (!dbProfile) {
-        const res2 = await dbClient
-          .from('profiles')
-          .select('*')
-          .eq('email', cleanEmail)
-          .limit(1)
-          .maybeSingle()
-        if (res2.data) {
-          dbProfile = res2.data
-          fetchErr = null
-        }
-      }
-
-      if (!dbProfile) {
-        const authClient = getSupabaseClient()
-        if (authClient) {
-          const { data: fbProfile, error: fbErr } = await authClient
-            .from('profiles')
-            .select('*')
-            .ilike('email', cleanEmail)
-            .order('created_at', { ascending: true })
-            .limit(1)
-            .maybeSingle()
-          if (!fbErr && fbProfile) {
-            dbProfile = fbProfile
-            fetchErr = null
-          }
-        }
-      }
-
-      if (fetchErr && !dbProfile) {
-        console.warn('Profile fetch warning:', fetchErr)
-        return {
-          data: null,
-          error: new Error('Błąd odczytu profilu: ' + (fetchErr.message || fetchErr))
-        }
-      }
-
-      if (!dbProfile) {
-        return {
-          data: null,
-          error: new Error('Nie znaleziono konta z tym adresem e-mail. Sprawdź e-mail lub przełącz na rejestrację.')
-        }
-      }
-
-      const rawColor = dbProfile.avatar_color || '#0284c7'
-      let storedHash = dbProfile.password_hash || ''
-      let displayColor = '#0284c7'
-      let isUnverified = dbProfile.is_email_verified === false
-
-      if (rawColor.includes('|')) {
-        const parts = rawColor.split('|')
-        displayColor = parts[0] || '#0284c7'
-        if (!storedHash) {
-          storedHash = parts[1] || ''
-        }
-        if (parts[2] === 'unverified') {
-          isUnverified = true
-        }
-      } else {
-        displayColor = rawColor
-      }
-
-      const isPasswordValid = await verifyPassword(password, storedHash)
-      if (!isPasswordValid) {
-        loginFailures.value++
-        if (loginFailures.value >= 5) {
-          loginLockoutUntil.value = Date.now() + 30000
-        }
-        return {
-          data: null,
-          error: new Error('Nieprawidłowe hasło. Sprawdź hasło i spróbuj ponownie.')
-        }
-      }
-
-      loginFailures.value = 0
-      loginLockoutUntil.value = 0
-
-      if (isUnverified) {
-        let hasConfirmedInSupabase = false
-        const authClient = getSupabaseClient()
-        if (authClient) {
-          try {
-            const { data: userData } = await authClient.auth.getUser()
-            if (userData?.user?.email_confirmed_at && userData.user.email?.toLowerCase() === cleanEmail) {
-              hasConfirmedInSupabase = true
-            }
-          } catch (_) {}
-        }
-
-        if (hasConfirmedInSupabase) {
-          isUnverified = false
-          try {
-            await dbClient.from('profiles').update({
-              avatar_color: displayColor,
-              password_hash: storedHash,
-              is_email_verified: true,
-              updated_at: new Date().toISOString()
-            }).eq('id', dbProfile.id)
-          } catch (_) {
-            try {
-              await dbClient.from('profiles').update({
-                avatar_color: `${displayColor}|${storedHash}`,
-                updated_at: new Date().toISOString()
-              }).eq('id', dbProfile.id)
-            } catch (_) {}
-          }
-        } else {
-          return {
-            data: null,
-            error: new Error('Twój adres e-mail nie został jeszcze zweryfikowany. Sprawdź swoją skrzynkę (w tym folder SPAM) i kliknij w link aktywacyjny.')
-          }
-        }
-      }
-
-      let modernHash = storedHash
-      if (storedHash && storedHash.startsWith('h_')) {
-        modernHash = await hashPassword(password)
-      }
-
-      if (rawColor.includes('|') || storedHash.startsWith('h_') || !dbProfile.password_hash) {
-        try {
-          await dbClient.from('profiles').update({
-            avatar_color: displayColor,
-            password_hash: modernHash,
-            updated_at: new Date().toISOString()
-          }).eq('id', dbProfile.id)
-        } catch (_) {
-          try {
-            await dbClient.from('profiles').update({
-              avatar_color: `${displayColor}|${modernHash}`,
-              updated_at: new Date().toISOString()
-            }).eq('id', dbProfile.id)
-          } catch (_) {}
-        }
-        storedHash = modernHash
-      }
-
-      currentUserPasswordHash.value = storedHash
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('duonest_user_pwd_hash', storedHash)
-      }
-
-      const authUserObj = {
-        id: dbProfile.id,
-        email: dbProfile.email,
-        user_metadata: { name: dbProfile.name }
-      }
-      const authSessionObj = {
-        user: authUserObj,
-        access_token: 'duonest_direct_' + dbProfile.id
-      }
-
-      authUser.value = authUserObj
-      authSession.value = authSessionObj
-      saveToStorage('duonest_auth_user', authUserObj)
-      saveToStorage('duonest_auth_session', authSessionObj)
-
-      const effectivePartnershipId = dbProfile.partnership_id || currentUser.value?.partnership_id || null
-
-      currentUser.value = {
-        ...createInitialProfile(),
-        ...dbProfile,
-        partnership_id: effectivePartnershipId,
-        name: dbProfile.name || '',
-        love_note: (dbProfile.love_note === 'Budujemy nasze wspólne gniazdko!' || dbProfile.love_note === 'Cieszę się, że jesteśmy razem!') ? '' : (dbProfile.love_note || ''),
-        favorite_drink: dbProfile.favorite_drink === 'Kawa z mlekiem' ? '' : (dbProfile.favorite_drink || ''),
-        favorite_treat: dbProfile.favorite_treat === 'Czekolada' ? '' : (dbProfile.favorite_treat || ''),
-        avatar_color: displayColor,
-        points: Number(dbProfile.points) || 0
-      }
-
-      if (effectivePartnershipId) {
-        await loadPartnershipAndPartner(effectivePartnershipId, dbProfile.id)
-        subscribeToPartnershipRealtime(effectivePartnershipId)
-      } else if (currentUser.value?.pairing_code) {
-        subscribeToPairingChannel(currentUser.value.pairing_code)
-      }
-      syncToStorage()
-
-      subscribeToSecurityChannel(dbProfile.id, effectivePartnershipId)
-
-      return { data: { user: authUserObj, session: authSessionObj }, error: null }
-    } catch (err: any) {
-      return { data: null, error: err }
+    const { data, error } = await authClient.auth.signInWithPassword({ email: cleanEmail, password })
+    if (error || !data.session || !data.user) {
+      loginFailures.value++
+      if (loginFailures.value >= 5) loginLockoutUntil.value = Date.now() + 30000
+      return { data: null, error: error || new Error('Nie udało się uwierzytelnić konta.') }
     }
+
+    legacyRecoveryState.value = { email: cleanEmail, reason: 'none' }
+
+    loginFailures.value = 0
+    loginLockoutUntil.value = 0
+    authUser.value = data.user
+    authSession.value = data.session
+    const hasProfile = await syncUserProfileWithAuth(data.user)
+
+    if (!hasProfile) {
+      const recoveryState = legacyRecoveryState.value
+      if (recoveryState.email) {
+        await authClient.auth.signOut()
+        return {
+          data: null,
+          error: new Error(`Masz stare konto DuoNest powiązane z adresem ${recoveryState.email}. Bezpieczne odzyskanie danych jest wymagane, więc przejdź do formularza przywracania dostępu.`)
+        }
+      }
+      await authClient.auth.signOut()
+      return {
+        data: null,
+        error: new Error('Nie znaleziono profilu DuoNest powiązanego z kontem. Użyj rejestracji lub skontaktuj się z pomocą.')
+      }
+    }
+
+    saveToStorage('duonest_auth_user', data.user)
+    saveToStorage('duonest_auth_session', data.session)
+    return { data: { user: data.user, session: data.session }, error: null }
   }
 
   const signUpWithEmail = async (email: string, password: string, name?: string) => {
-    const dbClient = getCleanDbClient() || getSupabaseClient()
-    if (!dbClient) return { data: null, error: new Error('Brak połączenia z systemem') }
+    const authClient = getSupabaseClient()
+    if (!authClient) return { data: null, error: new Error('Brak połączenia z systemem') }
     const cleanEmail = sanitizeEmail(email)
     const cleanName = (name || '').trim() || 'Użytkownik'
 
@@ -1185,83 +1090,47 @@ export const useDuoState = () => {
     }
 
     try {
-      const { data: existingProfiles } = await dbClient
-        .from('profiles')
-        .select('id, email')
-        .ilike('email', cleanEmail)
-        .limit(1)
-
-      if (existingProfiles && existingProfiles.length > 0) {
-        return {
-          data: null,
-          error: new Error('Konto z tym adresem e-mail już istnieje. Przełącz na logowanie.')
-        }
-      }
-
-      const passHash = await hashPassword(password)
-      const newUserId = 'usr_' + Math.random().toString(36).substring(2, 11)
-      const newPairingCode = generateUniqueCode()
-
-      const newProfile: Profile = {
-        ...createInitialProfile(),
-        id: newUserId,
-        email: cleanEmail,
-        name: cleanName,
-        avatar_url: null,
-        avatar_color: '#0284c7',
-        password_hash: passHash,
-        is_email_verified: false,
-        pairing_code: newPairingCode,
-        partnership_id: null,
-        current_mood: 'happy',
-        mood_note: '',
-        love_note: '',
-        favorite_drink: '',
-        favorite_treat: ''
-      }
-
-      let { error: insertErr } = await dbClient
-        .from('profiles')
-        .insert(newProfile)
-
-      if (insertErr && (insertErr.message?.includes('password_hash') || insertErr.message?.includes('is_email_verified'))) {
-        const fallbackProfile: any = { ...newProfile }
-        delete fallbackProfile.password_hash
-        delete fallbackProfile.is_email_verified
-        fallbackProfile.avatar_color = `#0284c7|${passHash}|unverified`
-        const resFb = await dbClient.from('profiles').insert(fallbackProfile)
-        insertErr = resFb.error
-      }
-
-      if (insertErr) {
-        console.error('Supabase profile creation error:', insertErr)
-        throw new Error('Nie udało się utworzyć profilu: ' + (insertErr.message || insertErr))
-      }
-
+      legacyRecoveryState.value = { email: cleanEmail, reason: 'none' }
       const verifyRedirectUrl = typeof window !== 'undefined'
         ? `${window.location.origin}/verified`
         : 'https://duonestapp.pl/verified'
 
-      const authClient = getSupabaseClient()
-      if (authClient) {
-        try {
-          await authClient.auth.signUp({
-            email: cleanEmail,
-            password: password,
-            options: {
-              data: { name: cleanName },
-              emailRedirectTo: verifyRedirectUrl
-            }
-          })
-        } catch (authErr) {
-          console.warn('Supabase auth signUp warning:', authErr)
+      const { data, error } = await authClient.auth.signUp({
+        email: cleanEmail,
+        password,
+        options: {
+          data: { name: cleanName },
+          emailRedirectTo: verifyRedirectUrl
+        }
+      })
+
+      if (error) return { data: null, error }
+      if (data.session && data.user) {
+        authUser.value = data.user
+        authSession.value = data.session
+        // Preserve legacy profile data by matching the newly created auth user to the
+        // existing public.profiles row via email. This keeps the original profile ID and
+        // all linked records intact instead of creating a duplicate or losing history.
+        await authClient.rpc('link_profile_to_auth')
+        const hasProfile = await syncUserProfileWithAuth(data.user)
+
+        if (!hasProfile && legacyRecoveryState.value.email) {
+          return {
+            data: {
+              needsEmailVerification: false,
+              email: cleanEmail,
+              needsLegacyRecovery: true
+            },
+            error: null
+          }
         }
       }
 
       return {
         data: {
-          needsEmailVerification: true,
-          email: cleanEmail
+          needsEmailVerification: !data.session,
+          email: cleanEmail,
+          needsLegacyRecovery: false
         },
         error: null
       }
@@ -1271,38 +1140,14 @@ export const useDuoState = () => {
   }
 
   const requestPasswordReset = async (email: string) => {
-    const dbClient = getCleanDbClient() || getSupabaseClient()
     const authClient = getSupabaseClient()
-    if (!dbClient || !authClient) return { data: null, error: new Error('Brak połączenia z systemem') }
+    if (!authClient) return { data: null, error: new Error('Brak połączenia z systemem') }
     const cleanEmail = sanitizeEmail(email)
     if (!cleanEmail || !cleanEmail.includes('@')) {
       return { data: null, error: new Error('Wprowadź poprawny adres e-mail.') }
     }
 
     try {
-      const { data: dbProfile, error: profileErr } = await dbClient
-        .from('profiles')
-        .select('id, email, name')
-        .ilike('email', cleanEmail)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle()
-
-      if (profileErr) {
-        console.warn('Profile lookup warning on reset:', profileErr)
-      }
-
-      if (!dbProfile) {
-        return { data: true, error: null }
-      }
-
-      try {
-        await authClient.auth.signUp({
-          email: cleanEmail,
-          password: 'Tmp_' + Math.random().toString(36).substring(2, 11) + '!9X'
-        })
-      } catch (_) {}
-
       const redirectUrl = typeof window !== 'undefined'
         ? `${window.location.origin}/reset-password?email=${encodeURIComponent(cleanEmail)}`
         : `https://duonestapp.pl/reset-password?email=${encodeURIComponent(cleanEmail)}`
@@ -1327,8 +1172,7 @@ export const useDuoState = () => {
     recoveryToken?: string
   ) => {
     const authClient = getSupabaseClient()
-    const dbClient = getCleanDbClient() || authClient
-    if (!authClient || !dbClient) return { data: null, error: new Error('Brak połączenia z systemem') }
+    if (!authClient) return { data: null, error: new Error('Brak połączenia z systemem') }
     if (!newPassword || newPassword.length < 6) {
       return { data: null, error: new Error('Hasło musi mieć co najmniej 6 znaków.') }
     }
@@ -1339,208 +1183,36 @@ export const useDuoState = () => {
     }
 
     try {
-      if (recoveryToken && authClient) {
-        try {
-          await authClient.auth.setSession({
-            access_token: recoveryToken,
-            refresh_token: ''
-          })
-        } catch (_) {}
+      const { data: userData, error: userError } = await authClient.auth.getUser()
+      const authenticatedEmail = sanitizeEmail(userData.user?.email || '')
+      if (userError || !userData.user || authenticatedEmail !== cleanEmail) {
+        return { data: null, error: new Error('Link resetowania hasła jest nieprawidłowy lub wygasł. Poproś o nowy link.') }
       }
 
-      if (authClient) {
-        try {
-          await authClient.auth.updateUser({ password: newPassword })
-        } catch (authErr: any) {
-          console.warn('Supabase auth updateUser non-fatal:', authErr?.message || authErr)
-        }
-      }
-
-      const modernHash = await hashPassword(newPassword)
-
-      let dbProfile: any = null
-      let profileErr: any = null
-
-      const res1 = await dbClient
-        .from('profiles')
-        .select('*')
-        .ilike('email', cleanEmail)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle()
-
-      if (res1.data) {
-        dbProfile = res1.data
-      } else {
-        profileErr = res1.error
-      }
-
-      if (!dbProfile) {
-        const res2 = await dbClient
-          .from('profiles')
-          .select('*')
-          .eq('email', cleanEmail)
-          .limit(1)
-          .maybeSingle()
-        if (res2.data) {
-          dbProfile = res2.data
-          profileErr = null
-        }
-      }
-
-      if (profileErr && !dbProfile) {
-        console.error('Error fetching profile for password reset:', profileErr)
-        return { data: null, error: new Error('Błąd odczytu profilu: ' + (profileErr.message || profileErr)) }
-      }
-
-      if (!dbProfile) {
-        return {
-          data: null,
-          error: new Error(`Nie znaleziono profilu DuoNest powiązanego z adresem e-mail: ${cleanEmail}`)
-        }
-      }
-
-      const rawColor = dbProfile.avatar_color || '#0284c7'
-      const displayColor = rawColor.includes('|') ? rawColor.split('|')[0] : rawColor
-
-      let { data: updatedRows, error: updateErr } = await dbClient
-        .from('profiles')
-        .update({
-          avatar_color: displayColor,
-          password_hash: modernHash,
-          is_email_verified: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', dbProfile.id)
-        .select()
-
-      if (updateErr && updateErr.message?.includes('password_hash')) {
-        const fbRes = await dbClient
-          .from('profiles')
-          .update({
-            avatar_color: `${displayColor}|${modernHash}`,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', dbProfile.id)
-          .select()
-        updatedRows = fbRes.data
-        updateErr = fbRes.error
-      }
-
-      if (updateErr) {
-        console.error('Failed to update password hash in profiles:', updateErr)
-        return {
-          data: null,
-          error: new Error('Nie udało się zapisać nowego hasła w bazie danych: ' + (updateErr.message || updateErr))
-        }
-      }
-
-      if (authClient) {
-        try {
-          await authClient.auth.signOut({ scope: 'local' })
-        } catch (_) {}
-      }
-      clearSupabaseSessionStorage()
-
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('duonest_auth_user')
-        localStorage.removeItem('duonest_auth_session')
-        localStorage.removeItem('duonest_user_pwd_hash')
-      }
-
-      currentUserPasswordHash.value = modernHash
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('duonest_user_pwd_hash', modernHash)
-      }
-
-      const authUserObj = {
-        id: dbProfile.id,
-        email: dbProfile.email,
-        user_metadata: { name: dbProfile.name }
-      }
-      const authSessionObj = {
-        user: authUserObj,
-        access_token: 'duonest_direct_' + dbProfile.id
-      }
-
-      authUser.value = authUserObj
-      authSession.value = authSessionObj
-      saveToStorage('duonest_auth_user', authUserObj)
-      saveToStorage('duonest_auth_session', authSessionObj)
-
-      const effectivePartnershipId = dbProfile.partnership_id || null
-
-      currentUser.value = {
-        ...createInitialProfile(),
-        ...dbProfile,
-        partnership_id: effectivePartnershipId,
-        avatar_color: displayColor,
-        name: dbProfile.name || '',
-        points: Number(dbProfile.points) || 0,
-        love_note: (dbProfile.love_note === 'Budujemy nasze wspólne gniazdko!' || dbProfile.love_note === 'Cieszę się, że jesteśmy razem!') ? '' : (dbProfile.love_note || ''),
-        favorite_drink: dbProfile.favorite_drink === 'Kawa z mlekiem' ? '' : (dbProfile.favorite_drink || ''),
-        favorite_treat: dbProfile.favorite_treat === 'Czekolada' ? '' : (dbProfile.favorite_treat || '')
-      }
-
-      if (effectivePartnershipId) {
-        await loadPartnershipAndPartner(effectivePartnershipId, dbProfile.id)
-        subscribeToPartnershipRealtime(effectivePartnershipId)
-      } else if (currentUser.value?.pairing_code) {
-        subscribeToPairingChannel(currentUser.value.pairing_code)
-      }
-      syncToStorage()
-
-      subscribeToSecurityChannel(dbProfile.id, effectivePartnershipId)
-
+      const { error } = await authClient.auth.updateUser({ password: newPassword })
+      if (error) return { data: null, error }
+      authUser.value = userData.user
       return { data: true, error: null }
     } catch (err: any) {
-      console.error('Password reset exception:', err)
       return { data: null, error: err }
     }
   }
 
   const verifyEmailForProfile = async (targetEmail: string) => {
-    const dbClient = getCleanDbClient() || getSupabaseClient()
-    if (!dbClient) return { success: false, error: 'Brak połączenia z systemem' }
+    const authClient = getSupabaseClient()
+    if (!authClient) return { success: false, error: 'Brak połączenia z systemem' }
     const clean = sanitizeEmail(targetEmail)
     if (!clean || !clean.includes('@')) {
       return { success: false, error: 'Nieprawidłowy adres e-mail' }
     }
 
     try {
-      const { data: dbProfile, error: fetchErr } = await dbClient
-        .from('profiles')
-        .select('id, email, avatar_color')
-        .ilike('email', clean)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle()
-
-      if (fetchErr || !dbProfile) {
-        return { success: false, error: 'Nie znaleziono profilu dla tego adresu e-mail' }
+      const { data, error } = await authClient.auth.getUser()
+      if (error || !data.user || sanitizeEmail(data.user.email || '') !== clean) {
+        return { success: false, error: 'Adres e-mail musi zostać potwierdzony przez Supabase Auth.' }
       }
-
-      const rawColor = dbProfile.avatar_color || '#0284c7'
-      if (rawColor.includes('|unverified')) {
-        const parts = rawColor.split('|')
-        const displayColor = parts[0] || '#0284c7'
-        const hash = parts[1] || ''
-        const updatedColor = `${displayColor}|${hash}`
-
-        const { error: updateErr } = await dbClient
-          .from('profiles')
-          .update({
-            avatar_color: updatedColor,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', dbProfile.id)
-
-        if (updateErr) {
-          console.error('Failed to update verified status in profiles:', updateErr)
-          return { success: false, error: updateErr.message }
-        }
-      }
-
+      await authClient.rpc('link_profile_to_auth')
+      await syncUserProfileWithAuth(data.user)
       return { success: true, email: clean }
     } catch (err: any) {
       return { success: false, error: err?.message || String(err) }
@@ -1577,96 +1249,26 @@ export const useDuoState = () => {
   }
 
   const changeUserPassword = async (currentPassword: string, newPassword: string) => {
-    const dbClient = getCleanDbClient() || getSupabaseClient()
     const authClient = getSupabaseClient()
-    if (!dbClient) return { success: false, error: 'Brak połączenia z bazą danych' }
+    if (!authClient) return { success: false, error: 'Brak połączenia z systemem' }
 
-    const userId = currentUser.value?.id
-    if (!userId) return { success: false, error: 'Musisz być zalogowany, aby zmienić hasło.' }
+    const { data: userData, error: userError } = await authClient.auth.getUser()
+    const email = userData.user?.email
+    if (userError || !email) return { success: false, error: 'Musisz być zalogowany, aby zmienić hasło.' }
 
     if (!newPassword || newPassword.length < 6) {
       return { success: false, error: 'Nowe hasło musi mieć co najmniej 6 znaków.' }
     }
 
     try {
-      const { data: dbProfile, error: fetchErr } = await dbClient
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle()
+      const { error: reauthError } = await authClient.auth.signInWithPassword({ email, password: currentPassword })
+      if (reauthError) return { success: false, error: 'Podane obecne hasło jest nieprawidłowe.' }
 
-      if (fetchErr || !dbProfile) {
-        return { success: false, error: 'Nie udało się odczytać profilu użytkownika.' }
-      }
-
-      const rawColor = dbProfile.avatar_color || '#0284c7'
-      let storedHash = dbProfile.password_hash || ''
-      let displayColor = '#0284c7'
-
-      if (rawColor.includes('|')) {
-        const parts = rawColor.split('|')
-        displayColor = parts[0] || '#0284c7'
-        if (!storedHash) {
-          storedHash = parts[1] || ''
-        }
-      } else {
-        displayColor = rawColor
-      }
-
-      if (storedHash) {
-        if (!currentPassword) {
-          return { success: false, error: 'Wprowadź obecne hasło.' }
-        }
-        const isMatch = await verifyPassword(currentPassword, storedHash)
-        if (!isMatch) {
-          return { success: false, error: 'Podane obecne hasło jest nieprawidłowe.' }
-        }
-      }
-
-      const modernHash = await hashPassword(newPassword)
-
-      let { data: updatedRows, error: updateErr } = await dbClient
-        .from('profiles')
-        .update({
-          avatar_color: displayColor,
-          password_hash: modernHash,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', userId)
-        .select()
-
-      if (updateErr && updateErr.message?.includes('password_hash')) {
-        const fbRes = await dbClient
-          .from('profiles')
-          .update({
-            avatar_color: `${displayColor}|${modernHash}`,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', userId)
-          .select()
-        updatedRows = fbRes.data
-        updateErr = fbRes.error
-      }
-
-      if (updateErr) {
-        console.error('Password change error in profiles:', updateErr)
-        return { success: false, error: 'Nie udało się zapisać nowego hasła w bazie danych: ' + updateErr.message }
-      }
-
-      if (authClient) {
-        try {
-          await authClient.auth.updateUser({ password: newPassword })
-        } catch (_) {}
-      }
-
-      currentUserPasswordHash.value = modernHash
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('duonest_user_pwd_hash', modernHash)
-      }
+      const { error } = await authClient.auth.updateUser({ password: newPassword })
+      if (error) return { success: false, error: error.message }
 
       return { success: true, error: null }
     } catch (err: any) {
-      console.error('Password change exception:', err)
       return { success: false, error: err?.message || 'Nie udało się zmienić hasła.' }
     }
   }
@@ -1755,10 +1357,13 @@ export const useDuoState = () => {
         'TASK_ADD',
         'TASK_TOGGLE',
         'EVENT_ADD',
+        'EVENT_UPDATE',
         'EVENT_TOGGLE_COMPLETED',
         'WISHLIST_ADD',
+        'WISHLIST_UPDATE',
         'WISHLIST_TOGGLE_COMPLETED',
         'MOVIE_ADD',
+        'MOVIE_UPDATE',
         'MOVIE_TOGGLE_WATCHED',
         'MILESTONE_CLAIM',
         'MEAL_ADD',
@@ -1769,13 +1374,12 @@ export const useDuoState = () => {
       if (actionsForPush.includes(action)) {
         $fetch('/api/push/send', {
           method: 'POST',
+          headers: authSession.value?.access_token
+            ? { Authorization: `Bearer ${authSession.value.access_token}` }
+            : undefined,
           body: {
             action,
             payload,
-            senderName: currentUser.value.name,
-            senderUserId: currentUser.value.id,
-            partnershipId: currentUser.value.partnership_id || null,
-            targetUserId: partnerUser.value?.id || null
           }
         }).catch((err) => {
           console.warn('[WebPush] Partner push dispatch note:', err)
@@ -1849,7 +1453,7 @@ export const useDuoState = () => {
     activeSecurityUserId = userId
     activeSecurityPartnershipId = targetPartnershipId
 
-    const channel = client.channel(channelName)
+    const channel = client.channel(channelName, { config: { private: true } })
     activeSecurityChannel = channel
 
     channel.on(
@@ -2002,29 +1606,45 @@ export const useDuoState = () => {
     isSecurityVerifying = true
 
     try {
-      let { data: dbProfile, error: profileErr } = await client
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle()
+      const { data: profileId, error: profileIdError } = await client.rpc('my_profile_id')
+      if (profileIdError) {
+        const isMissingMigration = profileIdError.code === 'PGRST202'
+          || profileIdError.code === '42883'
+          || profileIdError.message?.includes('my_profile_id')
+        if (isMissingMigration) {
+          if (!hasShownSecurityMigrationToast) {
+            hasShownSecurityMigrationToast = true
+            triggerToast('Wymagana jest migracja zabezpieczeń bazy danych.', { type: 'warning' })
+          }
+          return false
+        }
+        return true
+      }
+
+      hasShownSecurityMigrationToast = false
+      let { data: dbProfile, error: profileErr } = profileId
+        ? await client
+          .from('profiles')
+          .select(PROFILE_SELECT_FIELDS)
+          .eq('id', profileId)
+          .maybeSingle()
+        : { data: null, error: null }
 
       if (profileErr) {
         if (profileErr.code === '42P01' || profileErr.code === 'PGRST301' || profileErr.message?.includes('fetch') || profileErr.message?.includes('network') || profileErr.message?.includes('JWT')) {
           return true
         }
+        if (profileErr.code === '42703' || profileErr.code === 'PGRST204' || profileErr.code === 'PGRST205') {
+          if (!hasShownSecurityMigrationToast) {
+            hasShownSecurityMigrationToast = true
+            triggerToast('Wymagana jest migracja zabezpieczeń bazy danych.', { type: 'warning' })
+          }
+          return false
+        }
+        return false
       }
 
       if (dbProfile) {
-        if (dbProfile.avatar_color && dbProfile.avatar_color.includes('|')) {
-          const hashPart = dbProfile.avatar_color.split('|')[1]
-          if (hashPart && hashPart !== 'unverified') {
-            currentUserPasswordHash.value = hashPart
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('duonest_user_pwd_hash', hashPart)
-            }
-          }
-        }
-
         currentUser.value = {
           ...currentUser.value,
           ...dbProfile,
@@ -2036,31 +1656,12 @@ export const useDuoState = () => {
       }
 
       if (!dbProfile && !profileErr) {
-        const userEmail = currentUser.value?.email || authUser.value?.email
-        if (userEmail) {
-          const { data: profileByEmail } = await client
-            .from('profiles')
-            .select('id, partnership_id')
-            .ilike('email', userEmail)
-            .maybeSingle()
-
-          if (profileByEmail) {
-            dbProfile = profileByEmail
-            currentUser.value.id = profileByEmail.id
-            if (authUser.value) authUser.value.id = profileByEmail.id
-            saveToStorage('duonest_auth_user', authUser.value)
-            syncToStorage()
-          }
-        }
-
-        if (!dbProfile) {
-          triggerToast('Zostałeś wylogowany', {
-            type: 'warning',
-            title: 'Konto nie istnieje'
-          })
-          await signOutUser()
-          return false
-        }
+        triggerToast('Nie znaleziono profilu powiązanego z kontem.', {
+          type: 'warning',
+          title: 'Konto nie istnieje'
+        })
+        await signOutUser()
+        return false
       }
 
       if (pId) {
@@ -2105,7 +1706,7 @@ export const useDuoState = () => {
           return false
         }
 
-        if (dbPartnership && dbPartnership.partner1_id !== userId && dbPartnership.partner2_id !== userId) {
+        if (dbPartnership && dbPartnership.partner1_id !== dbProfile?.id && dbPartnership.partner2_id !== dbProfile?.id) {
           partnership.value = null
           partnerUser.value = null
           currentUser.value.partnership_id = null
@@ -2117,14 +1718,14 @@ export const useDuoState = () => {
         }
 
         if (dbPartnership) {
-          const myId = userId
+          const myId = dbProfile?.id
           const partnerId = (myId && dbPartnership.partner1_id === myId)
             ? dbPartnership.partner2_id
             : ((myId && dbPartnership.partner2_id === myId) ? dbPartnership.partner1_id : (dbPartnership.partner1_id || dbPartnership.partner2_id))
           if (partnerId) {
             const { data: pUser } = await client
               .from('profiles')
-              .select('id, name, email, avatar_url, avatar_color, pairing_code, partnership_id, current_mood, mood_note, mood_updated_at, love_note, favorite_drink, favorite_treat, points, last_seen_at, created_at, updated_at')
+              .select('id, name, avatar_url, avatar_color, partnership_id, current_mood, mood_note, mood_updated_at, love_note, favorite_drink, favorite_treat, points, last_seen_at, created_at, updated_at')
               .eq('id', partnerId)
               .maybeSingle()
             if (pUser) {
@@ -2159,7 +1760,7 @@ export const useDuoState = () => {
       if (process.dev) {
         console.warn('[Security] Access verification error:', err)
       }
-      return true
+      return false
     } finally {
       isSecurityVerifying = false
     }
@@ -2200,6 +1801,7 @@ export const useDuoState = () => {
 
     const channel = client.channel(channelName, {
       config: {
+        private: true,
         broadcast: { ack: false, self: false },
         presence: { key: currentUser.value.id }
       }
@@ -2224,7 +1826,7 @@ export const useDuoState = () => {
           saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
           triggerToast(`${partnerUser.value?.name || 'Partner'} jest online`)
           broadcastToPartner('PROFILE_SYNC', {
-            profile: currentUser.value,
+            profile: toRealtimeProfileSnapshot(currentUser.value),
             partnership: partnership.value ? {
               nest_name: partnership.value.nest_name,
               anniversary_date: partnership.value.anniversary_date
@@ -2302,9 +1904,6 @@ export const useDuoState = () => {
             const ev = eventsList.value.find(e => e.id === data.id)
             if (ev) {
               ev.is_completed = data.is_completed
-              if (partnerUser.value && data.user_points !== undefined) {
-                partnerUser.value.points = Math.max(0, Number(data.user_points) || 0)
-              }
               syncToStorage()
               if (data.is_completed) {
                 triggerToast('Plan zrealizowany')
@@ -2318,6 +1917,18 @@ export const useDuoState = () => {
             shoppingItems.value.unshift(data)
             syncToStorage()
             triggerToast(`${senderName} dodał(a) zakupy`)
+          }
+          break
+        }
+        case 'SHOPPING_UPDATE': {
+          if (data?.id && data.updates) {
+            const item = shoppingItems.value.find(i => i.id === data.id)
+            if (item) {
+              Object.assign(item, data.updates)
+            } else if (data.item) {
+              shoppingItems.value.unshift(data.item)
+            }
+            syncToStorage()
           }
           break
         }
@@ -2339,7 +1950,8 @@ export const useDuoState = () => {
           break
         }
         case 'SHOPPING_CLEAR': {
-          shoppingItems.value = shoppingItems.value.filter(i => !i.is_completed)
+          const ids = Array.isArray(data?.ids) ? new Set(data.ids) : null
+          shoppingItems.value = shoppingItems.value.filter(i => ids ? !ids.has(i.id) : !i.is_completed)
           syncToStorage()
           break
         }
@@ -2364,18 +1976,8 @@ export const useDuoState = () => {
                 ? data.completed_at
                 : (data.is_completed ? new Date().toISOString() : null)
               
-              const taskPts = Number(task.points) || 15
-              const delta = data.is_completed ? taskPts : -taskPts
-
-              if (partnerUser.value) {
-                if (data.user_points !== undefined) {
-                  partnerUser.value.points = Math.max(0, Number(data.user_points) || 0)
-                } else if (!wasCompleted && data.is_completed) {
-                  partnerUser.value.points = (Number(partnerUser.value.points) || 0) + taskPts
-                } else if (wasCompleted && !data.is_completed) {
-                  partnerUser.value.points = Math.max(0, (Number(partnerUser.value.points) || 0) - taskPts)
-                }
-              }
+              const taskPts = Math.max(0, Math.min(100, Number(task.points) || 15))
+              const delta = data.is_completed ? taskPts : -task.points_awarded
 
               if (partnership.value) {
                 if (data.pet_xp !== undefined) {
@@ -2422,13 +2024,6 @@ export const useDuoState = () => {
         case 'NUDGE_SEND': {
           if (data) {
             nudgesList.value.unshift(data)
-            if (partnerUser.value) {
-              if (data.sender_points !== undefined) {
-                partnerUser.value.points = Math.max(0, Number(data.sender_points) || 0)
-              } else {
-                partnerUser.value.points = (Number(partnerUser.value.points) || 0) + 5
-              }
-            }
             syncToStorage()
             triggerToast(`${senderName} przesłał(a) gest`)
           }
@@ -2641,7 +2236,7 @@ export const useDuoState = () => {
               ...(partnerUser.value || {}),
               ...data.profile,
               name: data.profile.name || partnerUser.value?.name || 'Partner',
-              points: Number(data.profile.points) || 0
+              points: Number(partnerUser.value?.points) || 0
             }
             if (data.partnership && partnership.value) {
               if (data.partnership.nest_name) partnership.value.nest_name = data.partnership.nest_name
@@ -2657,7 +2252,7 @@ export const useDuoState = () => {
               ...(partnerUser.value || {}),
               ...data.profile,
               name: data.profile.name || partnerUser.value?.name || 'Partner',
-              points: Number(data.profile.points) || 0
+              points: Number(partnerUser.value?.points) || 0
             }
             if (data.partnership && partnership.value) {
               if (data.partnership.nest_name) partnership.value.nest_name = data.partnership.nest_name
@@ -2673,7 +2268,7 @@ export const useDuoState = () => {
         case 'REQ_STATE_SYNC': {
           const shareableWishlist = wishlistItems.value.filter(i => i.is_visible_to_partner || i.created_by !== currentUser.value.id)
           broadcastToPartner('RESP_STATE_SYNC', {
-            profile: currentUser.value,
+            profile: toRealtimeProfileSnapshot(currentUser.value),
             shopping: shoppingItems.value,
             tasks: tasksList.value,
             events: eventsList.value,
@@ -2694,7 +2289,7 @@ export const useDuoState = () => {
                 ...(partnerUser.value || {}),
                 ...data.profile,
                 name: data.profile.name || partnerUser.value?.name || 'Partner',
-                points: Number(data.profile.points) || 0
+                points: Number(partnerUser.value?.points) || 0
               }
             }
             if (Array.isArray(data.shopping) && data.shopping.length > 0) shoppingItems.value = data.shopping
@@ -2902,7 +2497,7 @@ export const useDuoState = () => {
         })
 
         broadcastToPartner('PROFILE_SYNC', {
-          profile: currentUser.value,
+          profile: toRealtimeProfileSnapshot(currentUser.value),
           partnership: partnership.value ? {
             nest_name: partnership.value.nest_name,
             anniversary_date: partnership.value.anniversary_date
@@ -2961,48 +2556,9 @@ export const useDuoState = () => {
     activePairingCode = code
 
     const pairChan = client.channel(pairChannelName, {
-      config: { broadcast: { ack: true } }
+      config: { private: true }
     })
     activePairingChannel = pairChan
-
-    pairChan.on('broadcast', { event: 'PAIR_REQUEST' }, async (envelope: any) => {
-      const { initiatorProfile, newPartnership } = envelope.payload || {}
-      if (!initiatorProfile || !newPartnership) return
-
-      const finalPartnership: Partnership = {
-        ...newPartnership,
-        partner2_id: currentUser.value.id
-      }
-      partnership.value = finalPartnership
-      partnerUser.value = {
-        ...createInitialProfile(),
-        ...initiatorProfile,
-        name: initiatorProfile.name || 'Partner'
-      }
-      currentUser.value.partnership_id = newPartnership.id
-      syncToStorage()
-
-      try {
-        await pairChan.send({
-          type: 'broadcast',
-          event: 'PAIR_ACCEPTED',
-          payload: {
-            targetProfile: currentUser.value,
-            newPartnership: finalPartnership
-          }
-        })
-      } catch (_) {}
-
-      triggerToast('Połączono z partnerem')
-
-      setTimeout(() => {
-        try { client.removeChannel(pairChan) } catch (_) {}
-        activePairingChannel = null
-        activePairingCode = null
-        subscribeToPartnershipRealtime(newPartnership.id)
-        subscribeToSecurityChannel(currentUser.value.id, newPartnership.id)
-      }, 500)
-    })
 
     const myId = currentUser.value?.id || authUser.value?.id
     if (myId) {
@@ -3048,7 +2604,7 @@ export const useDuoState = () => {
 
   const sendHeartbeat = async (force: boolean = false) => {
     if (typeof window === 'undefined') return
-    if (!currentUser.value?.id) return
+    if (!currentUser.value?.id || !authUser.value?.id) return
     const now = Date.now()
     if (!force && now - lastHeartbeatSentAt < 30000) return
     lastHeartbeatSentAt = now
@@ -3092,7 +2648,7 @@ export const useDuoState = () => {
   const initSupabaseSync = async () => {
     initializeClientState()
     const client = getCleanDbClient() || getSupabaseClient()
-    if (!client) return
+    if (!client || !authUser.value?.id) return
 
     if (currentUser.value?.id && authUser.value) {
       const isAllowed = await verifyUserAndPartnershipAccess(true)
@@ -3114,24 +2670,14 @@ export const useDuoState = () => {
           console.log('Supabase PostgreSQL database tables connected!')
         }
 
-        if (currentUser.value?.id) {
+        if (currentUser.value?.id && authUser.value?.id) {
           const { data: dbProfile } = await client
             .from('profiles')
-            .select('*')
+            .select(PROFILE_SELECT_FIELDS)
             .eq('id', currentUser.value.id)
             .maybeSingle()
 
           if (dbProfile) {
-            if (dbProfile.avatar_color && dbProfile.avatar_color.includes('|')) {
-              const hashPart = dbProfile.avatar_color.split('|')[1]
-              if (hashPart && hashPart !== 'unverified') {
-                currentUserPasswordHash.value = hashPart
-                if (typeof window !== 'undefined') {
-                  localStorage.setItem('duonest_user_pwd_hash', hashPart)
-                }
-              }
-            }
-
             currentUser.value = {
               ...currentUser.value,
               ...dbProfile,
@@ -3154,7 +2700,7 @@ export const useDuoState = () => {
           if (currentUser.value?.id) {
             subscribeToSecurityChannel(currentUser.value.id, effectivePartnershipId)
           }
-        } else if (partnership.value?.id) {
+        } else if (partnership.value?.id && authUser.value?.id) {
           await loadPartnershipAndPartner(partnership.value.id, currentUser.value?.id || '')
           subscribeToPartnershipRealtime(partnership.value.id)
         }
@@ -3231,58 +2777,6 @@ export const useDuoState = () => {
     }
   }
 
-  const checkAndAutoHealPartnership = async (profile: Profile, client: any): Promise<boolean> => {
-    if (!profile.partnership_id) return true
-
-    try {
-      const { data: part } = await client
-        .from('partnerships')
-        .select('*')
-        .eq('id', profile.partnership_id)
-        .maybeSingle()
-
-      if (!part) {
-        await client.from('profiles').update({ partnership_id: null }).eq('id', profile.id)
-        profile.partnership_id = null
-        return true
-      }
-
-      const isGhost =
-        (part.partner1_id && part.partner1_id.startsWith('usr_partner_')) ||
-        (part.partner2_id && part.partner2_id.startsWith('usr_partner_')) ||
-        (part.partner1_id === part.partner2_id)
-
-      if (isGhost) {
-        await client.from('partnerships').delete().eq('id', part.id)
-        await client.from('profiles').update({ partnership_id: null }).eq('id', profile.id)
-        profile.partnership_id = null
-        return true
-      }
-
-      const otherPartnerId = part.partner1_id === profile.id ? part.partner2_id : part.partner1_id
-      const { data: otherProfile, error: otherErr } = await client
-        .from('profiles')
-        .select('id, partnership_id')
-        .eq('id', otherPartnerId)
-        .maybeSingle()
-
-      if (otherErr) {
-        return false
-      }
-
-      if (otherProfile && otherProfile.partnership_id !== part.id) {
-        await client.from('partnerships').delete().eq('id', part.id)
-        await client.from('profiles').update({ partnership_id: null }).eq('id', profile.id)
-        profile.partnership_id = null
-        return true
-      }
-
-      return false
-    } catch (_) {
-      return false
-    }
-  }
-
   const checkDbPairingStatus = async (): Promise<boolean> => {
     const client = getCleanDbClient() || supabase
     const myId = currentUser.value?.id || authUser.value?.id
@@ -3326,17 +2820,15 @@ export const useDuoState = () => {
     }
 
     const trimmedInput = rawInput.trim()
-    const myCleanEmail = sanitizeEmail(currentUser.value?.email || authUser.value?.email)
-    const myCode = normalizePairingCode(currentUser.value?.pairing_code)
-
     const isEmailInput = trimmedInput.includes('@') && trimmedInput.includes('.')
     const targetEmail = isEmailInput ? sanitizeEmail(trimmedInput) : ''
     const targetCode = !isEmailInput ? normalizePairingCode(trimmedInput) : ''
+    const myCleanEmail = sanitizeEmail(currentUser.value?.email || authUser.value?.email)
+    const myCode = normalizePairingCode(currentUser.value?.pairing_code)
 
     if (isEmailInput && myCleanEmail && targetEmail === myCleanEmail) {
       return { success: false, error: 'Nie możesz sparować konta ze swoim własnym adresem e-mail.' }
     }
-
     if (!isEmailInput && myCode && targetCode === myCode) {
       return { success: false, error: 'Nie możesz sparować konta ze swoim własnym kodem.' }
     }
@@ -3346,200 +2838,67 @@ export const useDuoState = () => {
       return { success: false, error: 'Brak połączenia z bazą danych.' }
     }
 
-    const safeProfileFields = 'id, name, email, avatar_url, avatar_color, pairing_code, partnership_id, points, created_at, last_seen_at'
-    let foundPartnerProfile: Profile | null = null
+    const { data, error } = await dbClient.rpc('pair_with_code', {
+      pairing_input: trimmedInput,
+      display_name: currentUser.value.name || null
+    })
 
-    if (isEmailInput) {
-      const { data } = await dbClient
-        .from('profiles')
-        .select(safeProfileFields)
-        .ilike('email', targetEmail)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle()
+    if (error) {
+      pairingFailures.value++
+      if (pairingFailures.value >= 5) pairingLockoutUntil.value = Date.now() + 60000
 
-      if (data) {
-        foundPartnerProfile = data
+      const message = error.message || ''
+      if (message.includes('Invalid pairing code')) {
+        return { success: false, error: 'Kod parowania ma nieprawidłowy format.' }
       }
-    } else {
-      const { data } = await dbClient
-        .from('profiles')
-        .select(safeProfileFields)
-        .eq('pairing_code', targetCode)
-        .limit(1)
-        .maybeSingle()
-
-      if (data) {
-        foundPartnerProfile = data
-      } else {
-        const rawClean = trimmedInput.toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^DN/, '')
-        if (rawClean && rawClean.length >= 6) {
-          const { data: fbData } = await dbClient
-            .from('profiles')
-            .select(safeProfileFields)
-            .eq('pairing_code', `DN-${rawClean}`)
-            .limit(1)
-            .maybeSingle()
-          if (fbData) {
-            foundPartnerProfile = fbData
-          }
+      if (message.includes('Partner not found')) {
+        return {
+          success: false,
+          error: isEmailInput
+            ? `Nie znaleziono użytkownika o adresie: ${targetEmail}. Upewnij się, że partner założył konto w DuoNest.`
+            : `Nie znaleziono partnera z kodem: ${targetCode || trimmedInput}.`
         }
       }
+      if (message.includes('already paired')) {
+        return { success: false, error: 'Jedno z kont jest już połączone w innym Gniazdku.' }
+      }
+      if (message.includes('Multiple legacy profiles')) {
+        return { success: false, error: 'To konto wymaga ręcznego połączenia przez pomoc DuoNest.' }
+      }
+      if (message.includes('Verified authentication')) {
+        return { success: false, error: 'Potwierdź adres e-mail przed parowaniem.' }
+      }
+      return { success: false, error: 'Nie udało się połączyć kont. Spróbuj ponownie.' }
     }
 
-    if (!foundPartnerProfile) {
-      pairingFailures.value++
-      if (pairingFailures.value >= 5) {
-        pairingLockoutUntil.value = Date.now() + 60000
-      }
-      return {
-        success: false,
-        error: isEmailInput
-          ? `Nie znaleziono użytkownika o adresie: ${targetEmail}. Upewnij się, że partner założył konto w DuoNest.`
-          : `Nie znaleziono partnera z kodem: ${targetCode || trimmedInput}. Upewnij się, że kod jest poprawny lub wpisz adres e-mail partnera.`
-      }
+    const result = data as {
+      partnership?: Partnership
+      partner?: Partial<Profile>
+      partner_pairing_code?: string
+    } | null
+    if (!result?.partnership?.id || !result.partner?.id) {
+      return { success: false, error: 'Baza danych zwróciła niekompletny wynik parowania.' }
     }
 
     pairingFailures.value = 0
     pairingLockoutUntil.value = 0
-
-    if (foundPartnerProfile.avatar_color && foundPartnerProfile.avatar_color.includes('|')) {
-      foundPartnerProfile.avatar_color = foundPartnerProfile.avatar_color.split('|')[0]
-    }
-
-    if (
-      foundPartnerProfile.id === currentUser.value.id ||
-      (myCleanEmail && foundPartnerProfile.email && sanitizeEmail(foundPartnerProfile.email) === myCleanEmail)
-    ) {
-      return { success: false, error: 'Nie możesz sparować konta ze samym sobą.' }
-    }
-
-    if (foundPartnerProfile.partnership_id) {
-      const { data: existingPart } = await dbClient
-        .from('partnerships')
-        .select('*')
-        .eq('id', foundPartnerProfile.partnership_id)
-        .maybeSingle()
-
-      if (
-        existingPart &&
-        ((existingPart.partner1_id === currentUser.value.id && existingPart.partner2_id === foundPartnerProfile.id) ||
-         (existingPart.partner2_id === currentUser.value.id && existingPart.partner1_id === foundPartnerProfile.id))
-      ) {
-        currentUser.value.partnership_id = existingPart.id
-        partnerUser.value = {
-          ...createInitialProfile(),
-          ...foundPartnerProfile,
-          name: foundPartnerProfile.name || (foundPartnerProfile.email ? foundPartnerProfile.email.split('@')[0] : 'Partner'),
-          partnership_id: existingPart.id
-        }
-        partnership.value = existingPart
-        syncToStorage()
-
-        await dbClient.from('profiles').update({ partnership_id: existingPart.id }).eq('id', currentUser.value.id)
-
-        subscribeToPartnershipRealtime(existingPart.id)
-        subscribeToSecurityChannel(currentUser.value.id, existingPart.id)
-        triggerToast('Połączono z partnerem')
-        return { success: true }
-      }
-    }
-
-    if (currentUser.value?.partnership_id) {
-      const isMyCurrentFree = await checkAndAutoHealPartnership(currentUser.value, dbClient)
-      if (!isMyCurrentFree) {
-        return {
-          success: false,
-          error: 'Twoje konto jest już połączone w Gniazdku. Rozłącz obecne partnerstwo w zakładce Relacja przed połączeniem z kimś nowym.'
-        }
-      }
-    }
-
-    if (foundPartnerProfile.partnership_id) {
-      const isPartnerFree = await checkAndAutoHealPartnership(foundPartnerProfile, dbClient)
-      if (!isPartnerFree) {
-        return {
-          success: false,
-          error: `Ten partner (${foundPartnerProfile.name || foundPartnerProfile.email}) jest już połączony w innym Gniazdku. Partner musi najpierw rozłączyć swoje obecne partnerstwo.`
-        }
-      }
-    }
-
-    clearPartnershipData()
-
-    const newPartnershipId = 'part_' + Math.random().toString(36).substring(2, 10)
-    const partnerName = foundPartnerProfile.name || (partnerDisplayName && partnerDisplayName !== 'Partner' ? partnerDisplayName : (foundPartnerProfile.email ? foundPartnerProfile.email.split('@')[0] : 'Partner'))
-
-    const createdPartnership: Partnership = {
-      id: newPartnershipId,
-      partner1_id: currentUser.value.id,
-      partner2_id: foundPartnerProfile.id,
-      nest_name: 'Nasze Ciepłe Gniazdko',
-      nest_level: 1,
-      anniversary_date: new Date().toISOString().split('T')[0],
-      created_at: new Date().toISOString()
-    }
-
-    const createdPartner: Profile = {
+    currentUser.value.partnership_id = result.partnership.id
+    partnership.value = result.partnership
+    partnerUser.value = {
       ...createInitialProfile(),
-      ...foundPartnerProfile,
-      name: partnerName,
-      partnership_id: newPartnershipId,
-      avatar_color: getCleanAccentColor(foundPartnerProfile.avatar_color, '#1e293b')
+      ...result.partner,
+      pairing_code: result.partner_pairing_code || '',
+      name: result.partner.name || partnerDisplayName || 'Partner'
     }
-
-    const { error: partErr } = await dbClient.from('partnerships').upsert(createdPartnership)
-    if (partErr) {
-      return { success: false, error: 'Błąd zapisu nowego Gniazdka: ' + (partErr.message || 'spróbuj ponownie.') }
-    }
-
-    const { error: u1Err } = await dbClient.from('profiles').update({ partnership_id: newPartnershipId }).eq('id', currentUser.value.id)
-    if (u1Err) {
-      return { success: false, error: 'Błąd przypisania Twojego profilu: ' + (u1Err.message || 'spróbuj ponownie.') }
-    }
-
-    const { error: u2Err } = await dbClient.from('profiles').update({ partnership_id: newPartnershipId }).eq('id', foundPartnerProfile.id)
-    if (u2Err) {
-      return { success: false, error: 'Błąd przypisania profilu partnera: ' + (u2Err.message || 'spróbuj ponownie.') }
-    }
-
-    currentUser.value.partnership_id = newPartnershipId
-    partnerUser.value = createdPartner
-    partnership.value = createdPartnership
     syncToStorage()
 
-    try {
-      const broadcastPayload = {
-        initiatorProfile: currentUser.value,
-        newPartnership: createdPartnership
-      }
-      const pCode = foundPartnerProfile.pairing_code
-      if (pCode) {
-        const partnerPairChannel = dbClient.channel(`duonest_pair_${pCode}`, {
-          config: { broadcast: { ack: true } }
-        })
-        partnerPairChannel.subscribe((status: string) => {
-          if (status === 'SUBSCRIBED') {
-            partnerPairChannel.send({
-              type: 'broadcast',
-              event: 'PAIR_REQUEST',
-              payload: broadcastPayload
-            }).catch(() => {})
-            setTimeout(() => {
-              partnerPairChannel.send({
-                type: 'broadcast',
-                event: 'PAIR_REQUEST',
-                payload: broadcastPayload
-              }).catch(() => {})
-            }, 300)
-          }
-        })
-      }
-    } catch (_) {}
-
-    subscribeToPartnershipRealtime(newPartnershipId)
-    subscribeToSecurityChannel(currentUser.value.id, newPartnershipId)
-
+    await loadPartnershipAndPartner(result.partnership.id, currentUser.value.id)
+    if (partnerUser.value) {
+      partnerUser.value.pairing_code = result.partner_pairing_code || ''
+    }
+    subscribeToPartnershipRealtime(result.partnership.id)
+    subscribeToSecurityChannel(currentUser.value.id, result.partnership.id)
+    syncToStorage()
     triggerToast('Konta sparowane')
     return { success: true }
   }
@@ -3549,38 +2908,20 @@ export const useDuoState = () => {
     const myId = currentUser.value?.id || authUser.value?.id
     const partnerId = partnerUser.value?.id
 
-    broadcastToPartner('PARTNERSHIP_DISCONNECT', {})
-
     const dbClient = getCleanDbClient() || supabase
     if (dbClient) {
-      let p1Id = myId
-      let p2Id = partnerId
-
-      if (pId) {
-        try {
-          const { data: partRow } = await dbClient
-            .from('partnerships')
-            .select('partner1_id, partner2_id')
-            .eq('id', pId)
-            .maybeSingle()
-
-          if (partRow) {
-            p1Id = partRow.partner1_id || p1Id
-            p2Id = partRow.partner2_id || p2Id
-          }
-        } catch (_) {}
+      const { error } = await dbClient.rpc('disconnect_my_partnership')
+      if (error) {
+        console.warn('Partnership disconnect failed:', error.message)
+        triggerToast('Nie udało się rozłączyć kont. Spróbuj ponownie.', { type: 'warning' })
+        return
       }
-
-      if (p1Id) {
-        try { await dbClient.from('profiles').update({ partnership_id: null }).eq('id', p1Id) } catch (_) {}
-      }
-      if (p2Id) {
-        try { await dbClient.from('profiles').update({ partnership_id: null }).eq('id', p2Id) } catch (_) {}
-      }
-      if (pId) {
-        try { await dbClient.from('partnerships').delete().eq('id', pId) } catch (_) {}
-      }
+    } else if (pId || partnerId || myId) {
+      triggerToast('Brak połączenia z bazą danych. Nie rozłączono kont.', { type: 'warning' })
+      return
     }
+
+    broadcastToPartner('PARTNERSHIP_DISCONNECT', {})
 
     if (activePartnershipChannel) {
       try { (getCleanDbClient() || supabase)?.removeChannel(activePartnershipChannel) } catch (_) {}
@@ -3594,15 +2935,76 @@ export const useDuoState = () => {
     }
   }
 
+  const persistShoppingItemUpdate = (
+    item: ShoppingItem,
+    updates: Pick<ShoppingItem, 'title' | 'quantity' | 'category'>
+  ) => {
+    Object.assign(item, updates)
+    syncToStorage()
+    broadcastToPartner('SHOPPING_UPDATE', {
+      id: item.id,
+      updates,
+      item: { ...item }
+    })
+
+    if (db) {
+      safeDb(db.from('shopping_items').update(updates).eq('id', item.id).eq('partnership_id', item.partnership_id))
+    }
+  }
+
+  const updateShoppingItem = async (
+    id: string,
+    updates: Pick<ShoppingItem, 'title' | 'quantity' | 'category'>
+  ): Promise<boolean> => {
+    if (!await verifyUserAndPartnershipAccess()) return false
+    const item = shoppingItems.value.find(i => i.id === id)
+    const title = updates.title.trim().slice(0, 100)
+    if (!item || !title) return false
+
+    persistShoppingItemUpdate(item, {
+      title,
+      category: updates.category,
+      quantity: updates.quantity?.trim().slice(0, 30) || null
+    })
+    triggerToast('Zaktualizowano produkt')
+    return true
+  }
+
   const addShoppingItem = async (title: string, category: string, quantity: string = '') => {
     if (!title.trim() || !partnership.value) return
     if (!await verifyUserAndPartnershipAccess()) return
-    const cleanQty = quantity ? String(quantity).replace(/\D/g, '').trim() : ''
+    const cleanTitle = title.trim().replace(/\s+/g, ' ').slice(0, 100)
+    const cleanCategory = category || 'Spożywcze'
+    const cleanQty = quantity.trim().slice(0, 30)
+    const normalizedTitle = cleanTitle.toLocaleLowerCase('pl-PL')
+    const duplicate = shoppingItems.value.find(item =>
+      !item.is_completed &&
+      item.category === cleanCategory &&
+      item.title.trim().replace(/\s+/g, ' ').toLocaleLowerCase('pl-PL') === normalizedTitle
+    )
+
+    if (duplicate) {
+      const mergedQuantity = mergeShoppingQuantities(duplicate.quantity, cleanQty)
+      if (mergedQuantity !== null) {
+        if (mergedQuantity !== (duplicate.quantity || '')) {
+          persistShoppingItemUpdate(duplicate, {
+            title: duplicate.title,
+            category: duplicate.category,
+            quantity: mergedQuantity || null
+          })
+          triggerToast('Połączono z pozycją na liście')
+        } else {
+          triggerToast('Produkt jest już na liście')
+        }
+        return
+      }
+    }
+
     const newItem: ShoppingItem = {
       id: 'shop_' + Math.random().toString(36).substring(2, 9),
       partnership_id: partnership.value.id,
-      title: title.trim(),
-      category: category || 'Spożywcze',
+      title: cleanTitle,
+      category: cleanCategory,
       quantity: cleanQty || undefined,
       is_completed: false,
       added_by: currentUser.value.id,
@@ -3648,13 +3050,19 @@ export const useDuoState = () => {
     }
   }
 
-  const clearCompletedShopping = async () => {
+  const clearCompletedShopping = async (itemIds?: string[]) => {
     if (!await verifyUserAndPartnershipAccess()) return
-    const toDelete = shoppingItems.value.filter(i => i.is_completed).map(i => i.id)
-    shoppingItems.value = shoppingItems.value.filter(i => !i.is_completed)
+    const requestedIds = itemIds ? new Set(itemIds) : null
+    const toDelete = shoppingItems.value
+      .filter(i => i.is_completed && (!requestedIds || requestedIds.has(i.id)))
+      .map(i => i.id)
+    if (toDelete.length === 0) return
+
+    const deletedIds = new Set(toDelete)
+    shoppingItems.value = shoppingItems.value.filter(i => !deletedIds.has(i.id))
     syncToStorage()
 
-    broadcastToPartner('SHOPPING_CLEAR', {})
+    broadcastToPartner('SHOPPING_CLEAR', { ids: toDelete })
 
     if (db && toDelete.length > 0) {
       safeDb(db.from('shopping_items').delete().in('id', toDelete))
@@ -3674,86 +3082,80 @@ export const useDuoState = () => {
       is_recurring: isRecurring,
       recurrence_interval: isRecurring ? recurrenceInterval : 'none',
       is_completed: false,
-      points: points || 15,
+      points: Math.max(1, Math.min(100, Number(points) || 15)),
       created_by: currentUser.value.id,
       created_at: new Date().toISOString()
     }
-    tasksList.value.unshift(newTask)
-    syncToStorage()
+    if (!db) return
 
-    broadcastToPartner('TASK_ADD', newTask)
+    const { data: savedTask, error } = await db
+      .from('tasks')
+      .insert(newTask)
+      .select('*')
+      .single()
 
-    if (db) {
-      safeDb(db.from('tasks').insert(newTask))
+    if (error || !savedTask) {
+      triggerToast('Nie udało się dodać zadania. Spróbuj ponownie.', { type: 'warning' })
+      return
     }
+
+    tasksList.value.unshift(savedTask)
+    syncToStorage()
+    broadcastToPartner('TASK_ADD', savedTask)
   }
 
   const toggleTask = async (id: string) => {
     if (!await verifyUserAndPartnershipAccess()) return
     const task = tasksList.value.find(t => t.id === id)
-    if (!task) return
-    task.is_completed = !task.is_completed
-    const nowCompleted = task.is_completed
+    if (!task || !db) return
 
-    const myId = currentUser.value?.id || null
-    const previousCompleterId = task.completed_by
-    task.completed_by = nowCompleted ? myId : null
-    task.completed_at = nowCompleted ? new Date().toISOString() : null
+    const wasCompleted = task.is_completed
+    const { data: updatedTask, error } = await db
+      .from('tasks')
+      .update({ is_completed: !wasCompleted })
+      .eq('id', id)
+      .eq('partnership_id', task.partnership_id)
+      .select('*')
+      .maybeSingle()
 
-    const taskPts = Number(task.points) || 15
-    const delta = nowCompleted ? taskPts : -taskPts
-
-    if (nowCompleted) {
-      if (currentUser.value) {
-        currentUser.value.points = (Number(currentUser.value.points) || 0) + taskPts
-        if (db && currentUser.value.id) {
-          safeDb(db.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
-        }
-      }
-    } else {
-      if (previousCompleterId && partnerUser.value && previousCompleterId === partnerUser.value.id) {
-        partnerUser.value.points = Math.max(0, (Number(partnerUser.value.points) || 0) - taskPts)
-        if (db && partnerUser.value.id) {
-          safeDb(db.from('profiles').update({ points: partnerUser.value.points }).eq('id', partnerUser.value.id))
-        }
-      } else if (currentUser.value) {
-        currentUser.value.points = Math.max(0, (Number(currentUser.value.points) || 0) - taskPts)
-        if (db && currentUser.value.id) {
-          safeDb(db.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
-        }
-      }
+    if (error || !updatedTask) {
+      triggerToast('Nie udało się zaktualizować zadania. Spróbuj ponownie.', { type: 'warning' })
+      return
     }
+
+    const delta = updatedTask.is_completed
+      ? Number(updatedTask.points_awarded) || 0
+      : -(Number(task.points_awarded) || 0)
+    tasksList.value = tasksList.value.map(item => item.id === id ? updatedTask : item)
 
     if (partnership.value) {
       partnership.value.pet_xp = Math.max(0, (partnership.value.pet_xp || 0) + delta)
+      await db.from('partnerships')
+        .update({ pet_xp: partnership.value.pet_xp })
+        .eq('id', partnership.value.id)
     }
+
+    const { data: profile } = await db
+      .from('profiles')
+      .select('id, points')
+      .eq('id', updatedTask.completed_by || task.completed_by || currentUser.value.id)
+      .maybeSingle()
+    if (profile?.id === currentUser.value.id) {
+      currentUser.value.points = Number(profile.points) || 0
+    } else if (profile?.id === partnerUser.value?.id && partnerUser.value) {
+      partnerUser.value.points = Number(profile.points) || 0
+    }
+
     syncToStorage()
-
     broadcastToPartner('TASK_TOGGLE', {
-      id,
-      title: task.title,
-      points: task.points,
-      is_completed: nowCompleted,
-      completed_by: task.completed_by,
-      completed_at: task.completed_at,
-      pet_xp: partnership.value?.pet_xp,
-      user_points: currentUser.value?.points,
-      partner_points: partnerUser.value?.points
+      id: updatedTask.id,
+      title: updatedTask.title,
+      points: updatedTask.points,
+      is_completed: updatedTask.is_completed,
+      completed_by: updatedTask.completed_by,
+      completed_at: updatedTask.completed_at,
+      pet_xp: partnership.value?.pet_xp
     })
-
-    if (db) {
-      safeDb(db.from('tasks').update({
-        is_completed: nowCompleted,
-        completed_at: task.completed_at,
-        completed_by: task.completed_by
-      }).eq('id', id))
-
-      if (partnership.value?.id) {
-        safeDb(db.from('partnerships').update({
-          pet_xp: partnership.value.pet_xp
-        }).eq('id', partnership.value.id))
-      }
-    }
   }
 
   const updatePet = async (petId: string, petName?: string) => {
@@ -3896,45 +3298,63 @@ export const useDuoState = () => {
   const toggleEventCompleted = async (id: string) => {
     if (!await verifyUserAndPartnershipAccess()) return
     const ev = eventsList.value.find(e => e.id === id)
-    if (!ev) return
-    const wasCompleted = ev.is_completed
-    ev.is_completed = !ev.is_completed
+    if (!ev || !db) return
 
-    if (currentUser.value) {
-      if (!wasCompleted && ev.is_completed) {
-        currentUser.value.points = (Number(currentUser.value.points) || 0) + 10
-      } else if (wasCompleted && !ev.is_completed) {
-        currentUser.value.points = Math.max(0, (Number(currentUser.value.points) || 0) - 10)
-      }
-      if (db && currentUser.value.id) {
-        safeDb(db.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
-      }
+    const { data: updatedEvent, error } = await db
+      .from('events')
+      .update({ is_completed: !ev.is_completed })
+      .eq('id', id)
+      .eq('partnership_id', ev.partnership_id)
+      .select('*')
+      .maybeSingle()
+
+    if (error || !updatedEvent) {
+      triggerToast('Nie udało się zaktualizować wydarzenia. Spróbuj ponownie.', { type: 'warning' })
+      return
+    }
+
+    eventsList.value = eventsList.value.map(item => item.id === id ? updatedEvent : item)
+    const { data: profile } = await db
+      .from('profiles')
+      .select('id, points')
+      .eq('id', updatedEvent.completed_by || ev.completed_by || currentUser.value.id)
+      .maybeSingle()
+    if (profile?.id === currentUser.value.id) {
+      currentUser.value.points = Number(profile.points) || 0
+    } else if (profile?.id === partnerUser.value?.id && partnerUser.value) {
+      partnerUser.value.points = Number(profile.points) || 0
     }
     syncToStorage()
-
     broadcastToPartner('EVENT_TOGGLE_COMPLETED', {
-      id,
-      title: ev.title,
-      is_completed: ev.is_completed,
-      user_points: currentUser.value?.points
+      id: updatedEvent.id,
+      title: updatedEvent.title,
+      is_completed: updatedEvent.is_completed
     })
-
-    if (db) {
-      safeDb(db.from('events').update({ is_completed: ev.is_completed }).eq('id', id))
-    }
-    triggerToast(ev.is_completed ? 'Plan zrealizowany (+10 pkt)' : 'Oznaczono jako nadchodzący')
+    triggerToast(updatedEvent.is_completed ? 'Plan zrealizowany (+10 pkt)' : 'Oznaczono jako nadchodzący')
   }
 
   const deleteEvent = async (id: string) => {
     if (!await verifyUserAndPartnershipAccess()) return
-    eventsList.value = eventsList.value.filter(e => e.id !== id)
-    syncToStorage()
-
-    broadcastToPartner('EVENT_DELETE', { id })
+    const eventToDelete = eventsList.value.find(e => e.id === id)
+    if (!eventToDelete) return
 
     if (db) {
-      safeDb(db.from('events').delete().eq('id', id))
+      const { error } = await db
+        .from('events')
+        .delete()
+        .eq('id', id)
+        .eq('partnership_id', eventToDelete.partnership_id)
+
+      if (error) {
+        console.error('Event delete error:', error)
+        triggerToast('Nie udało się usunąć planu z synchronizowanego kalendarza', { type: 'warning' })
+        return
+      }
     }
+
+    eventsList.value = eventsList.value.filter(e => e.id !== id)
+    syncToStorage()
+    broadcastToPartner('EVENT_DELETE', { id })
     triggerToast('Usunięto plan')
   }
 
@@ -4024,14 +3444,6 @@ export const useDuoState = () => {
         return false
       }
 
-      const now = Date.now()
-      lastNudgeSentAt.value = now
-      if (typeof window !== 'undefined' && currentUser.value?.id) {
-        try {
-          localStorage.setItem(`duonest_last_nudge_ts_${currentUser.value.id}`, now.toString())
-        } catch {}
-      }
-
       const newNudge: NudgeItem = {
         id: 'ndg_' + Math.random().toString(36).substring(2, 9),
         partnership_id: partnership.value.id,
@@ -4041,22 +3453,39 @@ export const useDuoState = () => {
         message: message || undefined,
         created_at: new Date().toISOString()
       }
-      nudgesList.value.unshift(newNudge)
 
-      currentUser.value.points = (Number(currentUser.value.points) || 0) + 5
+      if (!db) return false
+      const { error: nudgeError } = await db.from('nudges').insert(newNudge)
+      if (nudgeError) {
+        if (nudgeError.code === '23505' || nudgeError.message?.includes('cooldown')) {
+          lastNudgeSentAt.value = Date.now()
+          triggerToast('Szturchnięcie już wysłane')
+        } else {
+          triggerToast('Nie udało się wysłać szturchnięcia. Spróbuj ponownie.', { type: 'warning' })
+        }
+        return false
+      }
+
+      const now = Date.now()
+      lastNudgeSentAt.value = now
+      if (typeof window !== 'undefined' && currentUser.value?.id) {
+        try {
+          localStorage.setItem(`duonest_last_nudge_ts_${currentUser.value.id}`, now.toString())
+        } catch {}
+      }
+
+      nudgesList.value.unshift(newNudge)
+      const { data: updatedProfile } = await db
+        .from('profiles')
+        .select('points')
+        .eq('id', currentUser.value.id)
+        .maybeSingle()
+      currentUser.value.points = updatedProfile
+        ? Number(updatedProfile.points) || 0
+        : (Number(currentUser.value.points) || 0) + 5
       syncToStorage()
 
-      broadcastToPartner('NUDGE_SEND', {
-        ...newNudge,
-        sender_points: currentUser.value.points
-      })
-
-      if (db) {
-        safeDb(db.from('nudges').insert(newNudge))
-        if (currentUser.value?.id) {
-          safeDb(db.from('profiles').update({ points: currentUser.value.points }).eq('id', currentUser.value.id))
-        }
-      }
+      broadcastToPartner('NUDGE_SEND', newNudge)
 
       triggerToast('Wysłano szturchnięcie (+5 pkt)')
       return true
@@ -4152,11 +3581,6 @@ export const useDuoState = () => {
       if (updates.avatar_color) {
         const cleanNewColor = getCleanAccentColor(updates.avatar_color)
         profileDbUpdates.avatar_color = cleanNewColor
-
-        const hashToPreserve = currentUserPasswordHash.value || (typeof window !== 'undefined' ? localStorage.getItem('duonest_user_pwd_hash') : '')
-        if (hashToPreserve) {
-          profileDbUpdates.password_hash = hashToPreserve
-        }
       }
 
       safeDb(db.from('profiles').update(profileDbUpdates).eq('id', currentUser.value.id))
@@ -4486,15 +3910,9 @@ export const useDuoState = () => {
       }).eq('id', id))
     }
 
-    if (item.is_visible_to_partner) {
-      broadcastToPartner('WISHLIST_TOGGLE_COMPLETED', {
-        id,
-        is_completed: newCompleted,
-        completed_at: completedAt
-      })
+    if (newCompleted) {
+      triggerToast('Spełniono marzenie', { type: 'wishlist' })
     }
-
-    triggerToast(newCompleted ? 'Spełniono marzenie' : 'Cofnięto spełnienie')
   }
 
   let _refreshWishlistInFlight = false
@@ -4981,7 +4399,7 @@ export const useDuoState = () => {
       completed_at: completedAt
     })
 
-    const client = getCleanDbClient() || getSupabaseClient()
+    const client = getSupabaseClient()
     const pId = partnership.value?.id || currentUser.value?.partnership_id
     if (client && pId) {
       safeDb(client.from('meals').update({ is_completed: newStatus, completed_at: completedAt }).eq('id', id))
@@ -5104,6 +4522,7 @@ export const useDuoState = () => {
     toggleShoppingItem,
     deleteShoppingItem,
     clearCompletedShopping,
+    updateShoppingItem,
     addTask,
     toggleTask,
     deleteTask,
@@ -5129,6 +4548,7 @@ export const useDuoState = () => {
     completePasswordReset,
     verifyEmailForProfile,
     resendVerificationEmail,
+    legacyRecoveryState,
     changeUserPassword
   }
 }

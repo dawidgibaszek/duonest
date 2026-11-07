@@ -1,8 +1,9 @@
 import { normalizeTmdbItem, getTmdbHeadersAndParams, TmdbRawItem } from '../../server/utils/tmdb'
+import { getRateLimitResponse } from './_shared/rateLimit'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-TMDB-API-Key',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Content-Type': 'application/json'
 }
@@ -29,13 +30,18 @@ export const handler = async (event: any) => {
     return { statusCode: 204, headers: corsHeaders }
   }
 
+  const rateLimitResponse = await getRateLimitResponse(event, 'movies-random', 30, 60, corsHeaders)
+  if (rateLimitResponse) return rateLimitResponse
+
   const query = event.queryStringParameters || {}
   const requestedType = String(query.type || 'all').toLowerCase()
   const requestedGenre = String(query.genre || 'all').toLowerCase()
-  const minRating = Number(query.minRating || 0)
+  const minRatingValue = Number(query.minRating || 0)
+  const minRating = Number.isFinite(minRatingValue) ? Math.max(0, Math.min(10, minRatingValue)) : 0
+  const requestApiKey = Object.entries(event.headers || {}).find(([name]) => name.toLowerCase() === 'x-tmdb-api-key')?.[1]
 
   const apiKey = String(
-    query.apiKey ||
+    requestApiKey ||
     process.env.TMDB_API_KEY ||
     process.env.NUXT_TMDB_API_KEY ||
     process.env.NUXT_PUBLIC_TMDB_API_KEY ||
@@ -115,7 +121,11 @@ export const handler = async (event: any) => {
       Object.entries(queryParams).forEach(([k, v]) => url.searchParams.set(k, v))
       url.searchParams.set('page', String(pageNumber))
 
-      const resp = await fetch(url.toString(), { method: 'GET', headers })
+      const resp = await fetch(url.toString(), {
+        method: 'GET',
+        headers,
+        signal: AbortSignal.timeout(6000)
+      })
       if (!resp.ok) {
         if (resp.status === 401) {
           throw new Error('INVALID_API_KEY')

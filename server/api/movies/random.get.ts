@@ -1,4 +1,4 @@
-import { defineEventHandler, getQuery, createError } from 'h3'
+import { defineEventHandler, getQuery, getHeader, createError } from 'h3'
 import { normalizeTmdbItem, getTmdbHeadersAndParams, TmdbRawItem } from '../../utils/tmdb'
 import { checkRateLimit } from '../../utils/rateLimit'
 
@@ -20,7 +20,7 @@ const GENRE_MAP: Record<string, { movie?: number; tv?: number }> = {
 }
 
 export default defineEventHandler(async (event) => {
-  const rl = checkRateLimit(event, { maxRequests: 30, windowMs: 60_000, keyPrefix: 'movie_random' })
+  const rl = await checkRateLimit(event, { maxRequests: 30, windowMs: 60_000, keyPrefix: 'movie_random' })
   if (!rl.allowed) {
     throw createError({
       statusCode: 429,
@@ -34,9 +34,11 @@ export default defineEventHandler(async (event) => {
   const minRatingRaw = parseFloat(String(query.minRating || 0))
   const minRating = isNaN(minRatingRaw) ? 0 : Math.max(0, Math.min(10, minRatingRaw))
   const runtimeConfig = useRuntimeConfig()
+  const requestApiKey = getHeader(event, 'x-tmdb-api-key')
 
   // Use only server-side configured API key (Zero Trust)
   const apiKey = String(
+    requestApiKey ||
     runtimeConfig.tmdbApiKey ||
     process.env.TMDB_API_KEY ||
     ''
