@@ -35,7 +35,7 @@ export default defineNuxtConfig({
   },
 
   nitro: {
-    preset: process.env.NITRO_PRESET || (process.env.NETLIFY ? 'netlify' : undefined),
+    preset: 'netlify',
     prerender: {
       crawlLinks: false,
       routes: ['/']
