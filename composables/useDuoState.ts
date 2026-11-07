@@ -2843,6 +2843,14 @@ export const useDuoState = () => {
       display_name: currentUser.value.name || null
     })
 
+    const result = data as {
+      error?: string
+      retry_after_seconds?: number
+      partnership?: Partnership
+      partner?: Partial<Profile>
+      partner_pairing_code?: string
+    } | null
+
     if (error) {
       pairingFailures.value++
       if (pairingFailures.value >= 5) pairingLockoutUntil.value = Date.now() + 60000
@@ -2871,11 +2879,27 @@ export const useDuoState = () => {
       return { success: false, error: 'Nie udało się połączyć kont. Spróbuj ponownie.' }
     }
 
-    const result = data as {
-      partnership?: Partnership
-      partner?: Partial<Profile>
-      partner_pairing_code?: string
-    } | null
+    if (result?.error) {
+      if (result.error === 'pairing_rate_limited') {
+        const retryAfterSeconds = Math.max(1, Number(result.retry_after_seconds) || 900)
+        pairingLockoutUntil.value = Date.now() + retryAfterSeconds * 1000
+        return { success: false, error: `Zbyt wiele prób parowania. Spróbuj ponownie za ${Math.ceil(retryAfterSeconds / 60)} min.` }
+      }
+      if (result.error === 'invalid_pairing_input') {
+        return { success: false, error: 'Kod parowania lub adres e-mail ma nieprawidłowy format.' }
+      }
+      if (result.error === 'verified_authentication_required') {
+        return { success: false, error: 'Potwierdź adres e-mail przed parowaniem.' }
+      }
+      if (result.error === 'profile_not_linked') {
+        return { success: false, error: 'Nie znaleziono profilu powiązanego z kontem. Skontaktuj się z pomocą.' }
+      }
+      if (result.error === 'partner_unavailable') {
+        return { success: false, error: 'Nie znaleziono dostępnego partnera. Sprawdź dane i spróbuj ponownie.' }
+      }
+      return { success: false, error: 'Nie udało się połączyć kont. Spróbuj ponownie.' }
+    }
+
     if (!result?.partnership?.id || !result.partner?.id) {
       return { success: false, error: 'Baza danych zwróciła niekompletny wynik parowania.' }
     }
