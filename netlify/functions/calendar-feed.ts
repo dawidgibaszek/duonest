@@ -79,6 +79,7 @@ export const handler = async (event: any) => {
   }
 
   let eventsList: any[] = []
+  let cancelledEvents: Array<{ event_id: string; cancelled_at: string }> = []
   let partnershipName = 'Wspolny Terminarz DuoNest'
 
   try {
@@ -86,7 +87,7 @@ export const handler = async (event: any) => {
       auth: { persistSession: false, autoRefreshToken: false }
     })
 
-    const [eventsRes, partnerRes] = await Promise.all([
+    const [eventsRes, partnerRes, cancellationsRes] = await Promise.all([
       supabase
         .from('events')
         .select('*')
@@ -97,17 +98,39 @@ export const handler = async (event: any) => {
         .from('partnerships')
         .select('nest_name')
         .eq('id', partnershipId)
-        .single()
+        .single(),
+      supabase
+        .from('calendar_event_cancellations')
+        .select('event_id, cancelled_at')
+        .eq('partnership_id', partnershipId)
+        .order('cancelled_at', { ascending: true })
     ])
+
+    if (eventsRes.error || cancellationsRes.error) {
+      console.error('[Calendar Feed] Unable to load events or cancellations:', eventsRes.error?.message || cancellationsRes.error?.message)
+      return {
+        statusCode: 503,
+        headers: { ...headers, 'Cache-Control': 'no-store' },
+        body: 'Calendar feed is unavailable.'
+      }
+    }
 
     if (eventsRes.data) {
       eventsList = eventsRes.data
+    }
+    if (cancellationsRes.data) {
+      cancelledEvents = cancellationsRes.data
     }
     if (partnerRes.data?.nest_name) {
       partnershipName = `DuoNest - ${partnerRes.data.nest_name}`
     }
   } catch (err) {
     console.warn('[Calendar Feed] Supabase error:', err)
+    return {
+      statusCode: 503,
+      headers: { ...headers, 'Cache-Control': 'no-store' },
+      body: 'Calendar feed is unavailable.'
+    }
   }
 
   const headerLines = [
@@ -167,8 +190,17 @@ export const handler = async (event: any) => {
     return lines.join('\r\n')
   })
 
+  const cancellationBlocks = cancelledEvents.map((item) => [
+    'BEGIN:VEVENT',
+    `UID:duonest-${item.event_id}@duonestapp.pl`,
+    `DTSTAMP:${formatIcsUtc(item.cancelled_at)}`,
+    'SEQUENCE:1',
+    'STATUS:CANCELLED',
+    'END:VEVENT'
+  ].join('\r\n'))
+
   const footerLines = ['END:VCALENDAR']
-  const icsOutput = [...headerLines, ...eventBlocks, ...footerLines].join('\r\n')
+  const icsOutput = [...headerLines, ...eventBlocks, ...cancellationBlocks, ...footerLines].join('\r\n')
 
   return {
     statusCode: 200,

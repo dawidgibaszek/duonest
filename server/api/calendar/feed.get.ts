@@ -69,33 +69,46 @@ export default defineEventHandler(async (event) => {
   const supabase = getSupabaseServerClient(config)
 
   let eventsList: any[] = []
+  let cancelledEvents: Array<{ event_id: string; cancelled_at: string }> = []
   let partnershipName = 'Wspólny Terminarz DuoNest'
 
-  if (supabase) {
-    try {
-      const [eventsRes, partnerRes] = await Promise.all([
-        supabase
-          .from('events')
-          .select('*')
-          .eq('partnership_id', partnershipId)
-          .order('start_time', { ascending: true })
-          .limit(500),
-        supabase
-          .from('partnerships')
-          .select('nest_name')
-          .eq('id', partnershipId)
-          .single()
-      ])
+  if (!supabase) {
+    throw createError({ statusCode: 503, statusMessage: 'Calendar feed is unavailable.' })
+  }
 
-      if (eventsRes.data) {
-        eventsList = eventsRes.data
-      }
-      if (partnerRes.data?.nest_name) {
-        partnershipName = `DuoNest - ${partnerRes.data.nest_name}`
-      }
-    } catch (err) {
-      console.warn('[Calendar Feed] Error fetching events from Supabase:', err)
+  try {
+    const [eventsRes, partnerRes, cancellationsRes] = await Promise.all([
+      supabase
+        .from('events')
+        .select('*')
+        .eq('partnership_id', partnershipId)
+        .order('start_time', { ascending: true })
+        .limit(500),
+      supabase
+        .from('partnerships')
+        .select('nest_name')
+        .eq('id', partnershipId)
+        .single(),
+      supabase
+        .from('calendar_event_cancellations')
+        .select('event_id, cancelled_at')
+        .eq('partnership_id', partnershipId)
+        .order('cancelled_at', { ascending: true })
+    ])
+
+    if (eventsRes.error || cancellationsRes.error) {
+      console.error('[Calendar Feed] Unable to load events or cancellations:', eventsRes.error?.message || cancellationsRes.error?.message)
+      throw createError({ statusCode: 503, statusMessage: 'Calendar feed is unavailable.' })
     }
+
+    eventsList = eventsRes.data || []
+    cancelledEvents = cancellationsRes.data || []
+    if (partnerRes.data?.nest_name) {
+      partnershipName = `DuoNest - ${partnerRes.data.nest_name}`
+    }
+  } catch (err) {
+    console.warn('[Calendar Feed] Error fetching events from Supabase:', err)
+    throw createError({ statusCode: 503, statusMessage: 'Calendar feed is unavailable.' })
   }
 
   const headerLines = [
@@ -155,8 +168,17 @@ export default defineEventHandler(async (event) => {
     return lines.join('\r\n')
   })
 
+  const cancellationBlocks = cancelledEvents.map((item) => [
+    'BEGIN:VEVENT',
+    `UID:duonest-${item.event_id}@duonestapp.pl`,
+    `DTSTAMP:${formatIcsUtc(item.cancelled_at)}`,
+    'SEQUENCE:1',
+    'STATUS:CANCELLED',
+    'END:VEVENT'
+  ].join('\r\n'))
+
   const footerLines = ['END:VCALENDAR']
-  const icsOutput = [...headerLines, ...eventBlocks, ...footerLines].join('\r\n')
+  const icsOutput = [...headerLines, ...eventBlocks, ...cancellationBlocks, ...footerLines].join('\r\n')
 
   setHeader(event, 'Content-Type', 'text/calendar; charset=utf-8')
   setHeader(event, 'Content-Disposition', 'inline; filename="duonest-terminarz.ics"')
