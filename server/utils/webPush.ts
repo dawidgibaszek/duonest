@@ -42,8 +42,8 @@ export function configureWebPush(config: any) {
 }
 
 export function getSupabaseServerClient(config: any) {
-  const url = config.public?.supabaseUrl || process.env.SUPABASE_URL || process.env.NUXT_PUBLIC_SUPABASE_URL
-  const key = config.supabaseServiceRoleKey || process.env.SUPABASE_SERVICE_ROLE_KEY
+  const url = process.env.SUPABASE_URL || process.env.NUXT_PUBLIC_SUPABASE_URL || config.public?.supabaseUrl
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || config.supabaseServiceRoleKey
   if (!url || !key) {
     console.error('[WebPush] Supabase URL or service role key missing')
     return null
