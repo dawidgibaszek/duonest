@@ -62,10 +62,25 @@
   to = "/.netlify/functions/calendar-feed"
   status = 200
 
-# Route Nuxt push APIs through the Nitro server function before the SPA fallback.
+# API Redirects for Web Push Notifications
 [[redirects]]
-  from = "/api/push/*"
-  to = "/.netlify/functions/server/api/push/:splat"
+  from = "/api/push/send"
+  to = "/.netlify/functions/push-send"
+  status = 200
+
+[[redirects]]
+  from = "/api/push/subscribe"
+  to = "/.netlify/functions/push-subscribe"
+  status = 200
+
+[[redirects]]
+  from = "/api/push/unsubscribe"
+  to = "/.netlify/functions/push-unsubscribe"
+  status = 200
+
+[[redirects]]
+  from = "/api/push/test"
+  to = "/.netlify/functions/push-test"
   status = 200
 
 # PWA & SPA Routing Fallback for Netlify
