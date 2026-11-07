@@ -240,7 +240,6 @@ const {
   requestPasswordReset,
   completePasswordReset,
   resendVerificationEmail,
-  legacyRecoveryState,
   syncUserProfileWithAuth,
   isPaired,
   currentUser,
@@ -253,7 +252,7 @@ initializeClientState()
 const mode = ref<'login' | 'register' | 'forgot' | 'legacy-recovery'>(
   route?.query?.forgot === '1'
     ? 'forgot'
-    : (route?.query?.legacy === '1' || route?.query?.recovery === '1' || route?.query?.mode === 'legacy-recovery')
+    : route?.query?.mode === 'legacy-recovery'
       ? 'legacy-recovery'
       : 'login'
 )
@@ -415,7 +414,7 @@ onMounted(async () => {
   // 4. Check if user came from query params
   if (route?.query?.forgot === '1') {
     mode.value = 'forgot'
-  } else if (route?.query?.legacy === '1' || route?.query?.recovery === '1' || route?.query?.mode === 'legacy-recovery') {
+  } else if (route?.query?.mode === 'legacy-recovery') {
     mode.value = 'legacy-recovery'
   }
 })
@@ -431,11 +430,6 @@ const handleSubmit = async () => {
     if (mode.value === 'login') {
       const { error } = await signInWithEmail(emailInput.value, passwordInput.value)
       if (error) {
-        const isLegacyRecoveryError = String(error.message || '').includes('wymaga dokończenia aktywacji')
-        if (isLegacyRecoveryError) {
-          switchMode('legacy-recovery')
-          emailInput.value = sanitizeEmail(emailInput.value)
-        }
         errorMessage.value = translateAuthError(error)
         isLoading.value = false
         return
@@ -450,11 +444,6 @@ const handleSubmit = async () => {
         nameInput.value
       )
       if (error) {
-        const isLegacyRecoveryError = String(error.message || '').includes('wymaga dokończenia aktywacji')
-        if (isLegacyRecoveryError) {
-          switchMode('legacy-recovery')
-          emailInput.value = sanitizeEmail(emailInput.value)
-        }
         errorMessage.value = translateAuthError(error)
         isLoading.value = false
         return
@@ -471,11 +460,6 @@ const handleSubmit = async () => {
     } else if (mode.value === 'forgot') {
       const { error } = await requestPasswordReset(emailInput.value)
       if (error) {
-        const isLegacyRecoveryError = String(error.message || '').includes('wymaga dokończenia aktywacji')
-        if (isLegacyRecoveryError) {
-          switchMode('legacy-recovery')
-          emailInput.value = sanitizeEmail(emailInput.value)
-        }
         errorMessage.value = translateAuthError(error)
         isLoading.value = false
         return
@@ -543,13 +527,6 @@ const handleSubmit = async () => {
     isLoading.value = false
   }
 }
-
-watch(legacyRecoveryState, (state) => {
-  if (state.reason === 'missing-link' && state.email) {
-    switchMode('legacy-recovery')
-    emailInput.value = sanitizeEmail(state.email)
-  }
-}, { immediate: true })
 
 const handleResendVerification = async () => {
   if (!emailInput.value) {

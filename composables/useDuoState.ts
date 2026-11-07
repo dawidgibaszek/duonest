@@ -894,6 +894,20 @@ export const useDuoState = () => {
       const userEmail = sanitizeEmail(user.email || '')
       legacyRecoveryState.value = { email: userEmail || null, reason: 'none' }
 
+      // 1. Primary: Use atomic get_my_profile() RPC (SECURITY DEFINER)
+      try {
+        const { data: rpcProfile, error: rpcErr } = await client.rpc('get_my_profile')
+        if (!rpcErr && rpcProfile && rpcProfile.id) {
+          legacyRecoveryState.value = { email: userEmail || null, reason: 'none' }
+          await hydrateCurrentUserFromProfile(rpcProfile, user)
+          return true
+        }
+      } catch (rpcErr) {
+        if (process.dev) {
+          console.warn('get_my_profile RPC error:', rpcErr)
+        }
+      }
+
       // Legacy profile migration must be based on email and must retain the original
       // profile row, partnership references, lists, and history. We never create a
       // separate profile when a unique old profile already exists for the same email.
@@ -905,14 +919,14 @@ export const useDuoState = () => {
         }
       }
 
-      // 1. Try my_profile_id RPC
+      // 2. Try my_profile_id RPC
       let profileId: string | null = null
       try {
         const { data: pId } = await client.rpc('my_profile_id')
         if (pId) profileId = pId
       } catch (_) {}
 
-      // 2. Fetch profile by ID or by auth_user_id
+      // 3. Fetch profile by ID or by auth_user_id
       let dbProfile: any = null
       if (profileId) {
         const { data: p } = await client
@@ -956,11 +970,9 @@ export const useDuoState = () => {
         return true
       }
 
-      if (userEmail) {
-        legacyRecoveryState.value = {
-          email: userEmail,
-          reason: 'missing-link'
-        }
+      legacyRecoveryState.value = {
+        email: userEmail || null,
+        reason: 'none'
       }
       return false
     } catch (err) {
@@ -1151,18 +1163,8 @@ export const useDuoState = () => {
     }
 
     if (!hasProfile) {
-      const recoveryState = legacyRecoveryState.value
-      if (recoveryState.email && recoveryState.reason === 'missing-link') {
-        await authClient.auth.signOut()
-        return {
-          data: null,
-          error: new Error(`Profil powiązany z adresem ${recoveryState.email} wymaga dokończenia aktywacji. Skorzystaj z opcji przywracania dostępu.`)
-        }
-      }
-      await authClient.auth.signOut()
-      return {
-        data: null,
-        error: new Error('Nie znaleziono profilu DuoNest powiązanego z kontem. Użyj rejestracji lub skontaktuj się z pomocą.')
+      if (process.dev) {
+        console.warn('Profile sync did not complete immediately for user:', data.user.id)
       }
     }
 
