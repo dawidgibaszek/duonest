@@ -334,7 +334,7 @@
                   borderColor: hexToRgba(getUserAccentColor(evt.created_by), 0.25)
                 }"
               >
-                Inicjatywa: {{ evt.planner_name || (evt.created_by === currentUser.id ? 'Ty' : (partnerUser?.name || 'Partner')) }}
+                Inicjatywa: {{ evt.planner_name || (evt.created_by === currentUser?.id ? 'Ty' : (partnerUser?.name || 'Partner')) }}
               </span>
               <div class="agenda-card-actions" @click.stop>
                 <button
@@ -486,7 +486,7 @@
                     borderColor: hexToRgba(getUserAccentColor(evt.created_by), 0.25)
                   }"
                 >
-                  Inicjatywa: {{ evt.planner_name || (evt.created_by === currentUser.id ? 'Ty' : (partnerUser?.name || 'Partner')) }}
+                  Inicjatywa: {{ evt.planner_name || (evt.created_by === currentUser?.id ? 'Ty' : (partnerUser?.name || 'Partner')) }}
                 </span>
                 <div class="agenda-card-actions" @click.stop>
                   <button
@@ -686,11 +686,11 @@
                 <button
                   type="button"
                   class="planner-chip"
-                  :class="{ active: modalForm.plannerName === currentUser.name }"
-                  :style="modalForm.plannerName === currentUser.name ? { backgroundColor: currentUserAccentColor, borderColor: currentUserAccentColor, color: '#fff' } : {}"
-                  @click="modalForm.plannerName = currentUser.name"
+                  :class="{ active: modalForm.plannerName === currentUser?.name }"
+                  :style="modalForm.plannerName === currentUser?.name ? { backgroundColor: currentUserAccentColor, borderColor: currentUserAccentColor, color: '#fff' } : {}"
+                  @click="modalForm.plannerName = currentUser?.name || ''"
                 >
-                  {{ currentUser.name || 'Ja' }}
+                  {{ currentUser?.name || 'Ja' }}
                 </button>
                 <button
                   type="button"

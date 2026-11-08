@@ -245,7 +245,7 @@
                       borderColor: hexToRgba(getUserAccentColor(item.added_by), 0.28)
                     }"
                   >
-                    {{ item.added_by === currentUser.id ? 'Ty' : (partnerUser?.name || 'Partner') }}
+                    {{ item.added_by === currentUser?.id ? 'Ty' : (partnerUser?.name || 'Partner') }}
                   </span>
                 </div>
               </div>

@@ -298,7 +298,7 @@
                 class="mini-task-assignee"
                 :style="{ color: getUserAccentColor(task.assigned_to), fontWeight: '700' }"
               >
-                {{ task.assigned_to ? (task.assigned_to === currentUser.id ? 'Dla Ciebie' : ('Dla ' + (partnerUser?.name || 'partnera'))) : 'Wspólne' }}
+                {{ task.assigned_to ? (task.assigned_to === currentUser?.id ? 'Dla Ciebie' : ('Dla ' + (partnerUser?.name || 'partnera'))) : 'Wspólne' }}
               </span>
             </div>
             <span class="mini-task-pts">+{{ task.points }} pkt</span>
@@ -507,7 +507,7 @@
                   }"
                 >
                   <ion-icon
-                    :icon="!goal.assigned_to ? ioniconsPeopleOutline : (goal.assigned_to === currentUser.id ? ioniconsPersonOutline : ioniconsHeartOutline)"
+                    :icon="!goal.assigned_to ? ioniconsPeopleOutline : (goal.assigned_to === currentUser?.id ? ioniconsPersonOutline : ioniconsHeartOutline)"
                     class="scope-mini-icon"
                   />
                   <span>{{ getGoalScopeInfo(goal).label }}</span>
@@ -624,8 +624,8 @@
                 <button
                   type="button"
                   class="scope-choice-btn"
-                  :class="{ active: milestoneForm.assigned_to === currentUser.id }"
-                  @click="milestoneForm.assigned_to = currentUser.id"
+                  :class="{ active: milestoneForm.assigned_to === currentUser?.id }"
+                  @click="milestoneForm.assigned_to = currentUser?.id || ''"
                 >
                   <ion-icon :icon="ioniconsPersonOutline" class="scope-btn-icon" />
                   <div class="scope-btn-texts">

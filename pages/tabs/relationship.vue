@@ -355,7 +355,7 @@
                 </div>
                 <div class="history-text">
                   <span class="history-author">
-                    {{ ndg.sender_id === currentUser.id ? 'Ty' : (partnerUser?.name || 'Partner') }}:
+                    {{ ndg.sender_id === currentUser?.id ? 'Ty' : (partnerUser?.name || 'Partner') }}:
                   </span>
                   <span class="history-msg">{{ ndg.message || getNudgeTitle(ndg.nudge_type) }}</span>
                 </div>
@@ -1690,10 +1690,10 @@ const quickTreatSuggestions = [
 
 const openEditProfileModal = () => {
   editProfileForm.value = {
-    name: currentUser.value.name || '',
-    love_note: currentUser.value.love_note || '',
-    favorite_drink: currentUser.value.favorite_drink || '',
-    favorite_treat: currentUser.value.favorite_treat || ''
+    name: currentUser.value?.name || '',
+    love_note: currentUser.value?.love_note || '',
+    favorite_drink: currentUser.value?.favorite_drink || '',
+    favorite_treat: currentUser.value?.favorite_treat || ''
   }
   isEditProfileModalOpen.value = true
 }
@@ -1714,8 +1714,8 @@ const handleSaveProfile = async () => {
   })
 }
 
-const selectedMood = ref(currentUser.value.current_mood || 'happy')
-const moodNote = ref(currentUser.value.mood_note || '')
+const selectedMood = ref(currentUser.value?.current_mood || 'happy')
+const moodNote = ref(currentUser.value?.mood_note || '')
 const selectedNudgeType = ref('hug')
 const customNudgeMessage = ref('')
 const inputPartnerCode = ref('')
@@ -1780,7 +1780,7 @@ const handleSendNudge = async () => {
 
 const copyPairingCode = async () => {
   try {
-    await navigator.clipboard.writeText(currentUser.value.pairing_code)
+    await navigator.clipboard.writeText(currentUser.value?.pairing_code || '')
     copyStatus.value = 'Skopiowano!'
     setTimeout(() => {
       copyStatus.value = 'Kopiuj'

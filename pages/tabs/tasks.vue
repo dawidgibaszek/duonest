@@ -655,14 +655,14 @@
                 <button
                   type="button"
                   class="assignee-btn"
-                  :class="{ active: newTaskAssignee === currentUser.id }"
-                  :style="newTaskAssignee === currentUser.id ? {
+                  :class="{ active: newTaskAssignee === currentUser?.id }"
+                  :style="newTaskAssignee === currentUser?.id ? {
                     backgroundColor: hexToRgba(currentUserAccentColor, 0.15),
                     borderColor: currentUserAccentColor,
                     color: currentUserAccentColor,
                     boxShadow: `0 0 0 1px ${currentUserAccentColor}`
                   } : {}"
-                  @click="newTaskAssignee = currentUser.id"
+                  @click="newTaskAssignee = currentUser?.id || ''"
                 >
                   <ion-icon :icon="ioniconsPersonOutline" />
                   <span>Dla Mnie</span>

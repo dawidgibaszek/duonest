@@ -399,7 +399,7 @@ onMounted(async () => {
         const hasProfile = await syncUserProfileWithAuth(session.user)
         if (hasProfile) {
           const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id) ? '/tabs/nest' : '/pairing'
-          window.location.replace(destination)
+          await navigateTo(destination, { replace: true })
           return
         }
       }
@@ -436,7 +436,7 @@ const handleSubmit = async () => {
       }
 
       const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id) ? '/tabs/nest' : '/pairing'
-      window.location.href = destination
+      await navigateTo(destination, { replace: true })
     } else if (mode.value === 'register') {
       const { data, error } = await signUpWithEmail(
         emailInput.value,
@@ -456,7 +456,7 @@ const handleSubmit = async () => {
       }
 
       const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id) ? '/tabs/nest' : '/pairing'
-      window.location.href = destination
+      await navigateTo(destination, { replace: true })
     } else if (mode.value === 'forgot') {
       const { error } = await requestPasswordReset(emailInput.value)
       if (error) {
@@ -473,7 +473,7 @@ const handleSubmit = async () => {
       const { data: signInData, error: signInError } = await signInWithEmail(cleanEmail, passwordInput.value)
       if (!signInError && signInData?.user) {
         const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id) ? '/tabs/nest' : '/pairing'
-        window.location.href = destination
+        await navigateTo(destination, { replace: true })
         return
       }
 
@@ -508,7 +508,7 @@ const handleSubmit = async () => {
 
       if (data?.session || (!data?.needsEmailVerification && !data?.needsLegacyRecovery)) {
         const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id) ? '/tabs/nest' : '/pairing'
-        window.location.href = destination
+        await navigateTo(destination, { replace: true })
         return
       }
 

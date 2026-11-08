@@ -284,7 +284,7 @@ watch(isPaired, (paired) => {
 }, { immediate: true })
 
 const activeMode = ref<'share' | 'join'>('share')
-const myNameInput = ref(currentUser.value.name || '')
+const myNameInput = ref(currentUser.value?.name || '')
 const partnerCodeInput = ref('')
 const partnerNameInput = ref('')
 const qrCodeDataUrl = ref('')
@@ -302,7 +302,7 @@ watch(myNameInput, (val) => {
 // Generate QR Code with Sea Blue styling
 const generateMyQrCode = async () => {
   try {
-    const code = currentUser.value.pairing_code
+    const code = currentUser.value?.pairing_code
     if (!code) return
     const url = await QRCode.toDataURL(code, {
       width: 280,
@@ -327,14 +327,14 @@ const saveMyName = () => {
 
 const copyCode = async () => {
   try {
-    await navigator.clipboard.writeText(currentUser.value.pairing_code)
+    await navigator.clipboard.writeText(currentUser.value?.pairing_code || '')
     copied.value = true
     triggerToast('Skopiowano kod')
     setTimeout(() => {
       copied.value = false
     }, 2500)
   } catch {
-    triggerToast(currentUser.value.pairing_code)
+    triggerToast(currentUser.value?.pairing_code || '')
   }
 }
 

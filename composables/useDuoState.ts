@@ -637,12 +637,19 @@ export const useDuoState = () => {
     isStateInitialized.value = true
 
     const savedAuthSession = loadFromStorage<any>('duonest_auth_session', null)
+    const savedAuthUser = loadFromStorage<any>('duonest_auth_user', null)
     if (savedAuthSession?.access_token?.startsWith?.('duonest_direct_')) {
       localStorage.removeItem('duonest_auth_user')
       localStorage.removeItem('duonest_auth_session')
+      authUser.value = null
+      authSession.value = null
+    } else if (savedAuthSession && savedAuthUser) {
+      authUser.value = savedAuthUser
+      authSession.value = savedAuthSession
+    } else {
+      authUser.value = null
+      authSession.value = null
     }
-    authUser.value = null
-    authSession.value = null
 
     const savedUser = loadFromStorage<Profile | null>('duonest_current_user', null)
     if (savedUser) {
