@@ -356,6 +356,38 @@ export interface Database {
           note?: string | null
           created_at?: string
         }
+      },
+      partnership_doodles: {
+        Row: {
+          id: string
+          partnership_id: string
+          strokes: Json
+          preview_svg: string | null
+          author_id: string | null
+          author_name: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          partnership_id: string
+          strokes?: Json
+          preview_svg?: string | null
+          author_id?: string | null
+          author_name?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          partnership_id?: string
+          strokes?: Json
+          preview_svg?: string | null
+          author_id?: string | null
+          author_name?: string | null
+          created_at?: string
+          updated_at?: string
+        }
       }
     }
   }

@@ -2763,6 +2763,29 @@ export const useDuoState = () => {
           }
         }
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'partnership_doodles', filter: `partnership_id=eq.${partnershipId}` }, (payload: any) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          if (payload.new) {
+            const author = payload.new.author_id === currentUser.value.id
+              ? (currentUser.value.name || 'Ty')
+              : (partnerUser.value?.name || payload.new.author_name || 'Partner')
+            currentDoodle.value = {
+              id: payload.new.id,
+              partnership_id: payload.new.partnership_id,
+              strokes: Array.isArray(payload.new.strokes) ? payload.new.strokes : [],
+              preview_svg: payload.new.preview_svg,
+              author_id: payload.new.author_id,
+              author_name: author,
+              created_at: payload.new.created_at,
+              updated_at: payload.new.updated_at
+            }
+            saveToStorage('duonest_active_doodle', currentDoodle.value)
+          }
+        } else if (payload.eventType === 'DELETE') {
+          currentDoodle.value = null
+          saveToStorage('duonest_active_doodle', null)
+        }
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'partnerships', filter: `id=eq.${partnershipId}` }, (payload: any) => {
         if (payload.new && partnership.value) {
           if (payload.new.pet_xp !== undefined) partnership.value.pet_xp = payload.new.pet_xp
@@ -3055,7 +3078,7 @@ export const useDuoState = () => {
     const client = getCleanDbClient() || getSupabaseClient()
     if (!client) return
     try {
-      const [shops, tasks, evts, ndgs, wshs, movs, mls, mlsList, svgGoals, svgContribs] = await Promise.all([
+      const [shops, tasks, evts, ndgs, wshs, movs, mls, mlsList, svgGoals, svgContribs, doodles] = await Promise.all([
         client.from('shopping_items').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         client.from('tasks').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         client.from('events').select('*').eq('partnership_id', partnershipId).order('start_time', { ascending: true }),
@@ -3065,7 +3088,8 @@ export const useDuoState = () => {
         client.from('milestones').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         client.from('meals').select('*').eq('partnership_id', partnershipId).order('date', { ascending: true }),
         client.from('savings_goals').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
-        client.from('savings_contributions').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false })
+        client.from('savings_contributions').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
+        client.from('partnership_doodles').select('*').eq('partnership_id', partnershipId).order('updated_at', { ascending: false }).limit(1)
       ])
 
       if (shops.data) {
@@ -3079,29 +3103,6 @@ export const useDuoState = () => {
       }
       if (ndgs.data) {
         nudgesList.value = ndgs.data
-        const doodleNudge = ndgs.data.find((n: any) => n.nudge_type === 'doodle' && n.message)
-        if (doodleNudge) {
-          try {
-            const parsed = JSON.parse(doodleNudge.message)
-            const author = doodleNudge.sender_id === currentUser.value.id
-              ? (currentUser.value.name || 'Ty')
-              : (partnerUser.value?.name || 'Partner')
-            const incomingDoodle: DuoDoodle = {
-              id: doodleNudge.id,
-              partnership_id: doodleNudge.partnership_id,
-              strokes: parsed.strokes || [],
-              preview_svg: parsed.preview_svg,
-              author_id: doodleNudge.sender_id,
-              author_name: author,
-              created_at: doodleNudge.created_at,
-              updated_at: doodleNudge.created_at
-            }
-            if (!currentDoodle.value || new Date(incomingDoodle.updated_at) >= new Date(currentDoodle.value.updated_at)) {
-              currentDoodle.value = incomingDoodle
-              saveToStorage('duonest_active_doodle', currentDoodle.value)
-            }
-          } catch (_) {}
-        }
       }
       if (wshs.data) {
         const myIds = new Set([currentUser.value?.id, authUser.value?.id].filter(Boolean))
@@ -3121,6 +3122,26 @@ export const useDuoState = () => {
       }
       if (svgContribs?.data) {
         savingsContributions.value = svgContribs.data
+      }
+      if (doodles?.data && doodles.data.length > 0) {
+        const d = doodles.data[0]
+        const author = d.author_id === currentUser.value.id
+          ? (currentUser.value.name || 'Ty')
+          : (partnerUser.value?.name || d.author_name || 'Partner')
+        const incomingDoodle: DuoDoodle = {
+          id: d.id,
+          partnership_id: d.partnership_id,
+          strokes: Array.isArray(d.strokes) ? d.strokes : [],
+          preview_svg: d.preview_svg,
+          author_id: d.author_id,
+          author_name: author,
+          created_at: d.created_at,
+          updated_at: d.updated_at
+        }
+        if (!currentDoodle.value || new Date(incomingDoodle.updated_at) >= new Date(currentDoodle.value.updated_at)) {
+          currentDoodle.value = incomingDoodle
+          saveToStorage('duonest_active_doodle', currentDoodle.value)
+        }
       }
 
       syncToStorage()
@@ -5108,19 +5129,17 @@ export const useDuoState = () => {
 
     const client = getCleanDbClient() || getSupabaseClient()
     if (client && isOnlineWithSupabase.value && partnership.value?.id) {
-      const nudgeRecord = {
-        id: newDoodle.id,
-        partnership_id: newDoodle.partnership_id,
-        sender_id: currentUser.value.id,
-        receiver_id: partnerUser.value?.id || '',
-        nudge_type: 'doodle',
-        message: JSON.stringify({
-          strokes: newDoodle.strokes,
-          preview_svg: newDoodle.preview_svg
-        }),
-        created_at: newDoodle.updated_at
-      }
-      safeDb(client.from('nudges').insert(nudgeRecord))
+      safeDb(
+        client.from('partnership_doodles').upsert({
+          id: newDoodle.id,
+          partnership_id: newDoodle.partnership_id,
+          strokes: newDoodle.strokes as any,
+          preview_svg: newDoodle.preview_svg,
+          author_id: newDoodle.author_id,
+          author_name: newDoodle.author_name,
+          updated_at: newDoodle.updated_at
+        })
+      )
     }
 
     triggerToast('Zapisano rysunek na tablicy! 🎨', { type: 'love' })
@@ -5131,6 +5150,14 @@ export const useDuoState = () => {
     currentDoodle.value = null
     saveToStorage('duonest_active_doodle', null)
     broadcastToPartner('DOODLE_CLEAR', {})
+
+    const client = getCleanDbClient() || getSupabaseClient()
+    if (client && isOnlineWithSupabase.value && partnership.value?.id) {
+      safeDb(
+        client.from('partnership_doodles').delete().eq('partnership_id', partnership.value.id)
+      )
+    }
+
     triggerToast('Wyczyszczono tablicę')
   }
 
