@@ -9,20 +9,20 @@
 
         <div class="doodle-title-center">
           <div class="doodle-title-row">
-            <span class="doodle-title-text">Wspólna Tablica</span>
+            <span class="doodle-title-text">Wspólny rysunek</span>
             <span v-if="isPartnerDrawing" class="doodle-live-badge live-pulse">
               <span class="live-dot"></span>
               {{ partnerUser?.name || 'Partner' }} rysuje!
             </span>
             <span v-else-if="isPartnerOnline" class="doodle-live-badge online">
               <span class="online-dot"></span>
-              {{ partnerUser?.name || 'Partner' }} widzi na żywo
+              {{ partnerUser?.name || 'Partner' }} online
             </span>
           </div>
-          <span class="doodle-subtitle-text">Zostaw miłą wiadomość lub rysunek dla partnera ✨</span>
+          <span class="doodle-subtitle-text">Rysujcie razem w czasie rzeczywistym</span>
         </div>
 
-        <button class="doodle-header-btn save-btn" @click="handleSave" :disabled="strokes.length === 0" title="Zapisz na tablicy">
+        <button class="doodle-header-btn save-btn" @click="handleSave" :disabled="strokes.length === 0" title="Zapisz rysunek">
           <ion-icon :icon="ioniconsCheckmarkOutline" />
           <span>Gotowe</span>
         </button>
@@ -42,7 +42,7 @@
         <!-- Empty canvas watermark guide -->
         <div v-if="strokes.length === 0 && !isPartnerDrawing" class="doodle-empty-watermark" @click="focusCanvas">
           <ion-icon :icon="ioniconsBrushOutline" class="watermark-icon" />
-          <p>Przeciągnij palcem po ekranie, aby narysować...</p>
+          <p>Dotknij i rysuj po ekranie...</p>
         </div>
       </div>
 
@@ -474,6 +474,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   padding: 12px 16px;
   padding-top: max(12px, env(safe-area-inset-top));
   background: rgba(255, 255, 255, 0.95);
@@ -481,21 +482,30 @@ onUnmounted(() => {
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid #e2e8f0;
   z-index: 20;
+  flex-shrink: 0;
 }
 
 .doodle-header-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
   color: #334155;
   border-radius: 9999px;
-  padding: 8px 16px;
-  font-size: 14px;
+  padding: 8px 14px;
+  font-size: 13.5px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.16s ease;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+.doodle-header-btn span {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
 }
 
 .doodle-header-btn:active {
@@ -504,19 +514,28 @@ onUnmounted(() => {
 }
 
 .back-btn {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   justify-content: center;
   font-size: 20px;
   border-radius: 50%;
+  flex-shrink: 0 !important;
 }
 
 .save-btn {
   background: #0f172a;
   border: none;
   color: #ffffff;
-  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.2);
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.15);
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
+
+.save-btn span {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
 }
 
 .save-btn:disabled {
@@ -530,20 +549,30 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   text-align: center;
+  flex: 1;
+  min-width: 0;
+  padding: 0 6px;
+  overflow: hidden;
 }
 
 .doodle-title-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 6px;
+  max-width: 100%;
 }
 
 .doodle-title-text {
   font-family: 'Outfit', sans-serif;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: #0f172a;
   letter-spacing: -0.3px;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .doodle-subtitle-text {
@@ -551,6 +580,12 @@ onUnmounted(() => {
   color: #64748b;
   margin-top: 1px;
   font-weight: 500;
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: block;
 }
 
 .doodle-live-badge {
@@ -647,45 +682,61 @@ onUnmounted(() => {
 
 /* FLOATING CONTROLS */
 .doodle-floating-controls {
-  padding: 12px 16px;
-  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  padding: 10px 14px;
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
   background: #ffffff;
   border-top: 1px solid #e2e8f0;
   box-shadow: 0 -4px 18px rgba(15, 23, 42, 0.05);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   z-index: 20;
+  flex-shrink: 0;
 }
 
 .doodle-actions-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
+  width: 100%;
 }
 
 .tool-mode-group {
-  display: flex;
+  display: inline-flex;
   background: #f1f5f9;
   border-radius: 12px;
   padding: 3px;
-  gap: 3px;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
 .doodle-tool-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   background: transparent;
   border: none;
   color: #64748b;
-  padding: 6px 12px;
+  padding: 6px 9px;
   border-radius: 9px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.16s ease;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+.doodle-tool-btn span {
+  white-space: nowrap !important;
+  word-break: keep-all !important;
+  overflow-wrap: normal !important;
+}
+
+.doodle-tool-btn ion-icon {
+  font-size: 15px;
+  flex-shrink: 0;
 }
 
 .doodle-tool-btn.active {
@@ -695,25 +746,27 @@ onUnmounted(() => {
 }
 
 .brush-size-group {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   background: #f1f5f9;
   border-radius: 12px;
-  padding: 3px 6px;
-  gap: 4px;
+  padding: 3px 5px;
+  gap: 3px;
+  flex-shrink: 0;
 }
 
 .brush-size-btn {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 8px;
   border: none;
   background: transparent;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.16s ease;
+  flex-shrink: 0;
 }
 
 .brush-size-btn.active {
@@ -727,24 +780,26 @@ onUnmounted(() => {
 }
 
 .canvas-actions-group {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  flex-shrink: 0;
 }
 
 .action-icon-btn {
-  width: 36px;
-  height: 36px;
+  width: 33px;
+  height: 33px;
   border-radius: 10px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   color: #475569;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 17px;
+  font-size: 16px;
   cursor: pointer;
   transition: all 0.16s ease;
+  flex-shrink: 0;
 }
 
 .action-icon-btn:active:not(:disabled) {

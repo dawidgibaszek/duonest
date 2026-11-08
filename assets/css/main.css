@@ -67,6 +67,12 @@ p, span, h1, h2, h3, h4, h5, h6, a, label, li, ion-label {
   word-break: break-word;
 }
 
+/* Ensure buttons and action labels never awkwardly break single words */
+button, button *, .dn-button-primary, .dn-button-secondary, [role="button"], [role="button"] *, .badge, .pill, [class*="-badge"], [class*="-pill"], [class*="-btn"] {
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
 /* Prevent flex / grid containers from breaking past card borders */
 .dn-card,
 ion-card,

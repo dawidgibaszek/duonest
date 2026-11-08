@@ -217,7 +217,7 @@
       <div class="dn-card nudge-card">
         <div class="card-header-row">
           <div class="header-left">
-            <span class="section-badge love-badge">DROBNE GESTY</span>
+            <span class="section-badge">DROBNE GESTY</span>
             <h4>Codzienne puknięcie (Nudge)</h4>
           </div>
           <span class="nudge-points-tag" :class="{ 'points-done': hasSentDailyNudge }">
@@ -264,15 +264,12 @@
         </div>
       </div>
 
-      <!-- 4. LIVE SHARED DOODLE / KARTECZKA NA LODÓWCE -->
+      <!-- 4. WSPÓLNY RYSUNEK -->
       <div class="dn-card nest-doodle-card" @click="isDoodleModalOpen = true">
         <div class="card-header-row">
           <div class="header-left">
-            <span class="section-badge love-badge">
-              <ion-icon :icon="ioniconsColorPaletteOutline" class="badge-mini-icon" />
-              KARTECZKA NA LODÓWCE
-            </span>
-            <h4>Wspólna Tablica</h4>
+            <span class="section-badge">WSPÓLNY RYSUNEK</span>
+            <h4>Wspólny rysunek</h4>
           </div>
 
           <div class="doodle-header-status">
@@ -281,10 +278,10 @@
               {{ partnerUser?.name || 'Partner' }} teraz rysuje!
             </span>
             <span v-else-if="hasDoodleContent" class="doodle-status-pill author">
-              📌 {{ currentDoodle?.author_name }}
+              {{ currentDoodle?.author_name }}
             </span>
             <span v-else class="doodle-status-pill empty">
-              Kliknij, aby narysować
+              Dotknij, aby narysować
             </span>
           </div>
         </div>
@@ -295,8 +292,8 @@
           <div v-show="hasDoodleContent" class="preview-canvas-wrap">
             <canvas ref="previewCanvasRef" class="preview-mini-canvas"></canvas>
             <div class="preview-meta-bar">
-              <span class="meta-author">Od: <strong>{{ currentDoodle?.author_name }}</strong></span>
-              <span class="meta-action-hint">Dotknij, aby otworzyć tablicę ✨</span>
+              <span class="meta-author">Autor: <strong>{{ currentDoodle?.author_name }}</strong></span>
+              <span class="meta-action-hint">Dotknij, aby edytować</span>
             </div>
           </div>
 
@@ -304,13 +301,12 @@
           <div v-show="!hasDoodleContent" class="doodle-empty-canvas">
             <div class="empty-doodle-illustration">
               <ion-icon :icon="ioniconsBrushOutline" class="empty-brush-icon" />
-              <ion-icon :icon="ioniconsHeart" class="empty-heart-icon" />
             </div>
-            <p class="empty-doodle-title">Czysta karteczka na lodówce!</p>
-            <p class="empty-doodle-sub">Zostaw miłą wiadomość lub narysuj coś słodkiego dla {{ partnerUser?.name || 'partnera' }}.</p>
+            <p class="empty-doodle-title">Brak rysunku</p>
+            <p class="empty-doodle-sub">Dotknij, aby narysować coś dla {{ partnerUser?.name || 'partnera' }}.</p>
             <button class="dn-button-primary doodle-start-btn" @click.stop="isDoodleModalOpen = true">
-              <ion-icon :icon="ioniconsColorPaletteOutline" />
-              <span>Narysuj coś 🎨</span>
+              <ion-icon :icon="ioniconsBrushOutline" />
+              <span>Rozpocznij rysowanie</span>
             </button>
           </div>
         </div>
@@ -366,7 +362,7 @@
       <div class="dn-card event-summary-card" v-if="upcomingEvent">
         <div class="card-header-row">
           <div class="header-left">
-            <span class="section-badge calendar-badge">NAJBLIŻSZE PLANY</span>
+            <span class="section-badge">NAJBLIŻSZE PLANY</span>
             <h4>{{ upcomingEvent.title }}</h4>
           </div>
           <NuxtLink to="/tabs/calendar" class="view-all-link">Kalendarz →</NuxtLink>
@@ -382,7 +378,7 @@
       <div class="dn-card points-milestones-card">
         <div class="card-header-row">
           <div class="header-left">
-            <span class="section-badge points-badge">PUNKTY & CELE</span>
+            <span class="section-badge">PUNKTY & CELE</span>
             <h4>Wkład w Gniazdko & Nagrody</h4>
           </div>
           <button class="add-goal-btn" @click="openCreateMilestoneModal" title="Dodaj nowy cel">
@@ -2235,20 +2231,13 @@ ion-toolbar {
 
 /* SECTION BADGES */
 .section-badge {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: #0f172a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  text-transform: uppercase;
   display: block;
-  margin-bottom: 2px;
-}
-
-.love-badge {
-  color: #f43f5e;
-}
-
-.calendar-badge {
-  color: #0d9488;
+  margin-bottom: 3px;
 }
 
 .card-header-row {
@@ -2564,20 +2553,6 @@ ion-toolbar {
 .points-milestones-card {
   position: relative;
   overflow: hidden;
-  background: #ffffff;
-  border: 1px solid #f1f5f9;
-  border-radius: 22px;
-  padding: 18px;
-}
-
-.points-badge {
-  color: #0f172a;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  font-size: 10px;
-  background: #f1f5f9;
-  padding: 3px 9px;
-  border-radius: 999px;
 }
 
 .add-goal-btn {
@@ -3694,26 +3669,15 @@ ion-toolbar {
 }
 
 .empty-doodle-illustration {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .empty-brush-icon {
-  font-size: 36px;
-  color: #cbd5e1;
-  transform: rotate(-15deg);
-}
-
-.empty-heart-icon {
-  position: absolute;
-  top: -4px;
-  right: -8px;
-  font-size: 17px;
-  color: #fb7185;
-  filter: drop-shadow(0 2px 6px rgba(251, 113, 133, 0.4));
+  font-size: 32px;
+  color: #94a3b8;
 }
 
 .empty-doodle-title {
