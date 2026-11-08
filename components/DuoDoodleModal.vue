@@ -77,17 +77,31 @@
             </button>
           </div>
 
-          <div class="brush-size-group">
-            <button
-              v-for="s in brushSizes"
-              :key="s.size"
-              class="brush-size-btn"
-              :class="{ active: currentBrushSize === s.size && currentTool === 'brush' }"
-              @click="setBrushSize(s.size)"
-              :title="s.label"
-            >
-              <span class="brush-dot-preview" :style="{ width: s.dotSize + 'px', height: s.dotSize + 'px', backgroundColor: currentColor }"></span>
-            </button>
+          <div class="brush-size-group" :class="{ 'eraser-mode': currentTool === 'eraser' }">
+            <template v-if="currentTool === 'brush'">
+              <button
+                v-for="s in brushSizes"
+                :key="'brush-' + s.size"
+                class="brush-size-btn"
+                :class="{ active: currentBrushSize === s.size }"
+                @click="setBrushSize(s.size)"
+                :title="s.label"
+              >
+                <span class="brush-dot-preview" :style="{ width: s.dotSize + 'px', height: s.dotSize + 'px', backgroundColor: currentColor }"></span>
+              </button>
+            </template>
+            <template v-else>
+              <button
+                v-for="s in eraserSizes"
+                :key="'eraser-' + s.size"
+                class="brush-size-btn eraser-size-btn"
+                :class="{ active: currentEraserSize === s.size }"
+                @click="setEraserSize(s.size)"
+                :title="s.label"
+              >
+                <span class="eraser-dot-preview" :style="{ width: s.dotSize + 'px', height: s.dotSize + 'px' }"></span>
+              </button>
+            </template>
           </div>
 
           <div class="canvas-actions-group">
@@ -122,6 +136,19 @@
             :title="col.name"
           >
             <span class="color-selected-check" v-if="currentColor === col.value"></span>
+          </button>
+        </div>
+
+        <!-- ROW 2 ALTERNATIVE: ERASER INFO BANNER (WHEN ERASER IS ACTIVE) -->
+        <div class="doodle-eraser-bar" v-show="currentTool === 'eraser'">
+          <div class="eraser-badge">
+            <ion-icon :icon="ioniconsColorWandOutline" />
+            <span>Tryb gumki</span>
+          </div>
+          <span class="eraser-hint-text">Wybierz rozmiar i wymazuj kreski</span>
+          <button type="button" class="switch-to-brush-btn" @click="setTool('brush')">
+            <ion-icon :icon="ioniconsBrushOutline" />
+            <span>Pędzel</span>
           </button>
         </div>
       </div>
@@ -164,12 +191,20 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 const currentTool = ref<'brush' | 'eraser'>('brush')
 const currentColor = ref('#e11d48') // Duo Coral Rose default
 const currentBrushSize = ref(5)
+const currentEraserSize = ref(16)
 
 const brushSizes = [
-  { size: 2.5, dotSize: 4, label: 'Cienki' },
-  { size: 5, dotSize: 7, label: 'Normalny' },
-  { size: 10, dotSize: 12, label: 'Gruby' },
+  { size: 2.5, dotSize: 4, label: 'Cienki pędzel' },
+  { size: 5, dotSize: 7, label: 'Normalny pędzel' },
+  { size: 10, dotSize: 12, label: 'Gruby pędzel' },
   { size: 22, dotSize: 17, label: 'Marker' }
+]
+
+const eraserSizes = [
+  { size: 8, dotSize: 6, label: 'Mała gumka' },
+  { size: 16, dotSize: 10, label: 'Średnia gumka' },
+  { size: 26, dotSize: 14, label: 'Duża gumka' },
+  { size: 44, dotSize: 18, label: 'Szeroka gumka' }
 ]
 
 // 10 Harmonious DuoNest palette colors
@@ -291,6 +326,10 @@ const setTool = (tool: 'brush' | 'eraser') => {
 
 const setBrushSize = (size: number) => {
   currentBrushSize.value = size
+}
+
+const setEraserSize = (size: number) => {
+  currentEraserSize.value = size
 }
 
 const setColor = (col: string) => {
@@ -436,11 +475,14 @@ const handlePointerDown = (e: PointerEvent) => {
   const normX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
   const normY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height))
 
+  const isEraserMode = currentTool.value === 'eraser'
+  const strokeWidth = isEraserMode ? currentEraserSize.value : currentBrushSize.value
+
   currentActiveStroke = {
     color: currentColor.value,
-    width: currentBrushSize.value,
+    width: strokeWidth,
     points: [normX, normY],
-    isEraser: currentTool.value === 'eraser'
+    isEraser: isEraserMode
   }
 
   strokes.value.push(currentActiveStroke)
@@ -866,12 +908,111 @@ onUnmounted(() => {
 
 .brush-size-btn.active {
   background: #ffffff;
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+  border: 1px solid #cbd5e1;
 }
 
 .brush-dot-preview {
   border-radius: 50%;
   display: block;
+  transition: transform 0.15s ease;
+}
+
+.brush-size-btn.active .brush-dot-preview {
+  transform: scale(1.15);
+}
+
+/* ERASER SIZE BUTTONS & DOTS */
+.eraser-size-btn {
+  position: relative;
+}
+
+.eraser-size-btn.active {
+  background: #ffffff;
+  border: 1.5px solid #0f172a;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+}
+
+.eraser-dot-preview {
+  border-radius: 50%;
+  display: block;
+  background: #ffffff;
+  border: 1.5px dashed #64748b;
+  box-sizing: border-box;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.15s ease;
+}
+
+.eraser-size-btn.active .eraser-dot-preview {
+  border: 2px solid #0f172a;
+  background: #f1f5f9;
+  transform: scale(1.15);
+  box-shadow: 0 0 0 1.5px rgba(15, 23, 42, 0.12);
+}
+
+/* ERASER INFO BAR */
+.doodle-eraser-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 8px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  animation: fadeIn 0.18s ease;
+}
+
+.eraser-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  flex-shrink: 0;
+}
+
+.eraser-badge ion-icon {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.eraser-hint-text {
+  font-size: 11.5px;
+  color: #64748b;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.switch-to-brush-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 8px;
+  border: none;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.switch-to-brush-btn:active {
+  transform: scale(0.96);
+  background: #1e293b;
 }
 
 .canvas-actions-group {
