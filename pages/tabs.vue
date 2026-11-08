@@ -3,6 +3,7 @@
     <div
       ref="containerRef"
       class="tabs-touch-container"
+      @scroll.passive="onContainerScroll"
     >
       <div
         ref="trackRef"
@@ -274,10 +275,6 @@ const onTouchStart = (e: TouchEvent) => {
 
   const width = getContainerWidth()
   currentTrackX = -activeTabIndex.value * width
-
-  if (trackRef.value) {
-    trackRef.value.style.transition = 'none'
-  }
 }
 
 const onTouchMove = (e: TouchEvent) => {
@@ -439,6 +436,17 @@ const onTouchEnd = (e: TouchEvent) => {
         window.history.replaceState({}, '', targetPath)
       }
     }
+  } else {
+    // If not dragging, always ensure track is securely positioned at activeTabIndex
+    const targetX = -activeTabIndex.value * width
+    if (trackRef.value) {
+      trackRef.value.style.transition = 'transform 280ms cubic-bezier(0.25, 0.9, 0.3, 1)'
+      trackRef.value.style.transform = `translate3d(${targetX}px, 0, 0)`
+    }
+  }
+
+  if (containerRef.value && containerRef.value.scrollLeft !== 0) {
+    containerRef.value.scrollLeft = 0
   }
 
   touchStartX = 0
@@ -453,14 +461,15 @@ const onTouchCancel = () => {
     cancelAnimationFrame(rAFId)
     rAFId = null
   }
-  if (isDragging) {
-    isDragging = false
-    const width = getContainerWidth()
-    const targetX = -activeTabIndex.value * width
-    if (trackRef.value) {
-      trackRef.value.style.transition = 'transform 340ms cubic-bezier(0.25, 0.9, 0.3, 1)'
-      trackRef.value.style.transform = `translate3d(${targetX}px, 0, 0)`
-    }
+  isDragging = false
+  const width = getContainerWidth()
+  const targetX = -activeTabIndex.value * width
+  if (trackRef.value) {
+    trackRef.value.style.transition = 'transform 340ms cubic-bezier(0.25, 0.9, 0.3, 1)'
+    trackRef.value.style.transform = `translate3d(${targetX}px, 0, 0)`
+  }
+  if (containerRef.value && containerRef.value.scrollLeft !== 0) {
+    containerRef.value.scrollLeft = 0
   }
   touchStartX = 0
   touchStartY = 0
@@ -484,6 +493,10 @@ const goToTab = (index: number) => {
     trackRef.value.style.transform = `translate3d(${targetX}px, 0, 0)`
   }
 
+  if (containerRef.value && containerRef.value.scrollLeft !== 0) {
+    containerRef.value.scrollLeft = 0
+  }
+
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     try { navigator.vibrate(12) } catch {}
   }
@@ -497,6 +510,12 @@ const goToTab = (index: number) => {
 
   if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
     window.history.replaceState({}, '', targetPath)
+  }
+}
+
+const onContainerScroll = () => {
+  if (containerRef.value && containerRef.value.scrollLeft !== 0) {
+    containerRef.value.scrollLeft = 0
   }
 }
 
@@ -665,7 +684,9 @@ watch(activeLeisureSubTab, (newVal) => {
   left: 0;
   right: 0;
   bottom: 0;
-  overflow: hidden;
+  overflow: clip;
+  overflow-x: clip;
+  overflow-y: clip;
   touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;

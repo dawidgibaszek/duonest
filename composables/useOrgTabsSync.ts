@@ -13,26 +13,31 @@ export function useOrgTabsSync(subTabName: 'shopping' | 'tasks' | 'meals' | 'sav
 
   const applyScroll = (behavior: ScrollBehavior = 'auto') => {
     const el = pillRowRef.value
-    if (!el) return
+    // Strictly only run if the element is rendered and visible, and only for the active subtab
+    if (!el || el.clientWidth === 0 || activeDailySubTab.value !== subTabName) return
 
-    // 1. Immediately restore the last known scroll position
+    // 1. Restore the shared horizontal scroll position directly within the pill container
     if (orgTabsScrollLeft.value > 0) {
       el.scrollLeft = orgTabsScrollLeft.value
     }
 
-    // 2. Ensure the active button is fully visible in view
+    // 2. Check if the active pill is out of view inside `el` and center it without touching ancestor containers
     requestAnimationFrame(() => {
-      if (!el) return
+      if (!el || el.clientWidth === 0 || activeDailySubTab.value !== subTabName) return
       const activePill = el.querySelector('.main-tab-pill.active') as HTMLElement | null
       if (activePill) {
-        const elRect = el.getBoundingClientRect()
-        const pillRect = activePill.getBoundingClientRect()
-        // If cut off on left or right, smoothly center it
-        if (pillRect.left < elRect.left + 8 || pillRect.right > elRect.right - 8) {
-          activePill.scrollIntoView({ inline: 'center', block: 'nearest', behavior })
-          setTimeout(() => {
-            if (el) orgTabsScrollLeft.value = el.scrollLeft
-          }, 350)
+        const pillLeft = activePill.offsetLeft
+        const pillWidth = activePill.offsetWidth
+        const containerWidth = el.clientWidth
+        const currentScroll = el.scrollLeft
+
+        const isCutOffLeft = pillLeft < currentScroll + 6
+        const isCutOffRight = pillLeft + pillWidth > currentScroll + containerWidth - 6
+
+        if (isCutOffLeft || isCutOffRight) {
+          const targetScroll = Math.max(0, Math.round(pillLeft - (containerWidth / 2) + (pillWidth / 2)))
+          el.scrollTo({ left: targetScroll, behavior })
+          orgTabsScrollLeft.value = targetScroll
         }
       }
     })
