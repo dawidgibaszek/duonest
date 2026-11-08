@@ -879,10 +879,17 @@ const renderPreviewCanvas = () => {
   const rect = canvas.getBoundingClientRect()
   if (rect.width <= 0 || rect.height <= 0) return
 
-  const dpr = window.devicePixelRatio || 1
-  canvas.width = Math.round(rect.width * dpr)
-  canvas.height = Math.round(rect.height * dpr)
+  const dpr = Math.max(window.devicePixelRatio || 1, 2)
+  const targetW = Math.round(rect.width * dpr)
+  const targetH = Math.round(rect.height * dpr)
 
+  if (canvas.width !== targetW || canvas.height !== targetH) {
+    canvas.width = targetW
+    canvas.height = targetH
+  }
+
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
   const doodleStrokes = currentDoodle.value?.strokes || []

@@ -1,5 +1,11 @@
 <template>
-  <ion-modal :is-open="isOpen" @didDismiss="handleClose" class="duo-doodle-modal">
+  <ion-modal
+    :is-open="isOpen"
+    @willPresent="handleModalWillPresent"
+    @didPresent="handleModalPresented"
+    @didDismiss="handleClose"
+    class="duo-doodle-modal"
+  >
     <div class="doodle-studio-wrapper">
       <!-- TOP HEADER BAR -->
       <div class="doodle-header-bar">
@@ -28,7 +34,7 @@
         </button>
       </div>
 
-      <!-- MAIN CANVAS DRAWING AREA (LIGHT NOTEBOOK STYLE) -->
+      <!-- MAIN CANVAS DRAWING AREA (CLEAN RETINA PAPER STYLE) -->
       <div class="doodle-canvas-container" ref="containerRef">
         <canvas
           ref="canvasRef"
@@ -42,7 +48,7 @@
         <!-- Empty canvas watermark guide -->
         <div v-if="strokes.length === 0 && !isPartnerDrawing" class="doodle-empty-watermark" @click="focusCanvas">
           <ion-icon :icon="ioniconsBrushOutline" class="watermark-icon" />
-          <p>Dotknij i rysuj po ekranie...</p>
+          <p>Dotknij i narysuj coś miłego ✨</p>
         </div>
       </div>
 
@@ -166,15 +172,17 @@ const brushSizes = [
   { size: 22, dotSize: 17, label: 'Marker' }
 ]
 
-// Harmonious DuoNest palette for clean white canvas
+// 10 Harmonious DuoNest palette colors
 const colorPalette = [
   { name: 'Koralowy Róż', value: '#e11d48' },
   { name: 'Granat DuoNest', value: '#0f172a' },
   { name: 'Morski Błękit', value: '#0284c7' },
+  { name: 'Turkusowy Cyjan', value: '#06b6d4' },
   { name: 'Szmaragdowa Mięta', value: '#059669' },
+  { name: 'Limonkowa Zieleń', value: '#84cc16' },
   { name: 'Złoty Bursztyn', value: '#d97706' },
-  { name: 'Lawendowy Fiolet', value: '#7c3aed' },
   { name: 'Ciepły Brąz', value: '#854d0e' },
+  { name: 'Lawendowy Fiolet', value: '#7c3aed' },
   { name: 'Różowy Pastel', value: '#ec4899' }
 ]
 
@@ -185,22 +193,87 @@ let isDrawingActive = false
 let resizeObserver: ResizeObserver | null = null
 let lastBroadcastTime = 0
 
+// Populate strokes from currentDoodle
+const loadStrokesFromDoodle = () => {
+  if (currentDoodle.value && Array.isArray(currentDoodle.value.strokes)) {
+    strokes.value = JSON.parse(JSON.stringify(currentDoodle.value.strokes))
+  } else {
+    strokes.value = []
+  }
+}
+
+// Ensure canvas is resized and drawn immediately across animation frames
+const triggerCanvasRefresh = () => {
+  nextTick(() => {
+    initCanvas()
+  })
+  requestAnimationFrame(() => {
+    initCanvas()
+  })
+  setTimeout(() => {
+    initCanvas()
+  }, 60)
+  setTimeout(() => {
+    initCanvas()
+  }, 180)
+  setTimeout(() => {
+    initCanvas()
+  }, 350)
+}
+
+const handleModalWillPresent = () => {
+  loadStrokesFromDoodle()
+  triggerCanvasRefresh()
+}
+
+const handleModalPresented = () => {
+  loadStrokesFromDoodle()
+  initCanvas()
+  if (containerRef.value) {
+    setupResizeObserver(containerRef.value)
+  }
+}
+
 // Sync with currentDoodle on modal open
 watch(() => props.isOpen, (open) => {
   if (open) {
-    if (currentDoodle.value && currentDoodle.value.strokes) {
-      strokes.value = JSON.parse(JSON.stringify(currentDoodle.value.strokes))
-    } else {
-      strokes.value = []
-    }
-    nextTick(() => {
-      initCanvas()
-    })
+    loadStrokesFromDoodle()
+    triggerCanvasRefresh()
   } else {
     if (isDrawingActive) {
       isDrawingActive = false
       broadcastDrawingStatus(false)
     }
+  }
+})
+
+// Sync if currentDoodle updates in background while modal is open
+watch(() => currentDoodle.value, (newDoodle) => {
+  if (props.isOpen && !isDrawingActive && newDoodle && Array.isArray(newDoodle.strokes)) {
+    strokes.value = JSON.parse(JSON.stringify(newDoodle.strokes))
+    redrawFullCanvas()
+  }
+}, { deep: true })
+
+// Setup ResizeObserver when containerRef is available
+const setupResizeObserver = (el: HTMLElement) => {
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
+  resizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.contentRect.width > 20 && entry.contentRect.height > 20) {
+        initCanvas()
+      }
+    }
+  })
+  resizeObserver.observe(el)
+}
+
+watch(containerRef, (el) => {
+  if (el) {
+    setupResizeObserver(el)
   }
 })
 
@@ -229,29 +302,37 @@ const focusCanvas = () => {
   // Focus handler
 }
 
-// Canvas Initialization with DPR scaling
+// Canvas Initialization with DPR scaling (Retina HD crisp rendering)
 const initCanvas = () => {
   const canvas = canvasRef.value
   const container = containerRef.value
   if (!canvas || !container) return
 
   const rect = container.getBoundingClientRect()
-  if (rect.width <= 0 || rect.height <= 0) return
+  if (rect.width <= 10 || rect.height <= 10) return
 
-  const dpr = window.devicePixelRatio || 1
-  canvas.width = Math.round(rect.width * dpr)
-  canvas.height = Math.round(rect.height * dpr)
+  // High-DPI scaling: at least 2x, or devicePixelRatio
+  const dpr = Math.max(window.devicePixelRatio || 1, 2)
+  const targetW = Math.round(rect.width * dpr)
+  const targetH = Math.round(rect.height * dpr)
+
+  if (canvas.width !== targetW || canvas.height !== targetH) {
+    canvas.width = targetW
+    canvas.height = targetH
+  }
 
   redrawFullCanvas()
 }
 
-// Redraw all strokes onto the canvas
+// Redraw all strokes onto the canvas with crisp subpixel anti-aliasing
 const redrawFullCanvas = () => {
   const canvas = canvasRef.value
   if (!canvas) return
-  const ctx = canvas.getContext('2d')
+  const ctx = canvas.getContext('2d', { alpha: true })
   if (!ctx) return
 
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
   for (const stroke of strokes.value) {
@@ -270,9 +351,13 @@ const drawStrokeOnContext = (
   if (!pts || pts.length < 2) return
 
   ctx.save()
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+
   if (stroke.isEraser) {
     ctx.globalCompositeOperation = 'destination-out'
     ctx.strokeStyle = 'rgba(0,0,0,1)'
+    ctx.fillStyle = 'rgba(0,0,0,1)'
   } else {
     ctx.globalCompositeOperation = 'source-over'
     let strokeColor = stroke.color || '#e11d48'
@@ -280,10 +365,12 @@ const drawStrokeOnContext = (
       strokeColor = '#0f172a'
     }
     ctx.strokeStyle = strokeColor
+    ctx.fillStyle = strokeColor
   }
 
+  // Scale line width proportionally to canvas resolution
   const scaleFactor = Math.min(width, height) / 400
-  ctx.lineWidth = Math.max(1.5, stroke.width * scaleFactor)
+  ctx.lineWidth = Math.max(2, stroke.width * scaleFactor)
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
 
@@ -292,7 +379,6 @@ const drawStrokeOnContext = (
     const y = pts[1] * height
     ctx.beginPath()
     ctx.arc(x, y, ctx.lineWidth / 2, 0, Math.PI * 2)
-    ctx.fillStyle = ctx.strokeStyle
     ctx.fill()
     ctx.restore()
     return
@@ -323,14 +409,21 @@ const drawStrokeOnContext = (
 const renderStroke = (stroke: DuoDoodleStroke) => {
   const canvas = canvasRef.value
   if (!canvas) return
-  const ctx = canvas.getContext('2d')
+  const ctx = canvas.getContext('2d', { alpha: true })
   if (!ctx) return
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
   drawStrokeOnContext(ctx, stroke, canvas.width, canvas.height)
 }
 
 const handlePointerDown = (e: PointerEvent) => {
   const canvas = canvasRef.value
   if (!canvas) return
+
+  // Ensure canvas is correctly sized prior to drawing
+  if (canvas.width <= 300 || canvas.height <= 150) {
+    initCanvas()
+  }
 
   try {
     canvas.setPointerCapture(e.pointerId)
@@ -351,7 +444,7 @@ const handlePointerDown = (e: PointerEvent) => {
   }
 
   strokes.value.push(currentActiveStroke)
-  renderStroke(currentActiveStroke)
+  redrawFullCanvas()
   lastBroadcastTime = Date.now()
 }
 
@@ -369,13 +462,13 @@ const handlePointerMove = (e: PointerEvent) => {
   const lastY = pts[pts.length - 1]
 
   const dist = Math.hypot(normX - lastX, normY - lastY)
-  if (dist < 0.003) return
+  if (dist < 0.002) return
 
   pts.push(normX, normY)
   redrawFullCanvas()
 
   const now = Date.now()
-  if (now - lastBroadcastTime > 60) {
+  if (now - lastBroadcastTime > 50) {
     lastBroadcastTime = now
     broadcastLiveStroke(currentActiveStroke)
   }
@@ -415,7 +508,7 @@ const handleSave = () => {
   let previewDataUrl: string | undefined = undefined
   if (canvas) {
     try {
-      previewDataUrl = canvas.toDataURL('image/png', 0.85)
+      previewDataUrl = canvas.toDataURL('image/png', 0.92)
     } catch (_) {}
   }
 
@@ -433,10 +526,7 @@ const handleClose = () => {
 
 onMounted(() => {
   if (containerRef.value) {
-    resizeObserver = new ResizeObserver(() => {
-      initCanvas()
-    })
-    resizeObserver.observe(containerRef.value)
+    setupResizeObserver(containerRef.value)
   }
 })
 
@@ -475,12 +565,12 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 16px;
+  padding: 10px 16px;
   padding-top: max(12px, env(safe-area-inset-top));
   background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid #e2e8f0;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
   z-index: 20;
   flex-shrink: 0;
 }
@@ -527,7 +617,7 @@ onUnmounted(() => {
   background: #0f172a;
   border: none;
   color: #ffffff;
-  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.15);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.16);
   flex-shrink: 0 !important;
   white-space: nowrap !important;
 }
@@ -536,6 +626,11 @@ onUnmounted(() => {
   white-space: nowrap !important;
   word-break: keep-all !important;
   overflow-wrap: normal !important;
+}
+
+.save-btn:active:not(:disabled) {
+  transform: scale(0.96);
+  background: #1e293b;
 }
 
 .save-btn:disabled {
@@ -564,11 +659,11 @@ onUnmounted(() => {
 }
 
 .doodle-title-text {
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Outfit', -apple-system, sans-serif;
   font-size: 15px;
   font-weight: 700;
   color: #0f172a;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
   white-space: nowrap !important;
   word-break: keep-all !important;
   overflow: hidden;
@@ -631,17 +726,17 @@ onUnmounted(() => {
   50% { opacity: 0.85; transform: scale(1.03); }
 }
 
-/* CANVAS DRAWING BOARD (COZY LIGHT PAPER) */
+/* CANVAS DRAWING BOARD (CLEAN RETINA HIGH DEFINITION PAPER) */
 .doodle-canvas-container {
   flex: 1;
   position: relative;
-  margin: 14px 16px;
+  margin: 12px 16px;
   background-color: #ffffff;
-  background-image: radial-gradient(#e2e8f0 1.2px, transparent 1.2px);
-  background-size: 20px 20px;
-  border-radius: 20px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+  background-image: radial-gradient(rgba(148, 163, 184, 0.3) 1px, transparent 1px);
+  background-size: 24px 24px;
+  border-radius: 22px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04), inset 0 0 0 1px rgba(255, 255, 255, 0.8);
   overflow: hidden;
   touch-action: none;
 }
@@ -669,7 +764,7 @@ onUnmounted(() => {
 }
 
 .watermark-icon {
-  font-size: 36px;
+  font-size: 34px;
   color: #cbd5e1;
 }
 
@@ -683,10 +778,10 @@ onUnmounted(() => {
 /* FLOATING CONTROLS */
 .doodle-floating-controls {
   padding: 10px 14px;
-  padding-bottom: max(14px, env(safe-area-inset-bottom));
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
   background: #ffffff;
-  border-top: 1px solid #e2e8f0;
-  box-shadow: 0 -4px 18px rgba(15, 23, 42, 0.05);
+  border-top: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.04);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -742,7 +837,7 @@ onUnmounted(() => {
 .doodle-tool-btn.active {
   background: #ffffff;
   color: #0f172a;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
 }
 
 .brush-size-group {
@@ -771,7 +866,7 @@ onUnmounted(() => {
 
 .brush-size-btn.active {
   background: #ffffff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
 }
 
 .brush-dot-preview {
@@ -827,9 +922,9 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 7px;
   overflow-x: auto;
-  padding: 2px 2px;
+  padding: 3px 1px;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -839,10 +934,10 @@ onUnmounted(() => {
 
 .doodle-color-btn {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  border: 2.5px solid #ffffff;
+  border: 2px solid #ffffff;
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
   cursor: pointer;
   position: relative;
@@ -857,7 +952,7 @@ onUnmounted(() => {
 }
 
 .doodle-color-btn.active {
-  transform: scale(1.18);
+  transform: scale(1.15);
   box-shadow: 0 0 0 2px #0f172a, 0 3px 8px rgba(15, 23, 42, 0.2);
 }
 
@@ -867,5 +962,26 @@ onUnmounted(() => {
   border-radius: 50%;
   background: #ffffff;
   box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+}
+
+@media (max-width: 360px) {
+  .doodle-tool-btn {
+    padding: 6px 7px;
+    font-size: 11px;
+    gap: 3px;
+  }
+  .brush-size-btn {
+    width: 23px;
+    height: 23px;
+  }
+  .action-icon-btn {
+    width: 29px;
+    height: 29px;
+    font-size: 14px;
+  }
+  .doodle-color-btn {
+    width: 27px;
+    height: 27px;
+  }
 }
 </style>
