@@ -336,6 +336,7 @@ export const activeDailySubTab = ref<'shopping' | 'tasks' | 'meals' | 'savings'>
 export const activeOrgSubTab = activeDailySubTab
 export const activeTasksMainTab = ref<'tasks' | 'pet'>('tasks')
 export const activeLeisureSubTab = ref<'movies' | 'wishlist'>('movies')
+export const orgTabsScrollLeft = ref(0)
 
 export const normalizeMovieTitle = (str?: string | null): string => {
   if (!str) return ''
@@ -5274,6 +5275,7 @@ export const useDuoState = () => {
     activeOrgSubTab,
     activeTasksMainTab,
     activeLeisureSubTab,
+    orgTabsScrollLeft,
     updatePartnershipSettings,
     subscribeToPairingChannel,
     checkDbPairingStatus,

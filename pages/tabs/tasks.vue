@@ -32,7 +32,7 @@
 
       <!-- MAIN TABS: Zakupy vs Zadania vs Obiady vs Zwierzak -->
       <ion-toolbar class="main-tabs-toolbar" data-no-swipe>
-        <div class="main-tabs-pill-row">
+        <div ref="pillRowRef" class="main-tabs-pill-row" @scroll.passive="onTabsScroll">
           <button
             type="button"
             class="main-tab-pill"
@@ -163,8 +163,7 @@
               v-for="task in filteredActiveTasks"
               :key="task.id"
               :class="{
-                'dn-completing': completingTaskIds.has(task.id),
-                'dn-item-deleting': deletingTaskIds.has(task.id)
+                'dn-completing': completingTaskIds.has(task.id)
               }"
             >
               <!-- Swipe RIGHT gesture (side="start"): Complete task (+XP) -->
@@ -257,9 +256,6 @@
               <ion-item-sliding
                 v-for="task in filteredCompletedTasks"
                 :key="task.id"
-                :class="{
-                  'dn-item-deleting': deletingTaskIds.has(task.id)
-                }"
               >
                 <!-- Swipe RIGHT gesture (side="start"): Restore task -->
                 <ion-item-options side="start" @ionSwipe="handleSwipeRestoreTask(task)">
@@ -924,8 +920,9 @@ const {
   triggerToast
 } = useDuoState()
 
+const { pillRowRef, onTabsScroll } = useOrgTabsSync('tasks')
+
 const completingTaskIds = ref<Set<string>>(new Set())
-const deletingTaskIds = ref<Set<string>>(new Set())
 
 const {
   hasPet,
@@ -1406,18 +1403,10 @@ const handleSwipeRestoreTask = async (task: TaskItem) => {
 }
 
 const handleSwipeDeleteTask = async (id: string) => {
-  if (deletingTaskIds.value.has(id)) return
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     navigator.vibrate([10, 30, 10])
   }
-  deletingTaskIds.value.add(id)
-  setTimeout(async () => {
-    try {
-      await deleteTask(id)
-    } finally {
-      deletingTaskIds.value.delete(id)
-    }
-  }, 240)
+  await deleteTask(id)
 }
 
 const handleRefresh = async (event: any) => {

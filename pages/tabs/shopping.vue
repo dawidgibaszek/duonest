@@ -13,7 +13,7 @@
 
       <!-- MAIN TABS: Zakupy vs Zadania vs Obiady vs Zwierzak -->
       <ion-toolbar class="main-tabs-toolbar" data-no-swipe>
-        <div class="main-tabs-pill-row">
+        <div ref="pillRowRef" class="main-tabs-pill-row" @scroll.passive="onTabsScroll">
           <button
             type="button"
             class="main-tab-pill active"
@@ -190,7 +190,6 @@
             :key="item.id"
             :class="{
               'dn-completing': completingItemIds.has(item.id),
-              'dn-item-deleting': deletingItemIds.has(item.id),
               'dn-just-added': justAddedItemId === item.id
             }"
           >
@@ -312,9 +311,6 @@
             <ion-item-sliding
               v-for="item in filteredCompletedItems"
               :key="item.id"
-              :class="{
-                'dn-item-deleting': deletingItemIds.has(item.id)
-              }"
             >
               <!-- Swipe RIGHT gesture (side="start"): Restore to active -->
               <ion-item-options side="start" @ionSwipe="handleSwipeRestore(item.id)">
@@ -476,6 +472,7 @@ const {
 } = useDuoState()
 
 const { confirm } = useConfirm()
+const { pillRowRef, onTabsScroll } = useOrgTabsSync('shopping')
 
 const {
   hasPet,
@@ -622,7 +619,6 @@ const getCategoryCount = (categoryName: string) => {
 const isSubmitting = ref(false)
 const justAddedItemId = ref<string | null>(null)
 const completingItemIds = ref<Set<string>>(new Set())
-const deletingItemIds = ref<Set<string>>(new Set())
 
 const getCategoryKey = (catName: string) => {
   const found = categories.find(c => c.name === catName)
@@ -644,11 +640,7 @@ const animatedDeleteShoppingItem = (id: string) => {
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     navigator.vibrate([15, 30, 15])
   }
-  deletingItemIds.value.add(id)
-  setTimeout(() => {
-    deleteShoppingItem(id)
-    deletingItemIds.value.delete(id)
-  }, 260)
+  deleteShoppingItem(id)
 }
 
 const handleAddItem = async () => {

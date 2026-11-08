@@ -26,7 +26,7 @@
 
       <!-- MAIN TABS: Zakupy vs Zadania vs Obiady vs Skarbonki vs Zwierzak -->
       <ion-toolbar class="main-tabs-toolbar" data-no-swipe>
-        <div class="main-tabs-pill-row">
+        <div ref="pillRowRef" class="main-tabs-pill-row" @scroll.passive="onTabsScroll">
           <button
             type="button"
             class="main-tab-pill"
@@ -62,7 +62,6 @@
           >
             <ion-icon :icon="ioniconsWalletOutline" />
             <span>Skarbonki</span>
-            <span class="pill-count-chip" v-if="activeGoalsCount > 0">{{ activeGoalsCount }}</span>
           </button>
 
           <button
@@ -780,6 +779,7 @@ const {
 const deletingGoalIds = ref<Set<string>>(new Set())
 
 const { confirm } = useConfirm()
+const { pillRowRef, onTabsScroll } = useOrgTabsSync('savings')
 const { hasPet, petLevel, onEnterPetView } = usePetState()
 
 // Subtab navigation helpers
@@ -1300,50 +1300,49 @@ const handleRefresh = async (event: any) => {
 
 .main-tab-pill {
   flex: 1 0 auto;
-  min-width: fit-content;
-  display: flex;
+  min-width: 0;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 5px;
+  padding: 7px 10px;
   border-radius: 10px;
   border: none;
   background: transparent;
   color: #64748b;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12.5px;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
 }
 
-.main-tab-pill ion-icon {
-  font-size: 16px;
-}
-
 .main-tab-pill.active {
   background: #ffffff;
   color: #0f172a;
-  font-weight: 700;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.main-tab-pill.pet-tab-pill.active {
+  color: #db2777;
 }
 
 .pill-count-chip {
   background: #0f172a;
   color: #ffffff;
   font-size: 10px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 10px;
-  line-height: 1;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 999px;
 }
 
 .tab-pet-lvl {
   font-size: 10px;
-  background: #e2e8f0;
-  padding: 2px 6px;
-  border-radius: 6px;
-  color: #475569;
+  font-weight: 800;
+  background: #fdf2f8;
+  color: #db2777;
+  padding: 1px 5px;
+  border-radius: 999px;
 }
 
 /* SUBVIEW TOOLBAR (Identical to meals.vue / tasks.vue) */

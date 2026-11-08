@@ -28,7 +28,7 @@
 
       <!-- MAIN TABS: Zakupy vs Zadania vs Obiady vs Zwierzak (ZERO EMOJIS - ONLY SVG) -->
       <ion-toolbar class="main-tabs-toolbar" data-no-swipe>
-        <div class="main-tabs-pill-row">
+        <div ref="pillRowRef" class="main-tabs-pill-row" @scroll.passive="onTabsScroll">
           <button
             type="button"
             class="main-tab-pill"
@@ -55,7 +55,6 @@
           >
             <ion-icon :icon="ioniconsRestaurantOutline" />
             <span>Obiady</span>
-            <span class="pill-count-chip" v-if="weekMealsCount > 0">{{ weekMealsCount }}</span>
           </button>
 
           <button
@@ -2108,6 +2107,7 @@ const {
 } = useDuoState()
 
 const { confirm } = useConfirm()
+const { pillRowRef, onTabsScroll } = useOrgTabsSync('meals')
 
 const deletingMealIds = ref<Set<string>>(new Set())
 const deletingRecipeKeys = ref<Set<string>>(new Set())
