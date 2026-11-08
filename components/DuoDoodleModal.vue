@@ -3,7 +3,7 @@
     <div class="doodle-studio-wrapper">
       <!-- TOP HEADER BAR -->
       <div class="doodle-header-bar">
-        <button class="doodle-header-btn back-btn" @click="handleClose" title="Zamknij">
+        <button class="doodle-header-btn back-btn" @click="handleClose" title="Wróć">
           <ion-icon :icon="ioniconsCloseOutline" />
         </button>
 
@@ -12,14 +12,14 @@
             <span class="doodle-title-text">Wspólna Tablica</span>
             <span v-if="isPartnerDrawing" class="doodle-live-badge live-pulse">
               <span class="live-dot"></span>
-              {{ partnerUser?.name || 'Partner' }} teraz rysuje!
+              {{ partnerUser?.name || 'Partner' }} rysuje!
             </span>
             <span v-else-if="isPartnerOnline" class="doodle-live-badge online">
               <span class="online-dot"></span>
               {{ partnerUser?.name || 'Partner' }} widzi na żywo
             </span>
           </div>
-          <span class="doodle-subtitle-text">Narysuj coś słodkiego dla drugiej połówki 🎨</span>
+          <span class="doodle-subtitle-text">Zostaw miłą wiadomość lub rysunek dla partnera ✨</span>
         </div>
 
         <button class="doodle-header-btn save-btn" @click="handleSave" :disabled="strokes.length === 0" title="Zapisz na tablicy">
@@ -28,11 +28,11 @@
         </button>
       </div>
 
-      <!-- MAIN CANVAS DRAWING AREA -->
+      <!-- MAIN CANVAS DRAWING AREA (LIGHT NOTEBOOK STYLE) -->
       <div class="doodle-canvas-container" ref="containerRef">
-        <!-- Background decorative watermark / pin -->
+        <!-- Cute top magnet pin -->
         <div class="doodle-fridge-pin">
-          <span class="pin-head"></span>
+          <span class="pin-magnet"></span>
         </div>
 
         <canvas
@@ -47,13 +47,13 @@
         <!-- Empty canvas watermark guide -->
         <div v-if="strokes.length === 0 && !isPartnerDrawing" class="doodle-empty-watermark" @click="focusCanvas">
           <ion-icon :icon="ioniconsBrushOutline" class="watermark-icon" />
-          <p>Przeciągnij palcem, aby zacząć rysować...</p>
+          <p>Przeciągnij palcem po ekranie, aby narysować...</p>
         </div>
       </div>
 
       <!-- BOTTOM FLOATING TOOLBAR -->
       <div class="doodle-floating-controls">
-        <!-- ROW 1: ACTIONS (UNDO, CLEAR, ERASER TOGGLE) & SIZES -->
+        <!-- ROW 1: ACTIONS (TOOLS, BRUSH SIZES, UNDO, CLEAR) -->
         <div class="doodle-actions-row">
           <div class="tool-mode-group">
             <button
@@ -161,25 +161,26 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 
 // Drawing State
 const currentTool = ref<'brush' | 'eraser'>('brush')
-const currentColor = ref('#fb7185') // Duo Rose / Coral default
+const currentColor = ref('#e11d48') // Duo Coral Rose default
 const currentBrushSize = ref(5)
 
 const brushSizes = [
   { size: 2.5, dotSize: 4, label: 'Cienki' },
-  { size: 5, dotSize: 8, label: 'Normalny' },
-  { size: 10, dotSize: 13, label: 'Gruby' },
-  { size: 22, dotSize: 18, label: 'Marker' }
+  { size: 5, dotSize: 7, label: 'Normalny' },
+  { size: 10, dotSize: 12, label: 'Gruby' },
+  { size: 22, dotSize: 17, label: 'Marker' }
 ]
 
+// Harmonious DuoNest palette for clean white canvas
 const colorPalette = [
-  { name: 'Koralowy Róż', value: '#fb7185' },
-  { name: 'Świeża Mięta', value: '#34d399' },
-  { name: 'Morski Błękit', value: '#38bdf8' },
-  { name: 'Słoneczny Złoty', value: '#fbbf24' },
-  { name: 'Lawenda', value: '#c084fc' },
-  { name: 'Ciepły Pomarańcz', value: '#fb923c' },
-  { name: 'Kreda / Biały', value: '#ffffff' },
-  { name: 'Ciemny Grafit', value: '#0f172a' }
+  { name: 'Koralowy Róż', value: '#e11d48' },
+  { name: 'Granat DuoNest', value: '#0f172a' },
+  { name: 'Morski Błękit', value: '#0284c7' },
+  { name: 'Szmaragdowa Mięta', value: '#059669' },
+  { name: 'Złoty Bursztyn', value: '#d97706' },
+  { name: 'Lawendowy Fiolet', value: '#7c3aed' },
+  { name: 'Ciepły Brąz', value: '#854d0e' },
+  { name: 'Różowy Pastel', value: '#ec4899' }
 ]
 
 // Strokes list (each point is normalized 0..1)
@@ -193,7 +194,6 @@ let lastBroadcastTime = 0
 watch(() => props.isOpen, (open) => {
   if (open) {
     if (currentDoodle.value && currentDoodle.value.strokes) {
-      // Clone strokes deep to allow safe local edits/undo
       strokes.value = JSON.parse(JSON.stringify(currentDoodle.value.strokes))
     } else {
       strokes.value = []
@@ -212,7 +212,6 @@ watch(() => props.isOpen, (open) => {
 // Listen to real-time strokes drawn by partner
 watch(() => partnerLiveStroke.value, (live) => {
   if (live && live.stroke && props.isOpen) {
-    // Add partner's stroke to our strokes list and render it
     strokes.value.push(JSON.parse(JSON.stringify(live.stroke)))
     renderStroke(live.stroke)
   }
@@ -232,7 +231,7 @@ const setColor = (col: string) => {
 }
 
 const focusCanvas = () => {
-  // Focus canvas area
+  // Focus handler
 }
 
 // Canvas Initialization with DPR scaling
@@ -281,17 +280,19 @@ const drawStrokeOnContext = (
     ctx.strokeStyle = 'rgba(0,0,0,1)'
   } else {
     ctx.globalCompositeOperation = 'source-over'
-    ctx.strokeStyle = stroke.color || '#fb7185'
+    let strokeColor = stroke.color || '#e11d48'
+    if (strokeColor.toLowerCase() === '#ffffff') {
+      strokeColor = '#0f172a'
+    }
+    ctx.strokeStyle = strokeColor
   }
 
-  // Scale stroke width proportionally to canvas size
   const scaleFactor = Math.min(width, height) / 400
   ctx.lineWidth = Math.max(1.5, stroke.width * scaleFactor)
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
 
   if (pts.length === 2) {
-    // Single dot
     const x = pts[0] * width
     const y = pts[1] * height
     ctx.beginPath()
@@ -302,7 +303,6 @@ const drawStrokeOnContext = (
     return
   }
 
-  // Smooth quadratic Bezier curve
   ctx.beginPath()
   const firstX = pts[0] * width
   const firstY = pts[1] * height
@@ -318,7 +318,6 @@ const drawStrokeOnContext = (
     ctx.quadraticCurveTo(prevX, prevY, midX, midY)
   }
 
-  // Final point
   const lastX = pts[pts.length - 2] * width
   const lastY = pts[pts.length - 1] * height
   ctx.lineTo(lastX, lastY)
@@ -326,7 +325,6 @@ const drawStrokeOnContext = (
   ctx.restore()
 }
 
-// Render only a single new stroke (incremental rendering without redrawing all)
 const renderStroke = (stroke: DuoDoodleStroke) => {
   const canvas = canvasRef.value
   if (!canvas) return
@@ -335,12 +333,10 @@ const renderStroke = (stroke: DuoDoodleStroke) => {
   drawStrokeOnContext(ctx, stroke, canvas.width, canvas.height)
 }
 
-// Pointer Handlers for drawing
 const handlePointerDown = (e: PointerEvent) => {
   const canvas = canvasRef.value
   if (!canvas) return
 
-  // Set pointer capture for smooth drawing outside canvas bounds
   try {
     canvas.setPointerCapture(e.pointerId)
   } catch (_) {}
@@ -377,14 +373,12 @@ const handlePointerMove = (e: PointerEvent) => {
   const lastX = pts[pts.length - 2]
   const lastY = pts[pts.length - 1]
 
-  // Min movement threshold to avoid excess points
   const dist = Math.hypot(normX - lastX, normY - lastY)
   if (dist < 0.003) return
 
   pts.push(normX, normY)
   redrawFullCanvas()
 
-  // Real-time live stroke broadcast throttle (approx 60ms)
   const now = Date.now()
   if (now - lastBroadcastTime > 60) {
     lastBroadcastTime = now
@@ -405,7 +399,6 @@ const handlePointerUp = (e: PointerEvent) => {
   }
 
   if (currentActiveStroke) {
-    // Broadcast final completed stroke
     broadcastLiveStroke(currentActiveStroke)
     currentActiveStroke = null
   }
@@ -427,7 +420,7 @@ const handleSave = () => {
   let previewDataUrl: string | undefined = undefined
   if (canvas) {
     try {
-      previewDataUrl = canvas.toDataURL('image/png', 0.8)
+      previewDataUrl = canvas.toDataURL('image/png', 0.85)
     } catch (_) {}
   }
 
@@ -462,7 +455,7 @@ onUnmounted(() => {
 
 <style scoped>
 .duo-doodle-modal {
-  --background: #090d16;
+  --background: #f8fafc;
   --height: 100%;
   --width: 100%;
 }
@@ -472,8 +465,8 @@ onUnmounted(() => {
   flex-direction: column;
   height: 100%;
   width: 100%;
-  background: radial-gradient(circle at 50% 15%, #131c2e 0%, #090d16 85%);
-  color: #f8fafc;
+  background: #f8fafc;
+  color: #0f172a;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
@@ -488,10 +481,10 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 12px 16px;
   padding-top: max(12px, env(safe-area-inset-top));
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid #e2e8f0;
   z-index: 20;
 }
 
@@ -499,39 +492,40 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #f8fafc;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #334155;
   border-radius: 9999px;
-  padding: 8px 14px;
+  padding: 8px 16px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.18s ease;
+  transition: all 0.16s ease;
 }
 
 .doodle-header-btn:active {
-  transform: scale(0.95);
-  background: rgba(255, 255, 255, 0.16);
+  transform: scale(0.96);
+  background: #e2e8f0;
 }
 
 .back-btn {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   justify-content: center;
   font-size: 20px;
+  border-radius: 50%;
 }
 
 .save-btn {
-  background: linear-gradient(135deg, #fb7185 0%, #e11d48 100%);
+  background: #0f172a;
   border: none;
   color: #ffffff;
-  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.4);
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.2);
 }
 
 .save-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   pointer-events: none;
   box-shadow: none;
 }
@@ -553,14 +547,15 @@ onUnmounted(() => {
   font-family: 'Outfit', sans-serif;
   font-size: 16px;
   font-weight: 700;
-  color: #ffffff;
+  color: #0f172a;
   letter-spacing: -0.3px;
 }
 
 .doodle-subtitle-text {
   font-size: 11px;
-  color: #94a3b8;
+  color: #64748b;
   margin-top: 1px;
+  font-weight: 500;
 }
 
 .doodle-live-badge {
@@ -570,35 +565,35 @@ onUnmounted(() => {
   padding: 2px 8px;
   border-radius: 9999px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .doodle-live-badge.live-pulse {
-  background: rgba(244, 63, 94, 0.2);
-  border: 1px solid rgba(244, 63, 94, 0.5);
-  color: #fda4af;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #e11d48;
   animation: liveBadgePulse 1.6s infinite ease-in-out;
 }
 
 .doodle-live-badge.online {
-  background: rgba(16, 185, 129, 0.18);
-  border: 1px solid rgba(16, 185, 129, 0.4);
-  color: #6ee7b7;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #16a34a;
 }
 
 .live-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: #f43f5e;
-  box-shadow: 0 0 8px #f43f5e;
+  background-color: #e11d48;
+  box-shadow: 0 0 6px rgba(225, 29, 72, 0.6);
 }
 
 .online-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: #10b981;
+  background-color: #16a34a;
 }
 
 @keyframes liveBadgePulse {
@@ -606,38 +601,37 @@ onUnmounted(() => {
   50% { opacity: 0.85; transform: scale(1.03); }
 }
 
-/* CANVAS DRAWING BOARD */
+/* CANVAS DRAWING BOARD (COZY LIGHT PAPER) */
 .doodle-canvas-container {
   flex: 1;
   position: relative;
-  margin: 12px;
-  background-color: #0f172a;
-  background-image: 
-    radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
-  background-size: 24px 24px;
-  border-radius: 24px;
-  border: 1.5px solid rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5), 0 12px 30px rgba(0, 0, 0, 0.5);
+  margin: 14px 16px;
+  background-color: #ffffff;
+  background-image: radial-gradient(#e2e8f0 1.2px, transparent 1.2px);
+  background-size: 20px 20px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
   overflow: hidden;
   touch-action: none;
 }
 
 .doodle-fridge-pin {
   position: absolute;
-  top: 10px;
+  top: 9px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 5;
   pointer-events: none;
 }
 
-.pin-head {
+.pin-magnet {
   display: block;
   width: 14px;
   height: 14px;
-  background: radial-gradient(circle at 35% 35%, #f43f5e, #be123c);
+  background: radial-gradient(circle at 35% 35%, #fb7185, #e11d48);
   border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.4);
+  box-shadow: 0 2px 5px rgba(225, 29, 72, 0.35), inset 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
 .doodle-touch-canvas {
@@ -657,29 +651,30 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  color: rgba(148, 163, 184, 0.4);
+  color: #94a3b8;
   pointer-events: none;
   text-align: center;
 }
 
 .watermark-icon {
-  font-size: 38px;
+  font-size: 36px;
+  color: #cbd5e1;
 }
 
 .doodle-empty-watermark p {
   font-size: 13px;
   font-weight: 500;
   margin: 0;
+  color: #94a3b8;
 }
 
 /* FLOATING CONTROLS */
 .doodle-floating-controls {
   padding: 12px 16px;
   padding-bottom: max(16px, env(safe-area-inset-bottom));
-  background: rgba(15, 23, 42, 0.88);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  box-shadow: 0 -4px 18px rgba(15, 23, 42, 0.05);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -695,38 +690,39 @@ onUnmounted(() => {
 
 .tool-mode-group {
   display: flex;
-  background: rgba(255, 255, 255, 0.06);
+  background: #f1f5f9;
   border-radius: 12px;
   padding: 3px;
-  gap: 2px;
+  gap: 3px;
 }
 
 .doodle-tool-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: #64748b;
   padding: 6px 12px;
-  border-radius: 10px;
+  border-radius: 9px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.16s ease;
 }
 
 .doodle-tool-btn.active {
-  background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 
 .brush-size-group {
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.06);
+  background: #f1f5f9;
   border-radius: 12px;
-  padding: 4px;
+  padding: 3px 6px;
   gap: 4px;
 }
 
@@ -744,7 +740,8 @@ onUnmounted(() => {
 }
 
 .brush-size-btn.active {
-  background: rgba(255, 255, 255, 0.18);
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 
 .brush-dot-preview {
@@ -762,20 +759,20 @@ onUnmounted(() => {
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #cbd5e1;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 17px;
   cursor: pointer;
   transition: all 0.16s ease;
 }
 
 .action-icon-btn:active:not(:disabled) {
   transform: scale(0.92);
-  background: rgba(255, 255, 255, 0.14);
+  background: #e2e8f0;
 }
 
 .action-icon-btn:disabled {
@@ -784,11 +781,13 @@ onUnmounted(() => {
 }
 
 .action-icon-btn.danger {
-  color: #fda4af;
+  color: #e11d48;
+  background: #fff1f2;
+  border-color: #fecdd3;
 }
 
 .action-icon-btn.danger:active:not(:disabled) {
-  background: rgba(244, 63, 94, 0.2);
+  background: #ffe4e6;
 }
 
 /* COLORS SCROLL ROW */
@@ -796,9 +795,9 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   overflow-x: auto;
-  padding: 2px 4px;
+  padding: 2px 2px;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -811,11 +810,11 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 2.5px solid transparent;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
   cursor: pointer;
   position: relative;
-  transition: transform 0.16s ease, border-color 0.16s ease;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -826,9 +825,8 @@ onUnmounted(() => {
 }
 
 .doodle-color-btn.active {
-  transform: scale(1.15);
-  border-color: #ffffff;
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+  transform: scale(1.18);
+  box-shadow: 0 0 0 2px #0f172a, 0 3px 8px rgba(15, 23, 42, 0.2);
 }
 
 .color-selected-check {
@@ -836,6 +834,6 @@ onUnmounted(() => {
   height: 6px;
   border-radius: 50%;
   background: #ffffff;
-  box-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
 }
 </style>

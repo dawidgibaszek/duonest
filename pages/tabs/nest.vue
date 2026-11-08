@@ -904,7 +904,11 @@ const renderPreviewCanvas = () => {
       ctx.strokeStyle = 'rgba(0,0,0,1)'
     } else {
       ctx.globalCompositeOperation = 'source-over'
-      ctx.strokeStyle = stroke.color || '#fb7185'
+      let strokeColor = stroke.color || '#e11d48'
+      if (strokeColor.toLowerCase() === '#ffffff') {
+        strokeColor = '#0f172a'
+      }
+      ctx.strokeStyle = strokeColor
     }
 
     const scaleFactor = Math.min(canvas.width, canvas.height) / 400
@@ -3625,12 +3629,12 @@ ion-toolbar {
   position: relative;
   margin-top: 14px;
   min-height: 200px;
-  background-color: #0f172a;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-color: #ffffff;
+  background-image: radial-gradient(#e2e8f0 1.2px, transparent 1.2px);
   background-size: 20px 20px;
-  border-radius: 20px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.03), 0 2px 10px rgba(15, 23, 42, 0.04);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -3651,7 +3655,7 @@ ion-toolbar {
   height: 14px;
   background: radial-gradient(circle at 35% 35%, #fb7185, #e11d48);
   border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 2px rgba(255, 255, 255, 0.5);
+  box-shadow: 0 2px 5px rgba(225, 29, 72, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
 .preview-canvas-wrap {
@@ -3676,26 +3680,27 @@ ion-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 14px 10px;
-  background: linear-gradient(to top, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.6) 60%, transparent 100%);
-  color: #cbd5e1;
+  padding: 16px 14px 10px;
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.75) 60%, transparent 100%);
+  color: #64748b;
   font-size: 11px;
   pointer-events: none;
 }
 
 .meta-author {
   font-weight: 500;
-  color: #f1f5f9;
+  color: #334155;
 }
 
 .meta-author strong {
-  color: #fb7185;
+  color: #0f172a;
+  font-weight: 700;
 }
 
 .meta-action-hint {
   font-size: 10.5px;
   color: #94a3b8;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* EMPTY DOODLE STATE */
@@ -3707,6 +3712,7 @@ ion-toolbar {
   padding: 32px 20px;
   text-align: center;
   min-height: 200px;
+  background-color: #fafbfc;
 }
 
 .empty-doodle-illustration {
@@ -3718,8 +3724,8 @@ ion-toolbar {
 }
 
 .empty-brush-icon {
-  font-size: 38px;
-  color: rgba(251, 113, 133, 0.8);
+  font-size: 36px;
+  color: #cbd5e1;
   transform: rotate(-15deg);
 }
 
@@ -3727,22 +3733,22 @@ ion-toolbar {
   position: absolute;
   top: -4px;
   right: -8px;
-  font-size: 18px;
-  color: #f43f5e;
-  filter: drop-shadow(0 0 6px rgba(244, 63, 94, 0.5));
+  font-size: 17px;
+  color: #fb7185;
+  filter: drop-shadow(0 2px 6px rgba(251, 113, 133, 0.4));
 }
 
 .empty-doodle-title {
   font-family: 'Outfit', sans-serif;
   font-size: 15px;
   font-weight: 700;
-  color: #ffffff;
+  color: #0f172a;
   margin: 0 0 4px;
 }
 
 .empty-doodle-sub {
   font-size: 12px;
-  color: #94a3b8;
+  color: #64748b;
   max-width: 280px;
   margin: 0 0 16px;
   line-height: 1.45;
@@ -3752,12 +3758,20 @@ ion-toolbar {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 18px;
+  padding: 9px 20px;
   font-size: 13px;
   font-weight: 700;
   border-radius: 9999px;
-  background: linear-gradient(135deg, #fb7185 0%, #e11d48 100%);
+  background: #0f172a;
+  color: #ffffff;
   border: none;
-  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.16);
+  cursor: pointer;
+  transition: transform 0.16s ease, background 0.16s ease;
+}
+
+.doodle-start-btn:active {
+  transform: scale(0.96);
+  background: #1e293b;
 }
 </style>
