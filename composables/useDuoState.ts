@@ -215,6 +215,24 @@ export interface SavingsContribution {
   created_at: string
 }
 
+export interface DuoDoodleStroke {
+  color: string
+  width: number
+  points: number[] // flattened [x0, y0, x1, y1, ...] in 0..1 normalized coordinates
+  isEraser?: boolean
+}
+
+export interface DuoDoodle {
+  id: string
+  partnership_id: string
+  strokes: DuoDoodleStroke[]
+  preview_svg?: string
+  author_id: string
+  author_name: string
+  created_at: string
+  updated_at: string
+}
+
 // Helpers for unique code generation
 const generateUniqueCode = () => {
   const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'
@@ -308,6 +326,10 @@ const moviesList = ref<MovieItem[]>([])
 const mealsList = ref<MealItem[]>([])
 const savingsGoals = ref<SavingsGoal[]>([])
 const savingsContributions = ref<SavingsContribution[]>([])
+const currentDoodle = ref<DuoDoodle | null>(null)
+const isPartnerDrawing = ref(false)
+const partnerLiveStroke = ref<{ stroke: DuoDoodleStroke; timestamp: number } | null>(null)
+let partnerDrawingTimeout: any = null
 
 // Active sub-tabs for grouped navigation
 export const activeDailySubTab = ref<'shopping' | 'tasks' | 'meals' | 'savings'>('shopping')
@@ -764,6 +786,11 @@ export const useDuoState = () => {
       savingsContributions.value = []
     }
 
+    const savedDoodle = loadFromStorage<DuoDoodle | null>('duonest_active_doodle', null)
+    if (savedDoodle) {
+      currentDoodle.value = savedDoodle
+    }
+
     if (typeof window !== 'undefined' && currentUser.value?.id) {
       try {
         const savedTs = localStorage.getItem(`duonest_last_nudge_ts_${currentUser.value.id}`)
@@ -1067,6 +1094,7 @@ export const useDuoState = () => {
     mealsList.value = []
     savingsGoals.value = []
     savingsContributions.value = []
+    currentDoodle.value = null
     lastNudgeSentAt.value = null
     if (typeof window !== 'undefined') {
       localStorage.removeItem('duonest_partner_user')
@@ -1081,6 +1109,7 @@ export const useDuoState = () => {
       localStorage.removeItem('duonest_meals')
       localStorage.removeItem('duonest_savings_goals')
       localStorage.removeItem('duonest_savings_contributions')
+      localStorage.removeItem('duonest_active_doodle')
     }
     syncToStorage()
   }
@@ -1506,7 +1535,8 @@ export const useDuoState = () => {
         'MEAL_TOGGLE_COMPLETED',
         'SAVINGS_GOAL_ADD',
         'SAVINGS_CONTRIBUTION_ADD',
-        'SAVINGS_GOAL_UPDATE'
+        'SAVINGS_GOAL_UPDATE',
+        'DOODLE_SAVE'
       ]
 
       if (actionsForPush.includes(action)) {
@@ -2473,6 +2503,44 @@ export const useDuoState = () => {
           }
           break
         }
+        case 'DOODLE_LIVE_STROKE': {
+          if (data?.stroke) {
+            isPartnerDrawing.value = true
+            partnerLiveStroke.value = {
+              stroke: data.stroke,
+              timestamp: Date.now()
+            }
+            if (partnerDrawingTimeout) clearTimeout(partnerDrawingTimeout)
+            partnerDrawingTimeout = setTimeout(() => {
+              isPartnerDrawing.value = false
+            }, 3500)
+          }
+          break
+        }
+        case 'DOODLE_DRAWING_STATUS': {
+          isPartnerDrawing.value = Boolean(data?.isDrawing)
+          if (!data?.isDrawing && partnerDrawingTimeout) {
+            clearTimeout(partnerDrawingTimeout)
+            partnerDrawingTimeout = null
+          }
+          break
+        }
+        case 'DOODLE_SAVE': {
+          if (data?.doodle) {
+            currentDoodle.value = data.doodle
+            isPartnerDrawing.value = false
+            saveToStorage('duonest_active_doodle', currentDoodle.value)
+            triggerToast(`${senderName} narysował(a) coś dla Ciebie! 🎨`, { type: 'love' })
+          }
+          break
+        }
+        case 'DOODLE_CLEAR': {
+          currentDoodle.value = null
+          isPartnerDrawing.value = false
+          saveToStorage('duonest_active_doodle', null)
+          triggerToast(`${senderName} wyczyścił(a) tablicę`)
+          break
+        }
         case 'REQ_STATE_SYNC': {
           const shareableWishlist = wishlistItems.value.filter(i => i.is_visible_to_partner || i.created_by !== currentUser.value.id)
           broadcastToPartner('RESP_STATE_SYNC', {
@@ -2485,6 +2553,7 @@ export const useDuoState = () => {
             savingsGoals: savingsGoals.value,
             savingsContributions: savingsContributions.value,
             partnership: partnership.value,
+            doodle: currentDoodle.value,
             userMood: {
               mood: currentUser.value.current_mood,
               note: currentUser.value.mood_note
@@ -2500,6 +2569,12 @@ export const useDuoState = () => {
                 ...data.profile,
                 name: data.profile.name || partnerUser.value?.name || 'Partner',
                 points: Number(partnerUser.value?.points) || 0
+              }
+            }
+            if (data.doodle) {
+              if (!currentDoodle.value || new Date(data.doodle.updated_at) >= new Date(currentDoodle.value.updated_at)) {
+                currentDoodle.value = data.doodle
+                saveToStorage('duonest_active_doodle', currentDoodle.value)
               }
             }
             if (Array.isArray(data.shopping) && data.shopping.length > 0) shoppingItems.value = data.shopping
@@ -3004,6 +3079,29 @@ export const useDuoState = () => {
       }
       if (ndgs.data) {
         nudgesList.value = ndgs.data
+        const doodleNudge = ndgs.data.find((n: any) => n.nudge_type === 'doodle' && n.message)
+        if (doodleNudge) {
+          try {
+            const parsed = JSON.parse(doodleNudge.message)
+            const author = doodleNudge.sender_id === currentUser.value.id
+              ? (currentUser.value.name || 'Ty')
+              : (partnerUser.value?.name || 'Partner')
+            const incomingDoodle: DuoDoodle = {
+              id: doodleNudge.id,
+              partnership_id: doodleNudge.partnership_id,
+              strokes: parsed.strokes || [],
+              preview_svg: parsed.preview_svg,
+              author_id: doodleNudge.sender_id,
+              author_name: author,
+              created_at: doodleNudge.created_at,
+              updated_at: doodleNudge.created_at
+            }
+            if (!currentDoodle.value || new Date(incomingDoodle.updated_at) >= new Date(currentDoodle.value.updated_at)) {
+              currentDoodle.value = incomingDoodle
+              saveToStorage('duonest_active_doodle', currentDoodle.value)
+            }
+          } catch (_) {}
+        }
       }
       if (wshs.data) {
         const myIds = new Set([currentUser.value?.id, authUser.value?.id].filter(Boolean))
@@ -4990,6 +5088,60 @@ export const useDuoState = () => {
     return true
   }
 
+  const saveDoodle = (strokes: DuoDoodleStroke[], previewSvg?: string): DuoDoodle | null => {
+    if (!partnership.value?.id) return null
+    const newDoodle: DuoDoodle = {
+      id: 'doodle_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
+      partnership_id: partnership.value.id,
+      strokes,
+      preview_svg: previewSvg,
+      author_id: currentUser.value.id,
+      author_name: currentUser.value.name || 'Ty',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+
+    currentDoodle.value = newDoodle
+    saveToStorage('duonest_active_doodle', newDoodle)
+
+    broadcastToPartner('DOODLE_SAVE', { doodle: newDoodle })
+
+    const client = getCleanDbClient() || getSupabaseClient()
+    if (client && isOnlineWithSupabase.value && partnership.value?.id) {
+      const nudgeRecord = {
+        id: newDoodle.id,
+        partnership_id: newDoodle.partnership_id,
+        sender_id: currentUser.value.id,
+        receiver_id: partnerUser.value?.id || '',
+        nudge_type: 'doodle',
+        message: JSON.stringify({
+          strokes: newDoodle.strokes,
+          preview_svg: newDoodle.preview_svg
+        }),
+        created_at: newDoodle.updated_at
+      }
+      safeDb(client.from('nudges').insert(nudgeRecord))
+    }
+
+    triggerToast('Zapisano rysunek na tablicy! 🎨', { type: 'love' })
+    return newDoodle
+  }
+
+  const clearDoodle = () => {
+    currentDoodle.value = null
+    saveToStorage('duonest_active_doodle', null)
+    broadcastToPartner('DOODLE_CLEAR', {})
+    triggerToast('Wyczyszczono tablicę')
+  }
+
+  const broadcastLiveStroke = (stroke: DuoDoodleStroke) => {
+    broadcastToPartner('DOODLE_LIVE_STROKE', { stroke })
+  }
+
+  const broadcastDrawingStatus = (isDrawing: boolean) => {
+    broadcastToPartner('DOODLE_DRAWING_STATUS', { isDrawing })
+  }
+
   return {
     authUser,
     authSession,
@@ -5106,6 +5258,13 @@ export const useDuoState = () => {
     resendVerificationEmail,
     legacyRecoveryState,
     syncUserProfileWithAuth,
-    changeUserPassword
+    changeUserPassword,
+    currentDoodle,
+    isPartnerDrawing,
+    partnerLiveStroke,
+    saveDoodle,
+    clearDoodle,
+    broadcastLiveStroke,
+    broadcastDrawingStatus
   }
 }

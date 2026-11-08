@@ -264,7 +264,63 @@
         </div>
       </div>
 
-      <!-- 4. TODAY'S PENDING CHORES SUMMARY -->
+      <!-- 4. LIVE SHARED DOODLE / KARTECZKA NA LODÓWCE -->
+      <div class="dn-card nest-doodle-card" @click="isDoodleModalOpen = true">
+        <div class="card-header-row">
+          <div class="header-left">
+            <span class="section-badge love-badge">
+              <ion-icon :icon="ioniconsColorPaletteOutline" class="badge-mini-icon" />
+              KARTECZKA NA LODÓWCE
+            </span>
+            <h4>Wspólna Tablica</h4>
+          </div>
+
+          <div class="doodle-header-status">
+            <span v-if="isPartnerDrawing" class="doodle-status-pill drawing">
+              <span class="live-dot-pulse"></span>
+              {{ partnerUser?.name || 'Partner' }} teraz rysuje!
+            </span>
+            <span v-else-if="hasDoodleContent" class="doodle-status-pill author">
+              📌 {{ currentDoodle?.author_name }}
+            </span>
+            <span v-else class="doodle-status-pill empty">
+              Kliknij, aby narysować
+            </span>
+          </div>
+        </div>
+
+        <!-- DOODLE PREVIEW CANVAS CONTAINER -->
+        <div class="nest-doodle-preview-box">
+          <div class="doodle-magnet-pin">
+            <span class="pin-magnet"></span>
+          </div>
+
+          <!-- If there is a doodle -->
+          <div v-show="hasDoodleContent" class="preview-canvas-wrap">
+            <canvas ref="previewCanvasRef" class="preview-mini-canvas"></canvas>
+            <div class="preview-meta-bar">
+              <span class="meta-author">Od: <strong>{{ currentDoodle?.author_name }}</strong></span>
+              <span class="meta-action-hint">Dotknij, aby otworzyć tablicę ✨</span>
+            </div>
+          </div>
+
+          <!-- Empty state placeholder -->
+          <div v-show="!hasDoodleContent" class="doodle-empty-canvas">
+            <div class="empty-doodle-illustration">
+              <ion-icon :icon="ioniconsBrushOutline" class="empty-brush-icon" />
+              <ion-icon :icon="ioniconsHeart" class="empty-heart-icon" />
+            </div>
+            <p class="empty-doodle-title">Czysta karteczka na lodówce!</p>
+            <p class="empty-doodle-sub">Zostaw miłą wiadomość lub narysuj coś słodkiego dla {{ partnerUser?.name || 'partnera' }}.</p>
+            <button class="dn-button-primary doodle-start-btn" @click.stop="isDoodleModalOpen = true">
+              <ion-icon :icon="ioniconsColorPaletteOutline" />
+              <span>Narysuj coś 🎨</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. TODAY'S PENDING CHORES SUMMARY -->
       <div class="dn-card tasks-summary-card">
         <div class="card-header-row">
           <div class="header-left">
@@ -754,6 +810,9 @@
         </div>
       </ion-modal>
 
+      <!-- SHARED DOODLE / LIVE DRAWING STUDIO MODAL -->
+      <DuoDoodleModal :is-open="isDoodleModalOpen" @close="isDoodleModalOpen = false" />
+
       <!-- Floating bottom tab bar spacer so content never gets obscured -->
       <div class="tab-bottom-spacer" style="height: 105px;" aria-hidden="true"></div>
     </ion-content>
@@ -761,12 +820,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import confetti from 'canvas-confetti'
 import { useDuoState } from '~/composables/useDuoState'
 import { usePushNotifications } from '~/composables/usePushNotifications'
 import { useConfirm } from '~/composables/useConfirm'
 import DuoIcon from '~/components/DuoIcon.vue'
+import DuoDoodleModal from '~/components/DuoDoodleModal.vue'
 
 const {
   currentUser,
@@ -801,12 +861,88 @@ const {
   deleteMilestone,
   claimMilestone,
   reactivateMilestone,
-  initSupabaseSync
+  initSupabaseSync,
+  currentDoodle,
+  isPartnerDrawing,
+  partnerLiveStroke
 } = useDuoState()
 
 const { confirm } = useConfirm()
 
 const { askPermissionAfterPairing } = usePushNotifications()
+
+const isDoodleModalOpen = ref(false)
+const previewCanvasRef = ref<HTMLCanvasElement | null>(null)
+
+const hasDoodleContent = computed(() => {
+  return Boolean(currentDoodle.value && currentDoodle.value.strokes && currentDoodle.value.strokes.length > 0)
+})
+
+const renderPreviewCanvas = () => {
+  const canvas = previewCanvasRef.value
+  if (!canvas) return
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  const rect = canvas.getBoundingClientRect()
+  if (rect.width <= 0 || rect.height <= 0) return
+
+  const dpr = window.devicePixelRatio || 1
+  canvas.width = Math.round(rect.width * dpr)
+  canvas.height = Math.round(rect.height * dpr)
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+  const doodleStrokes = currentDoodle.value?.strokes || []
+  for (const stroke of doodleStrokes) {
+    const pts = stroke.points
+    if (!pts || pts.length < 2) continue
+
+    ctx.save()
+    if (stroke.isEraser) {
+      ctx.globalCompositeOperation = 'destination-out'
+      ctx.strokeStyle = 'rgba(0,0,0,1)'
+    } else {
+      ctx.globalCompositeOperation = 'source-over'
+      ctx.strokeStyle = stroke.color || '#fb7185'
+    }
+
+    const scaleFactor = Math.min(canvas.width, canvas.height) / 400
+    ctx.lineWidth = Math.max(1.5, stroke.width * scaleFactor)
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+
+    if (pts.length === 2) {
+      ctx.beginPath()
+      ctx.arc(pts[0] * canvas.width, pts[1] * canvas.height, ctx.lineWidth / 2, 0, Math.PI * 2)
+      ctx.fillStyle = ctx.strokeStyle
+      ctx.fill()
+      ctx.restore()
+      continue
+    }
+
+    ctx.beginPath()
+    ctx.moveTo(pts[0] * canvas.width, pts[1] * canvas.height)
+    for (let i = 2; i < pts.length; i += 2) {
+      const prevX = pts[i - 2] * canvas.width
+      const prevY = pts[i - 1] * canvas.height
+      const currX = pts[i] * canvas.width
+      const currY = pts[i + 1] * canvas.height
+      const midX = (prevX + currX) / 2
+      const midY = (prevY + currY) / 2
+      ctx.quadraticCurveTo(prevX, prevY, midX, midY)
+    }
+    ctx.lineTo(pts[pts.length - 2] * canvas.width, pts[pts.length - 1] * canvas.height)
+    ctx.stroke()
+    ctx.restore()
+  }
+}
+
+watch([() => currentDoodle.value, () => partnerLiveStroke.value], () => {
+  nextTick(() => {
+    renderPreviewCanvas()
+  })
+}, { deep: true })
 
 const liveNowMs = ref(Date.now())
 let activityTimer: any = null
@@ -825,6 +961,10 @@ onMounted(async () => {
   if (partnership.value) {
     askPermissionAfterPairing(partnerUser.value?.name || 'Partner')
   }
+
+  nextTick(() => {
+    renderPreviewCanvas()
+  })
 })
 
 onUnmounted(() => {
@@ -3418,5 +3558,206 @@ ion-toolbar {
   padding: 12px 20px;
   border-radius: 12px;
   font-size: 14px;
+}
+
+/* ========================================================== */
+/* 4. LIVE SHARED DOODLE / KARTECZKA NA LODÓWCE CARD           */
+/* ========================================================== */
+.nest-doodle-card {
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.nest-doodle-card:active {
+  transform: scale(0.99);
+}
+
+.doodle-header-status {
+  display: flex;
+  align-items: center;
+}
+
+.doodle-status-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.doodle-status-pill.drawing {
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  color: #e11d48;
+  animation: doodlePillPulse 1.6s infinite ease-in-out;
+}
+
+.doodle-status-pill.author {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.doodle-status-pill.empty {
+  background: #f8fafc;
+  color: #94a3b8;
+  border: 1px dashed #cbd5e1;
+}
+
+.live-dot-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #f43f5e;
+  box-shadow: 0 0 6px #f43f5e;
+}
+
+@keyframes doodlePillPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.03); }
+}
+
+.nest-doodle-preview-box {
+  position: relative;
+  margin-top: 14px;
+  min-height: 200px;
+  background-color: #0f172a;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 20px 20px;
+  border-radius: 20px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.doodle-magnet-pin {
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.pin-magnet {
+  display: block;
+  width: 14px;
+  height: 14px;
+  background: radial-gradient(circle at 35% 35%, #fb7185, #e11d48);
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4), inset 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+
+.preview-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-mini-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.preview-meta-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 14px 10px;
+  background: linear-gradient(to top, rgba(15, 23, 42, 0.95) 0%, rgba(15, 23, 42, 0.6) 60%, transparent 100%);
+  color: #cbd5e1;
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.meta-author {
+  font-weight: 500;
+  color: #f1f5f9;
+}
+
+.meta-author strong {
+  color: #fb7185;
+}
+
+.meta-action-hint {
+  font-size: 10.5px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* EMPTY DOODLE STATE */
+.doodle-empty-canvas {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  text-align: center;
+  min-height: 200px;
+}
+
+.empty-doodle-illustration {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.empty-brush-icon {
+  font-size: 38px;
+  color: rgba(251, 113, 133, 0.8);
+  transform: rotate(-15deg);
+}
+
+.empty-heart-icon {
+  position: absolute;
+  top: -4px;
+  right: -8px;
+  font-size: 18px;
+  color: #f43f5e;
+  filter: drop-shadow(0 0 6px rgba(244, 63, 94, 0.5));
+}
+
+.empty-doodle-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 4px;
+}
+
+.empty-doodle-sub {
+  font-size: 12px;
+  color: #94a3b8;
+  max-width: 280px;
+  margin: 0 0 16px;
+  line-height: 1.45;
+}
+
+.doodle-start-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #fb7185 0%, #e11d48 100%);
+  border: none;
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35);
 }
 </style>

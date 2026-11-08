@@ -236,4 +236,21 @@ begin
   alter publication supabase_realtime add table public.savings_contributions;
 exception when others then null;
 end $$;
+
+create table if not exists public.partnership_doodles (
+  id text primary key,
+  partnership_id text not null,
+  strokes jsonb not null default '[]'::jsonb,
+  preview_svg text,
+  author_id text,
+  author_name text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+do $$
+begin
+  alter publication supabase_realtime add table public.partnership_doodles;
+exception when others then null;
+end $$;
 `

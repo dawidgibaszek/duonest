@@ -582,6 +582,29 @@ begin
 exception when others then null;
 end $$;
 
+-- 12. PARTNERSHIP DOODLES (Wspólna Tablica / Karteczka na lodówce)
+create table if not exists public.partnership_doodles (
+  id text primary key,
+  partnership_id text not null references public.partnerships(id) on delete cascade,
+  strokes jsonb not null default '[]'::jsonb,
+  preview_svg text,
+  author_id text references public.profiles(id) on delete set null,
+  author_name text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_doodles_partnership on public.partnership_doodles(partnership_id, updated_at desc);
+
+alter table public.partnership_doodles enable row level security;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.partnership_doodles;
+exception when others then null;
+end $$;
+
+
 
 
 
