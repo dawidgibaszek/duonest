@@ -354,13 +354,14 @@ const onTouchEnd = (e: TouchEvent) => {
     rAFId = null
   }
 
+  const width = getContainerWidth()
+
   if (isDragging) {
     isDragging = false
 
     const touch = e.changedTouches[0]
     const currentTouchX = touch ? touch.clientX : (touchHistory[touchHistory.length - 1]?.x ?? touchStartX)
     const totalDx = currentTouchX - touchStartX
-    const width = getContainerWidth()
 
     // Calculate release velocity using recent touch history (last 80ms)
     const now = performance.now()
