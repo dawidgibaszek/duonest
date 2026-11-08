@@ -83,6 +83,32 @@
   to = "/.netlify/functions/push-test"
   status = 200
 
+# Pass through Nuxt and Vite dev server assets (prevents SPA catch-all from intercepting Vite dev bundles)
+[[redirects]]
+  from = "/_nuxt/*"
+  to = "/_nuxt/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/@vite/*"
+  to = "/@vite/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/@fs/*"
+  to = "/@fs/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/@id/*"
+  to = "/@id/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/__vite_ping"
+  to = "/__vite_ping"
+  status = 200
+
 # PWA & SPA Routing Fallback for Netlify
 [[redirects]]
   from = "/*"
@@ -114,7 +140,7 @@
 [[headers]]
   for = "/_nuxt/*"
   [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
+    cache-control = "public, max-age=31536000, immutable"
 
 [[headers]]
   for = "/*"

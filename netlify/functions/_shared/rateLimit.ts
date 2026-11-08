@@ -38,6 +38,9 @@ export async function getRateLimitResponse(
 ) {
   const client = getRateLimitClient()
   if (!client) {
+    if (process.env.NETLIFY_DEV === 'true' || process.env.NODE_ENV !== 'production') {
+      return null
+    }
     return {
       statusCode: 503,
       headers: { ...headers, 'Cache-Control': 'no-store', 'Retry-After': String(windowSeconds) },
@@ -55,6 +58,9 @@ export async function getRateLimitResponse(
   const result = Array.isArray(data) ? data[0] as RateLimitResult | undefined : undefined
   if (error || !result) {
     console.error('[RateLimit] Shared limiter unavailable:', error?.message || 'empty RPC result')
+    if (process.env.NETLIFY_DEV === 'true' || process.env.NODE_ENV !== 'production') {
+      return null
+    }
     return {
       statusCode: 503,
       headers: { ...headers, 'Cache-Control': 'no-store', 'Retry-After': String(windowSeconds) },
