@@ -576,4 +576,141 @@ ion-action-sheet .action-sheet-button.action-sheet-cancel {
   color: #475569;
 }
 
+/* ========================================================================== */
+/* DuoNest Delightful Micro-Interactions, List Transitions & Animations       */
+/* ========================================================================== */
+
+/* Vue TransitionGroup List Animations */
+.dn-list-enter-from {
+  opacity: 0;
+  transform: translateY(12px) scale(0.97);
+}
+.dn-list-leave-to {
+  opacity: 0;
+  transform: translateX(-32px) scale(0.92);
+  max-height: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+.dn-list-enter-active {
+  transition: opacity 0.32s cubic-bezier(0.16, 1, 0.3, 1), transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dn-list-leave-active {
+  transition: opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), max-height 0.32s ease, margin 0.32s ease, padding 0.32s ease;
+  overflow: hidden;
+}
+.dn-list-move {
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Deletion animation for single elements */
+@keyframes dnSlideOutLeft {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    max-height: 120px;
+  }
+  35% {
+    opacity: 0.7;
+    transform: translateX(-18px) scale(0.98);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50px) scale(0.85);
+    max-height: 0;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+}
+
+.dn-item-deleting {
+  animation: dnSlideOutLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Checkmark pop bouncy animation */
+@keyframes dnCheckBounce {
+  0% {
+    transform: scale(0.7);
+  }
+  45% {
+    transform: scale(1.32);
+  }
+  75% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.dn-check-pop {
+  animation: dnCheckBounce 0.38s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Card completion flash & celebration */
+@keyframes dnCardCompletePulse {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.02);
+    box-shadow: 0 4px 18px rgba(34, 197, 94, 0.22);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.dn-completing {
+  animation: dnCardCompletePulse 0.45s ease-out;
+}
+
+/* Animated strike-through line */
+@keyframes dnStrikeThrough {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.dn-strike-animated {
+  position: relative;
+  display: inline-block;
+  color: #94a3b8 !important;
+  transition: color 0.3s ease;
+}
+.dn-strike-animated::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 2px;
+  background: currentColor;
+  animation: dnStrikeThrough 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: none;
+}
+
+/* Input validation error shake */
+@keyframes dnShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+.dn-shake {
+  animation: dnShake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both !important;
+  border-color: #f59e0b !important;
+}
+
+
 

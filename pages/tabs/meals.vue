@@ -557,11 +557,17 @@
         <!-- Saved Recipes: Grid or List View -->
         <div v-else class="meals-cards-container">
           <!-- WIDOK A: KAFELKI (GRID VIEW) -->
-          <div v-if="savedViewMode === 'grid'" class="meals-cards-grid">
+          <TransitionGroup
+            name="dn-list"
+            tag="div"
+            v-if="savedViewMode === 'grid'"
+            class="meals-cards-grid"
+          >
             <div
               v-for="recipe in filteredSavedRecipes"
               :key="recipe.key"
               class="recipe-card dn-card"
+              :class="{ 'dn-item-deleting': deletingRecipeKeys.has(recipe.key) }"
               @click="openSavedRecipeDetails(recipe)"
             >
               <div class="recipe-card-media">
@@ -649,14 +655,20 @@
                 </div>
               </div>
             </div>
-          </div>
+          </TransitionGroup>
 
           <!-- WIDOK B: KOMPAKTOWA LISTA (LIST VIEW) -->
-          <div v-else class="saved-recipes-list-view">
+          <TransitionGroup
+            name="dn-list"
+            tag="div"
+            v-else
+            class="saved-recipes-list-view"
+          >
             <div
               v-for="recipe in filteredSavedRecipes"
               :key="recipe.key"
               class="saved-list-card dn-card"
+              :class="{ 'dn-item-deleting': deletingRecipeKeys.has(recipe.key) }"
               @click="openSavedRecipeDetails(recipe)"
             >
               <div class="saved-list-media">
@@ -724,7 +736,7 @@
                 </button>
               </div>
             </div>
-          </div>
+          </TransitionGroup>
         </div>
       </div>
 
@@ -1599,7 +1611,7 @@
             <button
               type="submit"
               class="dn-button-primary submit-custom-meal-btn"
-              :disabled="!customTitle.trim() || isSubmittingCustomMeal"
+              :disabled="isSubmittingCustomMeal"
             >
               <ion-spinner v-if="isSubmittingCustomMeal" name="crescent" style="width: 18px; height: 18px;" />
               <ion-icon v-else :icon="ioniconsCheckmarkOutline" />
@@ -2097,6 +2109,9 @@ const {
 
 const { confirm } = useConfirm()
 
+const deletingMealIds = ref<Set<string>>(new Set())
+const deletingRecipeKeys = ref<Set<string>>(new Set())
+
 const {
   hasPet,
   petLevel,
@@ -2510,7 +2525,18 @@ const handleDeleteMeal = async (id: string, mealTitle?: string) => {
     icon: 'trash'
   })
   if (confirmed) {
-    await deleteMeal(id)
+    if (deletingMealIds.value.has(id)) return
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([10, 30, 10])
+    }
+    deletingMealIds.value.add(id)
+    setTimeout(async () => {
+      try {
+        await deleteMeal(id)
+      } finally {
+        deletingMealIds.value.delete(id)
+      }
+    }, 240)
   }
 }
 
@@ -3025,19 +3051,30 @@ const confirmDeleteSavedRecipe = async (recipe: SavedRecipe | any) => {
   })
   if (confirmed) {
     const key = recipe.key || (recipe.api_id ? `api_${recipe.api_id}` : (recipe.id ? `api_${recipe.id}` : `custom_${(recipe.title || '').trim().toLowerCase()}`))
-    deletedSavedRecipeKeys.value.add(key)
-    if (process.client) {
+    if (deletingRecipeKeys.value.has(key)) return
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([10, 30, 10])
+    }
+    deletingRecipeKeys.value.add(key)
+    setTimeout(async () => {
       try {
-        localStorage.setItem('duonest_deleted_saved_recipes', JSON.stringify(Array.from(deletedSavedRecipeKeys.value)))
-      } catch (_) {}
-    }
-    await deleteSavedRecipe(recipe)
-    if (activeSelectedMeal.value) {
-      const activeKey = activeSelectedMeal.value.key || (activeSelectedMeal.value.api_id ? `api_${activeSelectedMeal.value.api_id}` : `custom_${(activeSelectedMeal.value.title || '').trim().toLowerCase()}`)
-      if (activeKey === key || (recipe.api_id && String(activeSelectedMeal.value.api_id) === String(recipe.api_id))) {
-        showDetailsModal.value = false
+        deletedSavedRecipeKeys.value.add(key)
+        if (process.client) {
+          try {
+            localStorage.setItem('duonest_deleted_saved_recipes', JSON.stringify(Array.from(deletedSavedRecipeKeys.value)))
+          } catch (_) {}
+        }
+        await deleteSavedRecipe(recipe)
+        if (activeSelectedMeal.value) {
+          const activeKey = activeSelectedMeal.value.key || (activeSelectedMeal.value.api_id ? `api_${activeSelectedMeal.value.api_id}` : `custom_${(activeSelectedMeal.value.title || '').trim().toLowerCase()}`)
+          if (activeKey === key || (recipe.api_id && String(activeSelectedMeal.value.api_id) === String(recipe.api_id))) {
+            showDetailsModal.value = false
+          }
+        }
+      } finally {
+        deletingRecipeKeys.value.delete(key)
       }
-    }
+    }, 240)
   }
 }
 
@@ -3156,7 +3193,11 @@ const isSubmittingCustomMeal = ref(false)
 const handleCreateCustomMeal = async () => {
   if (isSubmittingCustomMeal.value) return
   const cleanTitle = customTitle.value.trim().slice(0, 100)
-  if (!cleanTitle) return
+  if (!cleanTitle) {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(40)
+    triggerToast('Wpisz nazwę obiadu lub dania przed zapisaniem', { type: 'warning' })
+    return
+  }
 
   isSubmittingCustomMeal.value = true
   try {
@@ -3236,6 +3277,8 @@ const handleFetchRecipeFromUrl = async () => {
   if (isFetchingImport.value) return
   const cleanUrl = importUrlInput.value.trim()
   if (!cleanUrl) {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(40)
+    triggerToast('Wklej link do przepisu lub TikToka', { type: 'warning' })
     importErrorMessage.value = 'Wklej link do przepisu lub TikToka.'
     return
   }

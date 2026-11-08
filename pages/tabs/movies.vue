@@ -153,14 +153,21 @@
         </div>
 
         <!-- MOVIES LIST -->
-        <div v-if="filteredMovies.length > 0" class="movies-grid">
+        <TransitionGroup
+          name="dn-list"
+          tag="div"
+          v-if="filteredMovies.length > 0"
+          class="movies-grid"
+        >
           <div
             v-for="movie in filteredMovies"
             :key="movie.id"
             class="dn-card movie-card"
             :class="{
               'is-watched': movie.status === 'watched',
-              'is-watching': movie.status === 'watching'
+              'is-watching': movie.status === 'watching',
+              'dn-completing': completingMovieIds.has(movie.id),
+              'dn-item-deleting': deletingMovieIds.has(movie.id)
             }"
           >
             <!-- TOP SECTION: POSTER & MAIN INFO -->
@@ -404,7 +411,7 @@
               </button>
             </div>
           </div>
-        </div>
+        </TransitionGroup>
 
         <!-- EMPTY STATE (WHEN NO MOVIES IN CURRENT FILTER) -->
         <div v-else class="empty-movies-box dn-card">
@@ -1311,7 +1318,7 @@
             <button
               type="button"
               class="dn-button-primary submit-manual-btn"
-              :disabled="!manualForm.title.trim() || isSubmittingManual"
+              :disabled="isSubmittingManual"
               @click="submitManualAdd"
             >
               <ion-spinner v-if="isSubmittingManual" name="crescent" style="width: 18px; height: 18px;" />
@@ -1805,6 +1812,9 @@ const {
 } = useDuoState()
 
 const { confirm } = useConfirm()
+
+const completingMovieIds = ref<Set<string>>(new Set())
+const deletingMovieIds = ref<Set<string>>(new Set())
 
 // Subtab switcher to Wishlist
 const uncompletedWishlistCount = computed(() => {
@@ -2553,7 +2563,13 @@ const isSubmittingManual = ref(false)
 const submitManualAdd = async () => {
   if (isSubmittingManual.value) return
   const title = manualForm.value.title.trim().slice(0, 150)
-  if (!title) return
+  if (!title) {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(40)
+    }
+    triggerToast('Wpisz tytuł filmu lub serialu przed dodaniem', { type: 'warning' })
+    return
+  }
 
   if (isAlreadyInList(title)) {
     triggerToast('Film jest już na liście', {
@@ -2678,6 +2694,20 @@ const decrementEpisode = async (movie: MovieItem) => {
 
 // --- CARD ACTIONS ---
 const toggleMovieStatus = async (movie: MovieItem, newStatus: 'planned' | 'watching' | 'watched') => {
+  if (newStatus === 'watched') {
+    completingMovieIds.value.add(movie.id)
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([20, 40, 20])
+    }
+    confetti({
+      particleCount: 50,
+      spread: 60,
+      origin: { y: 0.6 }
+    })
+    setTimeout(() => {
+      completingMovieIds.value.delete(movie.id)
+    }, 450)
+  }
   await toggleMovieWatched(movie.id, newStatus)
   if (newStatus === 'watching' && isSeries(movie)) {
     openEpisodeModal(movie)
@@ -2695,7 +2725,18 @@ const confirmDeleteMovie = async (movie: MovieItem) => {
     icon: 'trash'
   })
   if (confirmed) {
-    deleteMovie(movie.id)
+    if (deletingMovieIds.value.has(movie.id)) return
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([10, 30, 10])
+    }
+    deletingMovieIds.value.add(movie.id)
+    setTimeout(async () => {
+      try {
+        await deleteMovie(movie.id)
+      } finally {
+        deletingMovieIds.value.delete(movie.id)
+      }
+    }, 240)
   }
 }
 

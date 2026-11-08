@@ -259,14 +259,23 @@
 
 
         <!-- Events List on Selected Day (Unified Agenda Card Design) -->
-        <div class="agenda-cards-list day-events-cards-list" v-if="filteredSelectedDayEvents.length > 0">
+        <TransitionGroup
+          name="dn-list"
+          tag="div"
+          class="agenda-cards-list day-events-cards-list"
+          v-if="filteredSelectedDayEvents.length > 0"
+        >
           <div
             v-for="evt in filteredSelectedDayEvents"
             :key="evt.id"
             class="dn-card agenda-card"
             :class="[
               'border-' + evt.category,
-              { 'is-event-done': evt.is_completed }
+              {
+                'is-event-done': evt.is_completed,
+                'dn-completing': completingEventIds.has(evt.id),
+                'dn-item-deleting': deletingEventIds.has(evt.id)
+              }
             ]"
             @click="openEditModal(evt)"
           >
@@ -284,7 +293,15 @@
               <span class="countdown-badge">{{ getCountdownLabel(evt.start_time) }}</span>
             </div>
 
-            <h4 class="agenda-title" :class="{ strike: evt.is_completed }">{{ evt.title }}</h4>
+            <h4
+              class="agenda-title"
+              :class="{
+                strike: evt.is_completed,
+                'dn-strike-animated': completingEventIds.has(evt.id)
+              }"
+            >
+              {{ evt.title }}
+            </h4>
 
             <div class="agenda-meta-row" v-if="evt.start_time || evt.location">
               <span class="meta-date" v-if="evt.start_time">
@@ -322,8 +339,11 @@
               <div class="agenda-card-actions" @click.stop>
                 <button
                   class="icon-action-btn"
-                  :class="{ 'done-btn': evt.is_completed }"
-                  @click="toggleEventCompleted(evt.id)"
+                  :class="{
+                    'done-btn': evt.is_completed,
+                    'dn-check-pop': completingEventIds.has(evt.id)
+                  }"
+                  @click="animatedToggleEvent(evt.id)"
                   :title="evt.is_completed ? 'Oznacz jako niezrealizowane' : 'Oznacz jako zrealizowane'"
                 >
                   <ion-icon :icon="evt.is_completed ? ioniconsCheckmarkCircle : ioniconsCheckmarkCircleOutline" />
@@ -345,7 +365,7 @@
               </div>
             </div>
           </div>
-        </div>
+        </TransitionGroup>
 
         <!-- Empty Day State with Quick Ideas -->
         <div class="empty-day-state" v-else>
@@ -392,14 +412,18 @@
             <span>NADCHODZĄCE PLANY ({{ groupedAgenda.upcoming.length }})</span>
           </div>
 
-          <div class="agenda-cards-list">
+          <TransitionGroup name="dn-list" tag="div" class="agenda-cards-list">
             <div
               v-for="evt in groupedAgenda.upcoming"
               :key="evt.id"
               class="dn-card agenda-card"
               :class="[
                 'border-' + evt.category,
-                { 'is-event-done': evt.is_completed }
+                {
+                  'is-event-done': evt.is_completed,
+                  'dn-completing': completingEventIds.has(evt.id),
+                  'dn-item-deleting': deletingEventIds.has(evt.id)
+                }
               ]"
               @click="selectDate(getDateOnly(evt.start_time)); activeViewMode = 'month'"
             >
@@ -417,7 +441,15 @@
                 <span class="countdown-badge">{{ getCountdownLabel(evt.start_time) }}</span>
               </div>
 
-              <h4 class="agenda-title" :class="{ strike: evt.is_completed }">{{ evt.title }}</h4>
+              <h4
+                class="agenda-title"
+                :class="{
+                  strike: evt.is_completed,
+                  'dn-strike-animated': completingEventIds.has(evt.id)
+                }"
+              >
+                {{ evt.title }}
+              </h4>
 
               <div class="agenda-meta-row">
                 <span class="meta-date">
@@ -459,8 +491,11 @@
                 <div class="agenda-card-actions" @click.stop>
                   <button
                     class="icon-action-btn"
-                    :class="{ 'done-btn': evt.is_completed }"
-                    @click="toggleEventCompleted(evt.id)"
+                    :class="{
+                      'done-btn': evt.is_completed,
+                      'dn-check-pop': completingEventIds.has(evt.id)
+                    }"
+                    @click="animatedToggleEvent(evt.id)"
                     :title="evt.is_completed ? 'Oznacz jako niezrealizowane' : 'Oznacz jako zrealizowane'"
                   >
                     <ion-icon :icon="evt.is_completed ? ioniconsCheckmarkCircle : ioniconsCheckmarkCircleOutline" />
@@ -482,7 +517,7 @@
                 </div>
               </div>
             </div>
-          </div>
+          </TransitionGroup>
         </div>
 
         <!-- COMPLETED EVENTS SECTION -->
@@ -492,11 +527,14 @@
             <span>ZREALIZOWANE WSPÓLNE CHWILE ({{ groupedAgenda.completed.length }})</span>
           </div>
 
-          <div class="agenda-cards-list">
+          <TransitionGroup name="dn-list" tag="div" class="agenda-cards-list">
             <div
               v-for="evt in groupedAgenda.completed"
               :key="evt.id"
               class="dn-card agenda-card completed-agenda-card"
+              :class="{
+                'dn-item-deleting': deletingEventIds.has(evt.id)
+              }"
             >
               <div class="agenda-card-top">
                 <span class="upcoming-cat-badge completed-badge">
@@ -513,7 +551,7 @@
                 </button>
               </div>
             </div>
-          </div>
+          </TransitionGroup>
         </div>
 
         <!-- EMPTY AGENDA STATE -->
@@ -736,7 +774,7 @@
             </div>
 
             <!-- SUBMIT BUTTON -->
-            <button type="submit" class="dn-button-sea submit-btn" :disabled="!modalForm.title.trim() || isSubmitting">
+            <button type="submit" class="dn-button-sea submit-btn" :disabled="isSubmitting">
               <ion-spinner v-if="isSubmitting" name="crescent" style="width: 18px; height: 18px;" />
               <ion-icon v-else :icon="ioniconsCheckmarkOutline" />
               <span>{{ isEditingMode ? 'Zapisz zmiany w Planie' : 'Zapisz w Kalendarzu' }}</span>
@@ -800,6 +838,23 @@ const {
   hexToRgba,
   initSupabaseSync
 } = useDuoState()
+
+const completingEventIds = ref<Set<string>>(new Set())
+const deletingEventIds = ref<Set<string>>(new Set())
+
+const animatedToggleEvent = async (id: string) => {
+  const evt = eventsList.value.find(e => e.id === id)
+  const willBeCompleted = evt ? !evt.is_completed : false
+  if (willBeCompleted) {
+    completingEventIds.value.add(id)
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(25)
+    }
+    await new Promise(r => setTimeout(r, 240))
+    completingEventIds.value.delete(id)
+  }
+  await toggleEventCompleted(id)
+}
 
 const { confirm } = useConfirm()
 
@@ -1086,10 +1141,7 @@ const onWeekTouchEnd = (e: TouchEvent) => {
 }
 
 const handleSwipeCompleteEvent = (evt: EventItem) => {
-  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-    navigator.vibrate(15)
-  }
-  toggleEventCompleted(evt.id)
+  animatedToggleEvent(evt.id)
 }
 
 const jumpToToday = () => {
@@ -1405,7 +1457,13 @@ const isSubmitting = ref(false)
 const handleSaveEvent = async () => {
   if (isSubmitting.value) return
   const cleanTitle = modalForm.title.trim().slice(0, 100)
-  if (!cleanTitle) return
+  if (!cleanTitle) {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(40)
+    }
+    triggerToast('Wpisz nazwę wydarzenia przed zapisaniem', { type: 'warning' })
+    return
+  }
 
   isSubmitting.value = true
   try {
@@ -1455,7 +1513,18 @@ const confirmDeleteEvent = async (id: string, title: string) => {
     icon: 'trash'
   })
   if (confirmed) {
-    deleteEvent(id)
+    if (deletingEventIds.value.has(id)) return
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([10, 30, 10])
+    }
+    deletingEventIds.value.add(id)
+    setTimeout(async () => {
+      try {
+        await deleteEvent(id)
+      } finally {
+        deletingEventIds.value.delete(id)
+      }
+    }, 240)
   }
 }
 

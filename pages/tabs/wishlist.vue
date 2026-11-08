@@ -116,12 +116,17 @@
           <span>{{ getSectionTitle() }} ({{ filteredItems.length }})</span>
         </div>
 
-        <div class="wishlist-grid">
+        <TransitionGroup name="dn-list" tag="div" class="wishlist-grid">
           <div
             v-for="item in filteredItems"
             :key="item.id"
             class="wishlist-card dn-card"
-            :class="{ 'is-completed': item.is_completed, 'is-surprise': !item.is_visible_to_partner }"
+            :class="{
+              'is-completed': item.is_completed,
+              'is-surprise': !item.is_visible_to_partner,
+              'dn-completing': completingWishlistIds.has(item.id),
+              'dn-item-deleting': deletingWishlistIds.has(item.id)
+            }"
           >
           <!-- CARD HEADER: TARGET BADGE, SURPRISE BADGE, STORE NAME -->
           <div class="card-meta-row">
@@ -239,7 +244,7 @@
             </button>
           </div>
         </div>
-      </div>
+      </TransitionGroup>
     </div>
 
       <!-- 2. EMPTY STATE VIEW (WHEN NO ITEMS) -->
@@ -495,7 +500,7 @@
               <button
                 type="button"
                 class="dn-button-primary save-item-btn"
-                :disabled="!formData.title.trim() || isSubmitting"
+                :disabled="isSubmitting"
                 @click="handleSaveFormData"
               >
                 <ion-spinner v-if="isSubmitting" name="crescent" style="width: 18px; height: 18px;" />
@@ -517,6 +522,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useDuoState, type WishlistItem } from '~/composables/useDuoState'
 import { useConfirm } from '~/composables/useConfirm'
 import { formatSiteName, extractTitleFromUrl } from '~/utils/wishlistParser'
+import confetti from 'canvas-confetti'
 
 const contentRef = ref<any>(null)
 
@@ -538,6 +544,9 @@ const {
 } = useDuoState()
 
 const { confirm } = useConfirm()
+
+const completingWishlistIds = ref<Set<string>>(new Set())
+const deletingWishlistIds = ref<Set<string>>(new Set())
 
 // Subtab switcher to Movies
 const plannedMoviesCount = computed(() => {
@@ -882,7 +891,13 @@ const setFormTarget = (target: 'me' | 'partner' | 'together') => {
 const handleSaveFormData = async () => {
   if (isSubmitting.value) return
   const cleanTitle = formData.value.title.trim().slice(0, 120)
-  if (!cleanTitle) return
+  if (!cleanTitle) {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(40)
+    }
+    triggerToast('Wpisz nazwę marzenia lub prezentu przed zapisaniem', { type: 'warning' })
+    return
+  }
 
   isSubmitting.value = true
   try {
@@ -964,6 +979,22 @@ const handleSaveFormData = async () => {
 
 // Toggle completed / bought
 const handleToggleCompleted = async (id: string) => {
+  const item = wishlistItems.value.find(i => i.id === id)
+  const willBeCompleted = item ? !item.is_completed : false
+  if (willBeCompleted) {
+    completingWishlistIds.value.add(id)
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([20, 40, 20])
+    }
+    confetti({
+      particleCount: 50,
+      spread: 60,
+      origin: { y: 0.6 }
+    })
+    setTimeout(() => {
+      completingWishlistIds.value.delete(id)
+    }, 450)
+  }
   await toggleWishlistCompleted(id)
 }
 
@@ -981,14 +1012,25 @@ const handleDeleteItem = async (id: string, title?: string) => {
   })
   if (!confirmed) return
 
-  await deleteWishlistItem(id)
-  if (isModalOpen.value && editingItemId.value === id) {
-    closeModal()
+  if (deletingWishlistIds.value.has(id)) return
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    navigator.vibrate([10, 30, 10])
   }
-  await nextTick()
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new Event('resize'))
-  }
+  deletingWishlistIds.value.add(id)
+  setTimeout(async () => {
+    try {
+      await deleteWishlistItem(id)
+      if (isModalOpen.value && editingItemId.value === id) {
+        closeModal()
+      }
+      await nextTick()
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('resize'))
+      }
+    } finally {
+      deletingWishlistIds.value.delete(id)
+    }
+  }, 240)
 }
 
 // Open external URL in browser

@@ -157,71 +157,86 @@
           <span>DO ZROBIENIA ({{ filteredActiveTasks.length }})</span>
         </div>
 
-        <ion-list class="tasks-ion-list" :inset="true" v-if="filteredActiveTasks.length > 0">
-          <ion-item-sliding v-for="task in filteredActiveTasks" :key="task.id">
-            <!-- Swipe RIGHT gesture (side="start"): Complete task (+XP) -->
-            <ion-item-options side="start" @ionSwipe="handleSwipeCompleteTask(task)">
-              <ion-item-option color="success" :expandable="true" @click="handleSwipeCompleteTask(task)">
-                <ion-icon slot="icon-only" :icon="ioniconsCheckmarkDoneOutline" />
-              </ion-item-option>
-            </ion-item-options>
-
-            <ion-item
-              class="task-item"
-              :style="{
-                borderLeft: `4.5px solid ${getUserAccentColor(task.assigned_to)}`,
-                backgroundColor: task.assigned_to ? hexToRgba(getUserAccentColor(task.assigned_to), 0.03) : '#ffffff'
+        <div class="tasks-list-wrapper" v-if="filteredActiveTasks.length > 0">
+          <TransitionGroup name="dn-list" tag="div" class="tasks-transition-container">
+            <ion-item-sliding
+              v-for="task in filteredActiveTasks"
+              :key="task.id"
+              :class="{
+                'dn-completing': completingTaskIds.has(task.id),
+                'dn-item-deleting': deletingTaskIds.has(task.id)
               }"
-              lines="full"
             >
-              <ion-checkbox
-                slot="start"
-                :checked="task.is_completed"
-                @ionChange="handleToggleTask(task)"
+              <!-- Swipe RIGHT gesture (side="start"): Complete task (+XP) -->
+              <ion-item-options side="start" @ionSwipe="handleSwipeCompleteTask(task)">
+                <ion-item-option color="success" :expandable="true" @click="handleSwipeCompleteTask(task)">
+                  <ion-icon slot="icon-only" :icon="ioniconsCheckmarkDoneOutline" />
+                </ion-item-option>
+              </ion-item-options>
+
+              <ion-item
+                class="task-item"
                 :style="{
-                  '--checkbox-background-checked': getUserAccentColor(task.assigned_to),
-                  '--border-color-checked': getUserAccentColor(task.assigned_to)
+                  borderLeft: `4.5px solid ${getUserAccentColor(task.assigned_to)}`,
+                  backgroundColor: task.assigned_to ? hexToRgba(getUserAccentColor(task.assigned_to), 0.03) : '#ffffff'
                 }"
-              />
-              <ion-label>
-                <div class="task-title-row">
-                  <span class="task-title">{{ task.title }}</span>
-                  <span class="points-badge">+{{ task.points }} pkt</span>
-                </div>
+                lines="full"
+              >
+                <ion-checkbox
+                  slot="start"
+                  :checked="task.is_completed || completingTaskIds.has(task.id)"
+                  :class="{ 'dn-check-pop': completingTaskIds.has(task.id) }"
+                  @ionChange="handleToggleTask(task)"
+                  :style="{
+                    '--checkbox-background-checked': getUserAccentColor(task.assigned_to),
+                    '--border-color-checked': getUserAccentColor(task.assigned_to)
+                  }"
+                />
+                <ion-label>
+                  <div class="task-title-row">
+                    <span
+                      class="task-title"
+                      :class="{ 'dn-strike-animated': completingTaskIds.has(task.id) }"
+                    >
+                      {{ task.title }}
+                    </span>
+                    <span class="points-badge">+{{ task.points }} pkt</span>
+                  </div>
 
-                <p class="task-desc" v-if="task.description">{{ task.description }}</p>
+                  <p class="task-desc" v-if="task.description">{{ task.description }}</p>
 
-                <div class="task-tags-row">
-                  <!-- Assignee badge with dynamic accent color styling -->
-                  <span
-                    class="tag-pill"
-                    :style="{
-                      backgroundColor: hexToRgba(getUserAccentColor(task.assigned_to), 0.13),
-                      color: getUserAccentColor(task.assigned_to),
-                      border: `1px solid ${hexToRgba(getUserAccentColor(task.assigned_to), 0.28)}`
-                    }"
-                  >
-                    <ion-icon :icon="getAssigneeIonicon(task.assigned_to)" />
-                    <span>{{ getAssigneeLabel(task.assigned_to) }}</span>
-                  </span>
+                  <div class="task-tags-row">
+                    <!-- Assignee badge with dynamic accent color styling -->
+                    <span
+                      class="tag-pill"
+                      :style="{
+                        backgroundColor: hexToRgba(getUserAccentColor(task.assigned_to), 0.13),
+                        color: getUserAccentColor(task.assigned_to),
+                        border: `1px solid ${hexToRgba(getUserAccentColor(task.assigned_to), 0.28)}`
+                      }"
+                    >
+                      <ion-icon :icon="getAssigneeIonicon(task.assigned_to)" />
+                      <span>{{ getAssigneeLabel(task.assigned_to) }}</span>
+                    </span>
 
-                  <!-- Recurring chore badge -->
-                  <span class="tag-pill recurring-pill" v-if="task.is_recurring">
-                    <ion-icon :icon="ioniconsRepeatOutline" />
-                    <span>{{ getRecurrenceLabel(task.recurrence_interval) }}</span>
-                  </span>
-                </div>
-              </ion-label>
-            </ion-item>
+                    <!-- Recurring chore badge -->
+                    <span class="tag-pill recurring-pill" v-if="task.is_recurring">
+                      <ion-icon :icon="ioniconsRepeatOutline" />
+                      <span>{{ getRecurrenceLabel(task.recurrence_interval) }}</span>
+                    </span>
+                  </div>
+                </ion-label>
+              </ion-item>
 
-            <!-- Swipe LEFT gesture (side="end"): Delete -->
-            <ion-item-options side="end" @ionSwipe="handleSwipeDeleteTask(task.id)">
-              <ion-item-option color="danger" :expandable="true" @click="handleSwipeDeleteTask(task.id)">
-                <ion-icon slot="icon-only" :icon="ioniconsTrashOutline" />
-              </ion-item-option>
-            </ion-item-options>
-          </ion-item-sliding>
-        </ion-list>
+              <!-- Swipe LEFT gesture (side="end"): Delete -->
+              <ion-item-options side="end" @ionSwipe="handleSwipeDeleteTask(task.id)">
+                <ion-item-option color="danger" :expandable="true" @click="handleSwipeDeleteTask(task.id)">
+                  <ion-icon slot="icon-only" :icon="ioniconsTrashOutline" />
+                </ion-item-option>
+              </ion-item-options>
+            </ion-item-sliding>
+          </TransitionGroup>
+        </div>
 
         <div class="empty-state" v-else-if="filteredCompletedTasks.length === 0">
           <div class="empty-icon-circle">
@@ -237,44 +252,52 @@
             <span>UKOŃCZONE ({{ filteredCompletedTasks.length }})</span>
           </div>
 
-          <ion-list class="tasks-ion-list completed-list" :inset="true">
-            <ion-item-sliding v-for="task in filteredCompletedTasks" :key="task.id">
-              <!-- Swipe RIGHT gesture (side="start"): Restore task -->
-              <ion-item-options side="start" @ionSwipe="handleSwipeRestoreTask(task)">
-                <ion-item-option color="primary" :expandable="true" @click="handleSwipeRestoreTask(task)">
-                  <ion-icon slot="icon-only" :icon="ioniconsArrowUndoOutline" />
-                </ion-item-option>
-              </ion-item-options>
-
-              <ion-item
-                class="task-item completed"
-                :style="{
-                  borderLeft: `4.5px solid ${hexToRgba(getUserAccentColor(task.assigned_to), 0.35)}`
+          <div class="tasks-list-wrapper completed-list-wrapper">
+            <TransitionGroup name="dn-list" tag="div" class="tasks-transition-container">
+              <ion-item-sliding
+                v-for="task in filteredCompletedTasks"
+                :key="task.id"
+                :class="{
+                  'dn-item-deleting': deletingTaskIds.has(task.id)
                 }"
-                lines="full"
               >
-                <ion-checkbox
-                  slot="start"
-                  :checked="true"
-                  @ionChange="handleToggleTask(task)"
-                  color="success"
-                />
-                <ion-label>
-                  <div class="task-title-row">
-                    <span class="task-title strike">{{ task.title }}</span>
-                    <span class="points-badge completed-badge">+{{ task.points }} pkt</span>
-                  </div>
-                </ion-label>
-              </ion-item>
+                <!-- Swipe RIGHT gesture (side="start"): Restore task -->
+                <ion-item-options side="start" @ionSwipe="handleSwipeRestoreTask(task)">
+                  <ion-item-option color="primary" :expandable="true" @click="handleSwipeRestoreTask(task)">
+                    <ion-icon slot="icon-only" :icon="ioniconsArrowUndoOutline" />
+                  </ion-item-option>
+                </ion-item-options>
 
-              <!-- Swipe LEFT gesture (side="end"): Delete -->
-              <ion-item-options side="end" @ionSwipe="handleSwipeDeleteTask(task.id)">
-                <ion-item-option color="danger" :expandable="true" @click="handleSwipeDeleteTask(task.id)">
-                  <ion-icon slot="icon-only" :icon="ioniconsTrashOutline" />
-                </ion-item-option>
-              </ion-item-options>
-            </ion-item-sliding>
-          </ion-list>
+                <ion-item
+                  class="task-item completed"
+                  :style="{
+                    borderLeft: `4.5px solid ${hexToRgba(getUserAccentColor(task.assigned_to), 0.35)}`
+                  }"
+                  lines="full"
+                >
+                  <ion-checkbox
+                    slot="start"
+                    :checked="true"
+                    @ionChange="handleToggleTask(task)"
+                    color="success"
+                  />
+                  <ion-label>
+                    <div class="task-title-row">
+                      <span class="task-title strike">{{ task.title }}</span>
+                      <span class="points-badge completed-badge">+{{ task.points }} pkt</span>
+                    </div>
+                  </ion-label>
+                </ion-item>
+
+                <!-- Swipe LEFT gesture (side="end"): Delete -->
+                <ion-item-options side="end" @ionSwipe="handleSwipeDeleteTask(task.id)">
+                  <ion-item-option color="danger" :expandable="true" @click="handleSwipeDeleteTask(task.id)">
+                    <ion-icon slot="icon-only" :icon="ioniconsTrashOutline" />
+                  </ion-item-option>
+                </ion-item-options>
+              </ion-item-sliding>
+            </TransitionGroup>
+          </div>
         </div>
       </div>
 
@@ -728,7 +751,7 @@
               </div>
             </div>
 
-            <button type="submit" class="dn-button-sea submit-task-btn" :disabled="!newTaskTitle.trim() || isSubmitting || (newTaskIsRecurring && newTaskInterval === 'custom' && !isCustomIntervalValid)">
+            <button type="submit" class="dn-button-sea submit-task-btn" :disabled="isSubmitting">
               <ion-spinner v-if="isSubmitting" name="crescent" style="width: 18px; height: 18px;" />
               <ion-icon v-else :icon="ioniconsCheckmarkOutline" />
               <span>Dodaj Zadanie</span>
@@ -897,8 +920,12 @@ const {
   addTask,
   toggleTask,
   deleteTask,
-  initSupabaseSync
+  initSupabaseSync,
+  triggerToast
 } = useDuoState()
+
+const completingTaskIds = ref<Set<string>>(new Set())
+const deletingTaskIds = ref<Set<string>>(new Set())
 
 const {
   hasPet,
@@ -1274,6 +1301,14 @@ const getRecurrenceLabel = (interval?: string | null) => {
 
 const handleToggleTask = async (task: TaskItem) => {
   const willBeCompleted = !task.is_completed
+  if (willBeCompleted) {
+    completingTaskIds.value.add(task.id)
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(25)
+    }
+    await new Promise(resolve => setTimeout(resolve, 240))
+    completingTaskIds.value.delete(task.id)
+  }
   await toggleTask(task.id)
 
   if (willBeCompleted) {
@@ -1309,7 +1344,21 @@ const handleToggleTask = async (task: TaskItem) => {
 const handleCreateTask = async () => {
   if (isSubmitting.value) return
   const cleanTitle = newTaskTitle.value.trim().slice(0, 100)
-  if (!cleanTitle) return
+  if (!cleanTitle) {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(40)
+    }
+    triggerToast('Wpisz nazwę zadania przed zapisaniem', { type: 'warning' })
+    return
+  }
+
+  if (newTaskIsRecurring.value && newTaskInterval.value === 'custom' && !isCustomIntervalValid.value) {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(40)
+    }
+    triggerToast('Podaj poprawny czas dla niestandardowego powtarzania', { type: 'warning' })
+    return
+  }
 
   isSubmitting.value = true
   try {
@@ -1318,8 +1367,6 @@ const handleCreateTask = async () => {
     const recurrenceInterval = newTaskInterval.value === 'custom'
       ? `custom:${customIntervalTotalMinutes.value}`
       : newTaskInterval.value
-
-    if (newTaskIsRecurring.value && newTaskInterval.value === 'custom' && !isCustomIntervalValid.value) return
 
     await addTask(
       cleanTitle,
@@ -1359,10 +1406,18 @@ const handleSwipeRestoreTask = async (task: TaskItem) => {
 }
 
 const handleSwipeDeleteTask = async (id: string) => {
+  if (deletingTaskIds.value.has(id)) return
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     navigator.vibrate([10, 30, 10])
   }
-  await deleteTask(id)
+  deletingTaskIds.value.add(id)
+  setTimeout(async () => {
+    try {
+      await deleteTask(id)
+    } finally {
+      deletingTaskIds.value.delete(id)
+    }
+  }, 240)
 }
 
 const handleRefresh = async (event: any) => {

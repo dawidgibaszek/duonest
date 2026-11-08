@@ -207,12 +207,20 @@
         </div>
 
         <!-- GOALS LIST -->
-        <div v-else class="goals-grid">
+        <TransitionGroup
+          name="dn-list"
+          tag="div"
+          v-else
+          class="goals-grid"
+        >
           <div
             v-for="goal in filteredGoals"
             :key="goal.id"
             class="dn-card goal-card"
-            :class="{ 'is-completed': goal.is_completed }"
+            :class="{
+              'is-completed': goal.is_completed,
+              'dn-item-deleting': deletingGoalIds.has(goal.id)
+            }"
           >
             <!-- Goal Header -->
             <div class="goal-header">
@@ -322,7 +330,7 @@
               </button>
             </div>
           </div>
-        </div>
+        </TransitionGroup>
       </div>
 
       <!-- Floating bottom tab bar spacer -->
@@ -473,7 +481,7 @@
           <button
             type="submit"
             class="dn-button-primary submit-btn"
-            :disabled="!goalFormTitle.trim() || Number(goalFormTargetAmount) <= 0 || isSavingGoal"
+            :disabled="isSavingGoal"
           >
             <ion-spinner v-if="isSavingGoal" name="crescent" style="width: 18px; height: 18px;" />
             <ion-icon v-else :icon="ioniconsCheckmarkOutline" />
@@ -602,7 +610,7 @@
             type="submit"
             class="dn-button-primary submit-btn"
             :class="{ 'is-withdraw': isWithdrawal }"
-            :disabled="!depositAmount || Number(depositAmount) <= 0 || isSavingDeposit"
+            :disabled="isSavingDeposit"
           >
             <ion-spinner v-if="isSavingDeposit" name="crescent" style="width: 18px; height: 18px;" />
             <ion-icon v-else :icon="isWithdrawal ? ioniconsArrowDownOutline : ioniconsCashOutline" />
@@ -765,8 +773,11 @@ const {
   addSavingsContribution,
   deleteSavingsContribution,
   getUserAccentColor,
-  hexToRgba
+  hexToRgba,
+  triggerToast
 } = useDuoState()
+
+const deletingGoalIds = ref<Set<string>>(new Set())
 
 const { confirm } = useConfirm()
 const { hasPet, petLevel, onEnterPetView } = usePetState()
@@ -1008,8 +1019,17 @@ const handleSelectCategory = (catKey: string) => {
 const handleSaveGoal = async () => {
   if (isSavingGoal.value) return
   const cleanTitle = goalFormTitle.value.trim().slice(0, 100)
+  if (!cleanTitle) {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(40)
+    triggerToast('Wpisz nazwę celu lub skarbonki', { type: 'warning' })
+    return
+  }
   const targetNum = parseFloat(goalFormTargetAmount.value)
-  if (!cleanTitle || isNaN(targetNum) || targetNum <= 0) return
+  if (isNaN(targetNum) || targetNum <= 0) {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(40)
+    triggerToast('Wpisz kwotę docelową większą niż 0 zł', { type: 'warning' })
+    return
+  }
 
   isSavingGoal.value = true
   try {
@@ -1075,7 +1095,16 @@ const projectedAmount = computed(() => {
 const handleSaveDeposit = async () => {
   if (isSavingDeposit.value || !activeGoalForAction.value) return
   const amt = parseFloat(depositAmount.value)
-  if (isNaN(amt) || amt <= 0) return
+  if (isNaN(amt) || amt <= 0) {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(40)
+    triggerToast('Wpisz kwotę większą niż 0 zł', { type: 'warning' })
+    return
+  }
+  if (isWithdrawal.value && amt > (activeGoalForAction.value.current_amount || 0)) {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(40)
+    triggerToast('Kwota wypłaty przekracza aktualny stan skarbonki', { type: 'warning' })
+    return
+  }
 
   const effectiveAmt = isWithdrawal.value ? -amt : amt
   const goalBefore = activeGoalForAction.value
@@ -1183,7 +1212,18 @@ const goalActionButtons = computed(() => [
         type: 'danger'
       })
       if (confirmed) {
-        await deleteSavingsGoal(target.id)
+        if (deletingGoalIds.value.has(target.id)) return
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          navigator.vibrate([10, 30, 10])
+        }
+        deletingGoalIds.value.add(target.id)
+        setTimeout(async () => {
+          try {
+            await deleteSavingsGoal(target.id)
+          } finally {
+            deletingGoalIds.value.delete(target.id)
+          }
+        }, 240)
       }
     }
   },

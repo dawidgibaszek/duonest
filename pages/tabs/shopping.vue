@@ -134,7 +134,7 @@
             </div>
           </div>
 
-          <button type="submit" class="dn-button-sea add-btn" :disabled="!newItemTitle.trim() || isSubmitting">
+          <button type="submit" class="dn-button-sea add-btn" :disabled="isSubmitting">
             <ion-spinner v-if="isSubmitting" name="crescent" style="width: 18px; height: 18px;" />
             <ion-icon v-else :icon="ioniconsAddOutline" />
             <span>Dodaj do koszyka</span>
@@ -183,69 +183,102 @@
         <span>DO KUPIENIA ({{ filteredActiveItems.length }})</span>
       </div>
 
+      <div class="shopping-list-wrapper" v-if="filteredActiveItems.length > 0">
+        <TransitionGroup name="dn-list" tag="div" class="shopping-transition-container">
+          <ion-item-sliding
+            v-for="item in filteredActiveItems"
+            :key="item.id"
+            :class="{
+              'dn-completing': completingItemIds.has(item.id),
+              'dn-item-deleting': deletingItemIds.has(item.id)
+            }"
+          >
+            <!-- Swipe RIGHT gesture (side="start"): Mark as bought -->
+            <ion-item-options side="start" @ionSwipe="handleSwipeComplete(item.id)">
+              <ion-item-option color="success" :expandable="true" @click="handleSwipeComplete(item.id)">
+                <ion-icon slot="icon-only" :icon="ioniconsCheckmarkDoneOutline" />
+              </ion-item-option>
+            </ion-item-options>
 
-      <ion-list class="shopping-ion-list" :inset="true" v-if="filteredActiveItems.length > 0">
-        <ion-item-sliding v-for="item in filteredActiveItems" :key="item.id">
-          <!-- Swipe RIGHT gesture (side="start"): Mark as bought -->
-          <ion-item-options side="start" @ionSwipe="handleSwipeComplete(item.id)">
-            <ion-item-option color="success" :expandable="true" @click="handleSwipeComplete(item.id)">
-              <ion-icon slot="icon-only" :icon="ioniconsCheckmarkDoneOutline" />
-            </ion-item-option>
-          </ion-item-options>
+            <ion-item class="shopping-item" :class="{ completed: item.is_completed }" lines="none">
+              <!-- Custom Interactive Animated Checkbox -->
+              <button
+                type="button"
+                class="dn-checkbox-btn"
+                :class="{ checked: item.is_completed || completingItemIds.has(item.id) }"
+                :aria-label="item.is_completed ? 'Odznacz produkt' : 'Oznacz jako kupione'"
+                @click.stop="animatedToggleShoppingItem(item.id, item.is_completed)"
+              >
+                <ion-icon
+                  :icon="ioniconsCheckmarkOutline"
+                  class="dn-check-icon"
+                  :class="{ 'dn-check-pop': completingItemIds.has(item.id) }"
+                />
+              </button>
 
-          <ion-item class="shopping-item" :class="{ completed: item.is_completed }" lines="full">
-            <ion-checkbox
-              slot="start"
-              :checked="item.is_completed"
-              @ionChange="toggleShoppingItem(item.id)"
-              color="primary"
-            />
-            <ion-label>
-              <div class="item-title-row">
-                <span class="item-title">{{ item.title }}</span>
-                <span class="item-qty-tag" v-if="item.quantity">{{ /^\d+$/.test(item.quantity) ? `×${item.quantity}` : item.quantity }}</span>
+              <div class="shopping-item-content" @click="openEditItem(item)">
+                <div class="item-title-row">
+                  <span
+                    class="item-title"
+                    :class="{
+                      strike: item.is_completed,
+                      'dn-strike-animated': completingItemIds.has(item.id)
+                    }"
+                  >
+                    {{ item.title }}
+                  </span>
+                  <span class="item-qty-tag" v-if="item.quantity">
+                    {{ /^\d+$/.test(item.quantity) ? `×${item.quantity}` : item.quantity }}
+                  </span>
+                </div>
+                <div class="item-meta">
+                  <span class="item-category-tag">
+                    <DuoIcon :name="'cat-' + getCategoryKey(item.category)" :size="12" class="meta-cat-icon" />
+                    <span>{{ item.category }}</span>
+                  </span>
+                  <span
+                    class="item-author-badge"
+                    v-if="item.added_by"
+                    :style="{
+                      color: getUserAccentColor(item.added_by),
+                      backgroundColor: hexToRgba(getUserAccentColor(item.added_by), 0.12),
+                      borderColor: hexToRgba(getUserAccentColor(item.added_by), 0.28)
+                    }"
+                  >
+                    {{ item.added_by === currentUser.id ? 'Ty' : (partnerUser?.name || 'Partner') }}
+                  </span>
+                </div>
               </div>
-              <div class="item-meta">
-                <span class="item-category-tag">{{ item.category }}</span>
-                <span
-                  class="item-author-badge"
-                  v-if="item.added_by"
-                  :style="{
-                    color: getUserAccentColor(item.added_by),
-                    backgroundColor: hexToRgba(getUserAccentColor(item.added_by), 0.12),
-                    borderColor: hexToRgba(getUserAccentColor(item.added_by), 0.3)
-                  }"
+
+              <div class="item-actions-cluster">
+                <button
+                  type="button"
+                  class="item-action-btn edit-btn"
+                  :aria-label="`Edytuj ${item.title}`"
+                  @click.stop="openEditItem(item)"
                 >
-                  {{ item.added_by === currentUser.id ? 'Ty' : (partnerUser?.name || 'Partner') }}
-                </span>
+                  <ion-icon :icon="ioniconsCreateOutline" />
+                </button>
+                <button
+                  type="button"
+                  class="item-action-btn delete-btn"
+                  :aria-label="`Usuń ${item.title}`"
+                  @click.stop="animatedDeleteShoppingItem(item.id)"
+                >
+                  <ion-icon :icon="ioniconsTrashOutline" />
+                </button>
               </div>
-            </ion-label>
-            <button
-              type="button"
-              class="item-action-btn"
-              :aria-label="`Edytuj ${item.title}`"
-              @click.stop="openEditItem(item)"
-            >
-              <ion-icon :icon="ioniconsCreateOutline" />
-            </button>
-            <button
-              type="button"
-              class="item-action-btn delete"
-              :aria-label="`Usuń ${item.title}`"
-              @click.stop="handleSwipeDelete(item.id)"
-            >
-              <ion-icon :icon="ioniconsTrashOutline" />
-            </button>
-          </ion-item>
+            </ion-item>
 
-          <!-- Swipe LEFT gesture (side="end"): Delete -->
-          <ion-item-options side="end" @ionSwipe="handleSwipeDelete(item.id)">
-            <ion-item-option color="danger" :expandable="true" @click="handleSwipeDelete(item.id)">
-              <ion-icon slot="icon-only" :icon="ioniconsTrashOutline" />
-            </ion-item-option>
-          </ion-item-options>
-        </ion-item-sliding>
-      </ion-list>
+            <!-- Swipe LEFT gesture (side="end"): Delete -->
+            <ion-item-options side="end" @ionSwipe="handleSwipeDelete(item.id)">
+              <ion-item-option color="danger" :expandable="true" @click="handleSwipeDelete(item.id)">
+                <ion-icon slot="icon-only" :icon="ioniconsTrashOutline" />
+              </ion-item-option>
+            </ion-item-options>
+          </ion-item-sliding>
+        </TransitionGroup>
+      </div>
 
       <div class="empty-state" v-else-if="filteredCompletedItems.length === 0">
         <div class="empty-icon-circle">
@@ -272,38 +305,60 @@
           </button>
         </div>
 
-        <ion-list class="shopping-ion-list completed-list" :inset="true" v-if="showCompletedItems">
-          <ion-item-sliding v-for="item in filteredCompletedItems" :key="item.id">
-            <!-- Swipe RIGHT gesture (side="start"): Restore to active -->
-            <ion-item-options side="start" @ionSwipe="handleSwipeRestore(item.id)">
-              <ion-item-option color="primary" :expandable="true" @click="handleSwipeRestore(item.id)">
-                <ion-icon slot="icon-only" :icon="ioniconsArrowUndoOutline" />
-              </ion-item-option>
-            </ion-item-options>
+        <div class="shopping-list-wrapper completed-list-wrapper" v-if="showCompletedItems">
+          <TransitionGroup name="dn-list" tag="div" class="shopping-transition-container">
+            <ion-item-sliding
+              v-for="item in filteredCompletedItems"
+              :key="item.id"
+              :class="{
+                'dn-item-deleting': deletingItemIds.has(item.id)
+              }"
+            >
+              <!-- Swipe RIGHT gesture (side="start"): Restore to active -->
+              <ion-item-options side="start" @ionSwipe="handleSwipeRestore(item.id)">
+                <ion-item-option color="primary" :expandable="true" @click="handleSwipeRestore(item.id)">
+                  <ion-icon slot="icon-only" :icon="ioniconsArrowUndoOutline" />
+                </ion-item-option>
+              </ion-item-options>
 
-            <ion-item class="shopping-item completed" lines="full">
-              <ion-checkbox
-                slot="start"
-                :checked="true"
-                @ionChange="toggleShoppingItem(item.id)"
-                color="medium"
-              />
-              <ion-label>
-                <div class="item-title-row">
-                  <span class="item-title strike">{{ item.title }}</span>
-                  <span class="item-qty-tag strike" v-if="item.quantity">{{ /^\d+$/.test(item.quantity) ? `×${item.quantity}` : item.quantity }}</span>
+              <ion-item class="shopping-item completed" lines="none">
+                <button
+                  type="button"
+                  class="dn-checkbox-btn checked"
+                  aria-label="Przywróć produkt do listy"
+                  @click.stop="animatedToggleShoppingItem(item.id, true)"
+                >
+                  <ion-icon :icon="ioniconsCheckmarkOutline" class="dn-check-icon" />
+                </button>
+
+                <div class="shopping-item-content" @click="animatedToggleShoppingItem(item.id, true)">
+                  <div class="item-title-row">
+                    <span class="item-title strike">{{ item.title }}</span>
+                    <span class="item-qty-tag strike" v-if="item.quantity">{{ /^\d+$/.test(item.quantity) ? `×${item.quantity}` : item.quantity }}</span>
+                  </div>
                 </div>
-              </ion-label>
-            </ion-item>
 
-            <!-- Swipe LEFT gesture (side="end"): Delete -->
-            <ion-item-options side="end" @ionSwipe="handleSwipeDelete(item.id)">
-              <ion-item-option color="danger" :expandable="true" @click="handleSwipeDelete(item.id)">
-                <ion-icon slot="icon-only" :icon="ioniconsTrashOutline" />
-              </ion-item-option>
-            </ion-item-options>
-          </ion-item-sliding>
-        </ion-list>
+                <div class="item-actions-cluster">
+                  <button
+                    type="button"
+                    class="item-action-btn delete-btn"
+                    :aria-label="`Usuń ${item.title}`"
+                    @click.stop="animatedDeleteShoppingItem(item.id)"
+                  >
+                    <ion-icon :icon="ioniconsTrashOutline" />
+                  </button>
+                </div>
+              </ion-item>
+
+              <!-- Swipe LEFT gesture (side="end"): Delete -->
+              <ion-item-options side="end" @ionSwipe="handleSwipeDelete(item.id)">
+                <ion-item-option color="danger" :expandable="true" @click="handleSwipeDelete(item.id)">
+                  <ion-icon slot="icon-only" :icon="ioniconsTrashOutline" />
+                </ion-item-option>
+              </ion-item-options>
+            </ion-item-sliding>
+          </TransitionGroup>
+        </div>
       </div>
 
       <!-- Floating bottom tab bar spacer so content never gets obscured -->
@@ -381,7 +436,7 @@
             </div>
           </div>
 
-          <button type="submit" class="dn-button-sea add-btn" :disabled="!editItemTitle.trim() || isUpdatingItem">
+          <button type="submit" class="dn-button-sea add-btn" :disabled="isUpdatingItem">
             <ion-spinner v-if="isUpdatingItem" name="crescent" style="width: 18px; height: 18px;" />
             <ion-icon v-else :icon="ioniconsCheckmarkOutline" />
             <span>Zapisz zmiany</span>
@@ -413,7 +468,8 @@ const {
   clearCompletedShopping,
   getUserAccentColor,
   hexToRgba,
-  initSupabaseSync
+  initSupabaseSync,
+  triggerToast
 } = useDuoState()
 
 const { confirm } = useConfirm()
@@ -561,11 +617,46 @@ const getCategoryCount = (categoryName: string) => {
 }
 
 const isSubmitting = ref(false)
+const completingItemIds = ref<Set<string>>(new Set())
+const deletingItemIds = ref<Set<string>>(new Set())
+
+const getCategoryKey = (catName: string) => {
+  const found = categories.find(c => c.name === catName)
+  return found?.key || 'groceries'
+}
+
+const animatedToggleShoppingItem = (id: string, currentlyCompleted?: boolean) => {
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    navigator.vibrate(currentlyCompleted ? 15 : 30)
+  }
+  completingItemIds.value.add(id)
+  setTimeout(() => {
+    toggleShoppingItem(id)
+    completingItemIds.value.delete(id)
+  }, 220)
+}
+
+const animatedDeleteShoppingItem = (id: string) => {
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    navigator.vibrate([15, 30, 15])
+  }
+  deletingItemIds.value.add(id)
+  setTimeout(() => {
+    deleteShoppingItem(id)
+    deletingItemIds.value.delete(id)
+  }, 260)
+}
 
 const handleAddItem = async () => {
   if (isSubmitting.value) return
   const cleanTitle = newItemTitle.value.trim().slice(0, 100)
-  if (!cleanTitle) return
+  if (!cleanTitle) {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([20, 30, 20])
+    }
+    triggerToast('Wpisz nazwę produktu przed dodaniem do koszyka', { type: 'warning' })
+    return
+  }
 
   isSubmitting.value = true
   try {
@@ -574,6 +665,7 @@ const handleAddItem = async () => {
     saveRecentShoppingSuggestion(cleanTitle, selectedCategory.value)
     newItemTitle.value = ''
     newItemQty.value = ''
+    triggerToast(`Dodano "${cleanTitle}" do listy zakupów`, { type: 'shopping' })
   } finally {
     isSubmitting.value = false
   }
@@ -592,40 +684,39 @@ const closeEditModal = () => {
 }
 
 const handleUpdateItem = async () => {
-  if (!editingItemId.value || !editItemTitle.value.trim() || isUpdatingItem.value) return
+  if (!editingItemId.value || isUpdatingItem.value) return
+  const cleanTitle = editItemTitle.value.trim()
+  if (!cleanTitle) {
+    triggerToast('Wpisz nazwę produktu przed zapisaniem zmian', { type: 'warning' })
+    return
+  }
 
   isUpdatingItem.value = true
   try {
     const saved = await updateShoppingItem(editingItemId.value, {
-      title: editItemTitle.value.trim(),
+      title: cleanTitle,
       quantity: editItemQuantity.value.trim() || null,
       category: editItemCategory.value
     })
-    if (saved) closeEditModal()
+    if (saved) {
+      triggerToast('Zaktualizowano produkt', { type: 'shopping' })
+      closeEditModal()
+    }
   } finally {
     isUpdatingItem.value = false
   }
 }
 
 const handleSwipeComplete = (id: string) => {
-  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-    navigator.vibrate(15)
-  }
-  toggleShoppingItem(id)
+  animatedToggleShoppingItem(id, false)
 }
 
 const handleSwipeRestore = (id: string) => {
-  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-    navigator.vibrate(10)
-  }
-  toggleShoppingItem(id)
+  animatedToggleShoppingItem(id, true)
 }
 
 const handleSwipeDelete = (id: string) => {
-  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-    navigator.vibrate([10, 30, 10])
-  }
-  deleteShoppingItem(id)
+  animatedDeleteShoppingItem(id)
 }
 
 const handleClearCompleted = async () => {
@@ -996,48 +1087,102 @@ const handleRefresh = async (event: any) => {
   padding: 8px 20px 4px 20px;
 }
 
-.shopping-ion-list {
-  background: transparent;
+.shopping-list-wrapper {
   margin: 4px 16px 16px 16px;
-  border-radius: 18px;
-  border: 1px solid #e2e8f0;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+.shopping-transition-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .shopping-item {
+  --background: #ffffff;
   --padding-start: 12px;
   --inner-padding-end: 12px;
-  --min-height: 56px;
-  min-width: 0;
+  --min-height: 64px;
+  border-radius: 16px;
+  border: 1px solid #eef2f6;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 3px 10px rgba(15, 23, 42, 0.04);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-bottom: 8px;
   overflow: hidden;
 }
 
-.shopping-item ion-label {
-  white-space: normal !important;
+.shopping-item:hover {
+  border-color: #e2e8f0;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+}
+
+.shopping-item.completed {
+  background: #f8fafc;
+  border-color: #f1f5f9;
+  box-shadow: none;
+  opacity: 0.85;
+}
+
+/* Custom Checkbox */
+.dn-checkbox-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
+  background: #ffffff;
+  color: transparent;
+  cursor: pointer;
+  margin-right: 12px;
+  padding: 0;
+  transition: all 0.24s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.dn-checkbox-btn:hover {
+  border-color: #0f172a;
+  transform: scale(1.08);
+}
+
+.dn-checkbox-btn.checked {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+}
+
+.dn-check-icon {
+  font-size: 17px;
+  stroke-width: 2.5;
+  transition: transform 0.2s ease;
+}
+
+.shopping-item-content {
+  flex: 1;
   min-width: 0;
-  width: 100%;
-  overflow: hidden;
+  cursor: pointer;
+  padding: 10px 0;
 }
 
 .item-title-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
-  width: 100%;
 }
 
 .item-title {
-  font-size: 15px;
+  font-size: 15.5px;
   font-weight: 600;
   color: #0f172a;
   flex: 1;
   min-width: 0;
   line-height: 1.35;
-  word-break: break-word;
-  overflow-wrap: break-word;
+  letter-spacing: -0.01em;
+  transition: color 0.2s ease;
 }
 
 .item-title.strike {
@@ -1046,43 +1191,86 @@ const handleRefresh = async (event: any) => {
 }
 
 .item-qty-tag {
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
-  padding: 2px 7px;
-  border-radius: 6px;
-  color: #475569;
+  padding: 2.5px 8px;
+  border-radius: 999px;
+  color: #334155;
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+.item-qty-tag.strike {
+  text-decoration: line-through;
+  opacity: 0.6;
 }
 
 .item-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 3px;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
 }
 
 .item-category-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
-  color: #0f172a;
+  color: #475569;
   font-weight: 600;
+  background: #f8fafc;
+  border: 1px solid #edf2f7;
+  padding: 2px 7px;
+  border-radius: 6px;
 }
 
-.item-author {
-  font-size: 11px;
-  color: #94a3b8;
+.meta-cat-icon {
+  display: inline-flex;
 }
 
 .item-author-badge {
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 700;
-  padding: 1px 7px;
+  padding: 2px 7px;
   border-radius: 999px;
-  border: 1px solid transparent;
   display: inline-flex;
   align-items: center;
+}
+
+.item-actions-cluster {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.item-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.item-action-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.item-action-btn.delete-btn:hover {
+  background: #fee2e2;
+  color: #dc2626;
 }
 
 /* COMPLETED SECTION */
@@ -1123,36 +1311,6 @@ const handleRefresh = async (event: any) => {
   min-height: 40px;
   padding: 0 4px;
   white-space: nowrap;
-}
-
-.item-action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
-  margin-left: 4px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: #64748b;
-  font-size: 18px;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.item-action-btn:hover,
-.item-action-btn:focus-visible {
-  background: #f1f5f9;
-  color: #0f172a;
-  outline: none;
-}
-
-.item-action-btn.delete:hover,
-.item-action-btn.delete:focus-visible {
-  background: #fef2f2;
-  color: #dc2626;
 }
 
 .shopping-edit-content {
