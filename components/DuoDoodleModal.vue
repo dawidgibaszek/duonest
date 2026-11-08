@@ -30,11 +30,6 @@
 
       <!-- MAIN CANVAS DRAWING AREA (LIGHT NOTEBOOK STYLE) -->
       <div class="doodle-canvas-container" ref="containerRef">
-        <!-- Cute top magnet pin -->
-        <div class="doodle-fridge-pin">
-          <span class="pin-magnet"></span>
-        </div>
-
         <canvas
           ref="canvasRef"
           class="doodle-touch-canvas"
@@ -614,24 +609,6 @@ onUnmounted(() => {
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
   overflow: hidden;
   touch-action: none;
-}
-
-.doodle-fridge-pin {
-  position: absolute;
-  top: 9px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 5;
-  pointer-events: none;
-}
-
-.pin-magnet {
-  display: block;
-  width: 14px;
-  height: 14px;
-  background: radial-gradient(circle at 35% 35%, #fb7185, #e11d48);
-  border-radius: 50%;
-  box-shadow: 0 2px 5px rgba(225, 29, 72, 0.35), inset 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
 .doodle-touch-canvas {

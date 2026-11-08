@@ -291,10 +291,6 @@
 
         <!-- DOODLE PREVIEW CANVAS CONTAINER -->
         <div class="nest-doodle-preview-box">
-          <div class="doodle-magnet-pin">
-            <span class="pin-magnet"></span>
-          </div>
-
           <!-- If there is a doodle -->
           <div v-show="hasDoodleContent" class="preview-canvas-wrap">
             <canvas ref="previewCanvasRef" class="preview-mini-canvas"></canvas>
@@ -3638,24 +3634,6 @@ ion-toolbar {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-}
-
-.doodle-magnet-pin {
-  position: absolute;
-  top: 9px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 5;
-  pointer-events: none;
-}
-
-.pin-magnet {
-  display: block;
-  width: 14px;
-  height: 14px;
-  background: radial-gradient(circle at 35% 35%, #fb7185, #e11d48);
-  border-radius: 50%;
-  box-shadow: 0 2px 5px rgba(225, 29, 72, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
 .preview-canvas-wrap {
