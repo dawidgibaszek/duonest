@@ -190,7 +190,8 @@
             :key="item.id"
             :class="{
               'dn-completing': completingItemIds.has(item.id),
-              'dn-item-deleting': deletingItemIds.has(item.id)
+              'dn-item-deleting': deletingItemIds.has(item.id),
+              'dn-just-added': justAddedItemId === item.id
             }"
           >
             <!-- Swipe RIGHT gesture (side="start"): Mark as bought -->
@@ -203,6 +204,7 @@
             <ion-item class="shopping-item" :class="{ completed: item.is_completed }" lines="none">
               <!-- Custom Interactive Animated Checkbox -->
               <button
+                slot="start"
                 type="button"
                 class="dn-checkbox-btn"
                 :class="{ checked: item.is_completed || completingItemIds.has(item.id) }"
@@ -250,7 +252,7 @@
                 </div>
               </div>
 
-              <div class="item-actions-cluster">
+              <div slot="end" class="item-actions-cluster">
                 <button
                   type="button"
                   class="item-action-btn edit-btn"
@@ -323,6 +325,7 @@
 
               <ion-item class="shopping-item completed" lines="none">
                 <button
+                  slot="start"
                   type="button"
                   class="dn-checkbox-btn checked"
                   aria-label="Przywróć produkt do listy"
@@ -338,7 +341,7 @@
                   </div>
                 </div>
 
-                <div class="item-actions-cluster">
+                <div slot="end" class="item-actions-cluster">
                   <button
                     type="button"
                     class="item-action-btn delete-btn"
@@ -617,6 +620,7 @@ const getCategoryCount = (categoryName: string) => {
 }
 
 const isSubmitting = ref(false)
+const justAddedItemId = ref<string | null>(null)
 const completingItemIds = ref<Set<string>>(new Set())
 const deletingItemIds = ref<Set<string>>(new Set())
 
@@ -661,10 +665,24 @@ const handleAddItem = async () => {
   isSubmitting.value = true
   try {
     const cleanQty = newItemQty.value.trim().slice(0, 30)
-    await addShoppingItem(cleanTitle, selectedCategory.value, cleanQty)
+    const addedId = await addShoppingItem(cleanTitle, selectedCategory.value, cleanQty)
     saveRecentShoppingSuggestion(cleanTitle, selectedCategory.value)
     newItemTitle.value = ''
     newItemQty.value = ''
+
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate([15, 25])
+    }
+
+    if (addedId) {
+      justAddedItemId.value = addedId
+      setTimeout(() => {
+        if (justAddedItemId.value === addedId) {
+          justAddedItemId.value = null
+        }
+      }, 2200)
+    }
+
     triggerToast(`Dodano "${cleanTitle}" do listy zakupów`, { type: 'shopping' })
   } finally {
     isSubmitting.value = false
@@ -1099,8 +1117,10 @@ const handleRefresh = async (event: any) => {
 
 .shopping-item {
   --background: #ffffff;
-  --padding-start: 12px;
+  --padding-start: 14px;
   --inner-padding-end: 12px;
+  --padding-top: 8px;
+  --padding-bottom: 8px;
   --min-height: 64px;
   border-radius: 16px;
   border: 1px solid #eef2f6;
@@ -1120,7 +1140,7 @@ const handleRefresh = async (event: any) => {
   background: #f8fafc;
   border-color: #f1f5f9;
   box-shadow: none;
-  opacity: 0.85;
+  opacity: 0.82;
 }
 
 /* Custom Checkbox */
@@ -1128,15 +1148,16 @@ const handleRefresh = async (event: any) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
+  width: 25px;
+  height: 25px;
+  min-width: 25px;
   border-radius: 50%;
   border: 2px solid #cbd5e1;
   background: #ffffff;
   color: transparent;
   cursor: pointer;
-  margin-right: 12px;
+  margin-inline-end: 12px;
+  margin-inline-start: 0;
   padding: 0;
   transition: all 0.24s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
@@ -1154,7 +1175,7 @@ const handleRefresh = async (event: any) => {
 }
 
 .dn-check-icon {
-  font-size: 17px;
+  font-size: 15px;
   stroke-width: 2.5;
   transition: transform 0.2s ease;
 }
@@ -1163,26 +1184,25 @@ const handleRefresh = async (event: any) => {
   flex: 1;
   min-width: 0;
   cursor: pointer;
-  padding: 10px 0;
+  padding: 6px 0;
 }
 
 .item-title-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
   min-width: 0;
 }
 
 .item-title {
-  font-size: 15.5px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
   color: #0f172a;
-  flex: 1;
-  min-width: 0;
   line-height: 1.35;
   letter-spacing: -0.01em;
   transition: color 0.2s ease;
+  word-break: break-word;
 }
 
 .item-title.strike {
@@ -1191,15 +1211,19 @@ const handleRefresh = async (event: any) => {
 }
 
 .item-qty-tag {
-  font-size: 11.5px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
   font-weight: 700;
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
-  padding: 2.5px 8px;
+  padding: 2px 8px;
   border-radius: 999px;
   color: #334155;
   flex-shrink: 0;
   white-space: nowrap;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
 }
 
 .item-qty-tag.strike {
@@ -1244,8 +1268,10 @@ const handleRefresh = async (event: any) => {
 .item-actions-cluster {
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-left: 8px;
+  gap: 6px;
+  margin-inline-start: 10px;
+  margin-inline-end: 0;
+  flex-shrink: 0;
 }
 
 .item-action-btn {
@@ -1254,23 +1280,30 @@ const handleRefresh = async (event: any) => {
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 50%;
-  border: none;
+  border-radius: 10px;
+  border: 1px solid transparent;
   background: #f8fafc;
   color: #64748b;
-  font-size: 15px;
+  font-size: 16px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0;
 }
 
-.item-action-btn:hover {
-  background: #e2e8f0;
+.item-action-btn.edit-btn:hover,
+.item-action-btn.edit-btn:active {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
   color: #0f172a;
+  transform: scale(1.06);
 }
 
-.item-action-btn.delete-btn:hover {
-  background: #fee2e2;
-  color: #dc2626;
+.item-action-btn.delete-btn:hover,
+.item-action-btn.delete-btn:active {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #ef4444;
+  transform: scale(1.06);
 }
 
 /* COMPLETED SECTION */

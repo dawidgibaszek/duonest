@@ -3267,8 +3267,8 @@ export const useDuoState = () => {
   }
 
   const addShoppingItem = async (title: string, category: string, quantity: string = '') => {
-    if (!title.trim() || !partnership.value) return
-    if (!await verifyUserAndPartnershipAccess()) return
+    if (!title.trim() || !partnership.value) return null
+    if (!await verifyUserAndPartnershipAccess()) return null
     const cleanTitle = title.trim().replace(/\s+/g, ' ').slice(0, 100)
     const cleanCategory = category || 'Spożywcze'
     const cleanQty = quantity.trim().slice(0, 30)
@@ -3292,7 +3292,7 @@ export const useDuoState = () => {
         } else {
           triggerToast('Produkt jest już na liście')
         }
-        return
+        return duplicate.id
       }
     }
 
@@ -3314,6 +3314,7 @@ export const useDuoState = () => {
     if (db) {
       safeDb(db.from('shopping_items').insert(newItem))
     }
+    return newItem.id
   }
 
   const toggleShoppingItem = async (id: string) => {
