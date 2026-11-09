@@ -50,3 +50,4 @@ export const handler = async (event: any) => {
 
   return response(200, { authorization_url: authUrl.toString() }, headers)
 }
+

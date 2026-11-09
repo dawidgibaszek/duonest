@@ -20,3 +20,4 @@ export const handler = async (event: any) => {
 
   return response(200, { success: true, connected: false }, headers)
 }
+

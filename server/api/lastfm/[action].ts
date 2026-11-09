@@ -5,12 +5,14 @@ import { handler as disconnectHandler } from '../../../netlify/functions/lastfm-
 import { handler as playbackHandler } from '../../../netlify/functions/lastfm-playback'
 import { handler as startHandler } from '../../../netlify/functions/lastfm-start'
 import { handler as visibilityHandler } from '../../../netlify/functions/lastfm-visibility'
+import { handler as serviceHandler } from '../../../netlify/functions/lastfm-service'
 
 const handlers: Record<string, (event: any) => Promise<any>> = {
   callback: callbackHandler,
   connect: connectHandler,
   disconnect: disconnectHandler,
   playback: playbackHandler,
+  service: serviceHandler,
   start: startHandler,
   status: playbackHandler,
   visibility: visibilityHandler
@@ -53,3 +55,4 @@ export default defineEventHandler(async (request) => {
 
   return result?.body || result
 })
+

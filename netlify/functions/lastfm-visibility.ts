@@ -29,3 +29,4 @@ export const handler = async (event: any) => {
   if (error) return response(500, { success: false, error: 'Nie udało się zaktualizować widoczności' }, headers)
   return response(200, { success: true, visible_to_partner: visible }, headers)
 }
+

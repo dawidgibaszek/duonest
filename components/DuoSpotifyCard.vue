@@ -4,26 +4,26 @@
     class="dn-card spotify-activity-card"
     :class="{ 'is-preview': isPreview }"
   >
-    <!-- Header Row -->
-    <div class="card-header-row">
-      <div class="header-left">
-        <span class="section-badge">
-          <DuoSpotifyLogo size="xs" />
-          <span>SPOTIFY</span>
-        </span>
-        <h4 class="card-title">{{ titleText }}</h4>
-      </div>
+      <!-- Header Row -->
+      <div class="card-header-row">
+        <div class="header-left">
+          <span class="section-badge">
+            <DuoMusicLogo :service="currentService" size="xs" />
+            <span>{{ serviceMeta.badge }}</span>
+          </span>
+          <h4 class="card-title">{{ titleText }}</h4>
+        </div>
 
-      <!-- Live / Idle Status Pill -->
-      <span v-if="playback.is_playing" class="spotify-status-tag is-live">
-        <span class="live-dot"></span>
-        <span>LIVE</span>
-      </span>
-      <span v-else class="spotify-status-tag is-idle">
-        <ion-icon :icon="ioniconsTimeOutline" class="idle-icon" />
-        <span>PAUZA</span>
-      </span>
-    </div>
+        <!-- Live / Idle Status Pill -->
+        <span v-if="playback.is_playing" class="spotify-status-tag is-live">
+          <span class="live-dot"></span>
+          <span>LIVE</span>
+        </span>
+        <span v-else class="spotify-status-tag is-idle">
+          <ion-icon :icon="ioniconsTimeOutline" class="idle-icon" />
+          <span>PAUZA</span>
+        </span>
+      </div>
 
     <!-- Card Body: Cover Art + Track Meta + Progress + Link -->
     <div class="spotify-activity-body">
@@ -65,17 +65,17 @@
           </div>
         </div>
 
-        <!-- Action / Spotify Link -->
+        <!-- Action / Music Link -->
         <div class="spotify-action-row">
           <a
-            v-if="playback.track_url"
-            :href="playback.track_url"
+            v-if="targetTrackUrl"
+            :href="targetTrackUrl"
             target="_blank"
             rel="noopener noreferrer"
             class="spotify-open-btn"
           >
-            <DuoSpotifyLogo size="xs" />
-            <span>Otwórz w Spotify</span>
+            <DuoMusicLogo :service="currentService" size="xs" />
+            <span>{{ serviceMeta.open }}</span>
             <ion-icon :icon="ioniconsOpenOutline" class="open-icon" />
           </a>
           <span v-else-if="isPreview" class="spotify-preview-pill">
@@ -91,19 +91,73 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import type { SpotifyPlayback } from '~/composables/useSpotify'
+import DuoMusicLogo from '~/components/DuoMusicLogo.vue'
 
 const props = withDefaults(
   defineProps<{
     playback?: SpotifyPlayback | null
     userName?: string
     isPreview?: boolean
+    service?: string | null
   }>(),
   {
     playback: null,
     userName: 'Partner',
-    isPreview: false
+    isPreview: false,
+    service: null
   }
 )
+
+const currentService = computed(() => {
+  return props.playback?.music_service || props.service || 'spotify'
+})
+
+const serviceMeta = computed(() => {
+  const s = currentService.value
+  if (s === 'apple_music') {
+    return {
+      badge: 'APPLE MUSIC',
+      open: 'Otwórz w Apple Music'
+    }
+  }
+  if (s === 'youtube_music') {
+    return {
+      badge: 'YT MUSIC',
+      open: 'Otwórz w YT Music'
+    }
+  }
+  if (s === 'tidal') {
+    return {
+      badge: 'TIDAL',
+      open: 'Otwórz w Tidal'
+    }
+  }
+  if (s === 'lastfm') {
+    return {
+      badge: 'LAST.FM',
+      open: 'Otwórz w Last.fm'
+    }
+  }
+  return {
+    badge: 'SPOTIFY',
+    open: 'Otwórz w Spotify'
+  }
+})
+
+const targetTrackUrl = computed(() => {
+  if (props.playback?.track_url) {
+    return props.playback.track_url
+  }
+  const track = props.playback?.track_name || ''
+  const artist = props.playback?.artist_name || ''
+  const query = encodeURIComponent(`${track} ${artist}`)
+  const s = currentService.value
+  if (s === 'apple_music') return `https://music.apple.com/search?term=${query}`
+  if (s === 'youtube_music') return `https://music.youtube.com/search?q=${query}`
+  if (s === 'tidal') return `https://listen.tidal.com/search?q=${query}`
+  if (s === 'lastfm') return `https://www.last.fm/search?q=${query}`
+  return `https://open.spotify.com/search/${query}`
+})
 
 const spotifyClock = ref(Date.now())
 const hasCoverError = ref(false)

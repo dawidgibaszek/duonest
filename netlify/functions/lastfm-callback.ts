@@ -64,3 +64,4 @@ export const handler = async (event: any) => {
     return redirect(event, 'failed')
   }
 }
+

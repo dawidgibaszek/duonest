@@ -14,3 +14,4 @@ export default defineEventHandler(async (event) => {
 
   return result?.body || 'Przetwarzanie autoryzacji Last.fm...'
 })
+

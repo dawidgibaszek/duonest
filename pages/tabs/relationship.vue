@@ -712,17 +712,41 @@
           <!-- STATE A: Disconnected Hero Banner -->
           <div v-if="!spotifyConnection.connected" class="spotify-connect-card">
             <div class="spotify-connect-icon-circle">
-              <DuoSpotifyLogo size="large" />
+              <DuoMusicLogo service="spotify" size="large" />
             </div>
-            <h5 class="connect-card-title">Muzyka na żywo (Last.fm &bull; Spotify)</h5>
+            <h5 class="connect-card-title">Muzyka na żywo (Spotify, Apple Music i inne)</h5>
             <p class="connect-card-desc">
-              Gdy słuchasz muzyki na Spotify, partner zobaczy aktualnie grany utwór i okładkę albumu na żywo w Gniazdku!
+              Dzięki integracji z Last.fm możesz dzielić się z partnerem tym, czego słuchasz na żywo z Twojej ulubionej aplikacji muzycznej:
             </p>
+
+            <!-- Supported Music Platforms Badges -->
+            <div class="supported-platforms-pills">
+              <span class="platform-pill is-spotify">
+                <DuoMusicLogo service="spotify" size="xs" />
+                <span>Spotify</span>
+              </span>
+              <span class="platform-pill is-apple">
+                <DuoMusicLogo service="apple_music" size="xs" />
+                <span>Apple Music</span>
+              </span>
+              <span class="platform-pill is-yt">
+                <DuoMusicLogo service="youtube_music" size="xs" />
+                <span>YouTube Music</span>
+              </span>
+              <span class="platform-pill is-tidal">
+                <DuoMusicLogo service="tidal" size="xs" />
+                <span>Tidal</span>
+              </span>
+              <span class="platform-pill is-other">
+                <ion-icon :icon="ioniconsMusicalNotesOutline" />
+                <span>Inne</span>
+              </span>
+            </div>
 
             <div class="lastfm-guide-card">
               <div class="guide-step">
                 <span class="step-badge">1</span>
-                <span>Włącz scrobblowanie Spotify (w aplikacji Spotify lub na <a href="https://www.last.fm/settings/applications" target="_blank" rel="noopener noreferrer">last.fm/settings/applications</a> kliknij <em>Connect</em> przy Spotify).</span>
+                <span>Włącz scrobblowanie w Twojej aplikacji (np. w Spotify: <a href="https://www.last.fm/settings/applications" target="_blank" rel="noopener noreferrer">last.fm/settings/applications</a> kliknij <em>Connect</em> przy Spotify, a w Apple Music / YT Music włącz scrobblowanie w aplikacji Last.fm).</span>
               </div>
               <div class="guide-step">
                 <span class="step-badge">2</span>
@@ -777,14 +801,14 @@
             <div class="spotify-account-panel">
               <div class="account-left">
                 <div class="spotify-avatar-wrap">
-                  <DuoSpotifyLogo size="medium" />
+                  <DuoMusicLogo :service="spotifyConnection.music_service || 'spotify'" size="medium" />
                   <span class="online-dot" title="Połączone"></span>
                 </div>
                 <div class="account-info">
                   <strong class="account-name">{{ spotifyConnection.display_name ? `Konto: ${spotifyConnection.display_name}` : 'Połączone z Last.fm' }}</strong>
                   <span class="account-status">
                     <ion-icon :icon="ioniconsCheckmarkCircle" class="check-icon" />
-                    Konto aktywne i połączone
+                    Konto aktywne &bull; {{ currentPlatformName }}
                   </span>
                 </div>
               </div>
@@ -793,11 +817,39 @@
                 class="spotify-disconnect-btn"
                 @click="disconnectSpotify"
                 :disabled="spotifyLoading"
-                title="Odłącz konto Spotify"
+                title="Odłącz konto muzyczne"
               >
                 <ion-spinner v-if="spotifyLoading" name="crescent" />
                 <span v-else>Odłącz</span>
               </button>
+            </div>
+
+            <!-- Choose Preferred Platform for Widget & Deep-links -->
+            <div class="music-platform-selector-card">
+              <div class="platform-selector-title-row">
+                <ion-icon :icon="ioniconsMusicalNotesOutline" class="selector-icon" />
+                <div class="selector-title-wrap">
+                  <strong>Twoja główna platforma muzyczna</strong>
+                  <span>Wybierz serwis, z którego partner zobaczy logo i przycisk w Gniazdku.</span>
+                </div>
+              </div>
+
+              <div class="platform-choice-grid">
+                <button
+                  v-for="platform in availablePlatforms"
+                  :key="platform.id"
+                  type="button"
+                  class="platform-choice-btn"
+                  :class="{ 'is-selected': (spotifyConnection.music_service || 'spotify') === platform.id }"
+                  @click="handleSelectService(platform.id)"
+                >
+                  <DuoMusicLogo :service="platform.id" size="small" />
+                  <span class="choice-name">{{ platform.name }}</span>
+                  <span v-if="(spotifyConnection.music_service || 'spotify') === platform.id" class="choice-active-badge">
+                    <ion-icon :icon="ioniconsCheckmark" />
+                  </span>
+                </button>
+              </div>
             </div>
 
             <div class="spotify-visibility-panel">
@@ -836,6 +888,7 @@
                   :playback="mySpotifyPlayback"
                   user-name="Ty"
                   :is-preview="true"
+                  :service="spotifyConnection.music_service || 'spotify'"
                 />
               </div>
 
@@ -1635,12 +1688,31 @@ const {
   connectLastFmUsername,
   disconnectSpotify,
   setSpotifyVisibility,
+  setMusicService,
   startSpotifyPolling,
   stopSpotifyPolling
 } = useSpotify()
 
 const showManualNickInput = ref(false)
 const lastFmUsernameInput = ref('')
+
+const availablePlatforms = [
+  { id: 'spotify', name: 'Spotify' },
+  { id: 'apple_music', name: 'Apple Music' },
+  { id: 'youtube_music', name: 'YouTube Music' },
+  { id: 'tidal', name: 'Tidal' },
+  { id: 'lastfm', name: 'Last.fm' }
+]
+
+const currentPlatformName = computed(() => {
+  const current = spotifyConnection.value?.music_service || 'spotify'
+  const match = availablePlatforms.find(p => p.id === current)
+  return match?.name || 'Spotify'
+})
+
+const handleSelectService = async (serviceId: string) => {
+  await setMusicService(serviceId)
+}
 
 const handleManualConnect = async () => {
   if (!lastFmUsernameInput.value.trim()) return
@@ -3818,6 +3890,34 @@ const handleRefresh = async (event: any) => {
   max-width: 360px;
 }
 
+.supported-platforms-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-width: 440px;
+}
+
+.platform-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #334155;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+.platform-pill ion-icon {
+  font-size: 13px;
+  color: #64748b;
+}
+
 .spotify-features-chips {
   display: flex;
   flex-wrap: wrap;
@@ -4079,6 +4179,101 @@ const handleRefresh = async (event: any) => {
 .spotify-disconnect-btn:disabled {
   opacity: 0.6;
   pointer-events: none;
+}
+
+/* Platform Selector Card */
+.music-platform-selector-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.platform-selector-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.selector-icon {
+  font-size: 18px;
+  color: #0f172a;
+  margin-top: 1px;
+}
+
+.selector-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.selector-title-wrap strong {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.selector-title-wrap span {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.platform-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.platform-choice-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  touch-action: manipulation;
+}
+
+.platform-choice-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.platform-choice-btn.is-selected {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.15);
+}
+
+.choice-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+  flex: 1;
+}
+
+.platform-choice-btn.is-selected .choice-name {
+  color: #ffffff;
+}
+
+.choice-active-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #10b981;
+}
+
+.platform-choice-btn.is-selected .choice-active-badge {
+  color: #34d399;
 }
 
 .spotify-visibility-panel {

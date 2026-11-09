@@ -48,7 +48,8 @@ const normalizePlayback = (playback: any): SpotifyPlayback | null => {
       track_url: playback.track.externalUrl || null,
       progress_ms: playback.progressMs ?? null,
       duration_ms: playback.durationMs ?? null,
-      updated_at: playback.fetchedAt || new Date().toISOString()
+      updated_at: playback.fetchedAt || new Date().toISOString(),
+      music_service: playback.music_service || playback.track?.music_service || null
     }
   }
 
@@ -63,7 +64,8 @@ const normalizePlayback = (playback: any): SpotifyPlayback | null => {
       track_url: playback.track_url || null,
       progress_ms: playback.progress_ms ?? null,
       duration_ms: playback.duration_ms ?? null,
-      updated_at: playback.updated_at || new Date().toISOString()
+      updated_at: playback.updated_at || new Date().toISOString(),
+      music_service: playback.music_service || null
     }
   }
 
@@ -286,6 +288,23 @@ const setSpotifyVisibility = async (visible: boolean) => {
   }
 }
 
+const setMusicService = async (service: string) => {
+  try {
+    await callApi('/api/lastfm/service', {
+      method: 'POST',
+      body: JSON.stringify({ service })
+    })
+    connection.value.music_service = service
+    connection.value.service = service
+    if (myPlayback.value) {
+      myPlayback.value.music_service = service
+    }
+    await refreshSpotifyStatus()
+  } catch (err: any) {
+    console.error('Błąd zapisu platformy muzycznej:', err)
+  }
+}
+
 const hasPartnerPlayback = computed(() => Boolean(partnerPlayback.value?.is_playing))
 
 export const useSpotify = () => ({
@@ -301,6 +320,7 @@ export const useSpotify = () => ({
   connectSpotify,
   disconnectSpotify,
   setSpotifyVisibility,
+  setMusicService,
   startSpotifyPolling,
   stopSpotifyPolling
 })
