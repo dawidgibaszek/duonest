@@ -19,8 +19,12 @@
         </div>
         <h3 class="status-title">Połączono pomyślnie!</h3>
         <p class="status-desc">
-          Zalogowano jako <strong>{{ username }}</strong>. Wracamy do Gniazdka...
+          Zalogowano jako <strong>{{ username }}</strong>. Wracamy do aplikacji...
         </p>
+
+        <button type="button" class="primary-btn" @click="goToNestSettings">
+          Przejdź do aplikacji
+        </button>
       </template>
 
       <!-- State 3: Error -->
@@ -56,8 +60,16 @@ const status = ref<'loading' | 'success' | 'error'>('loading')
 const username = ref('')
 const errorMessage = ref('')
 
+const goToNestSettings = () => {
+  if (typeof window !== 'undefined') {
+    window.location.replace('/tabs/relationship?category=nest_settings&music=connected')
+  } else {
+    navigateTo('/tabs/relationship?category=nest_settings&music=connected')
+  }
+}
+
 const handleReturn = () => {
-  navigateTo('/tabs/relationship?category=nest_settings')
+  goToNestSettings()
 }
 
 const resolveToken = (): string => {
@@ -144,12 +156,13 @@ const executeExchange = async () => {
     status.value = 'success'
 
     // Refresh music state in memory
-    await refreshSpotifyStatus(true)
+    try {
+      await refreshSpotifyStatus(true)
+    } catch {}
 
-    // Smooth redirect back to relationship settings after 1.2s
-    setTimeout(() => {
-      navigateTo('/tabs/relationship?category=nest_settings&music=connected')
-    }, 1200)
+    // Wait 1 second then redirect smoothly
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    goToNestSettings()
   } catch (err: any) {
     status.value = 'error'
     errorMessage.value = err?.data?.error || err?.message || 'Wystąpił błąd podczas autoryzacji z Last.fm'
@@ -245,6 +258,23 @@ onMounted(() => {
 
 .error-text {
   color: #b91c1c;
+}
+
+.primary-btn {
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 22px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: opacity 0.15s ease;
+}
+
+.primary-btn:active {
+  opacity: 0.85;
 }
 
 .actions-row {
