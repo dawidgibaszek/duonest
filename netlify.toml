@@ -124,6 +124,47 @@
   to = "/.netlify/functions/lastfm-visibility"
   status = 200
 
+# Unified Music Activity API (Last.fm Scrobbler for Spotify, Apple Music, Tidal, YT Music)
+[[redirects]]
+  from = "/api/music/start"
+  to = "/.netlify/functions/lastfm-start"
+  status = 200
+
+[[redirects]]
+  from = "/api/music/callback"
+  to = "/.netlify/functions/lastfm-callback"
+  status = 200
+
+[[redirects]]
+  from = "/api/music/connect"
+  to = "/.netlify/functions/lastfm-connect"
+  status = 200
+
+[[redirects]]
+  from = "/api/music/playback"
+  to = "/.netlify/functions/lastfm-playback"
+  status = 200
+
+[[redirects]]
+  from = "/api/music/status"
+  to = "/.netlify/functions/lastfm-playback"
+  status = 200
+
+[[redirects]]
+  from = "/api/music/disconnect"
+  to = "/.netlify/functions/lastfm-disconnect"
+  status = 200
+
+[[redirects]]
+  from = "/api/music/visibility"
+  to = "/.netlify/functions/lastfm-visibility"
+  status = 200
+
+[[redirects]]
+  from = "/api/music/service"
+  to = "/.netlify/functions/lastfm-service"
+  status = 200
+
 # Last.fm (Spotify Scrobbler) API
 [[redirects]]
   from = "/api/lastfm/start"

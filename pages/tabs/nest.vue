@@ -213,8 +213,8 @@
         </div>
       </div>
 
-      <!-- 3. PARTNER SPOTIFY ACTIVITY -->
-      <DuoSpotifyCard
+      <!-- 3. PARTNER MUSIC ACTIVITY -->
+      <DuoMusicCard
         v-if="partnerPlayback"
         :playback="partnerPlayback"
         :user-name="partnerUser?.name || 'Partner'"
@@ -823,7 +823,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import confetti from 'canvas-confetti'
 import { useDuoState } from '~/composables/useDuoState'
 import { usePushNotifications } from '~/composables/usePushNotifications'
-import { useSpotify } from '~/composables/useSpotify'
+import { useMusic } from '~/composables/useMusic'
 import { useConfirm } from '~/composables/useConfirm'
 import DuoIcon from '~/components/DuoIcon.vue'
 import DuoDoodleModal from '~/components/DuoDoodleModal.vue'
@@ -872,9 +872,9 @@ const { confirm } = useConfirm()
 const { askPermissionAfterPairing } = usePushNotifications()
 const {
   partnerPlayback,
-  startSpotifyPolling,
-  stopSpotifyPolling
-} = useSpotify()
+  startMusicPolling,
+  stopMusicPolling
+} = useMusic()
 
 const isDoodleModalOpen = ref(false)
 const previewCanvasRef = ref<HTMLCanvasElement | null>(null)
@@ -970,7 +970,7 @@ onMounted(async () => {
     }, 20000)
   }
 
-  startSpotifyPolling()
+  startMusicPolling()
 
   try {
     await initSupabaseSync()
@@ -986,7 +986,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  stopSpotifyPolling()
+  stopMusicPolling()
   if (activityTimer) {
     clearInterval(activityTimer)
     activityTimer = null

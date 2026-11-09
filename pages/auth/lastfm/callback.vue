@@ -51,10 +51,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import DuoMusicLogo from '~/components/DuoMusicLogo.vue'
-import { useSpotify } from '~/composables/useSpotify'
+import { useMusic } from '~/composables/useMusic'
 
 const route = useRoute()
-const { refreshSpotifyStatus } = useSpotify()
+const { refreshMusicStatus } = useMusic()
 
 const status = ref<'loading' | 'success' | 'error'>('loading')
 const username = ref('')
@@ -157,7 +157,7 @@ const executeExchange = async () => {
 
     // Refresh music state in memory
     try {
-      await refreshSpotifyStatus(true)
+      await refreshMusicStatus(true)
     } catch {}
 
     // Wait 1 second then redirect smoothly

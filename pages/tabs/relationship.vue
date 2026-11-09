@@ -684,18 +684,18 @@
           </div>
         </div>
 
-        <!-- 3. SPOTIFY & AKTYWNOŚĆ MUZYCZNA -->
-        <div class="dn-card spotify-settings-card">
+        <!-- 3. AKTYWNOŚĆ MUZYCZNA (SPOTIFY, APPLE MUSIC, TIDAL, YT MUSIC) -->
+        <div class="dn-card music-settings-card spotify-settings-card">
           <div class="card-title-row">
-            <span class="section-tag spotify-section-tag">
-              <span class="spotify-mark" aria-hidden="true">
-                <DuoSpotifyLogo size="small" />
+            <span class="section-tag music-section-tag spotify-section-tag">
+              <span class="music-mark" aria-hidden="true">
+                <DuoMusicLogo :service="musicConnection.music_service || 'spotify'" size="small" />
               </span>
-              SPOTIFY
+              MUZYKA
             </span>
-            <span class="spotify-status-pill" :class="{ 'is-connected': spotifyConnection.connected }">
+            <span class="music-status-pill spotify-status-pill" :class="{ 'is-connected': musicConnection.connected }">
               <span class="status-indicator-dot"></span>
-              {{ spotifyConnection.connected ? 'Połączone' : 'Niepołączone' }}
+              {{ musicConnection.connected ? 'Połączone' : 'Niepołączone' }}
             </span>
           </div>
 
@@ -704,19 +704,19 @@
             Pokaż partnerowi, czego aktualnie słuchasz. Budujcie wspólną atmosferę i dzielcie się ulubioną muzyką w czasie rzeczywistym.
           </p>
 
-          <div v-if="musicSuccessMessage" class="spotify-success-box">
+          <div v-if="musicSuccessMessage" class="music-success-box spotify-success-box">
             <ion-icon :icon="ioniconsCheckmarkCircle" class="success-icon" />
             <span>{{ musicSuccessMessage }}</span>
           </div>
 
-          <div v-if="spotifyErrorMessage" class="spotify-error-box">
+          <div v-if="musicErrorMessage" class="music-error-box spotify-error-box">
             <ion-icon :icon="ioniconsAlertCircleOutline" class="error-icon" />
-            <span>{{ spotifyErrorMessage }}</span>
+            <span>{{ musicErrorMessage }}</span>
           </div>
 
           <!-- STATE A: Disconnected Hero Banner -->
-          <div v-if="!spotifyConnection.connected" class="spotify-connect-card">
-            <div class="spotify-connect-icon-circle">
+          <div v-if="!musicConnection.connected" class="music-connect-card spotify-connect-card">
+            <div class="music-connect-icon-circle spotify-connect-icon-circle">
               <DuoMusicLogo service="spotify" size="large" />
             </div>
             <h5 class="connect-card-title">Muzyka na żywo (Spotify, Apple Music i inne)</h5>
@@ -761,11 +761,11 @@
 
             <button
               type="button"
-              class="spotify-connect-btn"
-              @click="connectLastFm"
-              :disabled="spotifyLoading"
+              class="music-connect-btn spotify-connect-btn"
+              @click="connectMusic"
+              :disabled="musicLoading"
             >
-              <ion-spinner v-if="spotifyLoading" name="crescent" />
+              <ion-spinner v-if="musicLoading" name="crescent" />
               <template v-else>
                 <ion-icon :icon="ioniconsLogInOutline" />
                 <span>Zaloguj przez Last.fm</span>
@@ -792,7 +792,7 @@
                 <button
                   type="button"
                   class="manual-nick-submit"
-                  :disabled="!lastFmUsernameInput.trim() || spotifyLoading"
+                  :disabled="!lastFmUsernameInput.trim() || musicLoading"
                   @click="handleManualConnect"
                 >
                   Połącz
@@ -803,14 +803,14 @@
 
           <!-- STATE B: Connected Settings -->
           <template v-else>
-            <div class="spotify-account-panel">
+            <div class="music-account-panel spotify-account-panel">
               <div class="account-left">
-                <div class="spotify-avatar-wrap">
-                  <DuoMusicLogo :service="spotifyConnection.music_service || 'spotify'" size="medium" />
+                <div class="music-avatar-wrap spotify-avatar-wrap">
+                  <DuoMusicLogo :service="musicConnection.music_service || 'spotify'" size="medium" />
                   <span class="online-dot" title="Połączone"></span>
                 </div>
                 <div class="account-info">
-                  <strong class="account-name">{{ spotifyConnection.display_name ? `Konto: ${spotifyConnection.display_name}` : 'Połączone z Last.fm' }}</strong>
+                  <strong class="account-name">{{ musicConnection.display_name ? `Konto: ${musicConnection.display_name}` : 'Połączone z Last.fm' }}</strong>
                   <span class="account-status">
                     <ion-icon :icon="ioniconsCheckmarkCircle" class="check-icon" />
                     Konto aktywne &bull; {{ currentPlatformName }}
@@ -819,12 +819,12 @@
               </div>
               <button
                 type="button"
-                class="spotify-disconnect-btn"
-                @click="disconnectSpotify"
-                :disabled="spotifyLoading"
+                class="music-disconnect-btn spotify-disconnect-btn"
+                @click="disconnectMusic"
+                :disabled="musicLoading"
                 title="Odłącz konto muzyczne"
               >
-                <ion-spinner v-if="spotifyLoading" name="crescent" />
+                <ion-spinner v-if="musicLoading" name="crescent" />
                 <span v-else>Odłącz</span>
               </button>
             </div>
@@ -845,19 +845,19 @@
                   :key="platform.id"
                   type="button"
                   class="platform-choice-btn"
-                  :class="{ 'is-selected': (spotifyConnection.music_service || 'spotify') === platform.id }"
+                  :class="{ 'is-selected': (musicConnection.music_service || 'spotify') === platform.id }"
                   @click="handleSelectService(platform.id)"
                 >
                   <DuoMusicLogo :service="platform.id" size="small" />
                   <span class="choice-name">{{ platform.name }}</span>
-                  <span v-if="(spotifyConnection.music_service || 'spotify') === platform.id" class="choice-active-badge">
+                  <span v-if="(musicConnection.music_service || 'spotify') === platform.id" class="choice-active-badge">
                     <ion-icon :icon="ioniconsCheckmark" />
                   </span>
                 </button>
               </div>
             </div>
 
-            <div class="spotify-visibility-panel">
+            <div class="music-visibility-panel spotify-visibility-panel">
               <div class="visibility-left">
                 <div class="visibility-icon-bubble">
                   <ion-icon :icon="ioniconsEyeOutline" />
@@ -868,47 +868,47 @@
                 </div>
               </div>
               <ion-toggle
-                :checked="spotifyConnection.visible_to_partner"
-                @ionChange="setSpotifyVisibility($event.detail.checked)"
-                class="spotify-toggle"
+                :checked="musicConnection.visible_to_partner"
+                @ionChange="setMusicVisibility($event.detail.checked)"
+                class="music-toggle spotify-toggle"
               />
             </div>
 
             <!-- Live Preview Container -->
-            <div class="spotify-preview-section">
-              <div class="spotify-preview-heading">
+            <div class="music-preview-section spotify-preview-section">
+              <div class="music-preview-heading spotify-preview-heading">
                 <div class="preview-heading-text">
                   <strong>Podgląd dla partnera</strong>
                   <span>Tak Twoja aktywność wygląda na ekranie Gniazdka partnera.</span>
                 </div>
-                <span class="spotify-preview-label">PODGLĄD</span>
+                <span class="music-preview-label spotify-preview-label">PODGLĄD</span>
               </div>
 
-              <!-- When playing and visible: render DuoSpotifyCard -->
+              <!-- When playing and visible: render DuoMusicCard -->
               <div
-                v-if="spotifyConnection.visible_to_partner && mySpotifyPlayback"
-                class="spotify-preview-card-wrap"
+                v-if="musicConnection.visible_to_partner && myMusicPlayback"
+                class="music-preview-card-wrap spotify-preview-card-wrap"
               >
-                <DuoSpotifyCard
-                  :playback="mySpotifyPlayback"
+                <DuoMusicCard
+                  :playback="myMusicPlayback"
                   user-name="Ty"
                   :is-preview="true"
-                  :service="spotifyConnection.music_service || 'spotify'"
+                  :service="musicConnection.music_service || 'spotify'"
                 />
               </div>
 
               <!-- Empty preview state -->
-              <div v-else class="spotify-preview-empty-card">
+              <div v-else class="music-preview-empty-card spotify-preview-empty-card">
                 <div class="empty-icon-wrap">
-                  <DuoSpotifyLogo size="medium" />
+                  <DuoMusicLogo :service="musicConnection.music_service || 'spotify'" size="medium" />
                 </div>
                 <div class="empty-text-wrap">
-                  <strong>{{ !spotifyConnection.visible_to_partner ? 'Podgląd jest ukryty' : 'Oczekiwanie na muzykę' }}</strong>
-                  <p v-if="!spotifyConnection.visible_to_partner">
+                  <strong>{{ !musicConnection.visible_to_partner ? 'Podgląd jest ukryty' : 'Oczekiwanie na muzykę' }}</strong>
+                  <p v-if="!musicConnection.visible_to_partner">
                     Udostępnianie partnerowi jest wyłączone. Włącz przełącznik powyżej, aby aktywować podgląd i dzielić się muzyką.
                   </p>
                   <p v-else>
-                    Włącz dowolny utwór w aplikacji Spotify — pojawi się tutaj w czasie rzeczywistym z okładką albumu i paskiem postępu!
+                    Włącz dowolny utwór w Twojej aplikacji muzycznej — pojawi się tutaj w czasie rzeczywistym z okładką albumu i paskiem postępu!
                   </p>
                 </div>
               </div>
@@ -1630,21 +1630,22 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import confetti from 'canvas-confetti'
 import { useDuoState } from '~/composables/useDuoState'
 import { usePushNotifications } from '~/composables/usePushNotifications'
-import { useSpotify } from '~/composables/useSpotify'
+import { useMusic } from '~/composables/useMusic'
 import { useConfirm } from '~/composables/useConfirm'
 import DuoIcon from '~/components/DuoIcon.vue'
+import DuoMusicCard from '~/components/DuoMusicCard.vue'
 
 const route = useRoute()
 
 onMounted(async () => {
-  startSpotifyPolling()
+  startMusicPolling()
   try {
     await initSupabaseSync()
   } catch (_) {}
 })
 
 onUnmounted(() => {
-  stopSpotifyPolling()
+  stopMusicPolling()
 })
 
 const {
@@ -1684,20 +1685,19 @@ const {
 } = usePushNotifications()
 
 const {
-  connection: spotifyConnection,
-  myPlayback: mySpotifyPlayback,
-  isLoading: spotifyLoading,
-  errorMessage: spotifyErrorMessage,
-  refreshSpotifyStatus,
-  connectSpotify,
-  connectLastFm,
-  connectLastFmUsername,
-  disconnectSpotify,
-  setSpotifyVisibility,
+  connection: musicConnection,
+  myPlayback: myMusicPlayback,
+  isLoading: musicLoading,
+  errorMessage: musicErrorMessage,
+  refreshMusicStatus,
+  connectMusic,
+  connectMusicUsername,
+  disconnectMusic,
+  setMusicVisibility,
   setMusicService,
-  startSpotifyPolling,
-  stopSpotifyPolling
-} = useSpotify()
+  startMusicPolling,
+  stopMusicPolling
+} = useMusic()
 
 const showManualNickInput = ref(false)
 const lastFmUsernameInput = ref('')
@@ -1711,7 +1711,7 @@ const availablePlatforms = [
 ]
 
 const currentPlatformName = computed(() => {
-  const current = spotifyConnection.value?.music_service || 'spotify'
+  const current = musicConnection.value?.music_service || 'spotify'
   const match = availablePlatforms.find(p => p.id === current)
   return match?.name || 'Spotify'
 })
@@ -1722,7 +1722,7 @@ const handleSelectService = async (serviceId: string) => {
 
 const handleManualConnect = async () => {
   if (!lastFmUsernameInput.value.trim()) return
-  const ok = await connectLastFmUsername(lastFmUsernameInput.value.trim())
+  const ok = await connectMusicUsername(lastFmUsernameInput.value.trim())
   if (ok) {
     lastFmUsernameInput.value = ''
     showManualNickInput.value = false
@@ -1741,13 +1741,13 @@ watch(
   () => route?.query?.music,
   async (musicStatus) => {
     if (musicStatus === 'connected') {
-      musicSuccessMessage.value = 'Konto Last.fm zostało pomyślnie połączone!'
-      await refreshSpotifyStatus(true)
+      musicSuccessMessage.value = 'Konto muzyczne zostało pomyślnie połączone!'
+      await refreshMusicStatus(true)
       setTimeout(() => {
         musicSuccessMessage.value = ''
       }, 5000)
     } else if (musicStatus === 'failed') {
-      spotifyErrorMessage.value = 'Nie udało się połączyć z Last.fm. Możesz połączyć konto wpisując swój login ręcznie.'
+      musicErrorMessage.value = 'Nie udało się połączyć konta. Możesz połączyć konto wpisując swój login Last.fm ręcznie.'
     }
   },
   { immediate: true }
@@ -4430,6 +4430,7 @@ const handleRefresh = async (event: any) => {
   letter-spacing: 0.06em;
 }
 
+.music-preview-card-wrap :deep(.music-activity-card),
 .spotify-preview-card-wrap :deep(.spotify-activity-card) {
   margin: 0;
   box-shadow: none;
