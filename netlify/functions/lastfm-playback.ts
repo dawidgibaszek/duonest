@@ -29,8 +29,8 @@ function frontendPlayback(playback: any, service = 'spotify') {
     album_name: playback.track?.album || null,
     album_image_url: playback.track?.albumImageUrl || null,
     track_url: playback.track?.externalUrl || null,
-    progress_ms: playback.progressMs ?? null,
-    duration_ms: playback.durationMs ?? null,
+    progress_ms: typeof playback.progressMs === 'number' ? playback.progressMs : 0,
+    duration_ms: typeof playback.durationMs === 'number' ? playback.durationMs : 210_000,
     updated_at: playback.fetchedAt || new Date().toISOString(),
     music_service: musicService
   }
@@ -85,6 +85,25 @@ async function fetchUserMusic(
   // 3. Fetch live playback from Last.fm
   const live = await getLastFmUserPlayback(username)
   if (live && live.track) {
+    const durationMs = live.durationMs || 210_000
+    const isSameTrack = presence?.track?.name === live.track.name
+    let progressMs = 0
+
+    if (isSameTrack) {
+      const prevProgress = typeof presence?.progress_ms === 'number' ? presence.progress_ms : 0
+      if (live.isPlaying) {
+        const elapsedSinceFetch = presence?.fetched_at
+          ? Math.max(0, Date.now() - new Date(presence.fetched_at).getTime())
+          : 0
+        progressMs = prevProgress + elapsedSinceFetch
+        if (progressMs >= durationMs) {
+          progressMs = progressMs % durationMs
+        }
+      } else {
+        progressMs = prevProgress
+      }
+    }
+
     const customizedTrack = {
       ...live.track,
       music_service: musicService,
@@ -106,8 +125,8 @@ async function fetchUserMusic(
         is_visible: isVisible,
         track: customizedTrack,
         is_playing: live.isPlaying,
-        progress_ms: 0,
-        duration_ms: 0,
+        progress_ms: progressMs,
+        duration_ms: durationMs,
         fetched_at: live.fetchedAt,
         updated_at: live.fetchedAt
       })
@@ -120,6 +139,8 @@ async function fetchUserMusic(
       visible: isVisible,
       playback: {
         ...live,
+        progressMs,
+        durationMs,
         track: customizedTrack,
         music_service: musicService
       }
@@ -127,6 +148,8 @@ async function fetchUserMusic(
   }
 
   // Fallback to cached presence
+  const cachedDuration = presence?.duration_ms || 210_000
+  const cachedProgress = presence?.progress_ms || 0
   const cachedTrack = presence?.track ? {
     ...presence.track,
     music_service: musicService
@@ -135,8 +158,8 @@ async function fetchUserMusic(
   const cachedPlayback = cachedTrack ? {
     track: cachedTrack,
     isPlaying: Boolean(presence.is_playing),
-    progressMs: presence.progress_ms || 0,
-    durationMs: presence.duration_ms || 0,
+    progressMs: cachedProgress,
+    durationMs: cachedDuration,
     fetchedAt: presence.fetched_at || new Date().toISOString(),
     music_service: musicService
   } : null

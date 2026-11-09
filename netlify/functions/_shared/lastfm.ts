@@ -74,6 +74,7 @@ export async function exchangeLastFmToken(token: string) {
 
 export interface LastFmTrackPlayback {
   isPlaying: boolean
+  durationMs: number
   track: {
     name: string
     artists: string[]
@@ -82,6 +83,43 @@ export interface LastFmTrackPlayback {
     externalUrl: string | null
   }
   fetchedAt: string
+}
+
+export async function getTrackDuration(artist: string, trackName: string, apiKey: string): Promise<number> {
+  // 1. Try Last.fm track.getInfo
+  try {
+    const url = new URL('https://ws.audioscrobbler.com/2.0/')
+    url.searchParams.set('method', 'track.getinfo')
+    url.searchParams.set('artist', artist)
+    url.searchParams.set('track', trackName)
+    url.searchParams.set('api_key', apiKey)
+    url.searchParams.set('format', 'json')
+
+    const res = await fetch(url.toString())
+    if (res.ok) {
+      const data = (await res.json()) as any
+      const dur = Number(data?.track?.duration)
+      if (!isNaN(dur) && dur > 10_000) {
+        return dur
+      }
+    }
+  } catch {}
+
+  // 2. Fallback to iTunes Search API (very fast, accurate song durations)
+  try {
+    const itunesUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(`${artist} ${trackName}`)}&entity=song&limit=1`
+    const res = await fetch(itunesUrl)
+    if (res.ok) {
+      const data = (await res.json()) as any
+      const dur = Number(data?.results?.[0]?.trackTimeMillis)
+      if (!isNaN(dur) && dur > 10_000) {
+        return dur
+      }
+    }
+  } catch {}
+
+  // 3. Fallback default duration: 210s (3:30)
+  return 210_000
 }
 
 export async function getLastFmUserPlayback(username: string): Promise<LastFmTrackPlayback | null> {
@@ -122,8 +160,12 @@ export async function getLastFmUserPlayback(username: string): Promise<LastFmTra
     const spotifySearchUrl = `https://open.spotify.com/search/${encodeURIComponent(`${name} ${artist}`)}`
     const externalUrl = trackItem.url || spotifySearchUrl
 
+    // Resolve exact track duration for live progress bar
+    const durationMs = await getTrackDuration(artist, name, config.apiKey)
+
     return {
       isPlaying,
+      durationMs,
       track: {
         name,
         artists: artist ? [artist] : [],

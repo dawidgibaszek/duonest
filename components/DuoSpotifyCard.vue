@@ -52,16 +52,17 @@
         </span>
 
         <!-- Live Progress Bar -->
-        <div v-if="playback.is_playing && playback.duration_ms" class="spotify-progress">
+        <div v-if="playback.is_playing || playback.duration_ms" class="spotify-progress">
           <div class="spotify-progress-track">
             <div
               class="spotify-progress-fill"
-              :style="{ width: `${progressPercent}%` }"
+              :class="{ 'is-paused': !playback.is_playing }"
+              :style="{ width: `${progressPercent}%`, backgroundColor: progressFillColor }"
             ></div>
           </div>
           <div class="spotify-progress-times">
             <span>{{ formatTime(liveProgressMs) }}</span>
-            <span>{{ formatTime(playback.duration_ms) }}</span>
+            <span>{{ formatTime(trackDurationMs) }}</span>
           </div>
         </div>
 
@@ -164,7 +165,13 @@ const hasCoverError = ref(false)
 let clockTimer: ReturnType<typeof setInterval> | null = null
 
 watch(
-  () => [props.playback?.track_name, props.playback?.updated_at, props.playback?.album_image_url],
+  () => [
+    props.playback?.track_name,
+    props.playback?.updated_at,
+    props.playback?.album_image_url,
+    props.playback?.is_playing,
+    props.playback?.progress_ms
+  ],
   () => {
     spotifyClock.value = Date.now()
     hasCoverError.value = false
@@ -185,22 +192,48 @@ const titleText = computed(() => {
   return isPlaying ? `${name} teraz słucha` : `${name} ostatnio słuchał(a)`
 })
 
+const trackDurationMs = computed(() => {
+  const dur = props.playback?.duration_ms
+  if (typeof dur === 'number' && dur > 0) return dur
+  return 210_000 // Standard fallback: 3:30
+})
+
+const progressFillColor = computed(() => {
+  switch (currentService.value) {
+    case 'apple_music':
+      return '#fc3c44'
+    case 'youtube_music':
+      return '#ff0000'
+    case 'tidal':
+      return '#0f172a'
+    case 'lastfm':
+      return '#d51007'
+    default:
+      return '#1db954'
+  }
+})
+
 const liveProgressMs = computed(() => {
   if (!props.playback) return 0
-  const progress = props.playback.progress_ms || 0
+  const progress = Number(props.playback.progress_ms) || 0
   if (!props.playback.is_playing) return progress
-  const elapsed = Math.max(0, spotifyClock.value - new Date(props.playback.updated_at).getTime())
-  const duration = props.playback.duration_ms || Number.MAX_SAFE_INTEGER
+  const updatedAtMs = props.playback.updated_at ? new Date(props.playback.updated_at).getTime() : 0
+  const elapsed = updatedAtMs > 0 && !isNaN(updatedAtMs) ? Math.max(0, spotifyClock.value - updatedAtMs) : 0
+  const duration = trackDurationMs.value
   return Math.min(duration, progress + elapsed)
 })
 
 const progressPercent = computed(() => {
-  if (!props.playback || !props.playback.duration_ms) return 0
-  return Math.min(100, Math.max(0, (liveProgressMs.value / props.playback.duration_ms) * 100))
+  const dur = trackDurationMs.value
+  if (!dur) return 0
+  return Math.min(100, Math.max(0, (liveProgressMs.value / dur) * 100))
 })
 
 const formatTime = (milliseconds?: number | null) => {
-  const totalSeconds = Math.max(0, Math.floor((milliseconds || 0) / 1000))
+  if (milliseconds === null || milliseconds === undefined || isNaN(milliseconds)) {
+    return '0:00'
+  }
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000))
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = String(totalSeconds % 60).padStart(2, '0')
   return `${minutes}:${seconds}`
@@ -398,6 +431,10 @@ onUnmounted(() => {
   border-radius: 999px;
   background: #1db954;
   transition: width 0.4s linear;
+}
+
+.spotify-progress-fill.is-paused {
+  opacity: 0.65;
 }
 
 .spotify-progress-times {

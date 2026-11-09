@@ -38,7 +38,7 @@ const normalizePlayback = (playback: any): SpotifyPlayback | null => {
   // Nested track object shape
   if (playback.track) {
     return {
-      is_playing: Boolean(playback.isPlaying),
+      is_playing: Boolean(playback.isPlaying ?? playback.is_playing),
       track_name: playback.track.name || 'Nieznany utwór',
       artist_name: Array.isArray(playback.track.artists)
         ? playback.track.artists.join(', ')
@@ -46,9 +46,9 @@ const normalizePlayback = (playback: any): SpotifyPlayback | null => {
       album_name: playback.track.album || null,
       album_image_url: playback.track.albumImageUrl || null,
       track_url: playback.track.externalUrl || null,
-      progress_ms: playback.progressMs ?? null,
-      duration_ms: playback.durationMs ?? null,
-      updated_at: playback.fetchedAt || new Date().toISOString(),
+      progress_ms: playback.progressMs ?? playback.progress_ms ?? null,
+      duration_ms: playback.durationMs ?? playback.duration_ms ?? null,
+      updated_at: playback.fetchedAt || playback.updated_at || new Date().toISOString(),
       music_service: playback.music_service || playback.track?.music_service || null
     }
   }
@@ -56,15 +56,15 @@ const normalizePlayback = (playback: any): SpotifyPlayback | null => {
   // Flat frontend playback object shape
   if (playback.track_name) {
     return {
-      is_playing: Boolean(playback.is_playing),
+      is_playing: Boolean(playback.is_playing ?? playback.isPlaying),
       track_name: playback.track_name,
       artist_name: playback.artist_name || 'Nieznany wykonawca',
       album_name: playback.album_name || null,
       album_image_url: playback.album_image_url || null,
       track_url: playback.track_url || null,
-      progress_ms: playback.progress_ms ?? null,
-      duration_ms: playback.duration_ms ?? null,
-      updated_at: playback.updated_at || new Date().toISOString(),
+      progress_ms: playback.progress_ms ?? playback.progressMs ?? null,
+      duration_ms: playback.duration_ms ?? playback.durationMs ?? null,
+      updated_at: playback.updated_at || playback.fetchedAt || new Date().toISOString(),
       music_service: playback.music_service || null
     }
   }
