@@ -30,7 +30,8 @@ function frontendPlayback(playback: any, service = 'spotify') {
     album_image_url: playback.track?.albumImageUrl || null,
     track_url: playback.track?.externalUrl || null,
     progress_ms: typeof playback.progressMs === 'number' ? playback.progressMs : 0,
-    duration_ms: typeof playback.durationMs === 'number' ? playback.durationMs : 210_000,
+    duration_ms: typeof playback.durationMs === 'number' && playback.durationMs > 0 ? playback.durationMs : 210_000,
+    started_at: playback.track?.started_at || null,
     updated_at: playback.fetchedAt || new Date().toISOString(),
     music_service: musicService
   }
@@ -99,24 +100,50 @@ async function fetchUserMusic(
     const durationMs = live.durationMs || 210_000
     const isSameTrack = presence?.track?.name === live.track.name
     let progressMs = 0
+    let trackStartedAt = Date.now()
 
-    if (isSameTrack) {
-      const prevProgress = typeof presence?.progress_ms === 'number' ? presence.progress_ms : 0
-      if (live.isPlaying) {
-        const elapsedSinceFetch = presence?.fetched_at
-          ? Math.max(0, Date.now() - new Date(presence.fetched_at).getTime())
-          : 0
-        progressMs = prevProgress + elapsedSinceFetch
-        if (progressMs >= durationMs) {
-          progressMs = progressMs % durationMs
+    if (live.isPlaying) {
+      if (isSameTrack && presence?.track?.started_at) {
+        // Track already playing with a known, fixed start timestamp
+        const existingStart = Number(presence.track.started_at)
+        if (!isNaN(existingStart) && existingStart > 0 && Date.now() - existingStart < durationMs * 2) {
+          trackStartedAt = existingStart
+          progressMs = Math.max(0, Date.now() - trackStartedAt)
+          if (progressMs >= durationMs) {
+            progressMs = progressMs % durationMs
+          }
+        } else {
+          progressMs = 0
+          trackStartedAt = Date.now()
         }
+      } else if (live.prevTrackEndedAtMs) {
+        // Previous track ended recently on streaming platform: current track started when previous one ended!
+        const elapsedSincePrev = Date.now() - live.prevTrackEndedAtMs
+        if (elapsedSincePrev > 0 && elapsedSincePrev < durationMs) {
+          trackStartedAt = live.prevTrackEndedAtMs
+          progressMs = elapsedSincePrev
+        } else {
+          progressMs = 0
+          trackStartedAt = Date.now()
+        }
+      } else if (isSameTrack && typeof presence?.progress_ms === 'number' && presence?.fetched_at) {
+        // Fallback: continue from previously saved presence
+        const elapsed = Math.max(0, Date.now() - new Date(presence.fetched_at).getTime())
+        progressMs = (presence.progress_ms + elapsed) % durationMs
+        trackStartedAt = Date.now() - progressMs
       } else {
-        progressMs = prevProgress
+        progressMs = 0
+        trackStartedAt = Date.now()
       }
+    } else {
+      // Paused / idle: preserve last known position
+      progressMs = isSameTrack && typeof presence?.progress_ms === 'number' ? presence.progress_ms : 0
+      trackStartedAt = Date.now() - progressMs
     }
 
     const customizedTrack = {
       ...live.track,
+      started_at: trackStartedAt,
       music_service: musicService,
       externalUrl: getServiceSearchUrl(
         musicService,
@@ -127,7 +154,7 @@ async function fetchUserMusic(
     }
 
     const hasTrackChanged = (live.track.name !== presence?.track?.name) || (live.isPlaying !== presence?.is_playing)
-    const isStale = !presence?.fetched_at || (Date.now() - new Date(presence.fetched_at).getTime() > 15_000)
+    const isStale = !presence?.fetched_at || (Date.now() - new Date(presence.fetched_at).getTime() > 10_000)
 
     if (hasTrackChanged || isStale) {
       await supabase.from('spotify_presence').upsert({

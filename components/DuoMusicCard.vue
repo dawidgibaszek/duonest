@@ -61,7 +61,7 @@
             ></div>
           </div>
           <div class="music-progress-times">
-            <span>{{ formatTime(liveProgressMs) }}</span>
+            <span>{{ formatTime(currentProgress) }}</span>
             <span>{{ formatTime(trackDurationMs) }}</span>
           </div>
         </div>
@@ -160,21 +160,33 @@ const targetTrackUrl = computed(() => {
   return `https://open.spotify.com/search/${query}`
 })
 
-const musicClock = ref(Date.now())
+const localProgressMs = ref(0)
 const hasCoverError = ref(false)
 let clockTimer: ReturnType<typeof setInterval> | null = null
+let lastTickTimestamp = Date.now()
 
+// Track changes or play/pause state changes
 watch(
-  () => [
-    props.playback?.track_name,
-    props.playback?.updated_at,
-    props.playback?.album_image_url,
-    props.playback?.is_playing,
-    props.playback?.progress_ms
-  ],
+  () => [props.playback?.track_name, props.playback?.is_playing],
   () => {
-    musicClock.value = Date.now()
     hasCoverError.value = false
+    localProgressMs.value = Math.max(0, Number(props.playback?.progress_ms) || 0)
+    lastTickTimestamp = Date.now()
+  },
+  { immediate: true }
+)
+
+// Server progress polling sync: only adjust if drift exceeds 3.5s (prevents visual jump/stutter)
+watch(
+  () => props.playback?.progress_ms,
+  (newVal) => {
+    if (newVal === undefined || newVal === null) return
+    const serverVal = Math.max(0, Number(newVal))
+    const diff = Math.abs(localProgressMs.value - serverVal)
+    if (diff > 3500) {
+      localProgressMs.value = serverVal
+      lastTickTimestamp = Date.now()
+    }
   }
 )
 
@@ -213,20 +225,17 @@ const progressFillColor = computed(() => {
   }
 })
 
-const liveProgressMs = computed(() => {
-  if (!props.playback) return 0
-  const progress = Number(props.playback.progress_ms) || 0
-  if (!props.playback.is_playing) return progress
-  const updatedAtMs = props.playback.updated_at ? new Date(props.playback.updated_at).getTime() : 0
-  const elapsed = updatedAtMs > 0 && !isNaN(updatedAtMs) ? Math.max(0, musicClock.value - updatedAtMs) : 0
-  const duration = trackDurationMs.value
-  return Math.min(duration, progress + elapsed)
+const currentProgress = computed(() => {
+  if (!props.playback?.is_playing) {
+    return Math.max(0, Number(props.playback?.progress_ms) || 0)
+  }
+  return localProgressMs.value
 })
 
 const progressPercent = computed(() => {
   const dur = trackDurationMs.value
   if (!dur) return 0
-  return Math.min(100, Math.max(0, (liveProgressMs.value / dur) * 100))
+  return Math.min(100, Math.max(0, (currentProgress.value / dur) * 100))
 })
 
 const formatTime = (milliseconds?: number | null) => {
@@ -240,11 +249,20 @@ const formatTime = (milliseconds?: number | null) => {
 }
 
 onMounted(() => {
+  lastTickTimestamp = Date.now()
+  localProgressMs.value = Math.max(0, Number(props.playback?.progress_ms) || 0)
+
+  // Smooth 250ms high-precision ticking for uninterrupted live playback
   clockTimer = setInterval(() => {
+    const now = Date.now()
+    const delta = now - lastTickTimestamp
+    lastTickTimestamp = now
+
     if (props.playback?.is_playing) {
-      musicClock.value = Date.now()
+      const dur = trackDurationMs.value
+      localProgressMs.value = Math.min(dur, localProgressMs.value + delta)
     }
-  }, 1000)
+  }, 250)
 })
 
 onUnmounted(() => {
@@ -430,7 +448,7 @@ onUnmounted(() => {
   height: 100%;
   border-radius: 999px;
   background: #1db954;
-  transition: width 0.4s linear;
+  transition: width 0.25s linear;
 }
 
 .music-progress-fill.is-paused {

@@ -75,12 +75,14 @@ export async function exchangeLastFmToken(token: string) {
 export interface LastFmTrackPlayback {
   isPlaying: boolean
   durationMs: number
+  prevTrackEndedAtMs?: number | null
   track: {
     name: string
     artists: string[]
     album: string | null
     albumImageUrl: string | null
     externalUrl: string | null
+    started_at?: number | null
   }
   fetchedAt: string
 }
@@ -141,13 +143,23 @@ export async function getLastFmUserPlayback(username: string): Promise<LastFmTra
     const rawTrack = data?.recenttracks?.track
     if (!rawTrack) return null
 
-    const trackItem = Array.isArray(rawTrack) ? rawTrack[0] : rawTrack
+    const tracks = Array.isArray(rawTrack) ? rawTrack : [rawTrack]
+    const trackItem = tracks[0]
     if (!trackItem || !trackItem.name) return null
 
     const isPlaying = trackItem['@attr']?.nowplaying === 'true'
     const name = String(trackItem.name || '').trim()
     const artist = String(trackItem.artist?.['#text'] || trackItem.artist?.name || '').trim()
     const album = String(trackItem.album?.['#text'] || trackItem.album?.name || '').trim() || null
+
+    // Check previous track scrobble timestamp (uts) to detect when current track started
+    let prevTrackEndedAtMs: number | null = null
+    if (isPlaying && tracks.length > 1 && tracks[1]?.date?.uts) {
+      const uts = Number(tracks[1].date.uts)
+      if (!isNaN(uts) && uts > 0) {
+        prevTrackEndedAtMs = uts * 1000
+      }
+    }
 
     const images = trackItem.image || []
     const albumImageUrl =
@@ -166,6 +178,7 @@ export async function getLastFmUserPlayback(username: string): Promise<LastFmTra
     return {
       isPlaying,
       durationMs,
+      prevTrackEndedAtMs,
       track: {
         name,
         artists: artist ? [artist] : [],
