@@ -1,7 +1,10 @@
 import { exchangeSpotifyToken, getSupabaseAdmin, spotifyConfig } from './_shared/spotify'
 
 function redirect(event: any, status: string) {
-  const target = process.env.NUXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://duonest.app'
+  const host = event?.headers?.['x-forwarded-host'] || event?.headers?.host
+  const proto = event?.headers?.['x-forwarded-proto'] || 'https'
+  const currentOrigin = host ? `${proto}://${host}` : ''
+  const target = currentOrigin || process.env.URL || process.env.NUXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://duonestapp.pl'
   const url = new URL('/tabs/relationship', target)
   url.searchParams.set('category', 'nest_settings')
   url.searchParams.set('spotify', status)

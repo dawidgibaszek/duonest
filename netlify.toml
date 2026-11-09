@@ -95,6 +95,11 @@
   status = 200
 
 [[redirects]]
+  from = "/auth/spotify/callback"
+  to = "/.netlify/functions/spotify-callback"
+  status = 200
+
+[[redirects]]
   from = "/api/spotify/playback"
   to = "/.netlify/functions/spotify-playback"
   status = 200
