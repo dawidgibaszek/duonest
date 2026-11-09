@@ -714,32 +714,62 @@
             <div class="spotify-connect-icon-circle">
               <DuoSpotifyLogo size="large" />
             </div>
-            <h5 class="connect-card-title">Połącz ze Spotify</h5>
+            <h5 class="connect-card-title">Muzyka na żywo (Last.fm &bull; Spotify)</h5>
             <p class="connect-card-desc">
-              Gdy słuchasz muzyki w Spotify, partner zobaczy okładkę, tytuł i postęp utworu w Gniazdku.
+              Gdy słuchasz muzyki na Spotify, partner zobaczy aktualnie grany utwór i okładkę albumu na żywo w Gniazdku!
             </p>
-            <div class="spotify-features-chips">
-              <span class="spotify-chip">
-                <ion-icon :icon="ioniconsMusicalNotesOutline" />
-                <span>Aktualnie odtwarzany utwór</span>
-              </span>
-              <span class="spotify-chip">
-                <ion-icon :icon="ioniconsShieldCheckmarkOutline" />
-                <span>Pełna kontrola prywatności</span>
-              </span>
+
+            <div class="lastfm-guide-card">
+              <div class="guide-step">
+                <span class="step-badge">1</span>
+                <span>Włącz scrobblowanie Spotify (w aplikacji Spotify lub na <a href="https://www.last.fm/settings/applications" target="_blank" rel="noopener noreferrer">last.fm/settings/applications</a> kliknij <em>Connect</em> przy Spotify).</span>
+              </div>
+              <div class="guide-step">
+                <span class="step-badge">2</span>
+                <span>Zaloguj konto Last.fm w DuoNest:</span>
+              </div>
             </div>
+
             <button
               type="button"
               class="spotify-connect-btn"
-              @click="connectSpotify"
+              @click="connectLastFm"
               :disabled="spotifyLoading"
             >
               <ion-spinner v-if="spotifyLoading" name="crescent" />
               <template v-else>
-                <DuoSpotifyLogo size="small" />
-                <span>Połącz konto Spotify</span>
+                <ion-icon :icon="ioniconsLogInOutline" />
+                <span>Zaloguj przez Last.fm</span>
               </template>
             </button>
+
+            <div class="manual-nick-container">
+              <button
+                type="button"
+                class="manual-nick-link"
+                @click="showManualNickInput = !showManualNickInput"
+              >
+                {{ showManualNickInput ? 'Ukryj wpisywanie loginu' : 'Albo połącz wpisując swój login Last.fm' }}
+              </button>
+
+              <div v-if="showManualNickInput" class="manual-nick-form">
+                <input
+                  v-model="lastFmUsernameInput"
+                  type="text"
+                  placeholder="np. twoj_login"
+                  class="manual-nick-input"
+                  @keydown.enter="handleManualConnect"
+                />
+                <button
+                  type="button"
+                  class="manual-nick-submit"
+                  :disabled="!lastFmUsernameInput.trim() || spotifyLoading"
+                  @click="handleManualConnect"
+                >
+                  Połącz
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- STATE B: Connected Settings -->
@@ -751,7 +781,7 @@
                   <span class="online-dot" title="Połączone"></span>
                 </div>
                 <div class="account-info">
-                  <strong class="account-name">{{ spotifyConnection.display_name || 'Twoje konto Spotify' }}</strong>
+                  <strong class="account-name">{{ spotifyConnection.display_name ? `Konto: ${spotifyConnection.display_name}` : 'Połączone z Last.fm' }}</strong>
                   <span class="account-status">
                     <ion-icon :icon="ioniconsCheckmarkCircle" class="check-icon" />
                     Konto aktywne i połączone
@@ -1601,11 +1631,25 @@ const {
   isLoading: spotifyLoading,
   errorMessage: spotifyErrorMessage,
   connectSpotify,
+  connectLastFm,
+  connectLastFmUsername,
   disconnectSpotify,
   setSpotifyVisibility,
   startSpotifyPolling,
   stopSpotifyPolling
 } = useSpotify()
+
+const showManualNickInput = ref(false)
+const lastFmUsernameInput = ref('')
+
+const handleManualConnect = async () => {
+  if (!lastFmUsernameInput.value.trim()) return
+  const ok = await connectLastFmUsername(lastFmUsernameInput.value.trim())
+  if (ok) {
+    lastFmUsernameInput.value = ''
+    showManualNickInput.value = false
+  }
+}
 
 const { confirm } = useConfirm()
 
@@ -3826,6 +3870,116 @@ const handleRefresh = async (event: any) => {
 .spotify-connect-btn:disabled {
   opacity: 0.6;
   pointer-events: none;
+}
+
+.lastfm-guide-card {
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.guide-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12.5px;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.guide-step a {
+  color: #0f172a;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.step-badge {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.manual-nick-container {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.manual-nick-link {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  text-decoration: underline;
+  transition: color 0.15s ease;
+}
+
+.manual-nick-link:hover {
+  color: #0f172a;
+}
+
+.manual-nick-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.manual-nick-input {
+  flex: 1;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.manual-nick-input:focus {
+  border-color: #0f172a;
+}
+
+.manual-nick-submit {
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.manual-nick-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* STATE B: Connected Settings */

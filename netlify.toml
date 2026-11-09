@@ -124,6 +124,47 @@
   to = "/.netlify/functions/spotify-visibility"
   status = 200
 
+# Last.fm (Spotify Scrobbler) API
+[[redirects]]
+  from = "/api/lastfm/start"
+  to = "/.netlify/functions/lastfm-start"
+  status = 200
+
+[[redirects]]
+  from = "/api/lastfm/callback"
+  to = "/.netlify/functions/lastfm-callback"
+  status = 200
+
+[[redirects]]
+  from = "/auth/lastfm/callback"
+  to = "/.netlify/functions/lastfm-callback"
+  status = 200
+
+[[redirects]]
+  from = "/api/lastfm/connect"
+  to = "/.netlify/functions/lastfm-connect"
+  status = 200
+
+[[redirects]]
+  from = "/api/lastfm/playback"
+  to = "/.netlify/functions/lastfm-playback"
+  status = 200
+
+[[redirects]]
+  from = "/api/lastfm/status"
+  to = "/.netlify/functions/lastfm-playback"
+  status = 200
+
+[[redirects]]
+  from = "/api/lastfm/disconnect"
+  to = "/.netlify/functions/lastfm-disconnect"
+  status = 200
+
+[[redirects]]
+  from = "/api/lastfm/visibility"
+  to = "/.netlify/functions/lastfm-visibility"
+  status = 200
+
 # Pass through Nuxt and Vite dev server assets (prevents SPA catch-all from intercepting Vite dev bundles)
 [[redirects]]
   from = "/_nuxt/*"

@@ -16,11 +16,13 @@ export interface SpotifyConnection {
   connected: boolean
   display_name?: string | null
   visible_to_partner: boolean
+  service?: 'lastfm' | 'spotify'
 }
 
 const connection = ref<SpotifyConnection>({
   connected: false,
-  visible_to_partner: false
+  visible_to_partner: false,
+  service: 'lastfm'
 })
 const myPlayback = ref<SpotifyPlayback | null>(null)
 const partnerPlayback = ref<SpotifyPlayback | null>(null)
@@ -74,7 +76,7 @@ const getAccessToken = async () => {
   return data.session?.access_token || ''
 }
 
-const callSpotifyApi = async (path: string, options: RequestInit = {}) => {
+const callApi = async (path: string, options: RequestInit = {}) => {
   const accessToken = await getAccessToken()
   if (!accessToken) throw new Error('Brak aktywnej sesji')
 
@@ -95,17 +97,39 @@ const refreshSpotifyStatus = async (showLoading = false) => {
   errorMessage.value = ''
 
   try {
-    const data = await callSpotifyApi('/api/spotify/status')
-    connection.value = {
-      connected: Boolean(data.connection?.connected ?? data.connected),
-      display_name: data.connection?.display_name || null,
-      visible_to_partner: Boolean(data.connection?.visible_to_partner ?? data.visible)
+    // Try Last.fm status first
+    let data: any = null
+    try {
+      data = await callApi('/api/lastfm/status')
+    } catch {
+      // Fallback to legacy Spotify endpoint if Last.fm fails
+      data = await callApi('/api/spotify/status')
     }
-    myPlayback.value = normalizePlayback(data.playback || data.my_playback)
-    partnerPlayback.value = normalizePlayback(data.partnerPlayback || data.partner_playback)
+
+    if (!data?.connected) {
+      // If Last.fm is not connected, check if Spotify was connected
+      try {
+        const spotifyData = await callApi('/api/spotify/status')
+        if (spotifyData?.connected) {
+          data = spotifyData
+          connection.value.service = 'spotify'
+        }
+      } catch {}
+    } else {
+      connection.value.service = 'lastfm'
+    }
+
+    connection.value = {
+      connected: Boolean(data?.connection?.connected ?? data?.connected),
+      display_name: data?.connection?.display_name || data?.display_name || null,
+      visible_to_partner: Boolean(data?.connection?.visible_to_partner ?? data?.visible),
+      service: connection.value.service || 'lastfm'
+    }
+    myPlayback.value = normalizePlayback(data?.playback || data?.my_playback)
+    partnerPlayback.value = normalizePlayback(data?.partnerPlayback || data?.partner_playback)
   } catch (error: any) {
     if (error?.statusCode !== 401) {
-      errorMessage.value = error?.data?.error || error?.message || 'Nie udało się pobrać aktywności Spotify'
+      errorMessage.value = error?.data?.error || error?.message || 'Nie udało się pobrać aktywności muzycznej'
     }
   } finally {
     refreshInFlight = false
@@ -181,27 +205,62 @@ const stopSpotifyPolling = () => {
   }
 }
 
-const connectSpotify = async () => {
+const connectLastFm = async () => {
   errorMessage.value = ''
+  isLoading.value = true
   try {
-    const data = await callSpotifyApi('/api/spotify/start')
-    if (!data?.authorization_url) throw new Error('Nie udało się rozpocząć łączenia ze Spotify')
+    const data = await callApi('/api/lastfm/start')
+    if (!data?.authorization_url) throw new Error('Nie udało się wygenerować linku logowania Last.fm')
     window.location.href = data.authorization_url
   } catch (error: any) {
-    errorMessage.value = error?.data?.error || error?.message || 'Nie udało się połączyć ze Spotify'
+    errorMessage.value = error?.data?.error || error?.message || 'Nie udało się połączyć z Last.fm'
+  } finally {
+    isLoading.value = false
   }
+}
+
+const connectLastFmUsername = async (username: string) => {
+  errorMessage.value = ''
+  isLoading.value = true
+  try {
+    const data = await callApi('/api/lastfm/connect', {
+      method: 'POST',
+      body: JSON.stringify({ username: username.trim() })
+    })
+    connection.value = {
+      connected: true,
+      display_name: data.username || username.trim(),
+      visible_to_partner: true,
+      service: 'lastfm'
+    }
+    await refreshSpotifyStatus(true)
+    return true
+  } catch (error: any) {
+    errorMessage.value = error?.data?.error || error?.message || 'Nie udało się połączyć konta Last.fm'
+    return false
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const connectSpotify = async () => {
+  // Redirect to Last.fm login as the primary zero-quota method
+  return connectLastFm()
 }
 
 const disconnectSpotify = async () => {
   isLoading.value = true
   errorMessage.value = ''
   try {
-    await callSpotifyApi('/api/spotify/disconnect', { method: 'POST' })
-    connection.value = { connected: false, visible_to_partner: false }
+    await Promise.allSettled([
+      callApi('/api/lastfm/disconnect', { method: 'POST' }),
+      callApi('/api/spotify/disconnect', { method: 'POST' })
+    ])
+    connection.value = { connected: false, visible_to_partner: false, service: 'lastfm' }
     myPlayback.value = null
     partnerPlayback.value = null
   } catch (error: any) {
-    errorMessage.value = error?.data?.error || error?.message || 'Nie udało się odłączyć Spotify'
+    errorMessage.value = error?.data?.error || error?.message || 'Nie udało się odłączyć konta muzycznego'
   } finally {
     isLoading.value = false
   }
@@ -209,10 +268,16 @@ const disconnectSpotify = async () => {
 
 const setSpotifyVisibility = async (visible: boolean) => {
   try {
-    await callSpotifyApi('/api/spotify/visibility', {
-      method: 'POST',
-      body: JSON.stringify({ visible })
-    })
+    await Promise.allSettled([
+      callApi('/api/lastfm/visibility', {
+        method: 'POST',
+        body: JSON.stringify({ visible })
+      }),
+      callApi('/api/spotify/visibility', {
+        method: 'POST',
+        body: JSON.stringify({ visible })
+      })
+    ])
     connection.value.visible_to_partner = visible
     if (!visible) partnerPlayback.value = null
     await refreshSpotifyStatus()
@@ -231,6 +296,8 @@ export const useSpotify = () => ({
   isLoading,
   errorMessage,
   refreshSpotifyStatus,
+  connectLastFm,
+  connectLastFmUsername,
   connectSpotify,
   disconnectSpotify,
   setSpotifyVisibility,
