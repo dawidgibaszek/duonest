@@ -9,13 +9,20 @@ export const handler = async (event: any) => {
   const auth = await authenticateNetlifyUser(event)
   if ('error' in auth) return response(auth.statusCode || 401, { success: false, error: auth.error }, headers)
 
-  await Promise.all([
+  const resetPayload = {
+    track: null,
+    is_playing: false,
+    progress_ms: 0,
+    duration_ms: 0,
+    updated_at: new Date().toISOString()
+  }
+
+  await Promise.allSettled([
+    auth.supabase.from('music_connections').delete().eq('profile_id', auth.profile.id),
     auth.supabase.from('lastfm_connections').delete().eq('profile_id', auth.profile.id),
-    auth.supabase.from('spotify_presence').update({
-      track: null,
-      is_playing: false,
-      updated_at: new Date().toISOString()
-    }).eq('profile_id', auth.profile.id)
+    auth.supabase.from('spotify_connections').delete().eq('profile_id', auth.profile.id),
+    auth.supabase.from('music_presence').update(resetPayload).eq('profile_id', auth.profile.id),
+    auth.supabase.from('spotify_presence').update(resetPayload).eq('profile_id', auth.profile.id)
   ])
 
   return response(200, { success: true, connected: false }, headers)

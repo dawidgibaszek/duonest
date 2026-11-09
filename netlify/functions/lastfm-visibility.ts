@@ -19,14 +19,25 @@ export const handler = async (event: any) => {
   const visible = body.visible_to_partner ?? body.visible
   if (typeof visible !== 'boolean') return response(400, { success: false, error: 'Pole visible_to_partner musi być boolean' }, headers)
 
-  const { error } = await auth.supabase.from('spotify_presence').upsert({
+  const payload = {
     profile_id: auth.profile.id,
     partnership_id: auth.profile.partnership_id || null,
     is_visible: visible,
     updated_at: new Date().toISOString()
-  })
+  }
 
-  if (error) return response(500, { success: false, error: 'Nie udało się zaktualizować widoczności' }, headers)
+  // 1. Primary: music_presence
+  const { error: musicPresErr } = await auth.supabase.from('music_presence').upsert(payload)
+
+  // 2. Fallback: spotify_presence
+  if (musicPresErr) {
+    const { error: legacyErr } = await auth.supabase.from('spotify_presence').upsert(payload)
+    if (legacyErr) return response(500, { success: false, error: 'Nie udało się zaktualizować widoczności' }, headers)
+  } else {
+    // Keep legacy in sync if it exists
+    await auth.supabase.from('spotify_presence').upsert(payload).catch(() => {})
+  }
+
   return response(200, { success: true, visible_to_partner: visible }, headers)
 }
 

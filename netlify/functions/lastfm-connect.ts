@@ -42,39 +42,52 @@ export const handler = async (event: any) => {
     // If check fails on network, proceed anyway
   }
 
-  const { error: primaryError } = await auth.supabase.from('lastfm_connections').upsert({
+  // 1. Primary: Save to music_connections
+  const { error: musicConnErr } = await auth.supabase.from('music_connections').upsert({
     profile_id: auth.profile.id,
-    lastfm_username: username,
+    service_username: username,
+    music_service: 'spotify',
     updated_at: new Date().toISOString()
   })
 
-  if (primaryError) {
-    console.warn('[lastfm-connect] Błąd zapisu do lastfm_connections, zapisuję do spotify_connections:', primaryError.message)
-    await auth.supabase.from('spotify_connections').upsert({
+  if (musicConnErr) {
+    // Fallback: Save to lastfm_connections or legacy spotify_connections
+    const { error: primaryError } = await auth.supabase.from('lastfm_connections').upsert({
       profile_id: auth.profile.id,
-      spotify_user_id: `lastfm:${username}`,
-      access_token: 'lastfm',
-      refresh_token: 'lastfm',
-      expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-      scopes: ['lastfm'],
+      lastfm_username: username,
       updated_at: new Date().toISOString()
     })
-  } else {
-    try {
-      await auth.supabase
-        .from('spotify_connections')
-        .delete()
-        .eq('profile_id', auth.profile.id)
-        .not('spotify_user_id', 'like', 'lastfm:%')
-    } catch {}
+
+    if (primaryError) {
+      console.warn('[lastfm-connect] Błąd zapisu do lastfm_connections, zapisuję do spotify_connections:', primaryError.message)
+      await auth.supabase.from('spotify_connections').upsert({
+        profile_id: auth.profile.id,
+        spotify_user_id: `lastfm:${username}`,
+        access_token: 'lastfm',
+        refresh_token: 'lastfm',
+        expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        scopes: ['lastfm'],
+        updated_at: new Date().toISOString()
+      }).catch(() => {})
+    }
   }
 
-  await auth.supabase.from('spotify_presence').upsert({
+  // 2. Ensure presence row exists (primary: music_presence, fallback: spotify_presence)
+  const { error: presErr } = await auth.supabase.from('music_presence').upsert({
     profile_id: auth.profile.id,
     partnership_id: auth.profile.partnership_id || null,
     is_visible: true,
     updated_at: new Date().toISOString()
   })
+
+  if (presErr) {
+    await auth.supabase.from('spotify_presence').upsert({
+      profile_id: auth.profile.id,
+      partnership_id: auth.profile.partnership_id || null,
+      is_visible: true,
+      updated_at: new Date().toISOString()
+    }).catch(() => {})
+  }
 
   // Attempt initial playback check in background
   const initialPlayback = await getLastFmUserPlayback(username)

@@ -21,7 +21,16 @@ export const handler = async (event: any) => {
   const rawService = String(body.service || body.music_service || '').toLowerCase().trim()
   const service = VALID_SERVICES.includes(rawService) ? rawService : 'spotify'
 
-  // Update lastfm_connections
+  // 1. Update music_connections (primary) and lastfm_connections (fallback)
+  await auth.supabase
+    .from('music_connections')
+    .update({
+      music_service: service,
+      updated_at: new Date().toISOString()
+    })
+    .eq('profile_id', auth.profile.id)
+    .catch(() => {})
+
   await auth.supabase
     .from('lastfm_connections')
     .update({
@@ -29,13 +38,25 @@ export const handler = async (event: any) => {
       updated_at: new Date().toISOString()
     })
     .eq('profile_id', auth.profile.id)
+    .catch(() => {})
 
-  // Update current presence track if present
-  const { data: presence } = await auth.supabase
-    .from('spotify_presence')
+  // 2. Update current presence track if present (check music_presence, then spotify_presence)
+  let { data: presence } = await auth.supabase
+    .from('music_presence')
     .select('track')
     .eq('profile_id', auth.profile.id)
     .maybeSingle()
+
+  if (!presence) {
+    const { data: legacyPresence } = await auth.supabase
+      .from('spotify_presence')
+      .select('track')
+      .eq('profile_id', auth.profile.id)
+      .maybeSingle()
+    if (legacyPresence) {
+      presence = legacyPresence
+    }
+  }
 
   if (presence?.track) {
     const updatedTrack = {
@@ -43,12 +64,22 @@ export const handler = async (event: any) => {
       music_service: service
     }
     await auth.supabase
+      .from('music_presence')
+      .update({
+        track: updatedTrack,
+        updated_at: new Date().toISOString()
+      })
+      .eq('profile_id', auth.profile.id)
+      .catch(() => {})
+
+    await auth.supabase
       .from('spotify_presence')
       .update({
         track: updatedTrack,
         updated_at: new Date().toISOString()
       })
       .eq('profile_id', auth.profile.id)
+      .catch(() => {})
   }
 
   return response(200, { success: true, service }, headers)

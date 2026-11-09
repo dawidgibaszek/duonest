@@ -7,43 +7,49 @@ async function saveLastFmConnection(
   username: string,
   sessionKey: string
 ) {
-  // 1. Try saving to lastfm_connections
-  const { error: primaryError } = await supabase.from('lastfm_connections').upsert({
+  // 1. Primary: save to music_connections
+  const { error: musicConnErr } = await supabase.from('music_connections').upsert({
     profile_id: profileId,
-    lastfm_username: username,
+    service_username: username,
     session_key: sessionKey,
+    music_service: 'spotify',
     updated_at: new Date().toISOString()
   })
 
-  // 2. Fallback: if table doesn't exist in Supabase yet, save to spotify_connections
-  if (primaryError) {
-    console.warn('[lastfm-callback] Błąd zapisu do lastfm_connections, zapisuję do spotify_connections:', primaryError.message)
-    await supabase.from('spotify_connections').upsert({
+  // Fallbacks if music_connections not created yet
+  if (musicConnErr) {
+    const { error: lastfmErr } = await supabase.from('lastfm_connections').upsert({
       profile_id: profileId,
-      spotify_user_id: `lastfm:${username}`,
-      access_token: sessionKey || 'lastfm',
-      refresh_token: 'lastfm',
-      expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-      scopes: ['lastfm'],
+      lastfm_username: username,
+      session_key: sessionKey,
       updated_at: new Date().toISOString()
     })
-  } else {
-    // Purge old Spotify OAuth token to prevent conflicts
-    try {
-      await supabase
-        .from('spotify_connections')
-        .delete()
-        .eq('profile_id', profileId)
-        .not('spotify_user_id', 'like', 'lastfm:%')
-    } catch {}
+    if (lastfmErr) {
+      await supabase.from('spotify_connections').upsert({
+        profile_id: profileId,
+        spotify_user_id: `lastfm:${username}`,
+        access_token: sessionKey || 'lastfm',
+        refresh_token: 'lastfm',
+        expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        scopes: ['lastfm'],
+        updated_at: new Date().toISOString()
+      }).catch(() => {})
+    }
   }
 
-  // 3. Ensure presence exists with visibility true
-  await supabase.from('spotify_presence').upsert({
+  // 2. Ensure presence exists with visibility true (primary: music_presence)
+  const { error: presErr } = await supabase.from('music_presence').upsert({
     profile_id: profileId,
     is_visible: true,
     updated_at: new Date().toISOString()
   })
+  if (presErr) {
+    await supabase.from('spotify_presence').upsert({
+      profile_id: profileId,
+      is_visible: true,
+      updated_at: new Date().toISOString()
+    }).catch(() => {})
+  }
 }
 
 export const handler = async (event: any) => {

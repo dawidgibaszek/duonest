@@ -24,16 +24,15 @@ export const handler = async (event: any) => {
   if ('error' in auth) return response(auth.statusCode || 401, { success: false, error: auth.error }, headers)
 
   const state = randomBytes(24).toString('hex')
-  const { error } = await auth.supabase.from('spotify_oauth_states').insert({
-    state,
-    profile_id: auth.profile.id,
-    code_verifier: 'lastfm',
-    expires_at: new Date(Date.now() + 15 * 60_000).toISOString()
-  })
-
-  if (error) {
-    console.error('[lastfm-start] Błąd zapisu stanu:', error.message)
-    return response(500, { success: false, error: 'Nie udało się rozpocząć autoryzacji Last.fm' }, headers)
+  try {
+    await auth.supabase.from('spotify_oauth_states').insert({
+      state,
+      profile_id: auth.profile.id,
+      code_verifier: 'lastfm',
+      expires_at: new Date(Date.now() + 15 * 60_000).toISOString()
+    })
+  } catch {
+    // Non-blocking: Last.fm OAuth uses browser session callback
   }
 
   const host = event?.headers?.['x-forwarded-host'] || event?.headers?.host

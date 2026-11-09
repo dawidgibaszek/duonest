@@ -42,36 +42,29 @@ async function fetchUserMusic(
   profileId: string,
   partnershipId: string | null
 ) {
-  // 1. Get Last.fm connection and preferred music service
-  const { data: connection } = await supabase
-    .from('lastfm_connections')
-    .select('lastfm_username, music_service')
+  // 1. Get connection and preferred music service (primary: music_connections)
+  let { data: connection } = await supabase
+    .from('music_connections')
+    .select('service_username, music_service')
     .eq('profile_id', profileId)
     .maybeSingle()
 
-  // 2. Get Presence
-  const { data: presence } = await supabase
-    .from('spotify_presence')
-    .select('is_visible, track, is_playing, progress_ms, duration_ms, fetched_at')
-    .eq('profile_id', profileId)
-    .maybeSingle()
+  let username = connection?.service_username?.trim() || null
+  let musicService = connection?.music_service || 'spotify'
 
-  const isVisible = presence ? presence.is_visible !== false : true
-  let username = connection?.lastfm_username?.trim() || null
-  const musicService = connection?.music_service || presence?.track?.music_service || 'spotify'
-
-  // If user has Last.fm connected, purge any legacy Spotify OAuth token to prevent conflicts
-  if (connection?.lastfm_username) {
-    try {
-      await supabase
-        .from('spotify_connections')
-        .delete()
-        .eq('profile_id', profileId)
-        .not('spotify_user_id', 'like', 'lastfm:%')
-    } catch { }
+  // Fallbacks for migration transition:
+  if (!username) {
+    const { data: lastfmConn } = await supabase
+      .from('lastfm_connections')
+      .select('lastfm_username, music_service')
+      .eq('profile_id', profileId)
+      .maybeSingle()
+    if (lastfmConn?.lastfm_username) {
+      username = lastfmConn.lastfm_username.trim()
+      musicService = lastfmConn.music_service || musicService
+    }
   }
 
-  // 2b. Fallback: check if stored in spotify_connections
   if (!username) {
     const { data: spotConn } = await supabase
       .from('spotify_connections')
@@ -83,6 +76,25 @@ async function fetchUserMusic(
       username = spotConn.spotify_user_id.replace(/^lastfm:/, '').trim()
     }
   }
+
+  // 2. Get Presence (primary: music_presence)
+  let { data: presence } = await supabase
+    .from('music_presence')
+    .select('is_visible, track, is_playing, progress_ms, duration_ms, fetched_at')
+    .eq('profile_id', profileId)
+    .maybeSingle()
+
+  if (!presence) {
+    const { data: legacyPresence } = await supabase
+      .from('spotify_presence')
+      .select('is_visible, track, is_playing, progress_ms, duration_ms, fetched_at')
+      .eq('profile_id', profileId)
+      .maybeSingle()
+    presence = legacyPresence
+  }
+
+  const isVisible = presence ? presence.is_visible !== false : true
+  musicService = connection?.music_service || presence?.track?.music_service || musicService
 
   if (!username) {
     return {
@@ -157,7 +169,7 @@ async function fetchUserMusic(
     const isStale = !presence?.fetched_at || (Date.now() - new Date(presence.fetched_at).getTime() > 10_000)
 
     if (hasTrackChanged || isStale) {
-      await supabase.from('spotify_presence').upsert({
+      const presencePayload = {
         profile_id: profileId,
         partnership_id: partnershipId,
         is_visible: isVisible,
@@ -167,7 +179,11 @@ async function fetchUserMusic(
         duration_ms: durationMs,
         fetched_at: live.fetchedAt,
         updated_at: live.fetchedAt
-      })
+      }
+      const { error: upsertErr } = await supabase.from('music_presence').upsert(presencePayload)
+      if (upsertErr) {
+        await supabase.from('spotify_presence').upsert(presencePayload).catch(() => {})
+      }
     }
 
     return {
