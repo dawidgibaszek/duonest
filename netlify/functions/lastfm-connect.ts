@@ -60,15 +60,17 @@ export const handler = async (event: any) => {
 
     if (primaryError) {
       console.warn('[lastfm-connect] Błąd zapisu do lastfm_connections, zapisuję do spotify_connections:', primaryError.message)
-      await auth.supabase.from('spotify_connections').upsert({
-        profile_id: auth.profile.id,
-        spotify_user_id: `lastfm:${username}`,
-        access_token: 'lastfm',
-        refresh_token: 'lastfm',
-        expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-        scopes: ['lastfm'],
-        updated_at: new Date().toISOString()
-      }).catch(() => {})
+      try {
+        await auth.supabase.from('spotify_connections').upsert({
+          profile_id: auth.profile.id,
+          spotify_user_id: `lastfm:${username}`,
+          access_token: 'lastfm',
+          refresh_token: 'lastfm',
+          expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          scopes: ['lastfm'],
+          updated_at: new Date().toISOString()
+        })
+      } catch {}
     }
   }
 
@@ -81,12 +83,14 @@ export const handler = async (event: any) => {
   })
 
   if (presErr) {
-    await auth.supabase.from('spotify_presence').upsert({
-      profile_id: auth.profile.id,
-      partnership_id: auth.profile.partnership_id || null,
-      is_visible: true,
-      updated_at: new Date().toISOString()
-    }).catch(() => {})
+    try {
+      await auth.supabase.from('spotify_presence').upsert({
+        profile_id: auth.profile.id,
+        partnership_id: auth.profile.partnership_id || null,
+        is_visible: true,
+        updated_at: new Date().toISOString()
+      })
+    } catch {}
   }
 
   // Attempt initial playback check in background

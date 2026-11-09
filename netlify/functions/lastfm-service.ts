@@ -22,40 +22,50 @@ export const handler = async (event: any) => {
   const service = VALID_SERVICES.includes(rawService) ? rawService : 'spotify'
 
   // 1. Update music_connections (primary) and lastfm_connections (fallback)
-  await auth.supabase
-    .from('music_connections')
-    .update({
-      music_service: service,
-      updated_at: new Date().toISOString()
-    })
-    .eq('profile_id', auth.profile.id)
-    .catch(() => {})
+  try {
+    await auth.supabase
+      .from('music_connections')
+      .update({
+        music_service: service,
+        updated_at: new Date().toISOString()
+      })
+      .eq('profile_id', auth.profile.id)
+  } catch (e: any) {
+    console.warn('[lastfm-service] music_connections update error:', e?.message)
+  }
 
-  await auth.supabase
-    .from('lastfm_connections')
-    .update({
-      music_service: service,
-      updated_at: new Date().toISOString()
-    })
-    .eq('profile_id', auth.profile.id)
-    .catch(() => {})
+  try {
+    await auth.supabase
+      .from('lastfm_connections')
+      .update({
+        music_service: service,
+        updated_at: new Date().toISOString()
+      })
+      .eq('profile_id', auth.profile.id)
+  } catch {}
 
   // 2. Update current presence track if present (check music_presence, then spotify_presence)
-  let { data: presence } = await auth.supabase
-    .from('music_presence')
-    .select('track')
-    .eq('profile_id', auth.profile.id)
-    .maybeSingle()
-
-  if (!presence) {
-    const { data: legacyPresence } = await auth.supabase
-      .from('spotify_presence')
+  let presence: any = null
+  try {
+    const { data } = await auth.supabase
+      .from('music_presence')
       .select('track')
       .eq('profile_id', auth.profile.id)
       .maybeSingle()
-    if (legacyPresence) {
-      presence = legacyPresence
-    }
+    presence = data
+  } catch {}
+
+  if (!presence) {
+    try {
+      const { data: legacyPresence } = await auth.supabase
+        .from('spotify_presence')
+        .select('track')
+        .eq('profile_id', auth.profile.id)
+        .maybeSingle()
+      if (legacyPresence) {
+        presence = legacyPresence
+      }
+    } catch {}
   }
 
   if (presence?.track) {
@@ -63,23 +73,25 @@ export const handler = async (event: any) => {
       ...presence.track,
       music_service: service
     }
-    await auth.supabase
-      .from('music_presence')
-      .update({
-        track: updatedTrack,
-        updated_at: new Date().toISOString()
-      })
-      .eq('profile_id', auth.profile.id)
-      .catch(() => {})
+    try {
+      await auth.supabase
+        .from('music_presence')
+        .update({
+          track: updatedTrack,
+          updated_at: new Date().toISOString()
+        })
+        .eq('profile_id', auth.profile.id)
+    } catch {}
 
-    await auth.supabase
-      .from('spotify_presence')
-      .update({
-        track: updatedTrack,
-        updated_at: new Date().toISOString()
-      })
-      .eq('profile_id', auth.profile.id)
-      .catch(() => {})
+    try {
+      await auth.supabase
+        .from('spotify_presence')
+        .update({
+          track: updatedTrack,
+          updated_at: new Date().toISOString()
+        })
+        .eq('profile_id', auth.profile.id)
+    } catch {}
   }
 
   return response(200, { success: true, service }, headers)

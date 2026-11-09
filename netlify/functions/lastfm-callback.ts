@@ -25,15 +25,17 @@ async function saveLastFmConnection(
       updated_at: new Date().toISOString()
     })
     if (lastfmErr) {
-      await supabase.from('spotify_connections').upsert({
-        profile_id: profileId,
-        spotify_user_id: `lastfm:${username}`,
-        access_token: sessionKey || 'lastfm',
-        refresh_token: 'lastfm',
-        expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-        scopes: ['lastfm'],
-        updated_at: new Date().toISOString()
-      }).catch(() => {})
+      try {
+        await supabase.from('spotify_connections').upsert({
+          profile_id: profileId,
+          spotify_user_id: `lastfm:${username}`,
+          access_token: sessionKey || 'lastfm',
+          refresh_token: 'lastfm',
+          expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          scopes: ['lastfm'],
+          updated_at: new Date().toISOString()
+        })
+      } catch {}
     }
   }
 
@@ -44,11 +46,13 @@ async function saveLastFmConnection(
     updated_at: new Date().toISOString()
   })
   if (presErr) {
-    await supabase.from('spotify_presence').upsert({
-      profile_id: profileId,
-      is_visible: true,
-      updated_at: new Date().toISOString()
-    }).catch(() => {})
+    try {
+      await supabase.from('spotify_presence').upsert({
+        profile_id: profileId,
+        is_visible: true,
+        updated_at: new Date().toISOString()
+      })
+    } catch {}
   }
 }
 

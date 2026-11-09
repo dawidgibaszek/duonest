@@ -182,7 +182,9 @@ async function fetchUserMusic(
       }
       const { error: upsertErr } = await supabase.from('music_presence').upsert(presencePayload)
       if (upsertErr) {
-        await supabase.from('spotify_presence').upsert(presencePayload).catch(() => {})
+        try {
+          await supabase.from('spotify_presence').upsert(presencePayload)
+        } catch {}
       }
     }
 

@@ -35,7 +35,9 @@ export const handler = async (event: any) => {
     if (legacyErr) return response(500, { success: false, error: 'Nie udało się zaktualizować widoczności' }, headers)
   } else {
     // Keep legacy in sync if it exists
-    await auth.supabase.from('spotify_presence').upsert(payload).catch(() => {})
+    try {
+      await auth.supabase.from('spotify_presence').upsert(payload)
+    } catch {}
   }
 
   return response(200, { success: true, visible_to_partner: visible }, headers)
