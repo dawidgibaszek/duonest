@@ -684,7 +684,151 @@
           </div>
         </div>
 
-        <!-- 3. POWIADOMIENIA PUSH & ALERTY GNIAZDKA -->
+        <!-- 3. SPOTIFY & AKTYWNOŚĆ MUZYCZNA -->
+        <div class="dn-card spotify-settings-card">
+          <div class="card-title-row">
+            <span class="section-tag spotify-section-tag">
+              <span class="spotify-mark" aria-hidden="true">
+                <DuoSpotifyLogo size="small" />
+              </span>
+              SPOTIFY
+            </span>
+            <span class="spotify-status-pill" :class="{ 'is-connected': spotifyConnection.connected }">
+              <span class="status-indicator-dot"></span>
+              {{ spotifyConnection.connected ? 'Połączone' : 'Niepołączone' }}
+            </span>
+          </div>
+
+          <h4>Muzyka, której słuchacie</h4>
+          <p class="section-desc">
+            Pokaż partnerowi, czego aktualnie słuchasz. Budujcie wspólną atmosferę i dzielcie się ulubioną muzyką w czasie rzeczywistym.
+          </p>
+
+          <div v-if="spotifyErrorMessage" class="spotify-error-box">
+            <ion-icon :icon="ioniconsAlertCircleOutline" class="error-icon" />
+            <span>{{ spotifyErrorMessage }}</span>
+          </div>
+
+          <!-- STATE A: Disconnected Hero Banner -->
+          <div v-if="!spotifyConnection.connected" class="spotify-connect-card">
+            <div class="spotify-connect-icon-circle">
+              <DuoSpotifyLogo size="large" />
+            </div>
+            <h5 class="connect-card-title">Połącz ze Spotify</h5>
+            <p class="connect-card-desc">
+              Gdy słuchasz muzyki w Spotify, partner zobaczy okładkę, tytuł i postęp utworu w Gniazdku.
+            </p>
+            <div class="spotify-features-chips">
+              <span class="spotify-chip">
+                <ion-icon :icon="ioniconsMusicalNotesOutline" />
+                <span>Aktualnie odtwarzany utwór</span>
+              </span>
+              <span class="spotify-chip">
+                <ion-icon :icon="ioniconsShieldCheckmarkOutline" />
+                <span>Pełna kontrola prywatności</span>
+              </span>
+            </div>
+            <button
+              type="button"
+              class="spotify-connect-btn"
+              @click="connectSpotify"
+              :disabled="spotifyLoading"
+            >
+              <ion-spinner v-if="spotifyLoading" name="crescent" />
+              <template v-else>
+                <DuoSpotifyLogo size="small" />
+                <span>Połącz konto Spotify</span>
+              </template>
+            </button>
+          </div>
+
+          <!-- STATE B: Connected Settings -->
+          <template v-else>
+            <div class="spotify-account-panel">
+              <div class="account-left">
+                <div class="spotify-avatar-wrap">
+                  <DuoSpotifyLogo size="medium" />
+                  <span class="online-dot" title="Połączone"></span>
+                </div>
+                <div class="account-info">
+                  <strong class="account-name">{{ spotifyConnection.display_name || 'Twoje konto Spotify' }}</strong>
+                  <span class="account-status">
+                    <ion-icon :icon="ioniconsCheckmarkCircle" class="check-icon" />
+                    Konto aktywne i połączone
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="spotify-disconnect-btn"
+                @click="disconnectSpotify"
+                :disabled="spotifyLoading"
+                title="Odłącz konto Spotify"
+              >
+                <ion-spinner v-if="spotifyLoading" name="crescent" />
+                <span v-else>Odłącz</span>
+              </button>
+            </div>
+
+            <div class="spotify-visibility-panel">
+              <div class="visibility-left">
+                <div class="visibility-icon-bubble">
+                  <ion-icon :icon="ioniconsEyeOutline" />
+                </div>
+                <div class="visibility-info">
+                  <strong>Pokazuj partnerowi, czego słucham</strong>
+                  <span>Gdy wyłączone, Twoja aktywność nie pojawi się w Gniazdku partnera.</span>
+                </div>
+              </div>
+              <ion-toggle
+                :checked="spotifyConnection.visible_to_partner"
+                @ionChange="setSpotifyVisibility($event.detail.checked)"
+                class="spotify-toggle"
+              />
+            </div>
+
+            <!-- Live Preview Container -->
+            <div class="spotify-preview-section">
+              <div class="spotify-preview-heading">
+                <div class="preview-heading-text">
+                  <strong>Podgląd dla partnera</strong>
+                  <span>Tak Twoja aktywność wygląda na ekranie Gniazdka partnera.</span>
+                </div>
+                <span class="spotify-preview-label">PODGLĄD</span>
+              </div>
+
+              <!-- When playing and visible: render DuoSpotifyCard -->
+              <div
+                v-if="spotifyConnection.visible_to_partner && mySpotifyPlayback"
+                class="spotify-preview-card-wrap"
+              >
+                <DuoSpotifyCard
+                  :playback="mySpotifyPlayback"
+                  user-name="Ty"
+                  :is-preview="true"
+                />
+              </div>
+
+              <!-- Empty preview state -->
+              <div v-else class="spotify-preview-empty-card">
+                <div class="empty-icon-wrap">
+                  <DuoSpotifyLogo size="medium" />
+                </div>
+                <div class="empty-text-wrap">
+                  <strong>{{ !spotifyConnection.visible_to_partner ? 'Podgląd jest ukryty' : 'Oczekiwanie na muzykę' }}</strong>
+                  <p v-if="!spotifyConnection.visible_to_partner">
+                    Udostępnianie partnerowi jest wyłączone. Włącz przełącznik powyżej, aby aktywować podgląd i dzielić się muzyką.
+                  </p>
+                  <p v-else>
+                    Włącz dowolny utwór w aplikacji Spotify — pojawi się tutaj w czasie rzeczywistym z okładką albumu i paskiem postępu!
+                  </p>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- 4. POWIADOMIENIA PUSH & ALERTY GNIAZDKA -->
         <div class="dn-card push-settings-card">
           <div class="card-title-row">
             <span class="section-tag push-section-tag">POWIADOMIENIA PUSH</span>
@@ -1394,10 +1538,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import confetti from 'canvas-confetti'
 import { useDuoState } from '~/composables/useDuoState'
 import { usePushNotifications } from '~/composables/usePushNotifications'
+import { useSpotify } from '~/composables/useSpotify'
 import { useConfirm } from '~/composables/useConfirm'
 import DuoIcon from '~/components/DuoIcon.vue'
 
@@ -1406,7 +1551,12 @@ const route = useRoute()
 onMounted(async () => {
   try {
     await initSupabaseSync()
+    startSpotifyPolling()
   } catch (_) {}
+})
+
+onUnmounted(() => {
+  stopSpotifyPolling()
 })
 
 const {
@@ -1444,6 +1594,18 @@ const {
   toggleCategory: togglePushCategory,
   sendTestNotification
 } = usePushNotifications()
+
+const {
+  connection: spotifyConnection,
+  myPlayback: mySpotifyPlayback,
+  isLoading: spotifyLoading,
+  errorMessage: spotifyErrorMessage,
+  connectSpotify,
+  disconnectSpotify,
+  setSpotifyVisibility,
+  startSpotifyPolling,
+  stopSpotifyPolling
+} = useSpotify()
 
 const { confirm } = useConfirm()
 
@@ -2642,7 +2804,7 @@ const handleRefresh = async (event: any) => {
 
 .limit-badge.points-done {
   background: #dcfce7;
-  color: #15803d;
+  color: var(--dn-activity-accent);
   border-color: #86efac;
 }
 
@@ -2686,7 +2848,7 @@ const handleRefresh = async (event: any) => {
 .sent-title {
   font-size: 14px;
   font-weight: 800;
-  color: #15803d;
+  color: var(--dn-activity-accent);
 }
 
 .sent-subtitle {
@@ -3496,8 +3658,430 @@ const handleRefresh = async (event: any) => {
 }
 
 /* ========================================================== */
-/* POWIADOMIENIA PUSH (PUSH SETTINGS CARD)                    */
+/* SPOTIFY SETTINGS & ACTIVITY CARD                           */
 /* ========================================================== */
+.spotify-settings-card {
+  margin-bottom: 16px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  box-shadow: var(--dn-card-shadow);
+  position: relative;
+  overflow: hidden;
+}
+
+.spotify-section-tag {
+  color: #15803d;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.spotify-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+
+.status-indicator-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #94a3b8;
+  display: inline-block;
+}
+
+.spotify-status-pill.is-connected {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.spotify-status-pill.is-connected .status-indicator-dot {
+  background: #16a34a;
+}
+
+.spotify-error-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #9f1239;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.spotify-error-box .error-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  color: #e11d48;
+}
+
+/* STATE A: Disconnected Hero Banner */
+.spotify-connect-card {
+  position: relative;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 22px 18px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.spotify-connect-icon-circle {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.connect-card-title {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.connect-card-desc {
+  margin: 0 0 14px 0;
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.45;
+  max-width: 360px;
+}
+
+.spotify-features-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.spotify-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.spotify-chip ion-icon {
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.spotify-connect-btn {
+  background: #1db954;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 11px 22px;
+  font-size: 13.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+  transition: transform 0.15s ease, background 0.15s ease;
+  touch-action: manipulation;
+}
+
+.spotify-connect-btn:active {
+  transform: scale(0.97);
+  background: #1aa34a;
+}
+
+.spotify-connect-btn:disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* STATE B: Connected Settings */
+.spotify-account-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  margin-bottom: 12px;
+}
+
+.account-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.spotify-avatar-wrap {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.online-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #16a34a;
+  border: 2px solid #ffffff;
+}
+
+.account-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.account-name {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #15803d;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.account-status .check-icon {
+  font-size: 13px;
+  color: #16a34a;
+}
+
+.spotify-disconnect-btn {
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #64748b;
+  border-radius: 10px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+}
+
+.spotify-disconnect-btn:active {
+  color: #ef4444;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.spotify-disconnect-btn:disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.spotify-visibility-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  margin-bottom: 14px;
+}
+
+.visibility-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.visibility-icon-bubble {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.visibility-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.visibility-info strong {
+  color: #0f172a;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.visibility-info span {
+  color: #64748b;
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+.spotify-toggle {
+  --color-checked: #0f172a;
+  --handle-color-checked: #ffffff;
+  flex-shrink: 0;
+}
+
+/* Preview Section */
+.spotify-preview-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.spotify-preview-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.preview-heading-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.preview-heading-text strong {
+  color: #0f172a;
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.preview-heading-text span {
+  color: #64748b;
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
+.spotify-preview-label {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.spotify-preview-card-wrap :deep(.spotify-activity-card) {
+  margin: 0;
+  box-shadow: none;
+}
+
+.spotify-preview-empty-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.empty-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.empty-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.empty-text-wrap strong {
+  color: #0f172a;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.empty-text-wrap p {
+  margin: 0;
+  color: #64748b;
+  font-size: 11.5px;
+  line-height: 1.35;
+}
+
 .push-settings-card {
   border-radius: 20px;
   background: #ffffff;

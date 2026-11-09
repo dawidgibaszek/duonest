@@ -1847,6 +1847,12 @@ const mediaTypeFilters = [
   { id: 'anime', label: 'Anime', emoji: '⛩️' }
 ] as const
 
+const movieStatusOrder: Record<MovieItem['status'], number> = {
+  watching: 0,
+  planned: 1,
+  watched: 2
+}
+
 const plannedCount = computed(() => {
   return moviesList.value.filter(m => m.status === 'planned').length
 })
@@ -1880,6 +1886,9 @@ const filteredMovies = computed(() => {
       )
     })
   }
+
+  // Keep active titles first, planned titles in the middle, and watched titles last.
+  list.sort((a, b) => movieStatusOrder[a.status] - movieStatusOrder[b.status])
 
   return list
 })
@@ -6641,4 +6650,3 @@ ion-modal.dn-movies-episode-modal {
   margin-top: 6px;
 }
 </style>
-

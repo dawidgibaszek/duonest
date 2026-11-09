@@ -40,6 +40,10 @@
   --dn-sea-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   --dn-sea-light: #f1f5f9;
   --dn-sea-border: #e2e8f0;
+  --dn-activity-accent: #0f172a;
+  --dn-activity-surface: #f8fafc;
+  --dn-activity-border: #e2e8f0;
+  --dn-activity-progress: #334155;
   --dn-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(15, 23, 42, 0.04);
   --dn-card-shadow-hover: 0 2px 6px rgba(0, 0, 0, 0.04), 0 8px 20px rgba(15, 23, 42, 0.07);
 }
@@ -772,6 +776,5 @@ ion-action-sheet .action-sheet-button.action-sheet-cancel {
   animation: dnShake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both !important;
   border-color: #f59e0b !important;
 }
-
 
 

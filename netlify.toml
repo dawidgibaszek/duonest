@@ -83,6 +83,42 @@
   to = "/.netlify/functions/push-test"
   status = 200
 
+# Spotify OAuth and playback API
+[[redirects]]
+  from = "/api/spotify/start"
+  to = "/.netlify/functions/spotify-start"
+  status = 200
+
+[[redirects]]
+  from = "/api/spotify/callback"
+  to = "/.netlify/functions/spotify-callback"
+  status = 200
+
+[[redirects]]
+  from = "/api/spotify/playback"
+  to = "/.netlify/functions/spotify-playback"
+  status = 200
+
+[[redirects]]
+  from = "/api/spotify/status"
+  to = "/.netlify/functions/spotify-status"
+  status = 200
+
+[[redirects]]
+  from = "/api/spotify/current-playback"
+  to = "/.netlify/functions/spotify-playback"
+  status = 200
+
+[[redirects]]
+  from = "/api/spotify/disconnect"
+  to = "/.netlify/functions/spotify-disconnect"
+  status = 200
+
+[[redirects]]
+  from = "/api/spotify/visibility"
+  to = "/.netlify/functions/spotify-visibility"
+  status = 200
+
 # Pass through Nuxt and Vite dev server assets (prevents SPA catch-all from intercepting Vite dev bundles)
 [[redirects]]
   from = "/_nuxt/*"

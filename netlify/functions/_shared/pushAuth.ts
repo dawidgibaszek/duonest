@@ -23,6 +23,22 @@ export async function authenticateNetlifyUser(event: any) {
     return { error: 'Invalid authentication token', statusCode: 401 }
   }
 
+  // Local development may not have SUPABASE_SERVICE_ROLE_KEY configured.
+  // Resolve the profile through the authenticated RPC before falling back to
+  // service-role/profile lookups, so RLS still protects this request.
+  const url = process.env.SUPABASE_URL || process.env.NUXT_PUBLIC_SUPABASE_URL || ''
+  const anonKey = process.env.SUPABASE_KEY || process.env.NUXT_PUBLIC_SUPABASE_KEY || ''
+  if (url && anonKey) {
+    const userClient = createClient(url, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${accessToken}` } }
+    })
+    const { data: rpcProfile } = await userClient.rpc('get_my_profile')
+    if (rpcProfile?.id) {
+      return { supabase, user, profile: rpcProfile }
+    }
+  }
+
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('id, partnership_id, name')

@@ -329,6 +329,7 @@ alter table public.partnerships add column if not exists pet_xp integer default 
 revoke all on table public.push_subscriptions from anon, authenticated;
 grant all on table public.push_subscriptions to service_role;
 drop policy if exists "Allow all on push_subscriptions" on public.push_subscriptions;
+drop policy if exists "Service role only on push_subscriptions" on public.push_subscriptions;
 create policy "Service role only on push_subscriptions" on public.push_subscriptions
   for all to service_role using (true) with check (true);
 
@@ -365,6 +366,7 @@ alter table public.meals enable row level security;
 alter table if exists public.meals alter column date drop not null;
 alter table if exists public.meals alter column date set default '';
 drop policy if exists "Allow all on meals" on public.meals;
+drop policy if exists "Meals fail closed until auth migration" on public.meals;
 create policy "Meals fail closed until auth migration" on public.meals for all using (false) with check (false);
 
 create table if not exists public.api_rate_limits (
@@ -604,8 +606,55 @@ begin
 exception when others then null;
 end $$;
 
+-- 13. SPOTIFY INTEGRATION
+-- Spotify credentials and OAuth state are server-only data. Access is
+-- intentionally fail-closed; Netlify functions use the service role.
+create table if not exists public.spotify_connections (
+  profile_id text primary key references public.profiles(id) on delete cascade,
+  spotify_user_id text not null,
+  access_token text not null,
+  refresh_token text not null,
+  expires_at timestamptz not null,
+  scopes text[] not null default '{}',
+  connected_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
 
+create table if not exists public.spotify_oauth_states (
+  state text primary key,
+  profile_id text not null references public.profiles(id) on delete cascade,
+  code_verifier text not null,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
 
+create table if not exists public.spotify_presence (
+  profile_id text primary key references public.profiles(id) on delete cascade,
+  partnership_id text,
+  is_visible boolean not null default true,
+  track jsonb,
+  is_playing boolean not null default false,
+  progress_ms integer not null default 0,
+  duration_ms integer not null default 0,
+  fetched_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_spotify_presence_partnership
+  on public.spotify_presence(partnership_id);
+create index if not exists idx_spotify_oauth_states_expiry
+  on public.spotify_oauth_states(expires_at);
+
+alter table public.spotify_connections enable row level security;
+alter table public.spotify_oauth_states enable row level security;
+alter table public.spotify_presence enable row level security;
+
+revoke all on public.spotify_connections from anon, authenticated;
+revoke all on public.spotify_oauth_states from anon, authenticated;
+revoke all on public.spotify_presence from anon, authenticated;
+
+-- Refresh PostgREST's schema cache after running this script in SQL Editor.
+notify pgrst, 'reload schema';
 
 
 
