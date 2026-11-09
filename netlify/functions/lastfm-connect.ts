@@ -59,6 +59,14 @@ export const handler = async (event: any) => {
       scopes: ['lastfm'],
       updated_at: new Date().toISOString()
     })
+  } else {
+    try {
+      await auth.supabase
+        .from('spotify_connections')
+        .delete()
+        .eq('profile_id', auth.profile.id)
+        .not('spotify_user_id', 'like', 'lastfm:%')
+    } catch {}
   }
 
   await auth.supabase.from('spotify_presence').upsert({

@@ -83,45 +83,45 @@
   to = "/.netlify/functions/push-test"
   status = 200
 
-# Spotify OAuth and playback API
+# Spotify OAuth and playback API (routed cleanly to Last.fm provider)
 [[redirects]]
   from = "/api/spotify/start"
-  to = "/.netlify/functions/spotify-start"
+  to = "/.netlify/functions/lastfm-start"
   status = 200
 
 [[redirects]]
   from = "/api/spotify/callback"
-  to = "/.netlify/functions/spotify-callback"
+  to = "/.netlify/functions/lastfm-callback"
   status = 200
 
 [[redirects]]
   from = "/auth/spotify/callback"
-  to = "/.netlify/functions/spotify-callback"
-  status = 200
+  to = "/auth/lastfm/callback"
+  status = 301
 
 [[redirects]]
   from = "/api/spotify/playback"
-  to = "/.netlify/functions/spotify-playback"
+  to = "/.netlify/functions/lastfm-playback"
   status = 200
 
 [[redirects]]
   from = "/api/spotify/status"
-  to = "/.netlify/functions/spotify-status"
+  to = "/.netlify/functions/lastfm-playback"
   status = 200
 
 [[redirects]]
   from = "/api/spotify/current-playback"
-  to = "/.netlify/functions/spotify-playback"
+  to = "/.netlify/functions/lastfm-playback"
   status = 200
 
 [[redirects]]
   from = "/api/spotify/disconnect"
-  to = "/.netlify/functions/spotify-disconnect"
+  to = "/.netlify/functions/lastfm-disconnect"
   status = 200
 
 [[redirects]]
   from = "/api/spotify/visibility"
-  to = "/.netlify/functions/spotify-visibility"
+  to = "/.netlify/functions/lastfm-visibility"
   status = 200
 
 # Last.fm (Spotify Scrobbler) API

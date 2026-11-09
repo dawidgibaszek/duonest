@@ -41,6 +41,21 @@ async function fetchLiveUserPlayback(
   profileId: string,
   partnershipId: string | null
 ) {
+  // If user has a Last.fm connection, legacy Spotify must NEVER touch spotify_presence
+  const { data: lastfmConn } = await supabase
+    .from('lastfm_connections')
+    .select('profile_id')
+    .eq('profile_id', profileId)
+    .maybeSingle()
+
+  if (lastfmConn) {
+    return {
+      connected: false,
+      visible: true,
+      playback: null
+    }
+  }
+
   const { data: presence } = await supabase
     .from('spotify_presence')
     .select('is_visible, track, is_playing, progress_ms, duration_ms, fetched_at')

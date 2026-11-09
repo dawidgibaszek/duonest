@@ -1688,6 +1688,7 @@ const {
   myPlayback: mySpotifyPlayback,
   isLoading: spotifyLoading,
   errorMessage: spotifyErrorMessage,
+  refreshSpotifyStatus,
   connectSpotify,
   connectLastFm,
   connectLastFmUsername,

@@ -27,6 +27,15 @@ async function saveLastFmConnection(
       scopes: ['lastfm'],
       updated_at: new Date().toISOString()
     })
+  } else {
+    // Purge old Spotify OAuth token to prevent conflicts
+    try {
+      await supabase
+        .from('spotify_connections')
+        .delete()
+        .eq('profile_id', profileId)
+        .not('spotify_user_id', 'like', 'lastfm:%')
+    } catch {}
   }
 
   // 3. Ensure presence exists with visibility true

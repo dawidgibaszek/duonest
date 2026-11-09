@@ -99,36 +99,17 @@ const refreshSpotifyStatus = async (showLoading = false) => {
   errorMessage.value = ''
 
   try {
-    // Try Last.fm status first
-    let data: any = null
-    try {
-      data = await callApi('/api/lastfm/status')
-    } catch {
-      // Fallback to legacy Spotify endpoint if Last.fm fails
-      data = await callApi('/api/spotify/status')
-    }
-
-    if (!data?.connected) {
-      // If Last.fm is not connected, check if Spotify was connected
-      try {
-        const spotifyData = await callApi('/api/spotify/status')
-        if (spotifyData?.connected) {
-          data = spotifyData
-          connection.value.service = 'spotify'
-        }
-      } catch {}
-    } else {
-      connection.value.service = 'lastfm'
-    }
+    const data = await callApi('/api/lastfm/status')
 
     connection.value = {
       connected: Boolean(data?.connection?.connected ?? data?.connected),
       display_name: data?.connection?.display_name || data?.display_name || null,
       visible_to_partner: Boolean(data?.connection?.visible_to_partner ?? data?.visible),
-      service: connection.value.service || 'lastfm'
+      music_service: data?.connection?.music_service || data?.connection?.service || 'spotify',
+      service: data?.connection?.music_service || data?.connection?.service || 'spotify'
     }
-    myPlayback.value = normalizePlayback(data?.playback || data?.my_playback)
-    partnerPlayback.value = normalizePlayback(data?.partnerPlayback || data?.partner_playback)
+    myPlayback.value = normalizePlayback(data?.my_playback || data?.playback)
+    partnerPlayback.value = normalizePlayback(data?.partner_playback || data?.partnerPlayback)
   } catch (error: any) {
     if (error?.statusCode !== 401) {
       errorMessage.value = error?.data?.error || error?.message || 'Nie udało się pobrać aktywności muzycznej'

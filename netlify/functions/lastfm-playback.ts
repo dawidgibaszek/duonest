@@ -59,6 +59,17 @@ async function fetchUserMusic(
   let username = connection?.lastfm_username?.trim() || null
   const musicService = connection?.music_service || presence?.track?.music_service || 'spotify'
 
+  // If user has Last.fm connected, purge any legacy Spotify OAuth token to prevent conflicts
+  if (connection?.lastfm_username) {
+    try {
+      await supabase
+        .from('spotify_connections')
+        .delete()
+        .eq('profile_id', profileId)
+        .not('spotify_user_id', 'like', 'lastfm:%')
+    } catch {}
+  }
+
   // 2b. Fallback: check if stored in spotify_connections
   if (!username) {
     const { data: spotConn } = await supabase
