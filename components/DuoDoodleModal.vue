@@ -16,16 +16,21 @@
         <div class="doodle-title-center">
           <div class="doodle-title-row">
             <span class="doodle-title-text">Wspólny rysunek</span>
+          </div>
+          <div class="doodle-status-row">
             <span v-if="isPartnerDrawing" class="doodle-live-badge live-pulse">
               <span class="live-dot"></span>
-              {{ partnerUser?.name || 'Partner' }} rysuje!
+              <span class="status-label">Druga osoba teraz rysuje</span>
             </span>
-            <span v-else-if="isPartnerOnline" class="doodle-live-badge online">
-              <span class="online-dot"></span>
-              {{ partnerUser?.name || 'Partner' }} online
+            <span v-else-if="isPartnerOnline" class="doodle-live-badge idle">
+              <span class="idle-dot"></span>
+              <span class="status-label">Druga osoba nie rysuje teraz</span>
+            </span>
+            <span v-else class="doodle-live-badge offline">
+              <span class="offline-dot"></span>
+              <span class="status-label">Druga osoba offline</span>
             </span>
           </div>
-          <span class="doodle-subtitle-text">Rysujcie razem w czasie rzeczywistym</span>
         </div>
 
         <button class="doodle-header-btn save-btn" @click="handleSave" :disabled="strokes.length === 0" title="Zapisz rysunek">
@@ -603,12 +608,12 @@ onUnmounted(() => {
 
 /* TOP HEADER */
 .doodle-header-bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
-  padding: 10px 16px;
-  padding-top: max(12px, env(safe-area-inset-top));
+  min-height: 80px;
+  padding: max(8px, env(safe-area-inset-top)) 16px 9px;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -688,6 +693,7 @@ onUnmounted(() => {
   text-align: center;
   flex: 1;
   min-width: 0;
+  min-height: 54px;
   padding: 0 6px;
   overflow: hidden;
 }
@@ -698,6 +704,15 @@ onUnmounted(() => {
   justify-content: center;
   gap: 6px;
   max-width: 100%;
+}
+
+.doodle-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  max-width: 100%;
+  margin-top: 3px;
 }
 
 .doodle-title-text {
@@ -712,55 +727,56 @@ onUnmounted(() => {
   text-overflow: ellipsis;
 }
 
-.doodle-subtitle-text {
-  font-size: 11px;
-  color: #64748b;
-  margin-top: 1px;
-  font-weight: 500;
-  white-space: nowrap !important;
-  word-break: keep-all !important;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  display: block;
-}
-
 .doodle-live-badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 8px;
+  max-width: 100%;
+  padding: 3px 8px;
   border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.status-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .doodle-live-badge.live-pulse {
-  background: #fff1f2;
-  border: 1px solid #fecdd3;
-  color: #e11d48;
-  animation: liveBadgePulse 1.6s infinite ease-in-out;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
 }
 
-.doodle-live-badge.online {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #16a34a;
+.doodle-live-badge.idle {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+}
+
+.doodle-live-badge.offline {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
 }
 
 .live-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
-  background-color: #e11d48;
-  box-shadow: 0 0 6px rgba(225, 29, 72, 0.6);
+  background-color: #0f172a;
 }
 
-.online-dot {
+.idle-dot,
+.offline-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: #16a34a;
+  background-color: #64748b;
 }
 
 @keyframes liveBadgePulse {
@@ -832,9 +848,9 @@ onUnmounted(() => {
 }
 
 .doodle-actions-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 6px;
   width: 100%;
 }
@@ -885,6 +901,8 @@ onUnmounted(() => {
 .brush-size-group {
   display: inline-flex;
   align-items: center;
+  justify-self: center;
+  max-width: 100%;
   background: #f1f5f9;
   border-radius: 12px;
   padding: 3px 5px;
@@ -1065,7 +1083,8 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: 7px;
   overflow-x: auto;
-  padding: 3px 1px;
+  min-height: 46px;
+  padding: 7px 4px;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -1106,6 +1125,27 @@ onUnmounted(() => {
 }
 
 @media (max-width: 360px) {
+  .doodle-header-bar {
+    gap: 6px;
+    min-height: 76px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .doodle-title-center {
+    min-height: 50px;
+    padding: 0 2px;
+  }
+
+  .doodle-title-text {
+    font-size: 14px;
+  }
+
+  .doodle-live-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
   .doodle-tool-btn {
     padding: 6px 7px;
     font-size: 11px;
@@ -1123,6 +1163,31 @@ onUnmounted(() => {
   .doodle-color-btn {
     width: 27px;
     height: 27px;
+  }
+}
+
+@media (max-width: 390px) {
+  .doodle-actions-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "tools actions"
+      "sizes sizes";
+    row-gap: 6px;
+  }
+
+  .tool-mode-group {
+    grid-area: tools;
+    justify-self: start;
+  }
+
+  .brush-size-group {
+    grid-area: sizes;
+    justify-self: stretch;
+    justify-content: center;
+  }
+
+  .canvas-actions-group {
+    grid-area: actions;
   }
 }
 </style>

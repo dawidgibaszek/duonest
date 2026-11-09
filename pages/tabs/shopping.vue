@@ -586,10 +586,12 @@ const uncompletedCount = computed(() => {
   return shoppingItems.value.filter(i => !i.is_completed).length
 })
 
+const completingItemIds = ref<Set<string>>(new Set())
+
 const filteredActiveItems = computed(() => {
   const query = searchQuery.value.trim().toLocaleLowerCase()
   return shoppingItems.value.filter(item => {
-    if (item.is_completed) return false
+    if (item.is_completed && !completingItemIds.value.has(item.id)) return false
     if (activeFilter.value === 'Wszystkie') return true
     return item.category === activeFilter.value
   }).filter(item => matchesSearch(item, query))
@@ -598,7 +600,7 @@ const filteredActiveItems = computed(() => {
 const filteredCompletedItems = computed(() => {
   const query = searchQuery.value.trim().toLocaleLowerCase()
   return shoppingItems.value.filter(item => {
-    if (!item.is_completed) return false
+    if (!item.is_completed || completingItemIds.value.has(item.id)) return false
     if (activeFilter.value !== 'Wszystkie' && item.category !== activeFilter.value) return false
     return matchesSearch(item, query)
   })
@@ -618,7 +620,6 @@ const getCategoryCount = (categoryName: string) => {
 
 const isSubmitting = ref(false)
 const justAddedItemId = ref<string | null>(null)
-const completingItemIds = ref<Set<string>>(new Set())
 
 const getCategoryKey = (catName: string) => {
   const found = categories.find(c => c.name === catName)
@@ -626,14 +627,16 @@ const getCategoryKey = (catName: string) => {
 }
 
 const animatedToggleShoppingItem = (id: string, currentlyCompleted?: boolean) => {
+  if (completingItemIds.value.has(id)) return
+
   if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
     navigator.vibrate(currentlyCompleted ? 15 : 30)
   }
   completingItemIds.value.add(id)
+  toggleShoppingItem(id)
   setTimeout(() => {
-    toggleShoppingItem(id)
     completingItemIds.value.delete(id)
-  }, 220)
+  }, 320)
 }
 
 const animatedDeleteShoppingItem = (id: string) => {
@@ -756,6 +759,13 @@ const handleRefresh = async (event: any) => {
 </script>
 
 <style scoped>
+.dn-completing {
+  animation-duration: 0.32s;
+}
+
+.dn-check-pop {
+  animation-duration: 0.32s;
+}
 /* MAIN TABS TOOLBAR & PILLS (Codzienność: Zakupy | Zadania | Zwierzak) */
 .main-tabs-toolbar {
   --background: #ffffff;

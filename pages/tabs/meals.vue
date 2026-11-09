@@ -571,11 +571,12 @@
             >
               <div class="recipe-card-media">
                 <img
-                  v-if="recipe.image_url"
+                  v-if="recipe.image_url && !failedSavedRecipeImages.has(recipe.key)"
                   :src="recipe.image_url"
                   :alt="recipe.title"
                   loading="lazy"
                   class="recipe-img"
+                  @error="markSavedRecipeImageFailed(recipe.key)"
                 />
                 <div v-else class="recipe-img-placeholder">
                   <ion-icon :icon="ioniconsRestaurantOutline" />
@@ -672,11 +673,12 @@
             >
               <div class="saved-list-media">
                 <img
-                  v-if="recipe.image_url"
+                  v-if="recipe.image_url && !failedSavedRecipeImages.has(recipe.key)"
                   :src="recipe.image_url"
                   :alt="recipe.title"
                   loading="lazy"
                   class="saved-list-img"
+                  @error="markSavedRecipeImageFailed(recipe.key)"
                 />
                 <div v-else class="saved-list-img-placeholder">
                   <ion-icon :icon="ioniconsRestaurantOutline" />
@@ -1010,10 +1012,20 @@
         <div class="modal-recipe-body">
           <!-- Hero Image Banner with Glass Badges -->
           <div
-            v-if="activeSelectedMeal.image_url || activeSelectedMeal.thumbnail"
             class="recipe-hero-card"
-            :style="{ backgroundImage: `url(${activeSelectedMeal.image_url || activeSelectedMeal.thumbnail})` }"
+            :class="{ 'recipe-hero-card-fallback': !getRecipePreviewImage(activeSelectedMeal) }"
           >
+            <img
+              v-if="getRecipePreviewImage(activeSelectedMeal)"
+              :src="getRecipePreviewImage(activeSelectedMeal)"
+              :alt="activeSelectedMeal.title"
+              class="recipe-hero-img"
+              @error="markRecipePreviewImageFailed(activeSelectedMeal)"
+            />
+            <div v-else class="recipe-hero-placeholder">
+              <ion-icon :icon="ioniconsRestaurantOutline" />
+              <span>{{ activeSelectedMeal.categoryPl || activeSelectedMeal.category || 'Domowy obiad' }}</span>
+            </div>
             <div class="recipe-hero-overlay"></div>
             <div class="recipe-hero-badges-row">
               <span v-if="activeSelectedMeal.areaPl || activeSelectedMeal.area" class="hero-glass-pill cuisine-pill">
@@ -2111,6 +2123,30 @@ const { pillRowRef, onTabsScroll } = useOrgTabsSync('meals')
 
 const deletingMealIds = ref<Set<string>>(new Set())
 const deletingRecipeKeys = ref<Set<string>>(new Set())
+const failedSavedRecipeImages = ref<Set<string>>(new Set())
+const failedRecipePreviewImages = ref<Set<string>>(new Set())
+
+const markSavedRecipeImageFailed = (recipeKey: string) => {
+  failedSavedRecipeImages.value = new Set(failedSavedRecipeImages.value).add(recipeKey)
+}
+
+type RecipePreviewImageSource = Pick<MealItem, 'id' | 'title' | 'image_url'> & {
+  api_id?: string
+  thumbnail?: string
+  categoryPl?: string
+}
+
+const getRecipePreviewKey = (meal: RecipePreviewImageSource) => meal.id || meal.api_id || meal.title
+
+const getRecipePreviewImage = (meal: RecipePreviewImageSource) => {
+  const key = getRecipePreviewKey(meal)
+  if (failedRecipePreviewImages.value.has(key)) return ''
+  return meal.image_url || meal.thumbnail || ''
+}
+
+const markRecipePreviewImageFailed = (meal: RecipePreviewImageSource) => {
+  failedRecipePreviewImages.value = new Set(failedRecipePreviewImages.value).add(getRecipePreviewKey(meal))
+}
 
 const {
   hasPet,
@@ -5367,6 +5403,36 @@ onMounted(() => {
   background-position: center;
   overflow: hidden;
   box-shadow: 0 4px 18px rgba(15, 23, 42, 0.1);
+}
+
+.recipe-hero-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.recipe-hero-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #64748b;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.9), transparent 38%),
+    linear-gradient(135deg, #f8fafc, #e2e8f0);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.recipe-hero-placeholder ion-icon {
+  font-size: 42px;
+  color: #0f172a;
 }
 
 .recipe-hero-overlay {
