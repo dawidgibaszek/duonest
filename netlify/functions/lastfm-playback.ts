@@ -67,7 +67,7 @@ async function fetchUserMusic(
         .delete()
         .eq('profile_id', profileId)
         .not('spotify_user_id', 'like', 'lastfm:%')
-    } catch {}
+    } catch { }
   }
 
   // 2b. Fallback: check if stored in spotify_connections

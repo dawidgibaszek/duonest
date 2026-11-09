@@ -56,3 +56,4 @@ export default defineEventHandler(async (request) => {
 
   return result?.body || result
 })
+
