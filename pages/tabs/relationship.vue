@@ -817,16 +817,43 @@
                   </span>
                 </div>
               </div>
-              <button
-                type="button"
-                class="music-disconnect-btn spotify-disconnect-btn"
-                @click="disconnectMusic"
-                :disabled="musicLoading"
-                title="Odłącz konto muzyczne"
-              >
-                <ion-spinner v-if="musicLoading" name="crescent" />
-                <span v-else>Odłącz</span>
-              </button>
+              <div class="account-actions">
+                <button
+                  type="button"
+                  class="music-refresh-btn"
+                  @click="refreshMusicStatus(true)"
+                  :disabled="musicLoading"
+                  title="Odśwież status z Last.fm"
+                >
+                  <ion-icon :icon="ioniconsRefreshOutline" :class="{ 'is-spinning': musicLoading }" />
+                </button>
+                <button
+                  type="button"
+                  class="music-disconnect-btn spotify-disconnect-btn"
+                  @click="disconnectMusic"
+                  :disabled="musicLoading"
+                  title="Odłącz konto muzyczne"
+                >
+                  <ion-spinner v-if="musicLoading" name="crescent" />
+                  <span v-else>Odłącz</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Hint about Last.fm <-> Spotify Scrobbling connection -->
+            <div class="music-sync-hint">
+              <ion-icon :icon="ioniconsInformationCircleOutline" class="sync-hint-icon" />
+              <div class="sync-hint-body">
+                <p>Status utworu jest pobierany na żywo z Twojego profilu Last.fm.</p>
+                <a
+                  href="https://www.last.fm/settings/applications"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="sync-hint-link"
+                >
+                  Jeśli utwór się nie zmienia, kliknij tutaj, aby odłączyć i połączyć ponownie „Spotify Scrobbling” w Last.fm &rarr;
+                </a>
+              </div>
             </div>
 
             <!-- Choose Preferred Platform for Widget & Deep-links -->
@@ -4224,6 +4251,78 @@ const handleRefresh = async (event: any) => {
 .spotify-disconnect-btn:disabled {
   opacity: 0.6;
   pointer-events: none;
+}
+
+.account-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.music-refresh-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #64748b;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+  font-size: 16px;
+}
+
+.music-refresh-btn:active {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.music-refresh-btn:disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.music-sync-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #64748b;
+}
+
+.sync-hint-icon {
+  font-size: 16px;
+  color: #3b82f6;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.sync-hint-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sync-hint-body p {
+  margin: 0;
+  color: #475569;
+}
+
+.sync-hint-link {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* Platform Selector Card */
