@@ -31,9 +31,14 @@
         <h3 class="status-title">Nie udało się połączyć</h3>
         <p class="status-desc error-text">{{ errorMessage }}</p>
 
-        <button type="button" class="return-btn" @click="handleReturn">
-          Wróć do ustawień
-        </button>
+        <div class="actions-row">
+          <button type="button" class="retry-btn" @click="handleRetry">
+            Ponów próbę
+          </button>
+          <button type="button" class="return-btn" @click="handleReturn">
+            Wróć do ustawień
+          </button>
+        </div>
       </template>
     </div>
   </div>
@@ -55,8 +60,58 @@ const handleReturn = () => {
   navigateTo('/tabs/relationship?category=nest_settings')
 }
 
-onMounted(async () => {
-  const token = route.query.token as string | undefined
+const resolveToken = (): string => {
+  if (typeof window !== 'undefined') {
+    try {
+      // 1. Direct from browser window.location.search (always available on URL landing)
+      const searchParams = new URLSearchParams(window.location.search)
+      const fromSearch = searchParams.get('token')
+      if (fromSearch && fromSearch.trim()) {
+        return fromSearch.trim()
+      }
+
+      // 2. Direct from full href
+      const fullUrl = new URL(window.location.href)
+      const fromHref = fullUrl.searchParams.get('token')
+      if (fromHref && fromHref.trim()) {
+        return fromHref.trim()
+      }
+
+      // 3. From hash in case of hash navigation
+      if (window.location.hash.includes('token=')) {
+        const hashQuery = window.location.hash.substring(window.location.hash.indexOf('?'))
+        const hashParams = new URLSearchParams(hashQuery)
+        const fromHash = hashParams.get('token')
+        if (fromHash && fromHash.trim()) {
+          return fromHash.trim()
+        }
+      }
+    } catch (e) {
+      console.warn('[lastfm callback] Błąd odczytu window.location:', e)
+    }
+  }
+
+  // 4. From Vue route query
+  return String(route.query.token || '').trim()
+}
+
+const resolveAccessToken = async (): Promise<string> => {
+  const client = useSupabaseClient()
+  for (let i = 0; i < 6; i++) {
+    const { data } = await client.auth.getSession()
+    if (data?.session?.access_token) {
+      return data.session.access_token
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250))
+  }
+  return ''
+}
+
+const executeExchange = async () => {
+  status.value = 'loading'
+  errorMessage.value = ''
+
+  const token = resolveToken()
 
   if (!token) {
     status.value = 'error'
@@ -65,10 +120,7 @@ onMounted(async () => {
   }
 
   try {
-    const client = useSupabaseClient()
-    const { data: sessionData } = await client.auth.getSession()
-    const accessToken = sessionData?.session?.access_token
-
+    const accessToken = await resolveAccessToken()
     if (!accessToken) {
       status.value = 'error'
       errorMessage.value = 'Brak aktywnej sesji użytkownika w aplikacji. Zaloguj się ponownie.'
@@ -85,16 +137,16 @@ onMounted(async () => {
     })
 
     if (!res?.success) {
-      throw new Error(res?.error || 'Nie udało się połączyć konta')
+      throw new Error(res?.error || 'Nie udało się zweryfikować konta Last.fm')
     }
 
     username.value = res.username || ''
     status.value = 'success'
 
-    // Refresh local music status
+    // Refresh music state in memory
     await refreshSpotifyStatus(true)
 
-    // Smooth redirect back to relationship settings
+    // Smooth redirect back to relationship settings after 1.2s
     setTimeout(() => {
       navigateTo('/tabs/relationship?category=nest_settings&music=connected')
     }, 1200)
@@ -102,6 +154,14 @@ onMounted(async () => {
     status.value = 'error'
     errorMessage.value = err?.data?.error || err?.message || 'Wystąpił błąd podczas autoryzacji z Last.fm'
   }
+}
+
+const handleRetry = () => {
+  executeExchange()
+}
+
+onMounted(() => {
+  executeExchange()
 })
 </script>
 
@@ -187,20 +247,43 @@ onMounted(async () => {
   color: #b91c1c;
 }
 
-.return-btn {
+.actions-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.retry-btn {
   background: #0f172a;
   color: #ffffff;
   border: none;
   border-radius: 12px;
-  padding: 10px 20px;
+  padding: 10px 18px;
   font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
-  margin-top: 8px;
   transition: opacity 0.15s ease;
 }
 
-.return-btn:active {
+.retry-btn:active {
   opacity: 0.85;
+}
+
+.return-btn {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.return-btn:active {
+  background: #e2e8f0;
 }
 </style>
