@@ -970,9 +970,10 @@ onMounted(async () => {
     }, 20000)
   }
 
+  startSpotifyPolling()
+
   try {
     await initSupabaseSync()
-    startSpotifyPolling()
   } catch (_) {}
 
   if (partnership.value) {

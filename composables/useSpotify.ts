@@ -26,24 +26,46 @@ const myPlayback = ref<SpotifyPlayback | null>(null)
 const partnerPlayback = ref<SpotifyPlayback | null>(null)
 const isLoading = ref(false)
 const errorMessage = ref('')
-let refreshTimer: ReturnType<typeof setInterval> | null = null
 let refreshInFlight = false
+let pollingTimer: ReturnType<typeof setTimeout> | null = null
+let pollingSubscribers = 0
 
 const normalizePlayback = (playback: any): SpotifyPlayback | null => {
-  if (!playback?.track) return null
-  return {
-    is_playing: Boolean(playback.isPlaying),
-    track_name: playback.track.name || 'Nieznany utwór',
-    artist_name: Array.isArray(playback.track.artists)
-      ? playback.track.artists.join(', ')
-      : String(playback.track.artists || 'Nieznany wykonawca'),
-    album_name: playback.track.album || null,
-    album_image_url: playback.track.albumImageUrl || null,
-    track_url: playback.track.externalUrl || null,
-    progress_ms: playback.progressMs ?? null,
-    duration_ms: playback.durationMs ?? null,
-    updated_at: playback.fetchedAt || new Date().toISOString()
+  if (!playback) return null
+
+  // Nested track object shape
+  if (playback.track) {
+    return {
+      is_playing: Boolean(playback.isPlaying),
+      track_name: playback.track.name || 'Nieznany utwór',
+      artist_name: Array.isArray(playback.track.artists)
+        ? playback.track.artists.join(', ')
+        : String(playback.track.artists || 'Nieznany wykonawca'),
+      album_name: playback.track.album || null,
+      album_image_url: playback.track.albumImageUrl || null,
+      track_url: playback.track.externalUrl || null,
+      progress_ms: playback.progressMs ?? null,
+      duration_ms: playback.durationMs ?? null,
+      updated_at: playback.fetchedAt || new Date().toISOString()
+    }
   }
+
+  // Flat frontend playback object shape
+  if (playback.track_name) {
+    return {
+      is_playing: Boolean(playback.is_playing),
+      track_name: playback.track_name,
+      artist_name: playback.artist_name || 'Nieznany wykonawca',
+      album_name: playback.album_name || null,
+      album_image_url: playback.album_image_url || null,
+      track_url: playback.track_url || null,
+      progress_ms: playback.progress_ms ?? null,
+      duration_ms: playback.duration_ms ?? null,
+      updated_at: playback.updated_at || new Date().toISOString()
+    }
+  }
+
+  return null
 }
 
 const getAccessToken = async () => {
@@ -75,12 +97,12 @@ const refreshSpotifyStatus = async (showLoading = false) => {
   try {
     const data = await callSpotifyApi('/api/spotify/status')
     connection.value = {
-      connected: Boolean(data.connection?.connected),
+      connected: Boolean(data.connection?.connected ?? data.connected),
       display_name: data.connection?.display_name || null,
-      visible_to_partner: Boolean(data.connection?.visible_to_partner)
+      visible_to_partner: Boolean(data.connection?.visible_to_partner ?? data.visible)
     }
-    myPlayback.value = normalizePlayback(data.playback)
-    partnerPlayback.value = normalizePlayback(data.partnerPlayback)
+    myPlayback.value = normalizePlayback(data.playback || data.my_playback)
+    partnerPlayback.value = normalizePlayback(data.partnerPlayback || data.partner_playback)
   } catch (error: any) {
     if (error?.statusCode !== 401) {
       errorMessage.value = error?.data?.error || error?.message || 'Nie udało się pobrać aktywności Spotify'
@@ -88,6 +110,74 @@ const refreshSpotifyStatus = async (showLoading = false) => {
   } finally {
     refreshInFlight = false
     isLoading.value = false
+  }
+}
+
+const scheduleNextPoll = () => {
+  if (pollingSubscribers <= 0) return
+  if (pollingTimer) {
+    clearTimeout(pollingTimer)
+    pollingTimer = null
+  }
+
+  // Pause frequent polling when tab/app is hidden to save network & battery
+  if (typeof document !== 'undefined' && document.hidden) {
+    return
+  }
+
+  // Fast live polling (4s) when music is playing, relaxed (8s) when idle
+  const isAnyPlaying = Boolean(myPlayback.value?.is_playing || partnerPlayback.value?.is_playing)
+  const delay = isAnyPlaying ? 4000 : 8000
+
+  pollingTimer = setTimeout(async () => {
+    if (pollingSubscribers <= 0) return
+    await refreshSpotifyStatus()
+    scheduleNextPoll()
+  }, delay)
+}
+
+const onVisibilityChange = () => {
+  if (typeof document !== 'undefined' && !document.hidden && pollingSubscribers > 0) {
+    refreshSpotifyStatus().finally(() => {
+      scheduleNextPoll()
+    })
+  }
+}
+
+const onWindowFocus = () => {
+  if (pollingSubscribers > 0) {
+    refreshSpotifyStatus().finally(() => {
+      scheduleNextPoll()
+    })
+  }
+}
+
+const startSpotifyPolling = () => {
+  pollingSubscribers++
+  if (pollingSubscribers === 1) {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', onWindowFocus)
+      document.addEventListener('visibilitychange', onVisibilityChange)
+    }
+    refreshSpotifyStatus().finally(() => {
+      scheduleNextPoll()
+    })
+  } else {
+    scheduleNextPoll()
+  }
+}
+
+const stopSpotifyPolling = () => {
+  pollingSubscribers = Math.max(0, pollingSubscribers - 1)
+  if (pollingSubscribers === 0) {
+    if (pollingTimer) {
+      clearTimeout(pollingTimer)
+      pollingTimer = null
+    }
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('focus', onWindowFocus)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
   }
 }
 
@@ -128,19 +218,6 @@ const setSpotifyVisibility = async (visible: boolean) => {
     await refreshSpotifyStatus()
   } catch (error: any) {
     errorMessage.value = error?.data?.error || error?.message || 'Nie udało się zapisać ustawienia prywatności'
-  }
-}
-
-const startSpotifyPolling = () => {
-  if (refreshTimer) return
-  refreshSpotifyStatus()
-  refreshTimer = setInterval(() => refreshSpotifyStatus(), 20000)
-}
-
-const stopSpotifyPolling = () => {
-  if (refreshTimer) {
-    clearInterval(refreshTimer)
-    refreshTimer = null
   }
 }
 

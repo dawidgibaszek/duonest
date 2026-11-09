@@ -1549,9 +1549,9 @@ import DuoIcon from '~/components/DuoIcon.vue'
 const route = useRoute()
 
 onMounted(async () => {
+  startSpotifyPolling()
   try {
     await initSupabaseSync()
-    startSpotifyPolling()
   } catch (_) {}
 })
 

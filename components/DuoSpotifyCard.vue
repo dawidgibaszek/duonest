@@ -110,8 +110,9 @@ const hasCoverError = ref(false)
 let clockTimer: ReturnType<typeof setInterval> | null = null
 
 watch(
-  () => props.playback?.album_image_url,
+  () => [props.playback?.track_name, props.playback?.updated_at, props.playback?.album_image_url],
   () => {
+    spotifyClock.value = Date.now()
     hasCoverError.value = false
   }
 )

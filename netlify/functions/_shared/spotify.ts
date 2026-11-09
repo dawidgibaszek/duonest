@@ -78,6 +78,7 @@ export async function getSpotifyAccessToken(profileId: string) {
     const token = await exchangeSpotifyToken({ grant_type: 'refresh_token', refresh_token: connection.refresh_token })
     await supabase.from('spotify_connections').update({
       access_token: token.access_token,
+      ...(token.refresh_token ? { refresh_token: token.refresh_token } : {}),
       expires_at: new Date(Date.now() + token.expires_in * 1000).toISOString(),
       updated_at: new Date().toISOString()
     }).eq('profile_id', profileId)
