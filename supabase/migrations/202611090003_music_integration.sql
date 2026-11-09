@@ -82,3 +82,4 @@ revoke all on public.music_connections from anon, authenticated;
 
 -- Refresh PostgREST schema cache
 notify pgrst, 'reload schema';
+
