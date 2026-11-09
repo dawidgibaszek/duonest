@@ -56,8 +56,21 @@ async function fetchUserMusic(
     .maybeSingle()
 
   const isVisible = presence ? presence.is_visible !== false : true
-  const username = connection?.lastfm_username?.trim()
+  let username = connection?.lastfm_username?.trim() || null
   const musicService = connection?.music_service || presence?.track?.music_service || 'spotify'
+
+  // 2b. Fallback: check if stored in spotify_connections
+  if (!username) {
+    const { data: spotConn } = await supabase
+      .from('spotify_connections')
+      .select('spotify_user_id')
+      .eq('profile_id', profileId)
+      .maybeSingle()
+
+    if (spotConn?.spotify_user_id?.startsWith('lastfm:')) {
+      username = spotConn.spotify_user_id.replace(/^lastfm:/, '').trim()
+    }
+  }
 
   if (!username) {
     return {

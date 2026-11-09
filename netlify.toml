@@ -136,11 +136,6 @@
   status = 200
 
 [[redirects]]
-  from = "/auth/lastfm/callback"
-  to = "/.netlify/functions/lastfm-callback"
-  status = 200
-
-[[redirects]]
   from = "/api/lastfm/connect"
   to = "/.netlify/functions/lastfm-connect"
   status = 200

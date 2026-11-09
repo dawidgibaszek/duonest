@@ -704,6 +704,11 @@
             Pokaż partnerowi, czego aktualnie słuchasz. Budujcie wspólną atmosferę i dzielcie się ulubioną muzyką w czasie rzeczywistym.
           </p>
 
+          <div v-if="musicSuccessMessage" class="spotify-success-box">
+            <ion-icon :icon="ioniconsCheckmarkCircle" class="success-icon" />
+            <span>{{ musicSuccessMessage }}</span>
+          </div>
+
           <div v-if="spotifyErrorMessage" class="spotify-error-box">
             <ion-icon :icon="ioniconsAlertCircleOutline" class="error-icon" />
             <span>{{ spotifyErrorMessage }}</span>
@@ -1727,6 +1732,24 @@ const { confirm } = useConfirm()
 
 const currentCategory = ref<'relationship' | 'nest_settings'>(
   route?.query?.category === 'nest_settings' ? 'nest_settings' : 'relationship'
+)
+
+const musicSuccessMessage = ref('')
+
+watch(
+  () => route?.query?.music,
+  async (musicStatus) => {
+    if (musicStatus === 'connected') {
+      musicSuccessMessage.value = 'Konto Last.fm zostało pomyślnie połączone!'
+      await refreshSpotifyStatus(true)
+      setTimeout(() => {
+        musicSuccessMessage.value = ''
+      }, 5000)
+    } else if (musicStatus === 'failed') {
+      spotifyErrorMessage.value = 'Nie udało się połączyć z Last.fm. Możesz połączyć konto wpisując swój login ręcznie.'
+    }
+  },
+  { immediate: true }
 )
 
 watch(() => route?.query?.category, (newCat) => {
@@ -3826,6 +3849,27 @@ const handleRefresh = async (event: any) => {
 
 .spotify-status-pill.is-connected .status-indicator-dot {
   background: #16a34a;
+}
+
+.spotify-success-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.spotify-success-box .success-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  color: #16a34a;
 }
 
 .spotify-error-box {

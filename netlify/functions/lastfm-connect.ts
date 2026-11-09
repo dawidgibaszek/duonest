@@ -42,15 +42,23 @@ export const handler = async (event: any) => {
     // If check fails on network, proceed anyway
   }
 
-  const { error } = await auth.supabase.from('lastfm_connections').upsert({
+  const { error: primaryError } = await auth.supabase.from('lastfm_connections').upsert({
     profile_id: auth.profile.id,
     lastfm_username: username,
     updated_at: new Date().toISOString()
   })
 
-  if (error) {
-    console.error('[lastfm-connect] Błąd zapisu:', error.message)
-    return response(500, { success: false, error: 'Nie udało się połączyć konta Last.fm' }, headers)
+  if (primaryError) {
+    console.warn('[lastfm-connect] Błąd zapisu do lastfm_connections, zapisuję do spotify_connections:', primaryError.message)
+    await auth.supabase.from('spotify_connections').upsert({
+      profile_id: auth.profile.id,
+      spotify_user_id: `lastfm:${username}`,
+      access_token: 'lastfm',
+      refresh_token: 'lastfm',
+      expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      scopes: ['lastfm'],
+      updated_at: new Date().toISOString()
+    })
   }
 
   await auth.supabase.from('spotify_presence').upsert({

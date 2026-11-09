@@ -42,7 +42,6 @@ export const handler = async (event: any) => {
   const baseUrl = currentOrigin || process.env.URL || process.env.NUXT_PUBLIC_SITE_URL || 'https://duonestapp.pl'
 
   const callbackUrl = new URL('/auth/lastfm/callback', baseUrl)
-  callbackUrl.searchParams.set('state', state)
 
   const authUrl = new URL('https://www.last.fm/api/auth/')
   authUrl.searchParams.set('api_key', config.apiKey)
