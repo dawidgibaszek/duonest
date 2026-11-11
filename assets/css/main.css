@@ -116,6 +116,56 @@ button,
   line-height: 1.35;
 }
 
+/* iOS Native Date / Time Picker Alignment Fix */
+ion-input[type="date"],
+ion-input[type="time"],
+ion-input[type="datetime-local"],
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  --text-align: center;
+  text-align: center;
+}
+
+ion-input[type="date"]::part(native),
+ion-input[type="time"]::part(native),
+ion-input[type="datetime-local"]::part(native),
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  text-align: center !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* iOS Safari WebKit internal date & time container alignment fix */
+input[type="date"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value {
+  text-align: center !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 1.4em !important;
+  height: 100% !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  box-sizing: border-box;
+}
+
+/* ion-datetime (Calendar picker) iOS centering */
+ion-datetime {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+ion-datetime::part(month-year-button),
+ion-datetime::part(time-button) {
+  text-align: center;
+  justify-content: center;
+}
+
 /* Prevent flex / grid containers from breaking past card borders */
 .dn-card,
 ion-card,

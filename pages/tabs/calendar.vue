@@ -1945,6 +1945,8 @@ const handleRefresh = async (event: any) => {
   font-size: 13px;
   font-weight: 700;
   color: #1e293b;
+  text-align: center;
+  line-height: 1.35;
 }
 
 .day-cell.not-current-month .day-number {
@@ -2066,12 +2068,16 @@ const handleRefresh = async (event: any) => {
   font-size: 11px;
   font-weight: 700;
   color: #64748b;
+  text-align: center;
+  line-height: 1.35;
 }
 
 .w-num {
   font-size: 15px;
   font-weight: 800;
   color: #0f172a;
+  text-align: center;
+  line-height: 1.35;
 }
 
 .week-day-pill.is-selected .w-name,
@@ -2888,10 +2894,45 @@ const handleRefresh = async (event: any) => {
 }
 
 .custom-datetime {
-  border-radius: 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
   max-width: 100%;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.custom-datetime.time-only {
+  max-width: 320px;
+}
+
+.custom-datetime::part(month-year-button) {
+  text-align: center;
+  justify-content: center;
+}
+
+.custom-datetime::part(time-button) {
+  text-align: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.custom-datetime :deep(.calendar-month-year),
+.custom-datetime :deep(.datetime-header),
+.custom-datetime :deep(.time-header) {
+  text-align: center;
+  justify-content: center;
+}
+
+.custom-datetime :deep(.wheel-item),
+.custom-datetime :deep(.picker-item),
+.custom-datetime :deep(ion-picker-column-internal),
+.custom-datetime :deep(ion-picker-column) {
+  text-align: center !important;
+  justify-content: center !important;
 }
 
 .planner-options-row {

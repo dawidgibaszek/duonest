@@ -3304,6 +3304,27 @@ const handleRefresh = async (event: any) => {
 
 .date-styled-input {
   cursor: pointer;
+  --text-align: center;
+  text-align: center;
+  --padding-end: 38px; /* symmetric with --padding-start: 38px so text is centered */
+}
+
+.date-styled-input::part(native) {
+  text-align: center !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.date-styled-input :deep(input::-webkit-date-and-time-value) {
+  text-align: center !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 1.4em !important;
+  height: 100% !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
 }
 
 .quick-chips-row {

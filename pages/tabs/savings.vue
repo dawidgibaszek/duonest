@@ -1994,6 +1994,32 @@ ion-modal.dn-savings-modal {
   font-size: 14px;
 }
 
+#goal-target-date,
+ion-input[type="date"] {
+  --text-align: center;
+  text-align: center;
+}
+
+#goal-target-date::part(native),
+ion-input[type="date"]::part(native) {
+  text-align: center !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+#goal-target-date :deep(input::-webkit-date-and-time-value),
+ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
+  text-align: center !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 1.4em !important;
+  height: 100% !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+}
+
 .large-amount-input {
   font-size: 18px;
   font-weight: 700;
