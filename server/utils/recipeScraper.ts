@@ -268,31 +268,101 @@ async function scrapeTikTok(targetUrl: string): Promise<ScrapedRecipeData> {
 }
 
 // -------------------------------------------------------------
-// YOUTUBE SCRAPER (YouTube oEmbed)
+// YOUTUBE & YOUTUBE SHORTS SCRAPER
 // -------------------------------------------------------------
 async function scrapeYouTube(targetUrl: string): Promise<ScrapedRecipeData> {
-  const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(targetUrl)}&format=json`
-  const res = await fetch(oembedUrl, { signal: AbortSignal.timeout(5000) })
-  if (!res.ok) {
-    throw new Error(`YouTube oEmbed zwrócił kod ${res.status}`)
+  const isShorts = targetUrl.includes('/shorts/') || targetUrl.includes('shorts/')
+  let title = ''
+  let authorName = ''
+  let imageUrl = ''
+  let description = ''
+
+  // 1. Try YouTube oEmbed (fast, official endpoint)
+  try {
+    const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(targetUrl)}&format=json`
+    const res = await fetch(oembedUrl, { signal: AbortSignal.timeout(5000) })
+    if (res.ok) {
+      const data = await res.json()
+      title = cleanRecipeTitle(data.title || '').slice(0, 100)
+      if (data.author_name) authorName = data.author_name
+      if (data.thumbnail_url) imageUrl = data.thumbnail_url
+    }
+  } catch (_) {}
+
+  // 2. Fetch the YouTube/Shorts HTML page for rich description (where recipes and ingredients are written)
+  try {
+    const pageRes = await fetch(targetUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'pl-PL,pl;q=0.9,en-US;q=0.8,en;q=0.7'
+      },
+      signal: AbortSignal.timeout(6000)
+    })
+
+    if (pageRes.ok) {
+      const html = await pageRes.text()
+      if (!title) {
+        const ogTitle = extractMetaTag(html, 'og:title')
+        if (ogTitle) title = cleanRecipeTitle(ogTitle).slice(0, 100)
+      }
+      if (!imageUrl) {
+        imageUrl = extractMetaTag(html, 'og:image') || ''
+      }
+      const ogDesc = extractMetaTag(html, 'og:description') || extractMetaTag(html, 'description')
+      if (ogDesc) {
+        description = ogDesc.trim()
+      }
+
+      // Extract full description from ytInitialData if present (often contains full ingredients list)
+      const initialDataMatch = html.match(/ytInitialData\s*=\s*({[\s\S]+?});<\/script>/)
+      if (initialDataMatch && initialDataMatch[1]) {
+        try {
+          const ytData = JSON.parse(initialDataMatch[1])
+          const videoDesc = ytData?.engagementPanels?.find((p: any) => p?.engagementPanelSectionListRenderer?.panelIdentifier === 'engagement-panel-structured-description')
+            ?.engagementPanelSectionListRenderer?.content?.structuredDescriptionContentRenderer?.items
+            ?.find((it: any) => it?.expandableVideoDescriptionBodyRenderer)?.expandableVideoDescriptionBodyRenderer?.descriptionBodyText?.runs
+            ?.map((r: any) => r?.text).join('') || ''
+
+          if (videoDesc && videoDesc.length > description.length) {
+            description = videoDesc.trim()
+          }
+        } catch (_) {}
+      }
+    }
+  } catch (_) {}
+
+  if (!title) {
+    title = isShorts ? 'Przepis z YouTube Shorts' : 'Przepis z YouTube'
   }
 
-  const data = await res.json()
-  const title = cleanRecipeTitle(data.title || 'Wideo z przepisem').slice(0, 100)
-  const authorName = data.author_name || 'YouTube'
+  // Parse ingredients if provided in description
+  const ingredients = parseIngredientsFromText(description)
   const category = detectRecipeCategory(title, 'Obiad domowy')
+
+  const instructions = description
+    ? description
+    : `Obejrzyj wideo na ${isShorts ? 'YouTube Shorts' : 'YouTube'}, aby zobaczyć przygotowanie krok po kroku.`
+
+  const instructionsSteps = description
+    ? description.split(/\r?\n+/).map(s => s.trim()).filter(Boolean)
+    : [`Obejrzyj wideo na ${isShorts ? 'YouTube Shorts' : 'YouTube'}: ${title}`]
+
+  const sourceName = isShorts
+    ? (authorName ? `YouTube Shorts (${authorName})` : 'YouTube Shorts')
+    : (authorName ? `YouTube (${authorName})` : 'YouTube')
 
   return {
     title,
     category,
-    imageUrl: data.thumbnail_url || undefined,
-    ingredients: [],
-    instructions: `Przepis wideo z kanału ${authorName}.`,
-    instructionsSteps: [`Obejrzyj wideo na YouTube: ${title}`],
+    imageUrl: imageUrl || undefined,
+    ingredients,
+    instructions,
+    instructionsSteps,
     recipeUrl: targetUrl,
     source: 'import',
-    sourceName: `YouTube (${authorName})`,
-    authorName
+    sourceName,
+    authorName: authorName || undefined
   }
 }
 
@@ -553,6 +623,21 @@ async function scrapeRecipeWebsite(targetUrl: string): Promise<ScrapedRecipeData
         }
       }
     }
+
+    // Microdata itemprop="recipeInstructions" (e.g. Ania Gotuje and schema.org markup)
+    if (instructionsSteps.length === 0) {
+      const instContainerMatch = html.match(/itemprop=["']recipeInstructions["'][^>]*>([\s\S]*?)<\/div>\s*(?:<div class=["']article-content-end|<footer|<\/article|<\/main|$)/i) ||
+                                 html.match(/<[^>]+itemprop=["']recipeInstructions["'][^>]*>([\s\S]*?)<\/(?:div|section|article)>/i)
+      if (instContainerMatch && instContainerMatch[1]) {
+        const pMatches = instContainerMatch[1].matchAll(/<(?:p|li)[^>]*>([\s\S]*?)<\/(?:p|li)>/gi)
+        for (const p of pMatches) {
+          const clean = decodeHtmlEntities(p[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim())
+          if (clean.length > 20 && !clean.toLowerCase().includes('źródło przepisu') && !clean.toLowerCase().includes('komentarze')) {
+            instructionsSteps.push(clean)
+          }
+        }
+      }
+    }
   }
 
   if (instructionsSteps.length === 0) {
@@ -590,7 +675,7 @@ export async function processRecipeImport(rawUrl: string): Promise<{
   error?: string
 }> {
   if (!rawUrl || !rawUrl.trim()) {
-    return { success: false, error: 'Wklej link do przepisu lub filmiku na TikToku.' }
+    return { success: false, error: 'Wklej link do przepisu, TikToka lub YouTube Shorts.' }
   }
 
   let targetUrl = rawUrl.trim()
@@ -621,8 +706,12 @@ export async function processRecipeImport(rawUrl: string): Promise<{
     // 1. TikTok
     if (hostname === 'tiktok.com' || hostname.endsWith('.tiktok.com')) {
       recipe = await scrapeTikTok(parsedUrl.href)
-    } else if (hostname.includes('youtube.com') || hostname.includes('youtu.be')) {
-      // 2. YouTube
+    } else if (
+      hostname === 'youtube.com' ||
+      hostname.endsWith('.youtube.com') ||
+      hostname === 'youtu.be'
+    ) {
+      // 2. YouTube & YouTube Shorts
       recipe = await scrapeYouTube(parsedUrl.href)
     } else {
       // 3. Regular recipe site

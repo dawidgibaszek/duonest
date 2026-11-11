@@ -29,7 +29,6 @@ for (const [network, prefix] of [
 for (const [network, prefix] of [
   ['::', 128],
   ['::1', 128],
-  ['::ffff:0:0', 96],
   ['64:ff9b::', 96],
   ['64:ff9b:1::', 48],
   ['100::', 64],
@@ -59,6 +58,15 @@ interface SafeFetchResponse {
 const isBlockedAddress = (address: string, family: number) => {
   if (family === 4) return blockedAddresses.check(address, 'ipv4')
   if (family !== 6) return true
+
+  // If address is IPv4-mapped IPv6 (::ffff:x.x.x.x), check the embedded IPv4
+  if (address.toLowerCase().startsWith('::ffff:')) {
+    const ipv4Part = address.slice(7)
+    if (isIP(ipv4Part) === 4) {
+      return blockedAddresses.check(ipv4Part, 'ipv4')
+    }
+  }
+
   return !globalIpv6Addresses.check(address, 'ipv6') || blockedAddresses.check(address, 'ipv6')
 }
 
@@ -74,10 +82,13 @@ const resolvePublicAddress = async (hostname: string) => {
     : await lookup(normalizedHost, { all: true, verbatim: true })
 
   if (addresses.length === 0 || addresses.some(entry => isBlockedAddress(entry.address, entry.family))) {
-    throw new Error('Adres URL wskazuje na niedozwolony lub nieroutowalny adres IP.')
+    throw new Error('Adres URL wskazuje na niedozwolony lub prywatny adres IP.')
   }
 
-  return { normalizedHost, address: addresses[0] }
+  // Prefer IPv4 address for maximum outbound routing reliability in cloud/serverless environments
+  const selectedAddress = addresses.find(entry => entry.family === 4) || addresses[0]
+
+  return { normalizedHost, address: selectedAddress }
 }
 
 export async function fetchPublicUrl(urlInput: string | URL, options: SafeFetchOptions = {}): Promise<SafeFetchResponse> {

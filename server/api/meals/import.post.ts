@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
   if (!rawUrl) {
     return {
       success: false,
-      error: 'Wklej poprawny link do przepisu lub TikToka.'
+      error: 'Wklej poprawny link do przepisu, TikToka lub YouTube Shorts.'
     }
   }
 

@@ -40,7 +40,7 @@ export const handler = async (event: any) => {
         headers: corsHeaders,
         body: JSON.stringify({
           success: false,
-          error: 'Wklej poprawny link do przepisu lub TikToka.'
+          error: 'Wklej poprawny link do przepisu, TikToka lub YouTube Shorts.'
         })
       }
     }

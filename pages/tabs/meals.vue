@@ -586,7 +586,7 @@
                 <div class="recipe-badges-overlay">
                   <span class="recipe-badge-source" :class="recipe.source">
                     <ion-icon :icon="recipe.source === 'import' ? ioniconsLinkOutline : (recipe.source === 'custom' ? ioniconsPersonOutline : ioniconsSparklesOutline)" />
-                    <span>{{ recipe.source === 'import' ? (recipe.recipe_url?.includes('tiktok.com') ? 'TikTok' : 'Z linku') : (recipe.source === 'custom' ? 'Własny przepis' : 'Z inspiracji') }}</span>
+                    <span>{{ recipe.source === 'import' ? (recipe.recipe_url?.includes('tiktok.com') ? 'TikTok' : (recipe.recipe_url?.includes('/shorts/') || recipe.sourceName?.includes('Shorts') ? 'YT Shorts' : (recipe.recipe_url?.includes('youtu') ? 'YouTube' : 'Z linku'))) : (recipe.source === 'custom' ? 'Własny przepis' : 'Z inspiracji') }}</span>
                   </span>
                   <span class="recipe-badge-cooked" v-if="recipe.cookCount > 1">
                     <ion-icon :icon="ioniconsFlameOutline" />
@@ -688,7 +688,7 @@
               <div class="saved-list-info">
                 <div class="saved-list-top-row">
                   <span class="saved-list-source-pill" :class="recipe.source">
-                    {{ recipe.source === 'import' ? (recipe.recipe_url?.includes('tiktok.com') ? 'TikTok' : 'Link') : (recipe.source === 'custom' ? 'Własny' : 'Inspiracja') }}
+                    {{ recipe.source === 'import' ? (recipe.recipe_url?.includes('tiktok.com') ? 'TikTok' : (recipe.recipe_url?.includes('/shorts/') || recipe.sourceName?.includes('Shorts') ? 'Shorts' : (recipe.recipe_url?.includes('youtu') ? 'YouTube' : 'Link'))) : (recipe.source === 'custom' ? 'Własny' : 'Inspiracja') }}
                   </span>
                   <span v-if="recipe.category" class="saved-list-cat-pill">
                     {{ recipe.category }}
@@ -1167,10 +1167,10 @@
               class="video-recipe-card"
             >
               <div class="video-icon-circle">
-                <ion-icon :icon="(activeSelectedMeal.youtube_url || activeSelectedMeal.recipe_url?.includes('tiktok.com')) ? ioniconsPlayCircleOutline : ioniconsOpenOutline" />
+                <ion-icon :icon="(activeSelectedMeal.youtube_url || activeSelectedMeal.recipe_url?.includes('tiktok.com') || activeSelectedMeal.recipe_url?.includes('youtu')) ? ioniconsPlayCircleOutline : ioniconsOpenOutline" />
               </div>
               <div class="video-meta">
-                <span class="video-title">{{ activeSelectedMeal.recipe_url?.includes('tiktok.com') ? 'Wideo na TikToku' : (activeSelectedMeal.youtube_url ? 'Wideo z przygotowania' : 'Oryginalny przepis ze strony') }}</span>
+                <span class="video-title">{{ activeSelectedMeal.recipe_url?.includes('/shorts/') ? 'Wideo na YouTube Shorts' : (activeSelectedMeal.recipe_url?.includes('tiktok.com') ? 'Wideo na TikToku' : (activeSelectedMeal.recipe_url?.includes('youtu') ? 'Wideo na YouTube' : (activeSelectedMeal.youtube_url ? 'Wideo z przygotowania' : 'Oryginalny przepis ze strony'))) }}</span>
                 <span class="video-sub">Otwórz źródło w nowej karcie</span>
               </div>
               <ion-icon :icon="ioniconsChevronForwardOutline" class="video-arrow" />
@@ -1868,13 +1868,17 @@
               <ion-icon :icon="ioniconsPlayCircleOutline" />
               <span>TikTok</span>
             </span>
-            <span class="platform-chip">
-              <ion-icon :icon="ioniconsRestaurantOutline" />
-              <span>Kwestia Smaku</span>
+            <span class="platform-chip youtube-chip">
+              <ion-icon :icon="ioniconsLogoYoutube" />
+              <span>YT Shorts</span>
             </span>
             <span class="platform-chip">
               <ion-icon :icon="ioniconsRestaurantOutline" />
               <span>Ania Gotuje</span>
+            </span>
+            <span class="platform-chip">
+              <ion-icon :icon="ioniconsRestaurantOutline" />
+              <span>Kwestia Smaku</span>
             </span>
             <span class="platform-chip">
               <ion-icon :icon="ioniconsRestaurantOutline" />
@@ -1890,13 +1894,13 @@
           <div class="form-group" style="margin-top: 14px;">
             <label class="form-label">
               <ion-icon :icon="ioniconsLinkOutline" class="label-icon" />
-              <span>Link do przepisu lub TikToka</span>
+              <span>Link do przepisu, TikToka lub YouTube Shorts</span>
             </label>
             <div class="input-container-box import-link-input-box">
               <ion-input
                 v-model="importUrlInput"
                 type="url"
-                placeholder="https://www.tiktok.com/... lub https://..."
+                placeholder="https://www.tiktok.com/... lub https://youtube.com/shorts/... lub strona z przepisem"
                 class="modal-input"
                 :clear-input="true"
                 @keyup.enter="handleFetchRecipeFromUrl"
@@ -1943,7 +1947,7 @@
           >
             <div class="imported-hero-overlay"></div>
             <div class="imported-source-badge">
-              <ion-icon :icon="importedRecipePreview.sourceName?.includes('TikTok') ? ioniconsPlayCircleOutline : ioniconsGlobeOutline" />
+              <ion-icon :icon="(importedRecipePreview.sourceName?.includes('TikTok') || importedRecipePreview.sourceName?.includes('YouTube')) ? ioniconsPlayCircleOutline : ioniconsGlobeOutline" />
               <span>{{ importedRecipePreview.sourceName || 'Zaimportowano z sieci' }}</span>
             </div>
           </div>
@@ -6726,6 +6730,16 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 
 .platform-chip.tiktok-chip ion-icon {
   color: #0f172a;
+}
+
+.platform-chip.youtube-chip {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #dc2626;
+}
+
+.platform-chip.youtube-chip ion-icon {
+  color: #dc2626;
 }
 
 .import-link-input-box {
