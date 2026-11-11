@@ -1580,7 +1580,7 @@ ion-toolbar {
   flex-direction: column;
   justify-content: center;
   min-width: 0;
-  line-height: 1.15;
+  line-height: 1.3;
 }
 
 .partner-name-row {
@@ -1597,6 +1597,8 @@ ion-toolbar {
   font-weight: 700;
   color: #0f172a;
   letter-spacing: -0.015em;
+  line-height: 1.35;
+  padding-bottom: 2px;
 }
 
 .partner-status-row {
@@ -1614,7 +1616,8 @@ ion-toolbar {
   color: #15803d;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  line-height: 1;
+  line-height: 1.3;
+  padding-bottom: 1px;
 }
 
 .status-pulse-dot {
@@ -1633,7 +1636,8 @@ ion-toolbar {
   font-size: 9.5px;
   font-weight: 600;
   color: #64748b;
-  line-height: 1;
+  line-height: 1.3;
+  padding-bottom: 1px;
   max-width: 100px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1650,7 +1654,8 @@ ion-toolbar {
   font-size: 9.5px;
   font-weight: 500;
   color: #94a3b8;
-  line-height: 1;
+  line-height: 1.3;
+  padding-bottom: 1px;
 }
 
 /* QUICK SETTINGS BUTTON */
@@ -2260,6 +2265,7 @@ ion-toolbar {
   color: #64748b;
   text-transform: uppercase;
   display: block;
+  line-height: 1.35;
   margin-bottom: 3px;
 }
 
@@ -2308,6 +2314,8 @@ ion-toolbar {
   font-weight: 700;
   color: #0f172a;
   display: inline-block;
+  line-height: 1.35;
+  padding-bottom: 1px;
   margin-bottom: 2px;
 }
 

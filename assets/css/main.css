@@ -60,6 +60,7 @@ body {
   font-family: var(--ion-font-family);
   background-color: var(--ion-background-color);
   color: var(--ion-text-color);
+  line-height: 1.4;
   user-select: none;
   -webkit-user-select: none;
   overscroll-behavior-y: none;
@@ -75,6 +76,44 @@ p, span, h1, h2, h3, h4, h5, h6, a, label, li, ion-label {
 button, button *, .dn-button-primary, .dn-button-secondary, [role="button"], [role="button"] *, .badge, .pill, [class*="-badge"], [class*="-pill"], [class*="-btn"] {
   word-break: normal;
   overflow-wrap: normal;
+}
+
+/* Universal descender protection (prevent clipping of g, j, p, q, y, ę, ą) */
+.tab-title,
+.section-tag,
+.mini-section-tag,
+.section-badge,
+.dn-pill,
+.dn-filter-chip,
+.dn-segmented-btn,
+.count-chip,
+.badge,
+.pill,
+[class*="-tag"],
+[class*="-badge"],
+[class*="-pill"],
+[class*="-chip"] {
+  line-height: 1.35;
+}
+
+/* Guard titles, meta, and single-line ellipsis text against having bottom descenders sliced */
+[class*="-title"],
+[class*="-name"],
+[class*="-desc"],
+[class*="-meta"],
+[class*="-label"],
+[class*="-sub"],
+.truncate-text,
+.ellipsis-text {
+  line-height: 1.35;
+}
+
+button,
+.dn-button-primary,
+.dn-button-secondary,
+.dn-button-sea,
+.dn-header-btn {
+  line-height: 1.35;
 }
 
 /* Prevent flex / grid containers from breaking past card borders */
@@ -101,6 +140,7 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
   color: #0f172a;
   margin: 0;
+  line-height: 1.3;
 }
 
 /* Ionic Page & Content Custom Styling */

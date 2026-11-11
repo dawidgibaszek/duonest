@@ -1858,6 +1858,8 @@ const handleRefresh = async (event: any) => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.35;
+  padding-bottom: 1px;
 }
 
 /* GOAL ACTIONS ROW */
@@ -2301,6 +2303,8 @@ ion-modal.dn-savings-modal {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.35;
+  padding-bottom: 1px;
 }
 
 .history-item-right {

@@ -2709,7 +2709,7 @@ const handleRefresh = async (event: any) => {
 .planner-text {
   font-size: 10.5px;
   font-weight: 600;
-  padding: 2.5px 8px;
+  padding: 3px 8px;
   border-radius: 6px;
   border: 1px solid transparent;
   display: inline-flex;
@@ -2718,6 +2718,7 @@ const handleRefresh = async (event: any) => {
   max-width: 60%;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.35;
 }
 
 .agenda-card-actions {

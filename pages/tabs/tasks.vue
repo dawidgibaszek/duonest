@@ -1958,6 +1958,8 @@ const handleRefresh = async (event: any) => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.35;
+  padding-bottom: 1px;
 }
 
 .pet-status-adopt-icon {
@@ -2525,6 +2527,8 @@ const handleRefresh = async (event: any) => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.35;
+  padding-bottom: 1.5px;
 }
 
 .quest-item-meta {

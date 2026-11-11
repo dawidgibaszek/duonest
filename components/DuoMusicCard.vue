@@ -524,30 +524,35 @@ onUnmounted(() => {
   color: #0f172a;
   font-size: 15px;
   font-weight: 800;
-  line-height: 1.25;
+  line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding-bottom: 2px;
 }
 
 .artist-name {
   color: #475569;
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-top: 2px;
+  margin-top: 1px;
+  padding-bottom: 1px;
 }
 
 .album-name {
   color: #94a3b8;
   font-size: 11.5px;
   font-weight: 500;
+  line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   margin-top: 1px;
+  padding-bottom: 1px;
 }
 
 .platform-meta-tag {
@@ -557,6 +562,7 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 700;
   color: #64748b;
+  line-height: 1.35;
   margin-top: 5px;
 }
 

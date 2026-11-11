@@ -2461,6 +2461,8 @@ const handleRefresh = async (event: any) => {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 105px;
+  line-height: 1.35;
+  padding-bottom: 1.5px;
 }
 
 .member-badge.me-badge {
@@ -4220,10 +4222,11 @@ const handleRefresh = async (event: any) => {
   color: #0f172a;
   font-size: 15.5px;
   font-weight: 800;
-  line-height: 1.25;
+  line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding-bottom: 2px;
 }
 
 .account-actions-row {
@@ -4427,6 +4430,8 @@ const handleRefresh = async (event: any) => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.35;
+  padding-bottom: 1px;
 }
 
 .platform-choice-btn.is-selected .choice-name {

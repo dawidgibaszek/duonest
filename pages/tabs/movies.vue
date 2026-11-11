@@ -3326,6 +3326,8 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.35;
+  padding-bottom: 1px;
 }
 
 .movie-sub-info {
@@ -3336,17 +3338,21 @@ onMounted(() => {
   font-size: 11.5px;
   color: #64748b;
   font-weight: 500;
+  line-height: 1.35;
 }
 
 .year-tag {
   font-weight: 700;
   color: #334155;
+  line-height: 1.35;
 }
 
 .genres-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.35;
+  padding-bottom: 1px;
 }
 
 .status-pill-row {
@@ -3527,6 +3533,8 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.35;
+  padding-bottom: 1px;
 }
 
 .user-score-badge {

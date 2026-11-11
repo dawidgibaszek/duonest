@@ -785,10 +785,10 @@ watch(activeLeisureSubTab, (newVal) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 1.5px;
   background: none;
   border: none;
-  padding: 6px 0 5px 0;
+  padding: 5px 0 3px 0;
   cursor: pointer;
   color: #64748b;
   transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s ease;
@@ -853,7 +853,8 @@ watch(activeLeisureSubTab, (newVal) => {
   font-size: 9.5px;
   font-weight: 600;
   letter-spacing: -0.3px;
-  line-height: 1.2;
+  line-height: 1.35;
+  padding-bottom: 2px;
 }
 
 .tab-badge {
@@ -863,9 +864,9 @@ watch(activeLeisureSubTab, (newVal) => {
   font-size: 10px;
   font-weight: 700;
   border-radius: 999px;
-  padding: 1px 5px;
+  padding: 1.5px 5px;
   color: #ffffff;
-  line-height: 1.2;
+  line-height: 1.3;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
   z-index: 2;
 }
