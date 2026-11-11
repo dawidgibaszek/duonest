@@ -685,15 +685,13 @@
         </div>
 
         <!-- 3. AKTYWNOŚĆ MUZYCZNA (SPOTIFY, APPLE MUSIC, TIDAL, YT MUSIC) -->
-        <div class="dn-card music-settings-card spotify-settings-card">
+        <div class="dn-card music-settings-card">
           <div class="card-title-row">
-            <span class="section-tag music-section-tag spotify-section-tag">
-              <span class="music-mark" aria-hidden="true">
-                <DuoMusicLogo :service="musicConnection.music_service || 'spotify'" size="small" />
-              </span>
-              MUZYKA
+            <span class="section-tag music-section-tag">
+              <DuoMusicLogo :service="musicConnection.music_service || 'spotify'" size="xs" />
+              <span>MUZYKA</span>
             </span>
-            <span class="music-status-pill spotify-status-pill" :class="{ 'is-connected': musicConnection.connected }">
+            <span class="music-status-pill" :class="{ 'is-connected': musicConnection.connected }">
               <span class="status-indicator-dot"></span>
               {{ musicConnection.connected ? 'Połączone' : 'Niepołączone' }}
             </span>
@@ -704,54 +702,54 @@
             Pokaż partnerowi, czego aktualnie słuchasz. Budujcie wspólną atmosferę i dzielcie się ulubioną muzyką w czasie rzeczywistym.
           </p>
 
-          <div v-if="musicSuccessMessage" class="music-success-box spotify-success-box">
+          <div v-if="musicSuccessMessage" class="music-success-box">
             <ion-icon :icon="ioniconsCheckmarkCircle" class="success-icon" />
             <span>{{ musicSuccessMessage }}</span>
           </div>
 
-          <div v-if="musicErrorMessage" class="music-error-box spotify-error-box">
+          <div v-if="musicErrorMessage" class="music-error-box">
             <ion-icon :icon="ioniconsAlertCircleOutline" class="error-icon" />
             <span>{{ musicErrorMessage }}</span>
           </div>
 
           <!-- STATE A: Disconnected Hero Banner -->
-          <div v-if="!musicConnection.connected" class="music-connect-card spotify-connect-card">
-            <div class="music-connect-icon-circle spotify-connect-icon-circle">
-              <DuoMusicLogo service="spotify" size="large" />
+          <div v-if="!musicConnection.connected" class="music-connect-card">
+            <div class="music-connect-hero-icon">
+              <ion-icon :icon="ioniconsMusicalNotes" />
             </div>
-            <h5 class="connect-card-title">Muzyka na żywo (Spotify, Apple Music i inne)</h5>
+            <h5 class="connect-card-title">Muzyka na żywo w Waszym Gniazdku</h5>
             <p class="connect-card-desc">
-              Dzięki integracji z Last.fm możesz dzielić się z partnerem tym, czego słuchasz na żywo z Twojej ulubionej aplikacji muzycznej:
+              Dzięki Last.fm partner zobaczy na żywo, czego słuchasz w swojej ulubionej aplikacji muzycznej:
             </p>
 
-            <!-- Supported Music Platforms Badges -->
+            <!-- Supported Music Platforms Badges with authentic logos -->
             <div class="supported-platforms-pills">
-              <span class="platform-pill is-spotify">
+              <span class="platform-pill">
                 <DuoMusicLogo service="spotify" size="xs" />
                 <span>Spotify</span>
               </span>
-              <span class="platform-pill is-apple">
+              <span class="platform-pill">
                 <DuoMusicLogo service="apple_music" size="xs" />
                 <span>Apple Music</span>
               </span>
-              <span class="platform-pill is-yt">
+              <span class="platform-pill">
                 <DuoMusicLogo service="youtube_music" size="xs" />
                 <span>YouTube Music</span>
               </span>
-              <span class="platform-pill is-tidal">
+              <span class="platform-pill">
                 <DuoMusicLogo service="tidal" size="xs" />
                 <span>Tidal</span>
               </span>
-              <span class="platform-pill is-other">
-                <ion-icon :icon="ioniconsMusicalNotesOutline" />
-                <span>Inne</span>
+              <span class="platform-pill">
+                <DuoMusicLogo service="lastfm" size="xs" />
+                <span>Last.fm</span>
               </span>
             </div>
 
             <div class="lastfm-guide-card">
               <div class="guide-step">
                 <span class="step-badge">1</span>
-                <span>Włącz scrobblowanie w Twojej aplikacji (np. w Spotify: <a href="https://www.last.fm/settings/applications" target="_blank" rel="noopener noreferrer">last.fm/settings/applications</a> kliknij <em>Connect</em> przy Spotify, a w Apple Music / YT Music włącz scrobblowanie w aplikacji Last.fm).</span>
+                <span>Włącz scrobblowanie w aplikacji (np. w Spotify: <a href="https://www.last.fm/settings/applications" target="_blank" rel="noopener noreferrer">last.fm/settings/applications</a> kliknij <em>Connect</em>, a w Apple Music / YT Music włącz w aplikacji Last.fm).</span>
               </div>
               <div class="guide-step">
                 <span class="step-badge">2</span>
@@ -761,7 +759,7 @@
 
             <button
               type="button"
-              class="music-connect-btn spotify-connect-btn"
+              class="dn-button-sea music-connect-btn"
               @click="connectMusic"
               :disabled="musicLoading"
             >
@@ -782,16 +780,19 @@
               </button>
 
               <div v-if="showManualNickInput" class="manual-nick-form">
-                <input
-                  v-model="lastFmUsernameInput"
-                  type="text"
-                  placeholder="np. twoj_login"
-                  class="manual-nick-input"
-                  @keydown.enter="handleManualConnect"
-                />
+                <div class="input-with-icon-wrap manual-input-wrap">
+                  <ion-icon :icon="ioniconsPersonOutline" class="input-leading-icon" />
+                  <input
+                    v-model="lastFmUsernameInput"
+                    type="text"
+                    placeholder="Wpisz swój login Last.fm"
+                    class="manual-nick-input dn-styled-input"
+                    @keydown.enter="handleManualConnect"
+                  />
+                </div>
                 <button
                   type="button"
-                  class="manual-nick-submit"
+                  class="manual-nick-submit dn-button-sea"
                   :disabled="!lastFmUsernameInput.trim() || musicLoading"
                   @click="handleManualConnect"
                 >
@@ -803,46 +804,59 @@
 
           <!-- STATE B: Connected Settings -->
           <template v-else>
-            <div class="music-account-panel spotify-account-panel">
-              <div class="account-left">
-                <div class="music-avatar-wrap spotify-avatar-wrap">
+            <!-- 1. Connected Account Panel -->
+            <div class="music-account-panel">
+              <div class="account-top-row">
+                <div class="music-avatar-wrap">
                   <DuoMusicLogo :service="musicConnection.music_service || 'spotify'" size="medium" />
-                  <span class="online-dot" title="Połączone"></span>
+                  <span class="online-indicator-dot" title="Połączone"></span>
                 </div>
-                <div class="account-info">
-                  <strong class="account-name">{{ musicConnection.display_name ? `Konto: ${musicConnection.display_name}` : 'Połączone z Last.fm' }}</strong>
-                  <span class="account-status">
-                    <ion-icon :icon="ioniconsCheckmarkCircle" class="check-icon" />
-                    Konto aktywne &bull; {{ currentPlatformName }}
-                  </span>
+                <div class="account-identity">
+                  <div class="account-meta-line">
+                    <span class="account-label">Połączone konto</span>
+                    <span class="account-status-badge">
+                      <span class="status-live-dot"></span>
+                      <span>Aktywne &bull; {{ currentPlatformName }}</span>
+                    </span>
+                  </div>
+                  <strong class="account-username" :title="musicConnection.display_name || 'Last.fm'">
+                    {{ musicConnection.display_name || 'Last.fm' }}
+                  </strong>
                 </div>
               </div>
-              <div class="account-actions">
+
+              <div class="account-actions-row">
                 <button
                   type="button"
-                  class="music-refresh-btn"
+                  class="account-action-btn refresh-btn"
                   @click="refreshMusicStatus(true)"
                   :disabled="musicLoading"
                   title="Odśwież status z Last.fm"
                 >
                   <ion-icon :icon="ioniconsRefreshOutline" :class="{ 'is-spinning': musicLoading }" />
+                  <span>Odśwież status</span>
                 </button>
                 <button
                   type="button"
-                  class="music-disconnect-btn spotify-disconnect-btn"
+                  class="account-action-btn disconnect-btn"
                   @click="disconnectMusic"
                   :disabled="musicLoading"
                   title="Odłącz konto muzyczne"
                 >
                   <ion-spinner v-if="musicLoading" name="crescent" />
-                  <span v-else>Odłącz</span>
+                  <template v-else>
+                    <ion-icon :icon="ioniconsLogOutOutline" />
+                    <span>Odłącz konto</span>
+                  </template>
                 </button>
               </div>
             </div>
 
-            <!-- Hint about Last.fm <-> Spotify Scrobbling connection -->
+            <!-- 2. Sync Hint Callout -->
             <div class="music-sync-hint">
-              <ion-icon :icon="ioniconsInformationCircleOutline" class="sync-hint-icon" />
+              <div class="sync-hint-icon-bubble">
+                <ion-icon :icon="ioniconsInformationCircleOutline" />
+              </div>
               <div class="sync-hint-body">
                 <p>Status utworu jest pobierany na żywo z Twojego profilu Last.fm.</p>
                 <a
@@ -851,18 +865,20 @@
                   rel="noopener noreferrer"
                   class="sync-hint-link"
                 >
-                  Jeśli utwór się nie zmienia, kliknij tutaj, aby odłączyć i połączyć ponownie „Spotify Scrobbling” w Last.fm &rarr;
+                  <span>Jeśli utwór się nie zmienia, kliknij tutaj, aby odłączyć i połączyć ponownie „Spotify Scrobbling” w Last.fm &rarr;</span>
                 </a>
               </div>
             </div>
 
-            <!-- Choose Preferred Platform for Widget & Deep-links -->
-            <div class="music-platform-selector-card">
-              <div class="platform-selector-title-row">
-                <ion-icon :icon="ioniconsMusicalNotesOutline" class="selector-icon" />
-                <div class="selector-title-wrap">
-                  <strong>Twoja główna platforma muzyczna</strong>
-                  <span>Wybierz serwis, z którego partner zobaczy logo i przycisk w Gniazdku.</span>
+            <!-- 3. Preferred Platform Selector -->
+            <div class="music-platform-selector-box">
+              <div class="platform-selector-header">
+                <div class="platform-header-icon-bubble">
+                  <ion-icon :icon="ioniconsMusicalNotesOutline" />
+                </div>
+                <div class="platform-header-text">
+                  <strong class="platform-header-title">Twoja główna platforma muzyczna</strong>
+                  <span class="platform-header-desc">Wybierz serwis, z którego partner zobaczy logo i przycisk w Gniazdku.</span>
                 </div>
               </div>
 
@@ -875,46 +891,49 @@
                   :class="{ 'is-selected': (musicConnection.music_service || 'spotify') === platform.id }"
                   @click="handleSelectService(platform.id)"
                 >
-                  <DuoMusicLogo :service="platform.id" size="small" />
+                  <div class="platform-logo-wrap">
+                    <DuoMusicLogo :service="platform.id" size="small" />
+                  </div>
                   <span class="choice-name">{{ platform.name }}</span>
-                  <span v-if="(musicConnection.music_service || 'spotify') === platform.id" class="choice-active-badge">
+                  <div v-if="(musicConnection.music_service || 'spotify') === platform.id" class="choice-active-badge">
                     <ion-icon :icon="ioniconsCheckmark" />
-                  </span>
+                  </div>
                 </button>
               </div>
             </div>
 
-            <div class="music-visibility-panel spotify-visibility-panel">
+            <!-- 4. Visibility Switch (Matching DuoNest master toggle style) -->
+            <div class="music-visibility-box">
               <div class="visibility-left">
                 <div class="visibility-icon-bubble">
                   <ion-icon :icon="ioniconsEyeOutline" />
                 </div>
-                <div class="visibility-info">
-                  <strong>Pokazuj partnerowi, czego słucham</strong>
-                  <span>Gdy wyłączone, Twoja aktywność nie pojawi się w Gniazdku partnera.</span>
+                <div class="visibility-text">
+                  <strong class="visibility-title">Pokazuj partnerowi, czego słucham</strong>
+                  <span class="visibility-desc">Gdy wyłączone, Twoja aktywność nie pojawi się w Gniazdku partnera.</span>
                 </div>
               </div>
               <ion-toggle
                 :checked="musicConnection.visible_to_partner"
                 @ionChange="setMusicVisibility($event.detail.checked)"
-                class="music-toggle spotify-toggle"
+                class="music-styled-toggle dn-styled-toggle"
               />
             </div>
 
-            <!-- Live Preview Container -->
-            <div class="music-preview-section spotify-preview-section">
-              <div class="music-preview-heading spotify-preview-heading">
+            <!-- 5. Live Preview Container -->
+            <div class="music-preview-section">
+              <div class="music-preview-heading">
                 <div class="preview-heading-text">
                   <strong>Podgląd dla partnera</strong>
                   <span>Tak Twoja aktywność wygląda na ekranie Gniazdka partnera.</span>
                 </div>
-                <span class="music-preview-label spotify-preview-label">PODGLĄD</span>
+                <span class="music-preview-label">PODGLĄD</span>
               </div>
 
               <!-- When playing and visible: render DuoMusicCard -->
               <div
                 v-if="musicConnection.visible_to_partner && myMusicPlayback"
-                class="music-preview-card-wrap spotify-preview-card-wrap"
+                class="music-preview-card-wrap"
               >
                 <DuoMusicCard
                   :playback="myMusicPlayback"
@@ -925,7 +944,7 @@
               </div>
 
               <!-- Empty preview state -->
-              <div v-else class="music-preview-empty-card spotify-preview-empty-card">
+              <div v-else class="music-preview-empty-card">
                 <div class="empty-icon-wrap">
                   <DuoMusicLogo :service="musicConnection.music_service || 'spotify'" size="medium" />
                 </div>
@@ -3825,9 +3844,9 @@ const handleRefresh = async (event: any) => {
 }
 
 /* ========================================================== */
-/* SPOTIFY SETTINGS & ACTIVITY CARD                           */
+/* MUSIC SETTINGS & ACTIVITY CARD (DUONEST DESIGN SYSTEM)     */
 /* ========================================================== */
-.spotify-settings-card {
+.music-settings-card {
   margin-bottom: 16px;
   border-radius: 18px;
   background: #ffffff;
@@ -3835,30 +3854,32 @@ const handleRefresh = async (event: any) => {
   box-shadow: var(--dn-card-shadow);
   position: relative;
   overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.spotify-section-tag {
-  color: #15803d;
+.music-section-tag {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-size: 10.5px;
   font-weight: 800;
-  font-size: 11px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
+  color: #0f172a;
+  text-transform: uppercase;
 }
 
-.spotify-status-pill {
+.music-status-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 3px 10px;
   border: 1px solid #e2e8f0;
   border-radius: 9999px;
   background: #f8fafc;
   color: #64748b;
   font-size: 11px;
   font-weight: 700;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 .status-indicator-dot {
@@ -3867,25 +3888,27 @@ const handleRefresh = async (event: any) => {
   border-radius: 50%;
   background: #94a3b8;
   display: inline-block;
+  transition: background 0.2s ease;
 }
 
-.spotify-status-pill.is-connected {
+.music-status-pill.is-connected {
   border-color: #bbf7d0;
   background: #f0fdf4;
-  color: #15803d;
+  color: #16a34a;
 }
 
-.spotify-status-pill.is-connected .status-indicator-dot {
+.music-status-pill.is-connected .status-indicator-dot {
   background: #16a34a;
+  box-shadow: 0 0 4px rgba(22, 163, 74, 0.4);
 }
 
-.spotify-success-box {
+.music-success-box {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 14px;
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: 14px;
   background: #f0fdf4;
   border: 1px solid #bbf7d0;
   color: #166534;
@@ -3894,19 +3917,19 @@ const handleRefresh = async (event: any) => {
   line-height: 1.4;
 }
 
-.spotify-success-box .success-icon {
+.music-success-box .success-icon {
   font-size: 18px;
   flex-shrink: 0;
   color: #16a34a;
 }
 
-.spotify-error-box {
+.music-error-box {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 14px;
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: 14px;
   background: #fff1f2;
   border: 1px solid #fecdd3;
   color: #9f1239;
@@ -3914,18 +3937,18 @@ const handleRefresh = async (event: any) => {
   line-height: 1.4;
 }
 
-.spotify-error-box .error-icon {
+.music-error-box .error-icon {
   font-size: 18px;
   flex-shrink: 0;
   color: #e11d48;
 }
 
 /* STATE A: Disconnected Hero Banner */
-.spotify-connect-card {
+.music-connect-card {
   position: relative;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 22px 18px;
   text-align: center;
   display: flex;
@@ -3934,32 +3957,33 @@ const handleRefresh = async (event: any) => {
   margin-top: 8px;
 }
 
-.spotify-connect-icon-circle {
+.music-connect-hero-icon {
   width: 52px;
   height: 52px;
   border-radius: 14px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 24px;
   margin-bottom: 12px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
 }
 
 .connect-card-title {
   margin: 0 0 4px 0;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 800;
   color: #0f172a;
 }
 
 .connect-card-desc {
   margin: 0 0 14px 0;
-  font-size: 13px;
+  font-size: 12.5px;
   color: #64748b;
   line-height: 1.45;
-  max-width: 360px;
+  max-width: 380px;
 }
 
 .supported-platforms-pills {
@@ -3975,73 +3999,14 @@ const handleRefresh = async (event: any) => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 11px;
+  padding: 5px 12px;
   border-radius: 9999px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   font-size: 11.5px;
-  font-weight: 600;
-  color: #334155;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
-}
-
-.platform-pill ion-icon {
-  font-size: 13px;
-  color: #64748b;
-}
-
-.spotify-features-chips {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.spotify-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 9999px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #334155;
-}
-
-.spotify-chip ion-icon {
-  font-size: 13px;
-  color: #0f172a;
-}
-
-.spotify-connect-btn {
-  background: #1db954;
-  color: #ffffff;
-  border: none;
-  border-radius: 12px;
-  padding: 11px 22px;
-  font-size: 13.5px;
   font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  cursor: pointer;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
-  transition: transform 0.15s ease, background 0.15s ease;
-  touch-action: manipulation;
-}
-
-.spotify-connect-btn:active {
-  transform: scale(0.97);
-  background: #1aa34a;
-}
-
-.spotify-connect-btn:disabled {
-  opacity: 0.6;
-  pointer-events: none;
+  color: #334155;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 .lastfm-guide-card {
@@ -4049,13 +4014,13 @@ const handleRefresh = async (event: any) => {
   max-width: 440px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 12px 14px;
+  border-radius: 14px;
+  padding: 14px 16px;
   margin-bottom: 16px;
   text-align: left;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .guide-step {
@@ -4069,22 +4034,42 @@ const handleRefresh = async (event: any) => {
 
 .guide-step a {
   color: #0f172a;
-  font-weight: 600;
+  font-weight: 700;
   text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .step-badge {
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background: #0f172a;
   color: #ffffff;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.music-connect-btn {
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  transition: transform 0.15s ease, background 0.15s ease;
+  touch-action: manipulation;
+}
+
+.music-connect-btn:active {
+  transform: scale(0.97);
 }
 
 .manual-nick-container {
@@ -4094,7 +4079,7 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   gap: 8px;
   width: 100%;
-  max-width: 320px;
+  max-width: 360px;
 }
 
 .manual-nick-link {
@@ -4106,10 +4091,12 @@ const handleRefresh = async (event: any) => {
   cursor: pointer;
   padding: 4px 8px;
   text-decoration: underline;
+  text-underline-offset: 2px;
   transition: color 0.15s ease;
 }
 
-.manual-nick-link:hover {
+.manual-nick-link:hover,
+.manual-nick-link:active {
   color: #0f172a;
 }
 
@@ -4121,44 +4108,27 @@ const handleRefresh = async (event: any) => {
   margin-top: 4px;
 }
 
-.manual-nick-input {
+.manual-input-wrap {
   flex: 1;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-size: 13px;
-  color: #0f172a;
-  outline: none;
-  transition: border-color 0.15s ease;
 }
 
-.manual-nick-input:focus {
-  border-color: #0f172a;
+.manual-nick-input {
+  width: 100%;
+  height: 42px;
+  font-size: 13px;
 }
 
 .manual-nick-submit {
-  background: #0f172a;
-  color: #ffffff;
-  border: none;
-  border-radius: 10px;
-  padding: 8px 14px;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.15s ease;
-}
-
-.manual-nick-submit:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+  padding: 0 16px;
+  height: 42px;
+  font-size: 13px;
+  border-radius: 12px;
 }
 
 /* STATE B: Connected Settings */
-.spotify-account-panel {
+.music-account-panel {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 12px;
   padding: 14px 16px;
   background: #f8fafc;
@@ -4167,241 +4137,296 @@ const handleRefresh = async (event: any) => {
   margin-bottom: 12px;
 }
 
-.account-left {
+.account-top-row {
   display: flex;
   align-items: center;
   gap: 12px;
   min-width: 0;
 }
 
-.spotify-avatar-wrap {
+.music-avatar-wrap {
   position: relative;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
 }
 
-.online-dot {
+.online-indicator-dot {
   position: absolute;
   bottom: -2px;
   right: -2px;
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: #16a34a;
   border: 2px solid #ffffff;
 }
 
-.account-info {
+.account-identity {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
+  flex: 1;
 }
 
-.account-name {
-  color: #0f172a;
-  font-size: 14px;
+.account-meta-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 8px;
+  flex-wrap: wrap;
+}
+
+.account-label {
+  font-size: 10.5px;
   font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.account-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #16a34a;
+  font-size: 10.5px;
+  font-weight: 700;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.status-live-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #16a34a;
+  display: inline-block;
+}
+
+.account-username {
+  color: #0f172a;
+  font-size: 15.5px;
+  font-weight: 800;
+  line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.account-status {
+.account-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid #edf2f7;
+  padding-top: 10px;
+}
+
+.account-action-btn {
+  flex: 1;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  color: #15803d;
-  font-size: 11.5px;
-  font-weight: 600;
-}
-
-.account-status .check-icon {
-  font-size: 13px;
-  color: #16a34a;
-}
-
-.spotify-disconnect-btn {
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #64748b;
-  border-radius: 10px;
-  padding: 7px 14px;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 11px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  flex-shrink: 0;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
   transition: all 0.15s ease;
   touch-action: manipulation;
 }
 
-.spotify-disconnect-btn:active {
+.account-action-btn:active {
+  background: #f1f5f9;
+  transform: scale(0.98);
+}
+
+.account-action-btn.disconnect-btn {
+  color: #64748b;
+}
+
+.account-action-btn.disconnect-btn:active {
   color: #ef4444;
   border-color: #fecaca;
   background: #fef2f2;
 }
 
-.spotify-disconnect-btn:disabled {
+.account-action-btn:disabled {
   opacity: 0.6;
   pointer-events: none;
 }
 
-.account-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.music-refresh-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #64748b;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  touch-action: manipulation;
-  font-size: 16px;
-}
-
-.music-refresh-btn:active {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-
-.music-refresh-btn:disabled {
-  opacity: 0.6;
-  pointer-events: none;
-}
-
+/* Callout Hint */
 .music-sync-hint {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  background: #f8fafc;
+  gap: 12px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  margin-bottom: 12px;
-  font-size: 11.5px;
-  line-height: 1.45;
-  color: #64748b;
+  border-radius: 14px;
+  margin-bottom: 14px;
 }
 
-.sync-hint-icon {
-  font-size: 16px;
+.sync-hint-icon-bubble {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   color: #3b82f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
   flex-shrink: 0;
-  margin-top: 1px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 .sync-hint-body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
+  min-width: 0;
 }
 
 .sync-hint-body p {
   margin: 0;
   color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .sync-hint-link {
   color: #2563eb;
+  font-size: 11.5px;
   font-weight: 600;
+  line-height: 1.4;
   text-decoration: underline;
   text-underline-offset: 2px;
+  transition: color 0.15s ease;
+}
+
+.sync-hint-link:active {
+  color: #1d4ed8;
 }
 
 /* Platform Selector Card */
-.music-platform-selector-card {
-  background: #ffffff;
+.music-platform-selector-box {
+  background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 16px;
   padding: 14px 16px;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
-.platform-selector-title-row {
+.platform-selector-header {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 12px;
 }
 
-.selector-icon {
-  font-size: 18px;
+.platform-header-icon-bubble {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   color: #0f172a;
-  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
-.selector-title-wrap {
+.platform-header-text {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.selector-title-wrap strong {
+.platform-header-title {
   font-size: 13.5px;
-  font-weight: 700;
+  font-weight: 800;
   color: #0f172a;
 }
 
-.selector-title-wrap span {
+.platform-header-desc {
   font-size: 12px;
   color: #64748b;
-  line-height: 1.4;
+  line-height: 1.35;
 }
 
 .platform-choice-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
 
 .platform-choice-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 12px;
-  background: #f8fafc;
+  gap: 9px;
+  padding: 10px 12px;
+  background: #ffffff;
   border: 1.5px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 13px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
   text-align: left;
   touch-action: manipulation;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 
 .platform-choice-btn:hover {
-  background: #f1f5f9;
+  background: #f8fafc;
   border-color: #cbd5e1;
 }
 
 .platform-choice-btn.is-selected {
-  background: #0f172a;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   border-color: #0f172a;
   color: #ffffff;
-  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.15);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
+  transform: translateY(-1px);
+}
+
+.platform-logo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .choice-name {
   font-size: 12.5px;
-  font-weight: 600;
+  font-weight: 700;
   color: #334155;
   flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .platform-choice-btn.is-selected .choice-name {
@@ -4412,15 +4437,18 @@ const handleRefresh = async (event: any) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  color: #10b981;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 800;
+  flex-shrink: 0;
 }
 
-.platform-choice-btn.is-selected .choice-active-badge {
-  color: #34d399;
-}
-
-.spotify-visibility-panel {
+/* Visibility Master Box */
+.music-visibility-box {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -4441,46 +4469,47 @@ const handleRefresh = async (event: any) => {
 }
 
 .visibility-icon-bubble {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   color: #0f172a;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 19px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
   flex-shrink: 0;
 }
 
-.visibility-info {
+.visibility-text {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
 
-.visibility-info strong {
+.visibility-title {
   color: #0f172a;
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 700;
 }
 
-.visibility-info span {
+.visibility-desc {
   color: #64748b;
   font-size: 11.5px;
   line-height: 1.35;
 }
 
-.spotify-toggle {
-  --color-checked: #0f172a;
-  --handle-color-checked: #ffffff;
+.music-styled-toggle {
+  --track-background-checked: #0f172a;
+  --handle-background-checked: #ffffff;
   flex-shrink: 0;
 }
 
 /* Preview Section */
-.spotify-preview-section {
+.music-preview-section {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -4491,7 +4520,7 @@ const handleRefresh = async (event: any) => {
   background: #f8fafc;
 }
 
-.spotify-preview-heading {
+.music-preview-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -4517,38 +4546,37 @@ const handleRefresh = async (event: any) => {
   line-height: 1.35;
 }
 
-.spotify-preview-label {
+.music-preview-label {
   flex-shrink: 0;
-  padding: 2px 7px;
+  padding: 3px 8px;
   border-radius: 9999px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   color: #475569;
   font-size: 9.5px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.06em;
 }
 
-.music-preview-card-wrap :deep(.music-activity-card),
-.spotify-preview-card-wrap :deep(.spotify-activity-card) {
+.music-preview-card-wrap :deep(.music-activity-card) {
   margin: 0;
   box-shadow: none;
 }
 
-.spotify-preview-empty-card {
+.music-preview-empty-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px;
-  border: 1px dashed #cbd5e1;
-  border-radius: 12px;
+  gap: 14px;
+  padding: 16px;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 14px;
   background: #ffffff;
 }
 
 .empty-icon-wrap {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   background: #f1f5f9;
   display: flex;
   align-items: center;
@@ -4565,7 +4593,7 @@ const handleRefresh = async (event: any) => {
 
 .empty-text-wrap strong {
   color: #0f172a;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -4573,7 +4601,7 @@ const handleRefresh = async (event: any) => {
   margin: 0;
   color: #64748b;
   font-size: 11.5px;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .push-settings-card {
