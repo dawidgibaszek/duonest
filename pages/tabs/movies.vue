@@ -59,41 +59,34 @@
 
       <!-- 2. PAIRED VIEW -->
       <div v-else class="movies-main-wrapper">
-        <!-- TOP ACTIONS CARD -->
-        <div class="dn-card quick-actions-card">
-          <div class="actions-header-row">
-            <div class="header-icon-box">
-              <ion-icon :icon="ioniconsFilm" />
+        <!-- CINEMA HUB CARD -->
+        <div class="cinema-hub-card">
+          <!-- Main Search Trigger Bar -->
+          <div class="cinema-search-trigger" @click="openSearchModal" role="button" tabindex="0">
+            <div class="search-trigger-content">
+              <div class="search-trigger-icon">
+                <ion-icon :icon="ioniconsSearchOutline" />
+              </div>
+              <div class="search-trigger-text">
+                <span class="trigger-label">Szukaj filmów, seriali, anime...</span>
+                <span class="trigger-hint">Baza TMDB, trendy i rekomendacje</span>
+              </div>
             </div>
-            <div class="header-text-meta">
-              <span class="actions-title">Kino we dwoje</span>
-              <span class="actions-sub">Wyszukaj film lub wylosuj seans na dziś!</span>
+            <div class="trigger-action-pill">
+              <ion-icon :icon="ioniconsSparkles" />
+              <span>Odkryj</span>
             </div>
           </div>
 
-          <div class="quick-actions-grid">
-            <button type="button" class="action-tile action-search" @click="openSearchModal">
-              <ion-icon :icon="ioniconsSearchOutline" />
-              <div class="tile-meta">
-                <span class="tile-title">Szukaj filmów</span>
-                <span class="tile-sub">Filmy, seriale, anime</span>
-              </div>
-            </button>
-
-            <button type="button" class="action-tile action-random" @click="openRandomPickerModal">
+          <!-- Secondary Quick Tools -->
+          <div class="cinema-quick-tools">
+            <button type="button" class="tool-btn tool-random" @click="openRandomPickerModal">
               <ion-icon :icon="ioniconsDiceOutline" />
-              <div class="tile-meta">
-                <span class="tile-title">Co oglądamy?</span>
-                <span class="tile-sub">Wylosuj seans na wieczór</span>
-              </div>
+              <span>Wylosuj seans</span>
             </button>
-
-            <button type="button" class="action-tile action-manual" @click="openManualAddModal">
+            <button type="button" class="tool-btn tool-manual" @click="openManualAddModal">
               <ion-icon :icon="ioniconsAddCircleOutline" />
-              <div class="tile-meta">
-                <span class="tile-title">Dodaj ręcznie</span>
-                <span class="tile-sub">Własny tytuł / notatka</span>
-              </div>
+              <span>Dodaj ręcznie</span>
             </button>
           </div>
         </div>
@@ -202,7 +195,7 @@
               <div class="movie-meta-col">
                 <div class="title-row">
                   <h3 class="movie-title" @click="openMovieDetailsModal(movie)">{{ movie.title }}</h3>
-                  <button type="button" class="more-menu-btn" @click="confirmDeleteMovie(movie)">
+                  <button type="button" class="more-menu-btn" @click="confirmDeleteMovie(movie)" title="Usuń z kolekcji">
                     <ion-icon :icon="ioniconsTrashOutline" />
                   </button>
                 </div>
@@ -213,6 +206,7 @@
 
                 <div class="movie-sub-info">
                   <span v-if="movie.release_year" class="year-tag">{{ movie.release_year }}</span>
+                  <span v-if="movie.release_year && movie.genres && movie.genres.length > 0" class="sub-info-bullet">•</span>
                   <span v-if="movie.genres && movie.genres.length > 0" class="genres-text">
                     {{ movie.genres.slice(0, 2).join(' • ') }}
                   </span>
@@ -228,6 +222,7 @@
                     v-if="movie.status === 'watching' && isSeries(movie)"
                     class="series-ep-pill"
                     @click.stop="openEpisodeModal(movie)"
+                    title="Zmień odcinek"
                   >
                     <ion-icon :icon="ioniconsTvOutline" />
                     <span>S{{ movie.last_watched_season || 1 }}:E{{ movie.last_watched_episode || 1 }}</span>
@@ -251,7 +246,7 @@
                   <ion-icon :icon="ioniconsTvOutline" />
                 </div>
                 <div class="series-tracker-meta">
-                  <span class="series-tracker-label">Ostatnio obejrzany:</span>
+                  <span class="series-tracker-label">Ostatnio obejrzany</span>
                   <div class="series-tracker-badge">
                     <span class="tracker-season">Sezon {{ movie.last_watched_season || 1 }}</span>
                     <span class="tracker-dot">•</span>
@@ -287,6 +282,7 @@
                   @click.stop="incrementEpisode(movie)"
                 >
                   <ion-icon :icon="ioniconsAdd" />
+                  <span>+1</span>
                 </button>
               </div>
             </div>
@@ -317,7 +313,11 @@
               <!-- Two Review Cards (Ty i Partner) -->
               <div class="reviews-couple-grid">
                 <!-- User 1 Review (Ty) -->
-                <div class="review-bubble bubble-mine" :class="{ 'empty-bubble': !getUserReview(movie) }">
+                <div
+                  class="review-bubble bubble-mine"
+                  :class="{ 'empty-bubble': !getUserReview(movie) }"
+                  :style="{ borderLeftColor: currentUserAccentColor }"
+                >
                   <div class="review-user-header">
                     <div class="avatar-circle-sm" :style="{ backgroundColor: currentUserAccentColor }">
                       <span>{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
@@ -337,12 +337,16 @@
                   </p>
                   <div v-else class="review-placeholder" @click="openReviewModal(movie)">
                     <ion-icon :icon="ioniconsAddOutline" />
-                    <span>Dodaj swoją ocenę i recenzję</span>
+                    <span>Dodaj swoją ocenę</span>
                   </div>
                 </div>
 
                 <!-- User 2 Review (Partner) -->
-                <div class="review-bubble bubble-theirs" :class="{ 'empty-bubble': !getPartnerReview(movie) }">
+                <div
+                  class="review-bubble bubble-theirs"
+                  :class="{ 'empty-bubble': !getPartnerReview(movie) }"
+                  :style="{ borderLeftColor: partnerUserAccentColor }"
+                >
                   <div class="review-user-header">
                     <div class="avatar-circle-sm" :style="{ backgroundColor: partnerUserAccentColor }">
                       <span>{{ partnerUser ? (partnerUser.name || 'P').charAt(0).toUpperCase() : '?' }}</span>
@@ -361,7 +365,7 @@
                     Ocena: {{ getPartnerReview(movie)?.rating }}/10 (brak notatki)
                   </p>
                   <p v-else class="review-waiting-note">
-                    Czeka na recenzję {{ partnerUser?.name || 'partnera' }}...
+                    Czeka na ocenę {{ partnerUser?.name || 'partnera' }}...
                   </p>
                 </div>
               </div>
@@ -407,7 +411,7 @@
                 @click="scheduleMovieDate(movie)"
               >
                 <ion-icon :icon="ioniconsCalendarOutline" />
-                <span>Zaplanuj</span>
+                <span>Zaplanuj seans</span>
               </button>
             </div>
           </div>
@@ -2920,103 +2924,143 @@ onMounted(() => {
   border-radius: 999px;
 }
 
-/* TOP ACTIONS CARD */
-.quick-actions-card {
-  padding: 14px;
+/* CINEMA HUB CARD */
+.cinema-hub-card {
   background: #ffffff;
-  border-radius: 18px;
-  box-shadow: var(--dn-card-shadow);
-  border: 1px solid rgba(226, 232, 240, 0.8);
-  min-width: 0;
-  overflow: hidden;
-}
-
-.actions-header-row {
+  border-radius: 20px;
+  padding: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.05);
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 10px;
-  margin-bottom: 12px;
 }
 
-.header-icon-box {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  background: #0f172a;
-  color: #ffffff;
+.cinema-search-trigger {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 20px;
-}
-
-.header-text-meta {
-  display: flex;
-  flex-direction: column;
-}
-
-.actions-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.actions-sub {
-  font-size: 12px;
-  color: #64748b;
-}
-
-.quick-actions-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.action-tile {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  justify-content: space-between;
+  gap: 12px;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  padding: 12px 14px;
   border-radius: 14px;
-  padding: 10px 6px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 6px;
+  color: #ffffff;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
   -webkit-tap-highlight-color: transparent;
 }
 
-.action-tile:active {
-  transform: scale(0.96);
+.cinema-search-trigger:active {
+  transform: scale(0.985);
+  opacity: 0.96;
+}
+
+.search-trigger-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.search-trigger-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #38bdf8;
+  flex-shrink: 0;
+}
+
+.search-trigger-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.trigger-label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.2px;
+}
+
+.trigger-hint {
+  font-size: 11px;
+  color: rgba(226, 232, 240, 0.75);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trigger-action-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  flex-shrink: 0;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.trigger-action-pill ion-icon {
+  font-size: 13px;
+  color: #fbbf24;
+}
+
+/* Secondary Quick Tools */
+.cinema-quick-tools {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #1e293b;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tool-btn:active {
+  transform: scale(0.97);
   background: #f1f5f9;
 }
 
-.action-tile ion-icon {
-  font-size: 22px;
+.tool-btn ion-icon {
+  font-size: 16px;
 }
 
-.action-search ion-icon { color: #0f172a; }
-.action-random ion-icon { color: #f59e0b; }
-.action-manual ion-icon { color: #0f172a; }
-
-.tile-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+.tool-random ion-icon {
+  color: #f59e0b;
 }
 
-.tile-title {
-  font-size: 11px;
-  font-weight: 700;
-  color: #1e293b;
-  line-height: 1.2;
-}
-
-.tile-sub {
-  font-size: 9px;
-  color: #94a3b8;
-  line-height: 1.1;
+.tool-manual ion-icon {
+  color: #0ea5e9;
 }
 
 /* FILTERS CONTAINER */
@@ -3030,7 +3074,7 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 2px 2px 6px;
+  padding: 2px 2px 4px;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
@@ -3043,40 +3087,53 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 14px;
+  padding: 8px 14px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 999px;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 12.5px;
+  font-weight: 700;
   color: #64748b;
   white-space: nowrap;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.filter-pill:active {
+  transform: scale(0.96);
 }
 
 .filter-pill ion-icon {
-  font-size: 16px;
+  font-size: 15px;
+  color: #94a3b8;
+  transition: color 0.15s ease;
 }
 
 .filter-pill.active {
   background: #0f172a;
   color: #ffffff;
   border-color: #0f172a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.15);
+}
+
+.filter-pill.active ion-icon {
+  color: #ffffff;
 }
 
 .filter-badge {
   font-size: 10px;
-  font-weight: 700;
-  background: rgba(0, 0, 0, 0.08);
-  padding: 1px 6px;
+  font-weight: 800;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 1.5px 6.5px;
   border-radius: 999px;
+  line-height: 1.2;
 }
 
 .filter-pill.active .filter-badge {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.22);
   color: #ffffff;
 }
 
@@ -3085,7 +3142,7 @@ onMounted(() => {
   display: flex;
   gap: 6px;
   overflow-x: auto;
-  padding: 2px 2px 4px;
+  padding: 1px 2px 2px;
   scrollbar-width: none;
 }
 
@@ -3095,21 +3152,22 @@ onMounted(() => {
 
 .media-chip {
   padding: 5px 12px;
-  background: rgba(241, 245, 249, 0.9);
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #64748b;
   white-space: nowrap;
   cursor: pointer;
   transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .media-chip.active {
   background: #1e293b;
   color: #ffffff;
-  border-color: #1e293b;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.1);
 }
 
 /* Collection Search Input */
@@ -3117,30 +3175,38 @@ onMounted(() => {
   position: relative;
   display: flex;
   align-items: center;
+  margin-top: 2px;
 }
 
 .search-input-icon {
   position: absolute;
   left: 12px;
-  font-size: 17px;
+  font-size: 16px;
   color: #94a3b8;
   pointer-events: none;
 }
 
 .collection-search-input {
   width: 100%;
-  padding: 8px 34px 8px 36px;
+  padding: 9px 34px 9px 36px;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
   background: #ffffff;
-  font-size: 13px;
+  font-size: 12.5px;
   color: #0f172a;
   outline: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.02);
+  transition: all 0.15s ease;
 }
 
 .collection-search-input:focus {
   border-color: #0f172a;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.05);
+}
+
+.collection-search-input::placeholder {
+  color: #94a3b8;
 }
 
 .clear-search-btn {
@@ -3159,49 +3225,54 @@ onMounted(() => {
 .movies-grid {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .movie-card {
   background: #ffffff;
-  border-radius: 18px;
+  border-radius: 20px;
   padding: 14px;
-  border: 1px solid #e2e8f0;
-  box-shadow: var(--dn-card-shadow);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 2px 10px -2px rgba(15, 23, 42, 0.04);
   display: flex;
   flex-direction: column;
   gap: 12px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   min-width: 0;
   overflow: hidden;
 }
 
 .movie-card.is-watched {
-  border-color: rgba(16, 185, 129, 0.3);
+  border-color: rgba(16, 185, 129, 0.25);
 }
 
 .movie-card.is-watching {
-  border-color: rgba(245, 158, 11, 0.4);
-  background: linear-gradient(180deg, #ffffff 0%, #fffbeb 100%);
+  border-color: rgba(245, 158, 11, 0.35);
+  background: linear-gradient(180deg, #ffffff 0%, #fffdf5 100%);
 }
 
 .movie-card-main {
   display: flex;
-  gap: 14px;
+  gap: 12px;
 }
 
 /* Poster Container */
 .poster-container {
-  width: 100px;
-  min-width: 100px;
-  height: 148px;
+  width: 96px;
+  min-width: 96px;
+  height: 144px;
   border-radius: 14px;
   overflow: hidden;
   position: relative;
   background: #0f172a;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
   cursor: pointer;
   flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.poster-container:active {
+  transform: scale(0.97);
 }
 
 .movie-poster-img {
@@ -3226,12 +3297,12 @@ onMounted(() => {
 }
 
 .poster-placeholder ion-icon {
-  font-size: 32px;
+  font-size: 30px;
   color: #cbd5e1;
 }
 
 .poster-placeholder span {
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 600;
   line-height: 1.2;
 }
@@ -3245,35 +3316,39 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   gap: 4px;
+  pointer-events: none;
 }
 
 .type-tag {
   font-size: 9px;
-  font-weight: 700;
-  padding: 2px 6px;
+  font-weight: 800;
+  padding: 2.5px 6px;
   border-radius: 6px;
   color: #ffffff;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.4px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
 }
 
-.type-movie { background: #0f172a; }
-.type-tv { background: #1e293b; }
-.type-anime { background: #334155; }
+.type-movie { background: rgba(15, 23, 42, 0.85); }
+.type-tv { background: rgba(30, 41, 59, 0.88); }
+.type-anime { background: rgba(51, 65, 85, 0.88); }
 
 .tmdb-score-tag {
   font-size: 9.5px;
   font-weight: 800;
   background: rgba(15, 23, 42, 0.85);
   color: #fbbf24;
-  padding: 2px 5px;
+  padding: 2.5px 5.5px;
   border-radius: 6px;
   display: flex;
   align-items: center;
-  gap: 2px;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  gap: 2.5px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
 }
 
 .tmdb-score-tag ion-icon {
@@ -3286,6 +3361,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  justify-content: flex-start;
 }
 
 .title-row {
@@ -3297,29 +3373,43 @@ onMounted(() => {
 
 .movie-title {
   margin: 0;
-  font-size: 16px;
+  font-size: 15.5px;
   font-weight: 800;
   color: #0f172a;
-  line-height: 1.25;
+  line-height: 1.28;
   cursor: pointer;
   word-break: break-word;
+  padding-bottom: 2px;
+  transition: color 0.15s ease;
+}
+
+.movie-title:active {
+  color: #0284c7;
 }
 
 .more-menu-btn {
   background: none;
   border: none;
   color: #94a3b8;
-  font-size: 17px;
+  font-size: 18px;
   padding: 2px;
   cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.more-menu-btn:hover {
+.more-menu-btn:hover,
+.more-menu-btn:active {
   color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
 }
 
 .movie-original-title {
-  margin: 2px 0 0;
+  margin: 1px 0 0;
   font-size: 11px;
   color: #64748b;
   font-style: italic;
@@ -3333,7 +3423,7 @@ onMounted(() => {
 .movie-sub-info {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   margin-top: 4px;
   font-size: 11.5px;
   color: #64748b;
@@ -3347,6 +3437,11 @@ onMounted(() => {
   line-height: 1.35;
 }
 
+.sub-info-bullet {
+  color: #cbd5e1;
+  font-weight: 700;
+}
+
 .genres-text {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3357,19 +3452,21 @@ onMounted(() => {
 
 .status-pill-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 6px;
+  margin-top: 6px;
 }
 
 .status-pill {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 999px;
+  line-height: 1.25;
 }
 
 .status-planned {
@@ -3384,11 +3481,12 @@ onMounted(() => {
 }
 .status-watching .status-dot {
   background: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
   animation: pulseDot 1.5s infinite;
 }
 
 .status-watched {
-  background: #d1fae5;
+  background: #ecfdf5;
   color: #065f46;
 }
 .status-watched .status-dot { background: #10b981; }
@@ -3397,6 +3495,7 @@ onMounted(() => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 @keyframes pulseDot {
@@ -3406,19 +3505,21 @@ onMounted(() => {
 }
 
 .watched-date-meta {
-  font-size: 11px;
+  font-size: 10.5px;
   color: #94a3b8;
+  font-weight: 500;
 }
 
 .movie-overview-excerpt {
-  margin: 8px 0 0;
-  font-size: 12px;
+  margin: 6px 0 0;
+  font-size: 11.5px;
   color: #475569;
   line-height: 1.4;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* REVIEWS SECTION IN CARD */
@@ -3429,13 +3530,14 @@ onMounted(() => {
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 9px;
 }
 
 .reviews-header-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
 }
 
 .duo-score-chip {
@@ -3443,18 +3545,19 @@ onMounted(() => {
   align-items: center;
   gap: 4px;
   background: #ffffff;
-  padding: 3px 8px;
+  padding: 3px 9px;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
 }
 
 .star-gold {
   color: #f59e0b;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .duo-score-val {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 800;
   color: #0f172a;
 }
@@ -3476,7 +3579,7 @@ onMounted(() => {
   border: 1px solid #cbd5e1;
   padding: 4px 10px;
   border-radius: 8px;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
   color: #0f172a;
   display: flex;
@@ -3484,6 +3587,7 @@ onMounted(() => {
   gap: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .add-review-btn:active {
@@ -3501,11 +3605,13 @@ onMounted(() => {
 .review-bubble {
   background: #ffffff;
   border: 1px solid #e2e8f0;
+  border-left-width: 3px;
   border-radius: 12px;
-  padding: 8px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.02);
 }
 
 .review-user-header {
@@ -3515,15 +3621,16 @@ onMounted(() => {
 }
 
 .avatar-circle-sm {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   color: #ffffff;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 9.5px;
+  font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .review-author-name {
@@ -3539,17 +3646,22 @@ onMounted(() => {
 
 .user-score-badge {
   margin-left: auto;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 800;
   color: #f59e0b;
   display: flex;
   align-items: center;
   gap: 2px;
+  flex-shrink: 0;
+}
+
+.user-score-badge ion-icon {
+  font-size: 11px;
 }
 
 .review-comment-text {
   margin: 0;
-  font-size: 11.5px;
+  font-size: 11px;
   color: #1e293b;
   font-style: italic;
   line-height: 1.35;
@@ -3558,7 +3670,7 @@ onMounted(() => {
 
 .review-comment-empty {
   margin: 0;
-  font-size: 10.5px;
+  font-size: 10px;
   color: #94a3b8;
 }
 
@@ -3566,16 +3678,16 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 10.5px;
-  color: #0f172a;
+  font-size: 10px;
+  color: #0284c7;
   font-weight: 600;
   cursor: pointer;
-  padding: 4px 0;
+  padding: 2px 0;
 }
 
 .review-waiting-note {
   margin: 0;
-  font-size: 10.5px;
+  font-size: 10px;
   color: #94a3b8;
   font-style: italic;
 }
@@ -3585,15 +3697,15 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   align-items: center;
-  padding-top: 4px;
+  padding-top: 6px;
   border-top: 1px solid #f1f5f9;
 }
 
 .footer-btn {
   flex: 1;
   padding: 8px 10px;
-  border-radius: 10px;
-  font-size: 11px;
+  border-radius: 11px;
+  font-size: 11.5px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -3606,28 +3718,37 @@ onMounted(() => {
 }
 
 .footer-btn:active {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 
 .mark-watched-btn {
-  background: #10b981;
+  background: #059669;
   color: #ffffff;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.2);
 }
 
 .start-watching-btn {
-  background: #f59e0b;
+  background: #0f172a;
   color: #ffffff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
 }
 
 .back-planned-btn {
   background: #f1f5f9;
   color: #475569;
+  border: 1px solid #e2e8f0;
 }
 
 .schedule-date-btn {
-  background: #f8fafc;
-  color: #0f172a;
+  background: #ffffff;
+  color: #1e293b;
   border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+}
+
+.schedule-date-btn ion-icon {
+  color: #64748b;
+  font-size: 13px;
 }
 
 /* EMPTY STATE */
@@ -6192,20 +6313,22 @@ ion-modal.dn-movies-details-modal {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #f1f5f9;
+  background: #f8fafc;
   border: 1px solid #e2e8f0;
-  color: #0f172a;
-  font-size: 11px;
+  color: #334155;
+  font-size: 10.5px;
   font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 6px;
+  padding: 2.5px 7.5px;
+  border-radius: 999px;
   cursor: pointer;
   touch-action: manipulation;
-  transition: background 0.15s ease;
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .series-ep-pill:active {
-  background: #e2e8f0;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 .series-ep-pill ion-icon {
@@ -6215,11 +6338,10 @@ ion-modal.dn-movies-details-modal {
 
 /* SERIES CARD TRACKER BOX */
 .series-card-tracker {
-  margin-top: 10px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -6229,7 +6351,7 @@ ion-modal.dn-movies-details-modal {
 .series-tracker-left {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   cursor: pointer;
   flex: 1;
   min-width: 0;
@@ -6238,13 +6360,13 @@ ion-modal.dn-movies-details-modal {
 .series-tracker-icon {
   width: 28px;
   height: 28px;
-  border-radius: 9px;
+  border-radius: 8px;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 15px;
   color: #0f172a;
   flex-shrink: 0;
 }
@@ -6257,8 +6379,8 @@ ion-modal.dn-movies-details-modal {
 }
 
 .series-tracker-label {
-  font-size: 8px;
-  font-weight: 600;
+  font-size: 8.5px;
+  font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -6268,7 +6390,7 @@ ion-modal.dn-movies-details-modal {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: #0f172a;
   white-space: nowrap;
@@ -6287,8 +6409,8 @@ ion-modal.dn-movies-details-modal {
 }
 
 .tracker-btn {
-  height: 32px;
-  min-width: 32px;
+  height: 30px;
+  min-width: 30px;
   padding: 0 8px;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
@@ -6298,9 +6420,11 @@ ion-modal.dn-movies-details-modal {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 3px;
   cursor: pointer;
   touch-action: manipulation;
   transition: transform 0.1s ease, background 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .tracker-btn:active {
@@ -6322,10 +6446,10 @@ ion-modal.dn-movies-details-modal {
   background: #0f172a;
   border-color: #0f172a;
   color: #ffffff;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
   gap: 2px;
-  padding: 0 10px;
+  padding: 0 9px;
 }
 
 .tracker-btn-plus:active {
