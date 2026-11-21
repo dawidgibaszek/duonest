@@ -4,4 +4,9 @@
     <color name="colorPrimaryDark">#F6F2E7</color>
     <color name="colorAccent">#232C38</color>
     <color name="splashBackground">#F6F2E7</color>
+    <color name="widget_card">#FFFFFF</color>
+    <color name="widget_ink">#1C1B19</color>
+    <color name="widget_muted">#6B6E75</color>
+    <color name="widget_soft">#F2F3F5</color>
+    <color name="widget_live">#2FA36B</color>
 </resources>

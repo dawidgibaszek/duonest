@@ -50,6 +50,8 @@ let activeInitSyncPromise: Promise<void> | null = null
 let heartbeatTimer: any = null
 let lastHeartbeatSentAt = 0
 let partnerDrawingTimeout: any = null
+let lastDrawingPushAt = 0
+const DRAWING_PUSH_INTERVAL_MS = 45_000
 
 const transientActions = new Set(['DOODLE_LIVE_STROKE', 'DOODLE_DRAWING_STATUS'])
 
@@ -168,22 +170,24 @@ export function useRealtimeSync(options?: {
         'DOODLE_SAVE'
       ]
 
-      if (actionsForPush.includes(action)) {
-        $fetch('/api/push/send', {
-          method: 'POST',
-          headers: authSession.value?.access_token
-            ? { Authorization: `Bearer ${authSession.value.access_token}` }
-            : undefined,
-          body: {
-            action,
-            payload
-          }
-        }).catch((err) => {
-          console.warn('[Push] Nie udało się wysłać powiadomienia:', err?.statusCode)
-        })
-      }
+      if (actionsForPush.includes(action)) sendPartnerPush(action, payload)
     }
     return deliveryPromise.then(() => undefined)
+  }
+
+  const sendPartnerPush = (action: string, payload: any) => {
+    $fetch('/api/push/send', {
+      method: 'POST',
+      headers: authSession.value?.access_token
+        ? { Authorization: `Bearer ${authSession.value.access_token}` }
+        : undefined,
+      body: {
+        action,
+        payload
+      }
+    }).catch((err) => {
+      console.warn('[Push] Nie udało się wysłać powiadomienia:', err?.statusCode)
+    })
   }
 
   const broadcastLiveStroke = (stroke: DuoDoodleStroke) => {
@@ -193,6 +197,11 @@ export function useRealtimeSync(options?: {
 
   const broadcastDrawingStatus = (isDrawing: boolean) => {
     broadcastToPartner('DOODLE_DRAWING_STATUS', { isDrawing })
+    // Wakes the partner's widget ("rysuje") when their app is closed; one ping per drawing session.
+    if (isDrawing && Date.now() - lastDrawingPushAt > DRAWING_PUSH_INTERVAL_MS) {
+      lastDrawingPushAt = Date.now()
+      sendPartnerPush('DOODLE_DRAWING_STATUS', { isDrawing })
+    }
   }
 
   const saveDoodle = async (strokes: DuoDoodleStroke[], previewSvg?: string): Promise<DuoDoodle | null> => {

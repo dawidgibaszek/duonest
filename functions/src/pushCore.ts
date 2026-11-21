@@ -12,10 +12,15 @@
  * before a notification is shown, so FCM devices store their category switches
  * (`settings`) and are filtered here.
  *
+ * The iOS doodle widget (iOS 26+) has its own APNs token in `widget_push_tokens/{id}`
+ * (server-only, id = sha256('widget:' + token)). FCM cannot address it, so it is pushed
+ * straight to APNs.
+ *
  * Env: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (web only – FCM uses the
- * Admin SDK credentials).
+ * Admin SDK credentials); APNS_KEY_PRODUCTION, APNS_KEY_SANDBOX (.p8 keys for widget pushes).
  */
-import { createHash } from 'crypto'
+import { createHash, sign } from 'crypto'
+import { connect } from 'http2'
 import type { Messaging } from 'firebase-admin/messaging'
 import webpush from 'web-push'
 import { formatPartnerAction } from './pushFormatter'
@@ -38,12 +43,14 @@ const ok = (body: any): PushResult => ({ status: 200, body })
 const fail = (status: number, error: string): PushResult => ({ status, body: { success: false, error } })
 
 const COLLECTION = 'push_subscriptions'
+const WIDGET_COLLECTION = 'widget_push_tokens'
 const TTL_SECONDS = 60 * 60 * 24
 const SETTING_KEYS = ['nudges', 'mood', 'calendar', 'shopping', 'tasks', 'meals', 'partnerOnline', 'wishlist', 'savings', 'sound', 'vibrate']
 
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex')
 const webDocId = (endpoint: string) => sha256(endpoint)
 const fcmDocId = (token: string) => sha256('fcm:' + token)
+const widgetDocId = (token: string) => sha256('widget:' + token.toLowerCase())
 
 const ALLOWED_PUSH_HOSTS = new Set([
   'fcm.googleapis.com',
@@ -115,7 +122,28 @@ async function saveFcmDevice(db: Db, caller: PushCaller, token: string, previous
   return ref.id
 }
 
+const validWidgetToken = (value: unknown): value is string =>
+  typeof value === 'string' && /^[0-9a-f]{64,200}$/i.test(value)
+
+async function saveWidgetToken(db: Db, caller: PushCaller, body: any): Promise<PushResult> {
+  const token = body.widgetPushToken
+  if (!validWidgetToken(token)) return fail(400, 'Invalid widget push token')
+  const ref = db.collection(WIDGET_COLLECTION).doc(widgetDocId(token))
+  await ref.set({
+    id: ref.id,
+    user_id: caller.profileId,
+    auth_user_id: caller.uid,
+    partnership_id: caller.partnershipId,
+    token: token.toLowerCase(),
+    environment: body.environment === 'development' ? 'development' : 'production',
+    updated_at: new Date().toISOString()
+  })
+  return ok({ success: true, id: ref.id })
+}
+
 async function subscribe(db: Db, caller: PushCaller, body: any): Promise<PushResult> {
+  if (body?.widgetPushToken !== undefined) return saveWidgetToken(db, caller, body)
+
   const base = {
     user_id: caller.profileId,
     auth_user_id: caller.uid,
@@ -162,11 +190,16 @@ async function subscribe(db: Db, caller: PushCaller, body: any): Promise<PushRes
 
 async function unsubscribe(db: Db, caller: PushCaller, body: any): Promise<PushResult> {
   let id: string | null = null
+  let collection = COLLECTION
   if (typeof body?.fcmToken === 'string' && body.fcmToken) id = fcmDocId(body.fcmToken)
   else if (typeof body?.endpoint === 'string' && body.endpoint) id = webDocId(body.endpoint)
+  else if (validWidgetToken(body?.widgetPushToken)) {
+    id = widgetDocId(body.widgetPushToken)
+    collection = WIDGET_COLLECTION
+  }
   if (!id) return fail(400, 'Endpoint or fcmToken required')
 
-  const ref = db.collection(COLLECTION).doc(id)
+  const ref = db.collection(collection).doc(id)
   const removed = await db.runTransaction(async (transaction: any) => {
     const snap = await transaction.get(ref)
     const subscription = snap.data()
@@ -313,17 +346,153 @@ async function send(db: Db, messaging: Messaging, caller: PushCaller, body: any)
   const partnerId = await resolvePartner(db, caller)
   if (!partnerId) return fail(403, 'Authenticated profile is not a partnership member')
 
+  const widgets = WIDGET_ACTIONS.has(action) ? refreshPartnerWidgets(db, messaging, partnerId, action, caller) : Promise.resolve()
   const formatted = formatPartnerAction(action, body?.payload, caller.name || 'Twój Partner')
-  if (!formatted) return ok({ success: true, message: 'Action ignored (no notification needed)' })
+  if (!formatted) {
+    await widgets
+    return ok({ success: true, message: 'Action ignored (no notification needed)' })
+  }
 
-  const result = await deliverToProfile(db, messaging, partnerId, {
+  const [result] = await Promise.all([deliverToProfile(db, messaging, partnerId, {
     title: String(formatted.title).slice(0, 120),
     body: String(formatted.body).slice(0, 400),
     url: sanitizePushUrl(formatted.url),
     category: formatted.category,
     action
-  }, true)
+  }, true), widgets])
   return ok({ success: true, ...result })
+}
+
+const WIDGET_ACTIONS = new Set(['DOODLE_SAVE', 'DOODLE_DRAWING_STATUS'])
+
+/**
+ * Silent message for the doodle home-screen widget on the partner's phones, whichever
+ * platform drew. Android gets a data-only message (notification messages of a closed app
+ * go straight to the tray); iOS gets a background push that wakes the app to reload it.
+ * A saved doodle also reaches iOS 26+ widgets directly, even when the app was force-quit.
+ */
+async function refreshPartnerWidgets(db: Db, messaging: Messaging, partnerId: string, action: string, caller: PushCaller) {
+  await Promise.all([
+    action === 'DOODLE_SAVE' ? pushWidgetReloads(db, partnerId) : undefined,
+    wakePartnerApps(db, messaging, partnerId, action, caller)
+  ])
+}
+
+async function wakePartnerApps(db: Db, messaging: Messaging, partnerId: string, action: string, caller: PushCaller) {
+  if (!messaging) return
+  const subs = await db.collection(COLLECTION).where('user_id', '==', partnerId).get()
+  const ttlSeconds = action === 'DOODLE_SAVE' ? TTL_SECONDS : 60
+  await Promise.all(subs.docs.map(async (doc: any) => {
+    const sub = doc.data() || {}
+    if (typeof sub.fcm_token !== 'string') return
+    const data = { widget: 'doodle', action, senderName: String(caller.name || '').slice(0, 60), recipientProfileId: partnerId }
+    try {
+      await messaging.send(sub.platform === 'android'
+        ? { token: sub.fcm_token, data, android: { priority: 'high', ttl: ttlSeconds * 1000 } }
+        : {
+            token: sub.fcm_token,
+            data,
+            apns: {
+              headers: {
+                'apns-push-type': 'background',
+                'apns-priority': '5',
+                'apns-expiration': String(Math.floor(Date.now() / 1000) + ttlSeconds)
+              },
+              payload: { aps: { contentAvailable: true } }
+            }
+          })
+    } catch (err: any) {
+      if (DEAD_FCM_CODES.has(err?.code)) await removeDeadDevice(doc)
+      else console.warn('[push] widget refresh failed:', err?.code || 'unknown')
+    }
+  }))
+}
+
+// WidgetKit push updates. Each key only works in its own APNs environment.
+const APNS_TEAM_ID = 'RJ378D5P3C'
+const APNS_WIDGET_TOPIC = 'com.belka.duonest.push-type.widgets'
+const APNS = {
+  production: { host: 'api.push.apple.com', keyId: 'S7VWY4RJ3X', keyEnv: 'APNS_KEY_PRODUCTION' },
+  development: { host: 'api.sandbox.push.apple.com', keyId: 'AUNYM58R67', keyEnv: 'APNS_KEY_SANDBOX' }
+} as const
+type ApnsEnvironment = keyof typeof APNS
+const DEAD_APNS_REASONS = new Set(['BadDeviceToken', 'Unregistered', 'DeviceTokenNotForTopic'])
+
+// APNs rejects provider tokens older than an hour and throttles refreshing them more than every 20 minutes.
+const apnsJwts = new Map<ApnsEnvironment, { jwt: string; issuedAt: number }>()
+function apnsProviderToken(environment: ApnsEnvironment) {
+  const now = Math.floor(Date.now() / 1000)
+  const cached = apnsJwts.get(environment)
+  if (cached && now - cached.issuedAt < 40 * 60) return cached.jwt
+  const key = process.env[APNS[environment].keyEnv]?.replace(/\\n/g, '\n')
+  if (!key) return null
+  const part = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url')
+  const unsigned = `${part({ alg: 'ES256', kid: APNS[environment].keyId })}.${part({ iss: APNS_TEAM_ID, iat: now })}`
+  const signature = sign('sha256', Buffer.from(unsigned), { key, dsaEncoding: 'ieee-p1363' }).toString('base64url')
+  const jwt = `${unsigned}.${signature}`
+  apnsJwts.set(environment, { jwt, issuedAt: now })
+  return jwt
+}
+
+function sendApnsWidgetPush(environment: ApnsEnvironment, token: string): Promise<{ status: number; reason?: string }> {
+  let jwt: string | null
+  try {
+    jwt = apnsProviderToken(environment)
+  } catch {
+    jwt = null
+  }
+  if (!jwt) return Promise.resolve({ status: 0, reason: 'MissingProviderKey' })
+
+  return new Promise((resolve) => {
+    const client = connect(`https://${APNS[environment].host}`)
+    let settled = false
+    const finish = (result: { status: number; reason?: string }) => {
+      if (settled) return
+      settled = true
+      client.close()
+      resolve(result)
+    }
+    client.on('error', () => finish({ status: 0, reason: 'ConnectionError' }))
+    client.setTimeout(10_000, () => {
+      finish({ status: 0, reason: 'Timeout' })
+      client.destroy()
+    })
+
+    const request = client.request({
+      ':method': 'POST',
+      ':path': `/3/device/${token}`,
+      authorization: `bearer ${jwt}`,
+      'apns-push-type': 'widgets',
+      'apns-topic': APNS_WIDGET_TOPIC,
+      'apns-expiration': String(Math.floor(Date.now() / 1000) + TTL_SECONDS),
+      'content-type': 'application/json'
+    })
+    let status = 0
+    let body = ''
+    request.setEncoding('utf8')
+    request.on('response', (headers) => { status = Number(headers[':status']) || 0 })
+    request.on('data', (chunk: string) => { body += chunk })
+    request.on('end', () => {
+      let reason: string | undefined
+      try { reason = JSON.parse(body)?.reason } catch {}
+      finish({ status, reason })
+    })
+    request.on('error', () => finish({ status: 0, reason: 'RequestError' }))
+    request.end(JSON.stringify({ aps: { 'content-changed': true } }))
+  })
+}
+
+async function pushWidgetReloads(db: Db, partnerId: string) {
+  const tokens = await db.collection(WIDGET_COLLECTION).where('user_id', '==', partnerId).get()
+  await Promise.all(tokens.docs.map(async (doc: any) => {
+    const entry = doc.data() || {}
+    if (!validWidgetToken(entry.token)) return
+    const environment: ApnsEnvironment = entry.environment === 'development' ? 'development' : 'production'
+    const result = await sendApnsWidgetPush(environment, entry.token)
+    if (result.status === 200) return
+    if (result.status === 410 || DEAD_APNS_REASONS.has(result.reason || '')) await removeDeadDevice(doc)
+    else console.warn('[push] widget push failed:', result.status, result.reason || 'unknown')
+  }))
 }
 
 /** A targeted test verifies the current installation, even on a multi-device account. */

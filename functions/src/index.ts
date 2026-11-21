@@ -1,4 +1,5 @@
 import { onRequest } from 'firebase-functions/v2/https'
+import { defineSecret } from 'firebase-functions/params'
 import { region } from 'firebase-functions/v1'
 import { getApp, getApps, initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
@@ -346,7 +347,8 @@ export const api = onRequest(
   {
     region: 'europe-west1',
     cors: true,
-    invoker: 'public'
+    invoker: 'public',
+    secrets: [defineSecret('APNS_KEY_PRODUCTION'), defineSecret('APNS_KEY_SANDBOX')]
   },
   app
 )

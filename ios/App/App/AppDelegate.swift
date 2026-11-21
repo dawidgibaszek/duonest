@@ -1,7 +1,16 @@
 import UIKit
 import Capacitor
+import FirebaseAppCheck
 import FirebaseCore
 import FirebaseMessaging
+
+/// Same provider the web app installs through @capacitor-firebase/app-check; set natively so
+/// a silent push can obtain App Check tokens before the web view has loaded.
+final class DuoAppCheckProviderFactory: NSObject, AppCheckProviderFactory {
+    func createProvider(with app: FirebaseApp) -> AppCheckProvider? {
+        AppAttestProvider(app: app)
+    }
+}
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -11,6 +20,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
         if FirebaseApp.app() == nil {
+            AppCheck.setAppCheckProviderFactory(DuoAppCheckProviderFactory())
             FirebaseApp.configure()
         }
         MetricKitDiagnostics.shared.start()
@@ -60,6 +70,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didReceiveRemoteNotification userInfo: [AnyHashable: Any],
                      fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        if DoodleWidgetPush.handle(userInfo, completion: completionHandler) { return }
         NotificationCenter.default.post(name: Notification.Name("didReceiveRemoteNotification"), object: nil, userInfo: userInfo)
         completionHandler(.noData)
     }

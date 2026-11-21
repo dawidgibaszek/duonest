@@ -62,5 +62,6 @@ final class DuoBridgeViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         super.capacitorDidLoad()
         bridge?.registerPluginInstance(DuoMetricKitPlugin())
+        bridge?.registerPluginInstance(DuoWidgetPlugin())
     }
 }
