@@ -494,6 +494,9 @@ export function useAuthSession() {
     const { data, error } = await bridge.auth.reloadUser()
     if (error || !data?.user) return false
     applyAuthUser(data.user)
+    if (data.user.email_confirmed_at && (currentUser.value.auth_user_id !== data.user.id || !currentUser.value.pairing_code)) {
+      void syncUserProfileWithAuth(data.user)
+    }
     return Boolean(data.user.email_confirmed_at)
   }
 

@@ -9,8 +9,6 @@ import {
   isPartnerOnline,
   partnerLastSeenAt,
   nestLevel,
-  pairingFailures,
-  pairingLockoutUntil,
   activeToastMessage,
   activeToastItem,
   shoppingItems, tasksList, eventsList, nudgesList, milestonesList,
@@ -205,16 +203,15 @@ export function usePairingSecurity(options: {
       return { success: false, error: translateAppError('pairing_code_required') }
     }
 
-    if (pairingLockoutUntil.value > Date.now()) {
-      const waitSec = Math.ceil((pairingLockoutUntil.value - Date.now()) / 1000)
-      return { success: false, error: `Zbyt wiele nieudanych prób parowania. Odczekaj ${waitSec} s przed kolejną próbą.` }
-    }
-
     const trimmedInput = rawInput.trim()
+    const code = normalizePairingCode(trimmedInput.replace(/\s+/g, ''))
+    if (!/^DN-[A-Z0-9]{4,12}$/.test(code)) {
+      return { success: false, error: translateAppError('invalid_pairing_input') }
+    }
     const myCode = normalizePairingCode(currentUser.value?.pairing_code)
     const myCleanEmail = (currentUser.value?.email || authUser.value?.email || '').toLowerCase().trim()
 
-    if (trimmedInput.toLowerCase() === myCleanEmail || normalizePairingCode(trimmedInput) === myCode) {
+    if (trimmedInput.toLowerCase() === myCleanEmail || code === myCode) {
       return { success: false, error: 'Nie możesz sparować konta ze swoim własnym kodem lub adresem e-mail.' }
     }
 
@@ -225,14 +222,15 @@ export function usePairingSecurity(options: {
 
     try {
       const { data, error } = await bridge.rpc('pair_with_code', {
-        pairing_input: trimmedInput,
+        pairing_input: code,
         display_name: currentUser.value.name || null
       })
 
       if (error || data?.error) {
-        pairingFailures.value++
-        if (pairingFailures.value >= 5) pairingLockoutUntil.value = Date.now() + 60000
-        const friendlyMessage = translateAppError(data?.error || error)
+        const retryAfter = error?.retryAfterSeconds
+        const friendlyMessage = error?.status === 429 && Number.isSafeInteger(retryAfter) && retryAfter > 0
+          ? `Zbyt wiele prób parowania. Spróbuj ponownie za ${retryAfter} s.`
+          : translateAppError(data?.error || error)
         return { success: false, error: friendlyMessage }
       }
 
@@ -240,8 +238,6 @@ export function usePairingSecurity(options: {
         return { success: false, error: 'Nie udało się połączyć kont. Sprawdź poprawność kodu i spróbuj ponownie.' }
       }
 
-      pairingFailures.value = 0
-      pairingLockoutUntil.value = 0
       currentUser.value.partnership_id = data.partnership.id
       partnership.value = data.partnership
       partnerUser.value = {

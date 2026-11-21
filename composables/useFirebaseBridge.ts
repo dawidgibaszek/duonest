@@ -218,7 +218,7 @@ export class FirebaseSupabaseBridge {
         } catch (err) {
           console.warn('Nie udało się wysłać maila weryfikacyjnego:', err)
         }
-        const token = await cred.user.getIdToken()
+        const token = await cred.user.getIdToken(Boolean(options?.data?.name))
         const user = formatUser(cred.user)
         const session: BridgeSession = {
           access_token: token,
@@ -404,7 +404,11 @@ export class FirebaseSupabaseBridge {
     })
     const json = await res.json().catch(() => null)
     if (!res.ok) {
-      throw new Error(json?.data?.message || json?.message || json?.error || json?.statusMessage || `HTTP ${res.status}`)
+      const message = json?.data?.message || json?.message || json?.error || json?.statusMessage || `HTTP ${res.status}`
+      throw Object.assign(new Error(message), {
+        status: res.status,
+        retryAfterSeconds: res.status === 429 ? Number(res.headers.get('Retry-After')) : undefined
+      })
     }
     return json
   }

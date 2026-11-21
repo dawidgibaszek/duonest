@@ -30,7 +30,10 @@ import DuoConfirmModal from '~/components/DuoConfirmModal.vue'
 import DuoRequiredUpdate from '~/components/DuoRequiredUpdate.vue'
 import DuoOfflineScreen from '~/components/DuoOfflineScreen.vue'
 
-const { authUser, currentUser, isAuthLoading, initSupabaseSync, subscribeToPartnershipRealtime, setNativeRealtimeActive } = useDuoState()
+const {
+  authUser, currentUser, isAuthLoading, initSupabaseSync, subscribeToPartnershipRealtime,
+  setNativeRealtimeActive, syncUserProfileWithAuth
+} = useDuoState()
 const appRuntime = import.meta.dev || Capacitor.isNativePlatform()
 const { initPushNotifications, clearAppBadge } = usePushNotifications()
 const { checking, requiredUpdate, checkForUpdate } = useAppUpdate()
@@ -54,6 +57,9 @@ watch([offline, foreground], ([disconnected, active], [wasDisconnected]) => {
   setNativeRealtimeActive(active && !disconnected)
   if (wasDisconnected && !disconnected) {
     checkForUpdate()
+    if (authUser.value && (currentUser.value.auth_user_id !== authUser.value.id || !currentUser.value.pairing_code)) {
+      void syncUserProfileWithAuth(authUser.value)
+    }
     void initSupabaseSync()
   }
 })

@@ -1,4 +1,5 @@
 import { onRequest } from 'firebase-functions/v2/https'
+import { region } from 'firebase-functions/v1'
 import { getApp, getApps, initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { getDatabaseWithUrl } from 'firebase-admin/database'
@@ -46,6 +47,23 @@ const decodedUser = (req: any) => ({
   name: typeof req.user.name === 'string' ? req.user.name : undefined,
   email_verified: req.user.email_verified === true
 })
+
+export const provisionDuoProfile = region('europe-west1').runWith({ failurePolicy: true })
+  .auth.user().onCreate(async (eventUser, context) => {
+    if (Date.now() - Date.parse(context.timestamp) > 24 * 60 * 60_000) return
+    const user = await auth.getUser(eventUser.uid).catch(error => {
+      if (error.code === 'auth/user-not-found') return null
+      throw error
+    })
+    if (!user) return
+    if (user.disabled || (!user.email && !user.providerData.length)) return
+    await syncAccount(db, getRtdb(), {
+      uid: user.uid,
+      email: user.email,
+      name: user.displayName,
+      email_verified: user.emailVerified
+    })
+  })
 
 const app = express()
 app.use(cors({ origin: true }))
@@ -259,13 +277,13 @@ app.post('/api/account/sync', requireAuth, async (req: any, res) => {
 
 // Simple per-user limiter against guessing pairing codes (per function instance)
 const pairingAttempts = new Map<string, number[]>()
-const allowPairingAttempt = (uid: string) => {
+const pairingRetryAfter = (uid: string) => {
   const now = Date.now()
   const recent = (pairingAttempts.get(uid) || []).filter(t => now - t < 60_000)
-  if (recent.length >= 10) return false
+  if (recent.length >= 10) return Math.max(1, Math.ceil((recent[0] + 60_000 - now) / 1000))
   recent.push(now)
   pairingAttempts.set(uid, recent)
-  return true
+  return 0
 }
 
 app.post('/api/pairing/pair', requireAuth, async (req: any, res) => {
@@ -274,8 +292,11 @@ app.post('/api/pairing/pair', requireAuth, async (req: any, res) => {
     if (req.user.firebase?.sign_in_provider === 'password' && req.user.email_verified !== true) {
       return res.status(403).json({ error: 'email_not_verified' })
     }
-    if (!allowPairingAttempt(req.user.uid)) {
-      return res.status(429).json({ error: 'Zbyt wiele prób parowania. Odczekaj chwilę.' })
+    const retryAfter = pairingRetryAfter(req.user.uid)
+    if (retryAfter) {
+      res.set('Retry-After', String(retryAfter))
+      res.set('Access-Control-Expose-Headers', 'Retry-After')
+      return res.status(429).json({ error: 'pairing_rate_limited' })
     }
     const { pairing_input, display_name } = req.body || {}
     res.json(await pairWithCode(db, getRtdb(), decodedUser(req), String(pairing_input || ''), typeof display_name === 'string' ? display_name : null))

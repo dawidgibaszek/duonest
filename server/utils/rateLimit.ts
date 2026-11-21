@@ -37,14 +37,13 @@ export function getClientIp(event: any): string {
 
 export async function checkRateLimit(
   event: any,
-  options: { maxRequests?: number; windowMs?: number; keyPrefix?: string }
+  options: { maxRequests?: number; windowMs?: number; keyPrefix?: string; subject?: string }
 ): Promise<{ allowed: boolean; remaining: number; resetAt: number; retryAfterSeconds?: number; unavailable?: boolean }> {
   const limit = Math.max(1, Math.min(options.maxRequests || 30, 10000))
   const windowMs = Math.max(1000, Math.min(options.windowMs || 60000, 3600000))
   const prefix = String(options.keyPrefix || 'api').slice(0, 80)
-  const clientIp = getClientIp(event)
-  const ipHash = createHash('sha256').update(clientIp).digest('hex')
-  const bucketKey = `${prefix}:${ipHash}`
+  const subject = options.subject === undefined ? getClientIp(event) : `uid:${options.subject}`
+  const bucketKey = `${prefix}:${createHash('sha256').update(subject).digest('hex')}`
   const now = Date.now()
 
   // Shared limiter backed by Firestore (works across serverless instances).
@@ -77,7 +76,7 @@ export async function checkRateLimit(
   }
 
   ensureCleanup()
-  const finalKey = `${prefix}:${clientIp}`
+  const finalKey = bucketKey
 
   const record = rateLimitMap.get(finalKey)
 
@@ -87,7 +86,7 @@ export async function checkRateLimit(
   }
 
   if (record.count >= limit) {
-    return { allowed: false, remaining: 0, resetAt: record.resetAt }
+    return { allowed: false, remaining: 0, resetAt: record.resetAt, retryAfterSeconds: Math.max(1, Math.ceil((record.resetAt - now) / 1000)) }
   }
 
   record.count++

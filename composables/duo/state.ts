@@ -79,8 +79,6 @@ export const activeToastItem = ref<DuoToastItem | null>(null)
 // Zabezpieczenia brute-force i recovery
 export const loginFailures = ref(0)
 export const loginLockoutUntil = ref(0)
-export const pairingFailures = ref(0)
-export const pairingLockoutUntil = ref(0)
 // Wyliczenia poziomu i punktów
 export const userPoints = computed(() => Number(currentUser.value?.points) || 0)
 export const partnerPoints = computed(() => Number(partnerUser.value?.points) || 0)

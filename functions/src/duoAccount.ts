@@ -26,6 +26,8 @@ type Rtdb = any
 
 const nowIso = () => new Date().toISOString()
 const newPairingCode = () => `DN-${randomBytes(6).toString('hex').toUpperCase()}`
+const fallbackProfileName = (email?: string | null) =>
+  ((typeof email === 'string' ? email.split('@')[0] : '') || 'Użytkownik').slice(0, 60)
 
 const profileIdOf = (p: any): string => String(p?.docId || '')
 
@@ -100,6 +102,7 @@ async function loadMyProfile(db: Db, user: DecodedUser) {
 }
 
 export async function syncAccount(db: Db, rtdb: Rtdb | null, user: DecodedUser): Promise<AccountSyncResult> {
+  const name = user.name?.trim().slice(0, 60)
   const candidate = await loadMyProfile(db, user)
   const profileRef = db.collection('profiles').doc(candidate?.docId || user.uid)
   const memberRef = db.collection('members').doc(user.uid)
@@ -122,7 +125,8 @@ export async function syncAccount(db: Db, rtdb: Rtdb | null, user: DecodedUser):
         id: user.uid,
         auth_user_id: user.uid,
         email,
-        name: (user.name?.trim() || email?.split('@')[0] || 'Użytkownik').slice(0, 60),
+        name: name || fallbackProfileName(email),
+        name_from_auth_pending: !name,
         pairing_code: newPairingCode(),
         avatar_color: '#0284c7',
         current_mood: 'happy',
@@ -140,6 +144,10 @@ export async function syncAccount(db: Db, rtdb: Rtdb | null, user: DecodedUser):
       if (stored.id !== profileRef.id) updates.id = profileRef.id
       if (!stored.auth_user_id) updates.auth_user_id = user.uid
       if (!stored.pairing_code) updates.pairing_code = newPairingCode()
+      if (stored.name_from_auth_pending === true && name) {
+        if (stored.name === fallbackProfileName(stored.email)) updates.name = name
+        updates.name_from_auth_pending = false
+      }
       if (Object.keys(updates).length) tx.update(profileRef, updates)
     }
 
@@ -177,15 +185,21 @@ export async function pairWithCode(
   const input = String(rawInput || '').trim().slice(0, 200)
   if (!input) return { error: 'invalid_pairing_input' }
 
-  const me = await loadMyProfile(db, user)
-  if (!me) return { error: 'profile_not_linked' }
-  const myId = profileIdOf(me)
-
   // Pairing works ONLY with the partner's pairing code – it is the shared secret that
   // proves consent. (Pairing by e-mail let anyone attach themselves to a stranger.)
   if (input.includes('@')) return { error: 'pairing_code_required' }
   const code = normalizeCode(input)
   if (!/^DN-[A-Z0-9]{4,12}$/.test(code)) return { error: 'invalid_pairing_input' }
+
+  let me = await loadMyProfile(db, user)
+  if (!me?.auth_user_id || !me.pairing_code) {
+    const { profile_id } = await syncAccount(db, rtdb, user)
+    if (!profile_id) return { error: 'profile_not_linked' }
+    const profile = await db.collection('profiles').doc(profile_id).get()
+    if (!profile.exists || profile.data()?.auth_user_id !== user.uid) return { error: 'profile_not_linked' }
+    me = { ...profile.data(), docId: profile.id }
+  }
+  const myId = profileIdOf(me)
 
   const snap = await db.collection('profiles').where('pairing_code', '==', code).limit(20).get()
   const matches = snap.docs.map((doc: any) => ({ ...doc.data(), docId: doc.id }))

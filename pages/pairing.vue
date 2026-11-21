@@ -11,6 +11,14 @@
             <p class="dn-auth-subtitle">Połączcie swoje konta, by wspólnie budować Wasze domowe gniazdko.</p>
           </header>
 
+          <div v-if="!pairingProfileReady" class="dn-auth-status" role="status">
+            <ion-spinner v-if="isSyncingProfile" name="crescent" aria-hidden="true" />
+            <p>{{ isSyncingProfile ? 'Przygotowujemy Twój profil…' : 'Twój profil nie jest jeszcze gotowy.' }}</p>
+            <button v-if="!isSyncingProfile" type="button" class="dn-auth-btn dn-auth-btn--outline" @click="preparePairingProfile">
+              Spróbuj ponownie
+            </button>
+          </div>
+          <template v-else>
           <!-- USER NAME -->
           <div class="name-field">
             <DuoAuthField
@@ -135,6 +143,7 @@
               </button>
             </form>
           </section>
+          </template>
 
           <!-- FOOTER: SESSION -->
           <footer class="dn-auth-footer">
@@ -275,7 +284,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import QRCode from 'qrcode'
 import { Html5Qrcode } from 'html5-qrcode'
 import confetti from 'canvas-confetti'
@@ -304,6 +313,7 @@ const {
   isPaired,
   updateMyName,
   pairWithCode,
+  syncUserProfileWithAuth,
   subscribeToPairingChannel,
   checkDbPairingStatus,
   signOutUser,
@@ -357,10 +367,28 @@ const copied = ref(false)
 const pairingError = ref('')
 const isPairingLoading = ref(false)
 const isSavingName = ref(false)
+const isSyncingProfile = ref(false)
+const pairingProfileReady = computed(() => Boolean(authUser.value?.id &&
+  currentUser.value.auth_user_id === authUser.value.id && currentUser.value.pairing_code))
+
+async function preparePairingProfile() {
+  if (!authUser.value || isSyncingProfile.value || pairingProfileReady.value) return
+  isSyncingProfile.value = true
+  try {
+    await syncUserProfileWithAuth(authUser.value)
+  } finally {
+    isSyncingProfile.value = false
+  }
+}
+
+watch(() => currentUser.value.name, (name, previous) => {
+  if (!myNameInput.value || myNameInput.value === previous) myNameInput.value = name
+})
 
 // Generate QR Code with Sea Blue styling
 const generateMyQrCode = async () => {
   try {
+    if (!pairingProfileReady.value) return
     const code = currentUser.value?.pairing_code
     if (!code) return
     const url = await QRCode.toDataURL(code, {
@@ -405,7 +433,7 @@ const copyCode = async () => {
 // Pairing execution – returns true on success (the scanner shows its own result)
 const submitPairing = async (code: string, opts: { fromScanner?: boolean } = {}): Promise<{ ok: boolean, error?: string }> => {
   pairingError.value = ''
-  if (isPairingLoading.value || !code.trim()) return { ok: false }
+  if (!pairingProfileReady.value || isPairingLoading.value || !code.trim()) return { ok: false }
 
   isPairingLoading.value = true
   try {
@@ -459,11 +487,14 @@ let currentCameraIndex = 0
 let availableCameras: Array<{ id: string, label: string }> = []
 let hintTimer: ReturnType<typeof setTimeout> | null = null
 let lastRejected = { text: '', at: 0 }
+let scannerRun = 0
+let lastCameraCode = ''
+let lastCameraCodeSeenAt = 0
 
 // Extract pairing code from raw decoded text or URLs
 const extractPairingCode = (rawText: string): string => {
   if (!rawText) return ''
-  const match = rawText.trim().match(/DN-[A-Z0-9]{4,12}/i)
+  const match = rawText.trim().match(/\bDN-[A-Z0-9]{4,12}(?![A-Z0-9])/i)
   return match ? match[0].toUpperCase() : rawText.trim().toUpperCase()
 }
 
@@ -582,7 +613,9 @@ const decodeQrFromImage = async (file: File): Promise<string | null> => {
 
 /** Single entry point for every decoded QR (camera or gallery photo). */
 const handleDecoded = async (decodedText: string) => {
-  if (scanState.value !== 'scanning' && scanState.value !== 'blocked') return
+  if (!isScannerOpen.value || isPairingLoading.value ||
+    (scanState.value !== 'scanning' && scanState.value !== 'blocked')) return
+  const run = scannerRun
   const code = extractPairingCode(decodedText)
 
   if (!PAIRING_CODE_RE.test(code)) {
@@ -608,9 +641,10 @@ const handleDecoded = async (decodedText: string) => {
   pauseScanning()
 
   await new Promise(r => setTimeout(r, 380))
+  if (!isScannerOpen.value || run !== scannerRun) return
   scanState.value = 'pairing'
   const result = await submitPairing(code, { fromScanner: true })
-  if (!isScannerOpen.value) return
+  if (!isScannerOpen.value || run !== scannerRun) return
   if (result.ok) {
     scanState.value = 'success'
     haptic([30, 50, 30])
@@ -625,13 +659,14 @@ const resumeScanning = () => {
   scanError.value = ''
   scannedCode.value = ''
   lastRejected = { text: '', at: 0 }
-  scanHint.value = DEFAULT_HINT
+  scanHint.value = lastCameraCode ? 'Odsuń kod z kadru i zeskanuj ponownie.' : DEFAULT_HINT
   hintIsWarning.value = false
   if (!mediaStream) {
     startScanner()
     return
   }
   scanState.value = 'scanning'
+  lastCameraCodeSeenAt = Date.now()
   resumeCamera()
 }
 
@@ -658,9 +693,12 @@ const handleScannerFileUpload = async (e: Event) => {
   target.value = ''
   if (!file) return
   const previous = scanState.value
+  if (previous !== 'blocked' && previous !== 'scanning') return
+  const run = scannerRun
   if (previous === 'blocked') scanState.value = 'scanning'
   pauseScanning()
   const decoded = await decodeQrFromImage(file)
+  if (!isScannerOpen.value || run !== scannerRun) return
   if (decoded) {
     await handleDecoded(decoded)
     if (scanState.value === 'scanning') {
@@ -756,17 +794,30 @@ const decodeFrame = async (video: HTMLVideoElement): Promise<string | null> => {
   return jsQR(img.data, out, out, { inversionAttempts: 'attemptBoth' })?.data || null
 }
 
-const scanLoop = async () => {
+const scanLoop = async (run = scannerRun) => {
+  if (run !== scannerRun) return
   scanTimer = null
   const video = videoEl.value
   if (!isScannerOpen.value || !mediaStream || !video) return
   if (!scanPaused && scanState.value === 'scanning' && video.readyState >= 2 && video.videoWidth) {
     try {
       const text = await decodeFrame(video)
-      if (text) await handleDecoded(text)
+      if (run !== scannerRun || !isScannerOpen.value) return
+      if (!scanPaused && scanState.value === 'scanning' && text) {
+        const code = extractPairingCode(text)
+        lastCameraCodeSeenAt = Date.now()
+        if (code !== lastCameraCode) {
+          if (PAIRING_CODE_RE.test(code) && code !== currentUser.value?.pairing_code) lastCameraCode = code
+          await handleDecoded(text)
+        }
+      } else if (!text && Date.now() - lastCameraCodeSeenAt >= 450) {
+        lastCameraCode = ''
+      }
     } catch (_) {}
   }
-  if (isScannerOpen.value && mediaStream) scanTimer = setTimeout(scanLoop, SCAN_INTERVAL_MS)
+  if (run === scannerRun && isScannerOpen.value && mediaStream) {
+    scanTimer = setTimeout(() => { void scanLoop(run) }, SCAN_INTERVAL_MS)
+  }
 }
 
 const pauseScanning = () => {
@@ -820,6 +871,8 @@ const attachStream = async (stream: MediaStream) => {
 
 // Camera Scanner logic with robust iOS/Android compatibility
 const startScanner = async () => {
+  const run = ++scannerRun
+  lastCameraCode = ''
   isScannerOpen.value = true
   scanState.value = 'starting'
   scanHint.value = DEFAULT_HINT
@@ -831,19 +884,20 @@ const startScanner = async () => {
   await nextTick()
   // Let the modal mount its DOM before the camera attaches
   await new Promise(r => setTimeout(r, 160))
-  if (!isScannerOpen.value) return
+  if (!isScannerOpen.value || run !== scannerRun) return
 
   await teardownCamera()
   try {
     if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error('unsupported'), { name: 'NotFoundError' })
     const [stream] = await Promise.all([openStream(), ensureDecoder()])
-    if (!isScannerOpen.value) {
+    if (!isScannerOpen.value || run !== scannerRun) {
       stream.getTracks().forEach(t => t.stop())
       return
     }
     await attachStream(stream)
+    if (run !== scannerRun) return
     scanState.value = 'scanning'
-    scanLoop()
+    void scanLoop(run)
 
     // Permission is granted now, so device labels are available for "Obróć"
     try {
@@ -859,25 +913,34 @@ const startScanner = async () => {
     }
   } catch (err: any) {
     console.warn('Camera start error:', err)
-    await teardownCamera()
-    if (isScannerOpen.value) describeCameraError(err)
+    if (run === scannerRun) {
+      await teardownCamera()
+      if (isScannerOpen.value) describeCameraError(err)
+    }
   }
 }
 
 const switchCamera = async () => {
   if (availableCameras.length < 2 || scanState.value !== 'scanning') return
+  const run = ++scannerRun
   currentCameraIndex = (currentCameraIndex + 1) % availableCameras.length
   const nextCam = availableCameras[currentCameraIndex]
   scanState.value = 'starting'
   isTorchOn.value = false
   try {
     await teardownCamera()
-    await attachStream(await openStream(nextCam.id))
+    const stream = await openStream(nextCam.id)
+    if (run !== scannerRun) {
+      stream.getTracks().forEach(track => track.stop())
+      return
+    }
+    await attachStream(stream)
+    if (run !== scannerRun) return
     scanState.value = 'scanning'
-    scanLoop()
+    void scanLoop(run)
   } catch (e) {
     console.warn('Switch camera error:', e)
-    startScanner()
+    if (run === scannerRun) void startScanner()
   }
 }
 
@@ -895,6 +958,7 @@ const toggleTorch = async () => {
 }
 
 const stopScanner = async () => {
+  scannerRun++
   isScannerOpen.value = false
   if (hintTimer) clearTimeout(hintTimer)
   await teardownCamera()
@@ -905,6 +969,7 @@ const stopScanner = async () => {
 }
 
 onMounted(async () => {
+  await preparePairingProfile()
   generateMyQrCode()
   if (currentUser.value?.pairing_code) {
     subscribeToPairingChannel(currentUser.value.pairing_code)
@@ -947,7 +1012,7 @@ onMounted(async () => {
   }
 })
 
-watch(() => currentUser.value?.pairing_code, (newCode) => {
+watch(() => pairingProfileReady.value ? currentUser.value.pairing_code : '', (newCode) => {
   if (newCode) {
     generateMyQrCode()
     subscribeToPairingChannel(newCode)
