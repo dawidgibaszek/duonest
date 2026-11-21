@@ -3,11 +3,20 @@
     <ion-header :translucent="true">
       <ion-toolbar>
         <div class="dn-page-header">
-          <div class="dn-header-title">
-            <span>Lista Zakupów</span>
-            <span class="count-chip">{{ uncompletedCount }}</span>
+          <div class="header-action-row">
+            <div class="dn-header-title">
+              <span>Zakupy</span>
+              <span class="count-chip" v-if="uncompletedCount > 0">{{ uncompletedCount }}</span>
+            </div>
+            <button
+              type="button"
+              class="dn-header-btn dn-header-btn--icon"
+              aria-label="Dodaj produkt"
+              @click="isAddSheetOpen = true"
+            >
+              <ion-icon :icon="ioniconsAddOutline" />
+            </button>
           </div>
-          <p class="dn-header-subtitle">Wszystko, czego potrzebujecie w domu</p>
         </div>
       </ion-toolbar>
 
@@ -69,78 +78,6 @@
       <ion-refresher slot="fixed" @ionRefresh="handleRefresh($event)">
         <ion-refresher-content pulling-text="Przeciągnij, aby odświeżyć..." refreshing-spinner="crescent" />
       </ion-refresher>
-
-      <!-- ADD ITEM CARD -->
-      <div class="dn-card add-item-card">
-        <form @submit.prevent="handleAddItem" class="add-item-form">
-          <div class="input-row">
-            <ion-input
-              v-model="newItemTitle"
-              maxlength="100"
-              placeholder="Co trzeba kupić? (np. Mleko, Owoce...)"
-              class="custom-ion-input"
-              :clear-input="true"
-            />
-            <ion-input
-              v-model="newItemQty"
-              type="text"
-              maxlength="30"
-              placeholder="Ilość (np. 2 l)"
-              class="qty-input"
-            />
-          </div>
-
-          <div class="category-select-scroll">
-            <button
-              type="button"
-              v-for="cat in categories.slice(1)"
-              :key="cat.name"
-              class="cat-chip"
-              :class="{ active: selectedCategory === cat.name }"
-              @click="selectedCategory = cat.name"
-            >
-              <DuoIcon :name="'cat-' + cat.key" :size="14" />
-              <span>{{ cat.name }}</span>
-            </button>
-          </div>
-
-          <div class="smart-quick-row" v-if="quickQtyPresets.length > 0">
-            <span class="quick-label">Szybkie ilości</span>
-            <div class="quick-pills">
-              <button
-                v-for="preset in quickQtyPresets"
-                :key="preset"
-                type="button"
-                class="quick-pill"
-                @click="newItemQty = preset"
-              >
-                {{ preset }}
-              </button>
-            </div>
-          </div>
-
-          <div class="smart-quick-row" v-if="recentShoppingSuggestions.length > 0">
-            <span class="quick-label">Ostatnio kupowane</span>
-            <div class="quick-pills">
-              <button
-                v-for="suggestion in recentShoppingSuggestions"
-                :key="`${suggestion.title}-${suggestion.category}`"
-                type="button"
-                class="quick-pill subtle"
-                @click="applyRecentSuggestion(suggestion)"
-              >
-                {{ suggestion.title }}
-              </button>
-            </div>
-          </div>
-
-          <button type="submit" class="dn-button-sea add-btn" :disabled="isSubmitting">
-            <ion-spinner v-if="isSubmitting" name="crescent" style="width: 18px; height: 18px;" />
-            <ion-icon v-else :icon="ioniconsAddOutline" />
-            <span>Dodaj do koszyka</span>
-          </button>
-        </form>
-      </div>
 
       <!-- CATEGORY FILTER CHIPS -->
       <div class="filter-scroll">
@@ -240,11 +177,6 @@
                   <span
                     class="item-author-badge"
                     v-if="item.added_by"
-                    :style="{
-                      color: getUserAccentColor(item.added_by),
-                      backgroundColor: hexToRgba(getUserAccentColor(item.added_by), 0.12),
-                      borderColor: hexToRgba(getUserAccentColor(item.added_by), 0.28)
-                    }"
                   >
                     {{ item.added_by === currentUser?.id ? 'Ty' : (partnerUser?.name || 'Partner') }}
                   </span>
@@ -364,6 +296,105 @@
       <div class="tab-bottom-spacer" style="height: 105px;" aria-hidden="true"></div>
     </ion-content>
 
+    <!-- ADD ITEM SHEET (opened from the "+" in the header) -->
+    <ion-modal
+      :is-open="isAddSheetOpen"
+      @didDismiss="isAddSheetOpen = false"
+      class="dn-form-sheet-modal"
+      :breakpoints="[0, 0.72, 0.92, 1]"
+      :initial-breakpoint="0.72"
+      :handle="true"
+      data-no-swipe="true"
+    >
+      <ion-header class="dn-form-sheet-header ion-no-border">
+        <div class="dn-form-sheet-handle-spacer" aria-hidden="true"></div>
+        <ion-toolbar>
+          <div class="dn-form-sheet-heading">
+            <div class="dn-form-sheet-title-row">
+              <div class="dn-form-sheet-title-text">
+                <h3 class="dn-form-sheet-title">Nowy produkt</h3>
+                <span class="dn-form-sheet-subtitle">Arkusz zostaje otwarty – możesz dodać kilka rzeczy pod rząd</span>
+              </div>
+            </div>
+            <button type="button" class="dn-form-sheet-close" @click="isAddSheetOpen = false" aria-label="Zamknij">
+              <ion-icon :icon="ioniconsCloseOutline" />
+            </button>
+          </div>
+        </ion-toolbar>
+      </ion-header>
+
+      <ion-content class="ion-padding shopping-add-content">
+        <form @submit.prevent="handleAddItem" class="add-item-form">
+          <div class="input-row">
+            <ion-input aria-label="Nazwa produktu"
+              v-model="newItemTitle"
+              maxlength="100"
+              placeholder="Co trzeba kupić? (np. Mleko, Owoce...)"
+              class="custom-ion-input"
+              :clear-input="true"
+            />
+            <ion-input aria-label="Ilość"
+              v-model="newItemQty"
+              type="text"
+              maxlength="30"
+              placeholder="Ilość (np. 2 l)"
+              class="qty-input"
+            />
+          </div>
+
+          <div class="category-select-scroll">
+            <button
+              type="button"
+              v-for="cat in categories.slice(1)"
+              :key="cat.name"
+              class="cat-chip"
+              :class="{ active: selectedCategory === cat.name }"
+              @click="selectedCategory = cat.name"
+            >
+              <DuoIcon :name="'cat-' + cat.key" :size="14" />
+              <span>{{ cat.name }}</span>
+            </button>
+          </div>
+
+          <div class="smart-quick-row" v-if="quickQtyPresets.length > 0">
+            <span class="quick-label">Szybkie ilości</span>
+            <div class="quick-pills">
+              <button
+                v-for="preset in quickQtyPresets"
+                :key="preset"
+                type="button"
+                class="quick-pill"
+                @click="newItemQty = preset"
+              >
+                {{ preset }}
+              </button>
+            </div>
+          </div>
+
+          <div class="smart-quick-row" v-if="recentShoppingSuggestions.length > 0">
+            <span class="quick-label">Ostatnio kupowane</span>
+            <div class="quick-pills">
+              <button
+                v-for="suggestion in recentShoppingSuggestions"
+                :key="`${suggestion.title}-${suggestion.category}`"
+                type="button"
+                class="quick-pill subtle"
+                @click="applyRecentSuggestion(suggestion)"
+              >
+                {{ suggestion.title }}
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" class="dn-button-sea add-btn" :disabled="isSubmitting">
+            <ion-spinner v-if="isSubmitting" name="crescent" style="width: 18px; height: 18px;" />
+            <ion-icon v-else :icon="ioniconsAddOutline" />
+            <span>Dodaj do koszyka</span>
+          </button>
+        </form>
+      </ion-content>
+    </ion-modal>
+
     <ion-modal
       :is-open="isEditModalOpen"
       @didDismiss="closeEditModal"
@@ -397,7 +428,7 @@
         <form class="shopping-edit-form" @submit.prevent="handleUpdateItem">
           <div class="form-group">
             <label class="form-label" for="shopping-edit-title">Nazwa produktu</label>
-            <ion-input
+            <ion-input aria-label="Nazwa produktu"
               id="shopping-edit-title"
               v-model="editItemTitle"
               maxlength="100"
@@ -408,7 +439,7 @@
 
           <div class="form-group">
             <label class="form-label" for="shopping-edit-quantity">Ilość</label>
-            <ion-input
+            <ion-input aria-label="Ilość"
               id="shopping-edit-quantity"
               v-model="editItemQuantity"
               maxlength="30"
@@ -513,6 +544,7 @@ const activeFilter = ref('Wszystkie')
 const searchQuery = ref('')
 const showCompletedItems = ref(false)
 const isEditModalOpen = ref(false)
+const isAddSheetOpen = ref(false)
 const isUpdatingItem = ref(false)
 const editingItemId = ref<string | null>(null)
 const editItemTitle = ref('')
@@ -767,75 +799,6 @@ const handleRefresh = async (event: any) => {
   animation-duration: 0.32s;
 }
 /* MAIN TABS TOOLBAR & PILLS (Codzienność: Zakupy | Zadania | Zwierzak) */
-.main-tabs-toolbar {
-  --background: #ffffff;
-  padding: 4px 16px 8px 16px;
-}
-
-.main-tabs-pill-row {
-  display: flex;
-  background: #f1f5f9;
-  padding: 4px;
-  border-radius: 14px;
-  gap: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.main-tabs-pill-row::-webkit-scrollbar {
-  display: none;
-}
-
-.main-tab-pill {
-  flex: 1 0 auto;
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 7px 10px;
-  border-radius: 10px;
-  border: none;
-  background: transparent;
-  color: #64748b;
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.main-tab-pill.active {
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.main-tab-pill.pet-tab-pill.active {
-  color: #db2777;
-}
-
-.pill-count-chip {
-  background: #0f172a;
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: 800;
-  padding: 1px 6px;
-  border-radius: 999px;
-}
-
-.tab-pet-emoji {
-  font-size: 15px;
-}
-
-.tab-pet-lvl {
-  font-size: 10px;
-  font-weight: 800;
-  background: #fdf2f8;
-  color: #db2777;
-  padding: 1px 5px;
-  border-radius: 999px;
-}
 
 .gesture-hint-bar {
   display: flex;
@@ -843,21 +806,12 @@ const handleRefresh = async (event: any) => {
   gap: 6px;
   font-size: 11px;
   font-weight: 700;
-  color: #0f172a;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
+  color: #1c1b19;
+  background: #f8f9fb;
+  border: 1px dashed #d4d4d4;
   border-radius: 8px;
   padding: 6px 12px;
   margin: 6px 16px 10px 16px;
-}
-
-.count-chip {
-  background: #f1f5f9;
-  color: #0f172a;
-  font-size: 13px;
-  font-weight: 800;
-  padding: 2px 9px;
-  border-radius: 999px;
 }
 
 /* ADD ITEM FORM */
@@ -879,38 +833,40 @@ const handleRefresh = async (event: any) => {
 
 .custom-ion-input {
   flex: 2;
-  --background: #f8fafc;
+  --background: var(--dn-field);
   --padding-start: 14px;
   --padding-end: 14px;
-  --border-radius: 12px;
-  border-radius: 12px;
+  --border-radius: 14px;
+  border-radius: 14px;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
-  font-size: 14px;
+  border: 1px solid var(--dn-field-line);
+  font-size: 16px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  min-height: 52px;
 }
 
 .custom-ion-input:focus-within {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+  border-color: var(--dn-ink);
+  box-shadow: 0 0 0 3px rgba(28, 27, 25, 0.06);
 }
 
 .qty-input {
   flex: 1;
-  --background: #f8fafc;
+  --background: var(--dn-field);
   --padding-start: 12px;
-  --border-radius: 12px;
-  border-radius: 12px;
+  --border-radius: 14px;
+  border-radius: 14px;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
-  font-size: 14px;
+  border: 1px solid var(--dn-field-line);
+  font-size: 16px;
   max-width: 150px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  min-height: 52px;
 }
 
 .qty-input:focus-within {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+  border-color: var(--dn-ink);
+  box-shadow: 0 0 0 3px rgba(28, 27, 25, 0.06);
 }
 
 .category-select-scroll {
@@ -931,17 +887,17 @@ const handleRefresh = async (event: any) => {
   padding: 5px 11px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 600;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #475569;
+  font-weight: 500;
+  background: var(--dn-soft);
+  border: none;
+  color: #545454;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .cat-chip.active {
-  background: #0f172a;
-  border-color: #0f172a;
+  background: #1c1b19;
+  border-color: #1c1b19;
   color: #ffffff;
 }
 
@@ -963,7 +919,7 @@ const handleRefresh = async (event: any) => {
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #64748b;
+  color: #737373;
 }
 
 .quick-pills {
@@ -973,27 +929,27 @@ const handleRefresh = async (event: any) => {
 }
 
 .quick-pill {
-  border: 1px solid #dfe7f2;
-  background: #f8fafc;
-  color: #0f172a;
+  border: none;
+  background: var(--dn-soft);
+  color: #1c1b19;
   border-radius: 999px;
   padding: 6px 10px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .quick-pill:hover,
 .quick-pill:focus-visible {
-  border-color: #0f172a;
-  background: #eef2ff;
+  border-color: #1c1b19;
+  background: #f0f1f3;
   outline: none;
 }
 
 .quick-pill.subtle {
-  background: #eef6ff;
-  border-color: #cfe2ff;
+  background: #f3f4f6;
+  border-color: #e0e0e0;
 }
 
 /* FILTER PILLS */
@@ -1015,13 +971,13 @@ const handleRefresh = async (event: any) => {
   padding: 7px 14px;
   border-radius: 999px;
   font-size: 13px;
-  font-weight: 600;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  color: #64748b;
+  font-weight: 500;
+  background: var(--dn-soft);
+  border: none;
+  color: var(--dn-ink);
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  box-shadow: none;
   transition: all 0.15s ease;
 }
 
@@ -1030,14 +986,14 @@ const handleRefresh = async (event: any) => {
 }
 
 .filter-pill.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border-color: #1c1b19;
+  box-shadow: none;
 }
 
 .filter-badge {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(28, 27, 25, 0.08);
   padding: 1px 6px;
   border-radius: 999px;
   font-size: 11px;
@@ -1055,10 +1011,10 @@ const handleRefresh = async (event: any) => {
   min-height: 46px;
   margin: 0 16px 8px;
   padding: 0 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   border-radius: 12px;
   background: #ffffff;
-  color: #64748b;
+  color: #737373;
 }
 
 .shopping-search-row > ion-icon {
@@ -1074,14 +1030,14 @@ const handleRefresh = async (event: any) => {
   border: 0;
   outline: 0;
   background: transparent;
-  color: #0f172a;
+  color: #1c1b19;
   font: inherit;
   font-size: 14px;
 }
 
 .shopping-search-row:focus-within {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+  border-color: var(--dn-ink);
+  box-shadow: 0 0 0 3px rgba(28, 27, 25, 0.06);
 }
 
 .search-clear-btn {
@@ -1093,17 +1049,17 @@ const handleRefresh = async (event: any) => {
   flex: 0 0 36px;
   border: 0;
   border-radius: 50%;
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--dn-soft);
+  color: #545454;
   font-size: 18px;
 }
 
 /* LIST & ITEMS */
 .items-section-header {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
-  color: #64748b;
+  color: #737373;
   padding: 8px 20px 4px 20px;
 }
 
@@ -1125,22 +1081,22 @@ const handleRefresh = async (event: any) => {
   --padding-bottom: 8px;
   --min-height: 64px;
   border-radius: 16px;
-  border: 1px solid #eef2f6;
+  border: 1px solid #eff0f2;
   background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 3px 10px rgba(15, 23, 42, 0.04);
+  box-shadow: none;
   transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   margin-bottom: 8px;
   overflow: hidden;
 }
 
 .shopping-item:hover {
-  border-color: #e2e8f0;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  border-color: #e5e6e8;
+  box-shadow: none;
 }
 
 .shopping-item.completed {
-  background: #f8fafc;
-  border-color: #f1f5f9;
+  background: #f8f9fb;
+  border-color: #f2f3f5;
   box-shadow: none;
   opacity: 0.82;
 }
@@ -1154,8 +1110,8 @@ const handleRefresh = async (event: any) => {
   height: 25px;
   min-width: 25px;
   border-radius: 50%;
-  border: 2px solid #cbd5e1;
-  background: #ffffff;
+  border: none;
+  background: var(--dn-soft);
   color: transparent;
   cursor: pointer;
   margin-inline-end: 12px;
@@ -1165,15 +1121,15 @@ const handleRefresh = async (event: any) => {
 }
 
 .dn-checkbox-btn:hover {
-  border-color: #0f172a;
+  border-color: #1c1b19;
   transform: scale(1.08);
 }
 
 .dn-checkbox-btn.checked {
-  background: #0f172a;
-  border-color: #0f172a;
+  background: #1c1b19;
+  border-color: #1c1b19;
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+  box-shadow: none;
 }
 
 .dn-check-icon {
@@ -1200,7 +1156,7 @@ const handleRefresh = async (event: any) => {
 .item-title {
   font-size: 15px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   line-height: 1.35;
   letter-spacing: -0.01em;
   transition: color 0.2s ease;
@@ -1209,19 +1165,19 @@ const handleRefresh = async (event: any) => {
 
 .item-title.strike {
   text-decoration: line-through;
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 .item-qty-tag {
   display: inline-flex;
   align-items: center;
   font-size: 11px;
-  font-weight: 700;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  font-weight: 500;
+  background: var(--dn-soft);
+  border: none;
   padding: 2px 8px;
   border-radius: 999px;
-  color: #334155;
+  color: #404040;
   flex-shrink: 0;
   white-space: nowrap;
   letter-spacing: 0.01em;
@@ -1246,10 +1202,10 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: #475569;
+  color: #545454;
   font-weight: 600;
-  background: #f8fafc;
-  border: 1px solid #edf2f7;
+  background: #f8f9fb;
+  border: 1px solid #eff0f2;
   padding: 2px 7px;
   border-radius: 6px;
 }
@@ -1259,12 +1215,14 @@ const handleRefresh = async (event: any) => {
 }
 
 .item-author-badge {
-  font-size: 10.5px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 999px;
   display: inline-flex;
   align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--dn-soft);
+  color: var(--dn-muted);
+  font-size: 11.5px;
+  font-weight: 500;
 }
 
 .item-actions-cluster {
@@ -1284,8 +1242,8 @@ const handleRefresh = async (event: any) => {
   height: 32px;
   border-radius: 10px;
   border: 1px solid transparent;
-  background: #f8fafc;
-  color: #64748b;
+  background: #f8f9fb;
+  color: #737373;
   font-size: 16px;
   cursor: pointer;
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
@@ -1294,17 +1252,17 @@ const handleRefresh = async (event: any) => {
 
 .item-action-btn.edit-btn:hover,
 .item-action-btn.edit-btn:active {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  color: #0f172a;
+  background: #f2f3f5;
+  border-color: #d4d4d4;
+  color: #1c1b19;
   transform: scale(1.06);
 }
 
 .item-action-btn.delete-btn:hover,
 .item-action-btn.delete-btn:active {
-  background: #fef2f2;
-  border-color: #fecaca;
-  color: #ef4444;
+  background: #f3f4f6;
+  border-color: #fcefec;
+  color: #d96856;
   transform: scale(1.06);
 }
 
@@ -1324,10 +1282,10 @@ const handleRefresh = async (event: any) => {
   padding: 0;
   border: 0;
   background: transparent;
-  color: #64748b;
+  color: #737373;
   font: inherit;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
   cursor: pointer;
 }
@@ -1339,7 +1297,7 @@ const handleRefresh = async (event: any) => {
 .clear-btn {
   background: none;
   border: none;
-  color: #ef4444;
+  color: #d96856;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
@@ -1362,19 +1320,6 @@ const handleRefresh = async (event: any) => {
   padding-top: 6px;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0;
-}
-
 .empty-state {
   text-align: center;
   padding: 40px 20px;
@@ -1384,23 +1329,30 @@ const handleRefresh = async (event: any) => {
   width: 64px;
   height: 64px;
   border-radius: 20px;
-  background: #f1f5f9;
+  background: #f2f3f5;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 12px;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .empty-state h3 {
   font-size: 17px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .empty-state p {
   font-size: 13px;
-  color: #64748b;
+  color: #737373;
   margin-top: 4px;
+}
+
+/* ===== Beige accent: empty states ===== */
+.empty-icon-circle {
+  background: var(--dn-cream) !important;
+  color: var(--dn-cream-ink) !important;
+  border: none !important;
 }
 </style>

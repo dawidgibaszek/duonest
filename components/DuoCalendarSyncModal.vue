@@ -535,13 +535,13 @@ const handleImportParsedEvents = async () => {
 
 <style scoped>
 .dn-calendar-sync-modal {
-  --background: #f8fafc;
+  --background: #f8f9fb;
   --border-radius: 28px 28px 0 0;
 }
 
 .modal-custom-header {
   background: #ffffff;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e5e6e8;
   padding-top: 6px;
   padding-bottom: 12px;
 }
@@ -563,7 +563,7 @@ const handleImportParsedEvents = async () => {
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -575,15 +575,15 @@ const handleImportParsedEvents = async () => {
 .sync-modal-title {
   margin: 0;
   font-size: 16px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   letter-spacing: -0.3px;
 }
 
 .sync-modal-subtitle {
   margin: 2px 0 0 0;
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
   font-weight: 500;
 }
 
@@ -591,9 +591,9 @@ const handleImportParsedEvents = async () => {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #f1f5f9;
+  background: var(--dn-soft);
   border: none;
-  color: #475569;
+  color: #545454;
   font-size: 20px;
   display: flex;
   align-items: center;
@@ -604,14 +604,14 @@ const handleImportParsedEvents = async () => {
 }
 
 .sync-modal-close-btn:hover {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: #e5e6e8;
+  color: #1c1b19;
 }
 
 /* Tabs switcher */
 .sync-tabs-row {
   display: flex;
-  background: #f1f5f9;
+  background: #f2f3f5;
   padding: 4px;
   border-radius: 12px;
   margin: 0 16px;
@@ -636,7 +636,7 @@ const handleImportParsedEvents = async () => {
   border-radius: 9px;
   border: none;
   background: transparent;
-  color: #64748b;
+  color: #737373;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -646,12 +646,12 @@ const handleImportParsedEvents = async () => {
 
 .sync-tab-btn.active {
   background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  color: #1c1b19;
+  box-shadow: none;
 }
 
 .sync-modal-content {
-  --background: #f8fafc;
+  --background: #f8f9fb;
 }
 
 .sync-tab-pane {
@@ -665,10 +665,10 @@ const handleImportParsedEvents = async () => {
 /* Intro cards */
 .sync-intro-card {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   border-radius: 18px;
   padding: 16px;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  box-shadow: none;
 }
 
 .intro-badge {
@@ -676,10 +676,10 @@ const handleImportParsedEvents = async () => {
   align-items: center;
   gap: 5px;
   font-size: 10.5px;
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
-  color: #0284c7;
-  background: #e0f2fe;
+  color: #7d7d7d;
+  background: #edeef0;
   padding: 3px 8px;
   border-radius: 6px;
   letter-spacing: 0.4px;
@@ -689,21 +689,21 @@ const handleImportParsedEvents = async () => {
 .sync-intro-card h4 {
   margin: 0 0 6px 0;
   font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .sync-intro-card p {
   margin: 0;
   font-size: 12.5px;
   line-height: 1.5;
-  color: #475569;
+  color: #545454;
 }
 
 .sync-section-title {
   font-size: 11px;
-  font-weight: 800;
-  color: #94a3b8;
+  font-weight: 700;
+  color: #a2a2a2;
   letter-spacing: 0.6px;
   margin-top: 4px;
 }
@@ -720,13 +720,13 @@ const handleImportParsedEvents = async () => {
   align-items: center;
   gap: 14px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   border-radius: 16px;
   padding: 12px 14px;
   text-decoration: none;
   color: inherit;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  box-shadow: none;
 }
 
 .provider-card:active {
@@ -745,18 +745,18 @@ const handleImportParsedEvents = async () => {
 }
 
 .apple-icon {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
 }
 
 .google-icon {
-  background: #eff6ff;
-  color: #2563eb;
+  background: #f3f4f6;
+  color: #6d6d6d;
 }
 
 .outlook-icon {
-  background: #f0fdf4;
-  color: #0284c7;
+  background: #f8f9fb;
+  color: #7d7d7d;
 }
 
 .provider-info {
@@ -769,12 +769,12 @@ const handleImportParsedEvents = async () => {
 .provider-name {
   font-size: 14px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .provider-sub {
   font-size: 11.5px;
-  color: #64748b;
+  color: #737373;
   margin-top: 2px;
 }
 
@@ -783,9 +783,9 @@ const handleImportParsedEvents = async () => {
   align-items: center;
   gap: 5px;
   font-size: 12px;
-  font-weight: 700;
-  color: #0f172a;
-  background: #f1f5f9;
+  font-weight: 500;
+  color: #1c1b19;
+  background: var(--dn-soft);
   padding: 6px 12px;
   border-radius: 999px;
   flex-shrink: 0;
@@ -794,7 +794,7 @@ const handleImportParsedEvents = async () => {
 /* Feed Copy Box */
 .feed-copy-box {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   border-radius: 16px;
   padding: 14px;
 }
@@ -802,7 +802,7 @@ const handleImportParsedEvents = async () => {
 .feed-copy-help {
   margin: 0 0 10px 0;
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
   line-height: 1.4;
 }
 
@@ -814,12 +814,12 @@ const handleImportParsedEvents = async () => {
 .feed-url-input {
   flex: 1;
   min-width: 0;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #d4d4d4;
   border-radius: 10px;
   padding: 9px 12px;
   font-size: 12px;
-  color: #334155;
-  background: #f8fafc;
+  color: #404040;
+  background: #f8f9fb;
   font-family: monospace;
 }
 
@@ -830,7 +830,7 @@ const handleImportParsedEvents = async () => {
   padding: 9px 16px;
   border-radius: 10px;
   border: none;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   font-size: 12.5px;
   font-weight: 700;
@@ -841,13 +841,13 @@ const handleImportParsedEvents = async () => {
 }
 
 .feed-copy-btn.copied {
-  background: #10b981;
+  background: #a3a3a3;
 }
 
 /* Instructions card */
 .sync-instructions-card {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   border-radius: 16px;
   overflow: hidden;
 }
@@ -858,7 +858,7 @@ const handleImportParsedEvents = async () => {
   justify-content: space-between;
   padding: 12px 14px;
   cursor: pointer;
-  background: #f8fafc;
+  background: #f8f9fb;
   user-select: none;
 }
 
@@ -868,7 +868,7 @@ const handleImportParsedEvents = async () => {
   gap: 8px;
   font-size: 13px;
   font-weight: 700;
-  color: #334155;
+  color: #404040;
 }
 
 .instruction-steps-list {
@@ -876,14 +876,14 @@ const handleImportParsedEvents = async () => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid #e5e6e8;
 }
 
 .step-item {
   display: flex;
   gap: 10px;
   font-size: 12px;
-  color: #475569;
+  color: #545454;
   line-height: 1.45;
 }
 
@@ -891,10 +891,10 @@ const handleImportParsedEvents = async () => {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #e2e8f0;
-  color: #0f172a;
+  background: #e5e6e8;
+  color: #1c1b19;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -913,7 +913,7 @@ const handleImportParsedEvents = async () => {
   padding: 12px 16px;
   border-radius: 12px;
   border: none;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   font-size: 13.5px;
   font-weight: 700;
@@ -936,7 +936,7 @@ const handleImportParsedEvents = async () => {
   align-items: center;
   justify-content: space-between;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   border-radius: 12px;
   padding: 10px 14px;
 }
@@ -951,7 +951,7 @@ const handleImportParsedEvents = async () => {
 .single-event-title {
   font-size: 13px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -959,7 +959,7 @@ const handleImportParsedEvents = async () => {
 
 .single-event-date {
   font-size: 11px;
-  color: #64748b;
+  color: #737373;
   margin-top: 2px;
 }
 
@@ -977,9 +977,9 @@ const handleImportParsedEvents = async () => {
   font-weight: 700;
   padding: 5px 9px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  color: #334155;
+  border: 1px solid #e5e6e8;
+  background: #f8f9fb;
+  color: #404040;
   text-decoration: none;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -990,18 +990,18 @@ const handleImportParsedEvents = async () => {
 }
 
 .google-pill {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1d4ed8;
+  background: #f3f4f6;
+  border-color: #d8d8d8;
+  color: #5c5c5c;
 }
 
 .empty-export-hint {
   text-align: center;
   padding: 24px 16px;
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 13px;
   background: #ffffff;
-  border: 1px dashed #cbd5e1;
+  border: 1px dashed #d4d4d4;
   border-radius: 14px;
 }
 
@@ -1014,20 +1014,20 @@ const handleImportParsedEvents = async () => {
   text-align: center;
   padding: 28px 16px;
   background: #ffffff;
-  border: 2px dashed #cbd5e1;
+  border: 2px dashed #d4d4d4;
   border-radius: 18px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .file-drop-zone.is-dragging {
-  border-color: #0284c7;
-  background: #f0f9ff;
+  border-color: #7d7d7d;
+  background: #f6f7f9;
 }
 
 .file-drop-zone.has-file {
-  border-color: #10b981;
-  background: #f0fdf4;
+  border-color: #a3a3a3;
+  background: #f8f9fb;
 }
 
 .hidden-file-input {
@@ -1036,31 +1036,31 @@ const handleImportParsedEvents = async () => {
 
 .drop-zone-icon {
   font-size: 38px;
-  color: #64748b;
+  color: #737373;
   margin-bottom: 8px;
 }
 
 .file-drop-zone.has-file .drop-zone-icon {
-  color: #10b981;
+  color: #a3a3a3;
 }
 
 .drop-zone-title {
   font-size: 13.5px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   display: block;
 }
 
 .drop-zone-sub {
   font-size: 11.5px;
-  color: #64748b;
+  color: #737373;
   margin-top: 3px;
   display: block;
 }
 
 .parsed-preview-box {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   border-radius: 18px;
   padding: 16px;
   display: flex;
@@ -1076,15 +1076,15 @@ const handleImportParsedEvents = async () => {
 
 .parsed-heading {
   font-size: 11px;
-  font-weight: 800;
-  color: #64748b;
+  font-weight: 700;
+  color: #737373;
   letter-spacing: 0.5px;
 }
 
 .clear-file-btn {
   background: transparent;
   border: none;
-  color: #ef4444;
+  color: #d96856;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -1099,8 +1099,8 @@ const handleImportParsedEvents = async () => {
 }
 
 .parsed-event-card {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 12px;
   padding: 10px 12px;
 }
@@ -1114,29 +1114,29 @@ const handleImportParsedEvents = async () => {
 
 .parsed-cat-pill {
   font-size: 10px;
-  font-weight: 800;
-  color: #0f172a;
-  background: #e2e8f0;
+  font-weight: 700;
+  color: #1c1b19;
+  background: #e5e6e8;
   padding: 2px 6px;
   border-radius: 4px;
 }
 
 .parsed-date-text {
   font-size: 11px;
-  color: #64748b;
+  color: #737373;
 }
 
 .parsed-title {
   margin: 0;
   font-size: 13px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .parsed-loc {
   margin: 4px 0 0 0;
   font-size: 11px;
-  color: #64748b;
+  color: #737373;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1151,7 +1151,7 @@ const handleImportParsedEvents = async () => {
   padding: 12px 16px;
   border-radius: 12px;
   border: none;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   font-size: 13.5px;
   font-weight: 700;

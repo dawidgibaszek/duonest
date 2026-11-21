@@ -24,8 +24,7 @@
 
           <!-- Title & Description -->
           <div class="duo-push-header">
-            <span class="duo-push-pill">NOWE POŁĄCZENIE GNIAZDKA</span>
-            <h3 class="duo-push-title">Powiadomienia od Partnera 💌</h3>
+                        <h3 class="duo-push-title">Bądźcie w kontakcie</h3>
             <p class="duo-push-desc">
               Chcesz wiedzieć od razu, gdy <strong>{{ postPairingPartnerName || 'Twój Partner' }}</strong> przyśle Ci gest bliskości, zmieni nastrój lub dopisze coś do listy zakupów?
             </p>
@@ -122,26 +121,22 @@ const {
   position: fixed;
   inset: 0;
   z-index: 80000;
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(28, 27, 25, 0.32);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  padding: 16px;
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
 }
 
 .duo-push-modal-card {
   width: 100%;
   max-width: 440px;
   background: #ffffff;
-  border-radius: 26px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow:
-    0 25px 50px -12px rgba(15, 23, 42, 0.25),
-    0 12px 24px -4px rgba(15, 23, 42, 0.12);
-  padding: 24px 20px 20px 20px;
-  text-align: center;
+  border-radius: 28px;
+  border: none;
+  box-shadow: 0 24px 60px -24px rgba(28, 27, 25, 0.35);
+  padding: 28px 22px 18px;
+  text-align: left;
   position: relative;
   overflow: hidden;
   animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -150,7 +145,7 @@ const {
 @keyframes modalPop {
   0% {
     opacity: 0;
-    transform: scale(0.92) translateY(20px);
+    transform: translateY(24px);
   }
   100% {
     opacity: 1;
@@ -171,47 +166,45 @@ const {
 /* Badge row */
 .duo-push-badge-row {
   display: flex;
-  justify-content: center;
-  margin-bottom: 12px;
+  justify-content: flex-start;
+  margin-bottom: 18px;
 }
 
 .duo-push-icon-glow {
   position: relative;
-  width: 64px;
-  height: 64px;
-  border-radius: 20px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  color: #ffffff;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: var(--dn-cream, #f6f2e7);
+  color: var(--dn-ink, #1c1b19);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.35);
 }
 
 .bell-svg {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
 }
 
 .heart-sub-badge {
   position: absolute;
   bottom: -4px;
   right: -4px;
-  width: 26px;
-  height: 26px;
-  background: #f43f5e;
+  width: 22px;
+  height: 22px;
+  background: var(--dn-ink, #1c1b19);
   border-radius: 50%;
   border: 2px solid #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(244, 63, 94, 0.4);
 }
 
 .heart-sub-badge svg {
-  width: 14px;
-  height: 14px;
+  width: 11px;
+  height: 11px;
 }
 
 /* Header */
@@ -222,59 +215,56 @@ const {
 .duo-push-pill {
   display: inline-block;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #0f172a;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  color: #1c1b19;
+  background: var(--dn-soft);
+  border: none;
   border-radius: 9999px;
   padding: 3px 10px;
   margin-bottom: 8px;
 }
 
 .duo-push-title {
-  font-size: 20px;
-  font-weight: 800;
-  color: #0f172a;
-  margin: 0 0 6px 0;
+  font-family: var(--dn-serif, 'Fraunces', Georgia, serif);
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--dn-ink, #1c1b19);
+  margin: 0 0 8px 0;
 }
 
 .duo-push-desc {
-  font-size: 13.5px;
-  line-height: 1.45;
-  color: #475569;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--dn-muted, #6b6e75);
   margin: 0;
-  padding: 0 4px;
 }
 
 .duo-push-desc strong {
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 /* Benefits */
 .duo-push-benefits {
-  background: #f8fafc;
-  border-radius: 18px;
-  padding: 12px;
-  border: 1px solid #f1f5f9;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  text-align: left;
-  margin-bottom: 18px;
+  gap: 14px;
+  margin: 22px 0 24px;
 }
 
 .benefit-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
 }
 
 .benefit-icon-box {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -287,18 +277,18 @@ const {
 }
 
 .love-bg {
-  background: #ffe4e6;
-  color: #f43f5e;
+  background: var(--dn-soft, #f2f3f5);
+  color: var(--dn-ink, #1c1b19);
 }
 
 .calendar-bg {
-  background: #eef2ff;
-  color: #6366f1;
+  background: var(--dn-soft, #f2f3f5);
+  color: var(--dn-ink, #1c1b19);
 }
 
 .tasks-bg {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: var(--dn-soft, #f2f3f5);
+  color: var(--dn-ink, #1c1b19);
 }
 
 .benefit-text {
@@ -308,14 +298,14 @@ const {
 }
 
 .benefit-text strong {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #1e293b;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--dn-ink, #1c1b19);
 }
 
 .benefit-text span {
-  font-size: 11px;
-  color: #64748b;
+  font-size: 13.5px;
+  color: #737373;
 }
 
 /* Actions */
@@ -327,10 +317,11 @@ const {
 
 .duo-push-enable-btn {
   width: 100%;
-  padding: 14px 20px;
-  border-radius: 16px;
+  min-height: 52px;
+  padding: 0 20px;
+  border-radius: 999px;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -343,32 +334,32 @@ const {
 }
 
 .duo-push-later-btn {
-  background: transparent;
+  min-height: 52px;
+  background: var(--dn-soft, #f2f3f5);
   border: none;
-  color: #64748b;
-  font-size: 13.5px;
+  color: var(--dn-ink, #1c1b19);
+  font-family: inherit;
+  font-size: 15px;
   font-weight: 600;
-  padding: 10px;
+  padding: 0 20px;
   cursor: pointer;
-  border-radius: 12px;
-  transition: color 0.15s ease, background-color 0.15s ease;
+  border-radius: 999px;
 }
 
 .duo-push-later-btn:hover {
-  color: #0f172a;
-  background: #f1f5f9;
+  background: var(--dn-soft-press, #e6e8eb);
 }
 
 .duo-push-footnote {
   font-size: 11px;
-  color: #94a3b8;
+  color: #a2a2a2;
   margin: 12px 0 0 0;
   line-height: 1.35;
 }
 
 .duo-push-footnote em {
   font-style: normal;
-  color: #64748b;
+  color: #737373;
   font-weight: 600;
 }
 </style>

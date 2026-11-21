@@ -79,9 +79,11 @@ const normalizePlayback = (playback: any): MusicPlayback | null => {
   return null
 }
 
+import { getFirebaseBridge } from './useFirebaseBridge'
+
 const getAccessToken = async () => {
-  const client = useSupabaseClient()
-  const { data } = await client.auth.getSession()
+  const bridge = getFirebaseBridge()
+  const { data } = await bridge.auth.getSession()
   return data.session?.access_token || ''
 }
 

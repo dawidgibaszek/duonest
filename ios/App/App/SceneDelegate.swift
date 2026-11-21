@@ -1,0 +1,31 @@
+import UIKit
+import Capacitor
+import UserNotifications
+
+class SceneDelegate: UIResponder, UIWindowSceneDelegate {
+    var window: UIWindow?
+
+    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+        guard let windowScene = scene as? UIWindowScene else { return }
+
+        let viewController = CAPBridgeViewController()
+        window = UIWindow(windowScene: windowScene)
+        window?.rootViewController = viewController
+        window?.makeKeyAndVisible()
+
+        SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
+        if let response = connectionOptions.notificationResponse,
+           response.notification.request.trigger is UNPushNotificationTrigger {
+            viewController.loadViewIfNeeded()
+            viewController.bridge?.notificationRouter.pushNotificationHandler?.didReceive(response: response)
+        }
+    }
+
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        SceneDelegateProxy.shared.scene(scene, openURLContexts: URLContexts)
+    }
+
+    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+        SceneDelegateProxy.shared.scene(scene, continue: userActivity)
+    }
+}

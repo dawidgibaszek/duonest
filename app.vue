@@ -22,8 +22,8 @@ const { initSupabaseSync } = useDuoState()
 const { initPushNotifications, clearAppBadge } = usePushNotifications()
 
 onMounted(() => {
-  initSupabaseSync()
   initPushNotifications()
+  initSupabaseSync()
   clearAppBadge()
 })
 </script>

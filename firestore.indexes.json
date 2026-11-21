@@ -1,0 +1,101 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "tasks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "partnership_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "wishlist_items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "partnership_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "shopping_items",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "partnership_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "nudges",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "partnership_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "meals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "partnership_id", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "partnership_doodles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "partnership_id", "order": "ASCENDING" },
+        { "fieldPath": "updated_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "events",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "partnership_id", "order": "ASCENDING" },
+        { "fieldPath": "start_time", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "milestones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "partnership_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "savings_goals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "partnership_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "savings_contributions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "partnership_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "movies",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "partnership_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "profiles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "email", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

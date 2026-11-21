@@ -587,7 +587,7 @@ onUnmounted(() => {
 
 <style scoped>
 .duo-doodle-modal {
-  --background: #f8fafc;
+  --background: #f8f9fb;
   --height: 100%;
   --width: 100%;
 }
@@ -597,8 +597,8 @@ onUnmounted(() => {
   flex-direction: column;
   height: 100%;
   width: 100%;
-  background: #f8fafc;
-  color: #0f172a;
+  background: #f8f9fb;
+  color: #1c1b19;
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
@@ -617,7 +617,7 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+  border-bottom: 1px solid rgba(229, 230, 232, 0.8);
   z-index: 20;
   flex-shrink: 0;
 }
@@ -626,13 +626,13 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  color: #334155;
+  background: var(--dn-soft);
+  border: none;
+  color: #404040;
   border-radius: 9999px;
   padding: 8px 14px;
   font-size: 13.5px;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.16s ease;
   white-space: nowrap !important;
@@ -647,7 +647,7 @@ onUnmounted(() => {
 
 .doodle-header-btn:active {
   transform: scale(0.96);
-  background: #e2e8f0;
+  background: #e5e6e8;
 }
 
 .back-btn {
@@ -661,10 +661,10 @@ onUnmounted(() => {
 }
 
 .save-btn {
-  background: #0f172a;
+  background: #1c1b19;
   border: none;
   color: #ffffff;
-  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.16);
+  box-shadow: none;
   flex-shrink: 0 !important;
   white-space: nowrap !important;
 }
@@ -677,7 +677,7 @@ onUnmounted(() => {
 
 .save-btn:active:not(:disabled) {
   transform: scale(0.96);
-  background: #1e293b;
+  background: #1c1b19;
 }
 
 .save-btn:disabled {
@@ -719,7 +719,7 @@ onUnmounted(() => {
   font-family: 'Outfit', -apple-system, sans-serif;
   font-size: 15px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   letter-spacing: -0.2px;
   white-space: nowrap !important;
   word-break: keep-all !important;
@@ -747,28 +747,28 @@ onUnmounted(() => {
 }
 
 .doodle-live-badge.live-pulse {
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  color: #0f172a;
+  background: #f2f3f5;
+  border: 1px solid #d4d4d4;
+  color: #1c1b19;
 }
 
 .doodle-live-badge.idle {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #475569;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
+  color: #545454;
 }
 
 .doodle-live-badge.offline {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #64748b;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
+  color: #737373;
 }
 
 .live-dot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background-color: #0f172a;
+  background-color: #1c1b19;
 }
 
 .idle-dot,
@@ -776,7 +776,7 @@ onUnmounted(() => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: #64748b;
+  background-color: #737373;
 }
 
 @keyframes liveBadgePulse {
@@ -790,11 +790,11 @@ onUnmounted(() => {
   position: relative;
   margin: 12px 16px;
   background-color: #ffffff;
-  background-image: radial-gradient(rgba(148, 163, 184, 0.3) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(162, 162, 162, 0.3) 1px, transparent 1px);
   background-size: 24px 24px;
   border-radius: 22px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04), inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(229, 230, 232, 0.9);
+  box-shadow: none;
   overflow: hidden;
   touch-action: none;
 }
@@ -816,21 +816,21 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  color: #94a3b8;
+  color: #a2a2a2;
   pointer-events: none;
   text-align: center;
 }
 
 .watermark-icon {
   font-size: 34px;
-  color: #cbd5e1;
+  color: #d4d4d4;
 }
 
 .doodle-empty-watermark p {
   font-size: 13px;
   font-weight: 500;
   margin: 0;
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 /* FLOATING CONTROLS */
@@ -838,8 +838,8 @@ onUnmounted(() => {
   padding: 10px 14px;
   padding-bottom: max(12px, env(safe-area-inset-bottom));
   background: #ffffff;
-  border-top: 1px solid rgba(226, 232, 240, 0.8);
-  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.04);
+  border-top: 1px solid rgba(229, 230, 232, 0.8);
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -857,7 +857,7 @@ onUnmounted(() => {
 
 .tool-mode-group {
   display: inline-flex;
-  background: #f1f5f9;
+  background: #f2f3f5;
   border-radius: 12px;
   padding: 3px;
   gap: 2px;
@@ -870,7 +870,7 @@ onUnmounted(() => {
   gap: 4px;
   background: transparent;
   border: none;
-  color: #64748b;
+  color: #737373;
   padding: 6px 9px;
   border-radius: 9px;
   font-size: 12px;
@@ -894,8 +894,8 @@ onUnmounted(() => {
 
 .doodle-tool-btn.active {
   background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
+  color: #1c1b19;
+  box-shadow: none;
 }
 
 .brush-size-group {
@@ -903,7 +903,7 @@ onUnmounted(() => {
   align-items: center;
   justify-self: center;
   max-width: 100%;
-  background: #f1f5f9;
+  background: #f2f3f5;
   border-radius: 12px;
   padding: 3px 5px;
   gap: 3px;
@@ -926,8 +926,8 @@ onUnmounted(() => {
 
 .brush-size-btn.active {
   background: #ffffff;
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
-  border: 1px solid #cbd5e1;
+  box-shadow: none;
+  border: 1px solid #d4d4d4;
 }
 
 .brush-dot-preview {
@@ -947,25 +947,25 @@ onUnmounted(() => {
 
 .eraser-size-btn.active {
   background: #ffffff;
-  border: 1.5px solid #0f172a;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+  border: 1.5px solid #1c1b19;
+  box-shadow: none;
 }
 
 .eraser-dot-preview {
   border-radius: 50%;
   display: block;
   background: #ffffff;
-  border: 1.5px dashed #64748b;
+  border: 1.5px dashed #737373;
   box-sizing: border-box;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: inset 0 1px 2px rgba(28, 27, 25, 0.05);
   transition: all 0.15s ease;
 }
 
 .eraser-size-btn.active .eraser-dot-preview {
-  border: 2px solid #0f172a;
-  background: #f1f5f9;
+  border: 2px solid #1c1b19;
+  background: #f2f3f5;
   transform: scale(1.15);
-  box-shadow: 0 0 0 1.5px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 0 0 1.5px rgba(28, 27, 25, 0.12);
 }
 
 /* ERASER INFO BAR */
@@ -975,8 +975,8 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: 10px;
   padding: 4px 8px;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
+  background: #f8f9fb;
+  border: 1px dashed #d4d4d4;
   border-radius: 12px;
   animation: fadeIn 0.18s ease;
 }
@@ -987,23 +987,23 @@ onUnmounted(() => {
   gap: 5px;
   padding: 3px 8px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   border-radius: 8px;
   font-size: 11.5px;
   font-weight: 700;
-  color: #0f172a;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  color: #1c1b19;
+  box-shadow: none;
   flex-shrink: 0;
 }
 
 .eraser-badge ion-icon {
   font-size: 14px;
-  color: #64748b;
+  color: #737373;
 }
 
 .eraser-hint-text {
   font-size: 11.5px;
-  color: #64748b;
+  color: #737373;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -1019,7 +1019,7 @@ onUnmounted(() => {
   padding: 5px 11px;
   border-radius: 8px;
   border: none;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   font-size: 11.5px;
   font-weight: 700;
@@ -1030,7 +1030,7 @@ onUnmounted(() => {
 
 .switch-to-brush-btn:active {
   transform: scale(0.96);
-  background: #1e293b;
+  background: #1c1b19;
 }
 
 .canvas-actions-group {
@@ -1044,9 +1044,9 @@ onUnmounted(() => {
   width: 33px;
   height: 33px;
   border-radius: 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #475569;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
+  color: #545454;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1058,7 +1058,7 @@ onUnmounted(() => {
 
 .action-icon-btn:active:not(:disabled) {
   transform: scale(0.92);
-  background: #e2e8f0;
+  background: #e5e6e8;
 }
 
 .action-icon-btn:disabled {
@@ -1067,13 +1067,13 @@ onUnmounted(() => {
 }
 
 .action-icon-btn.danger {
-  color: #e11d48;
-  background: #fff1f2;
-  border-color: #fecdd3;
+  color: #c2412d;
+  background: #f2f3f5;
+  border-color: #fcefec;
 }
 
 .action-icon-btn.danger:active:not(:disabled) {
-  background: #ffe4e6;
+  background: #e8e9eb;
 }
 
 /* COLORS SCROLL ROW */
@@ -1098,7 +1098,7 @@ onUnmounted(() => {
   height: 30px;
   border-radius: 50%;
   border: 2px solid #ffffff;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
+  box-shadow: none;
   cursor: pointer;
   position: relative;
   transition: transform 0.16s ease, box-shadow 0.16s ease;
@@ -1113,15 +1113,15 @@ onUnmounted(() => {
 
 .doodle-color-btn.active {
   transform: scale(1.15);
-  box-shadow: 0 0 0 2px #0f172a, 0 3px 8px rgba(15, 23, 42, 0.2);
+  box-shadow: 0 0 0 2px #1c1b19, 0 3px 8px rgba(28, 27, 25, 0.2);
 }
 
 .color-selected-check {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+  background: var(--dn-soft);
+  box-shadow: none;
 }
 
 @media (max-width: 360px) {

@@ -1,5 +1,5 @@
 import { defineEventHandler, getQuery, setHeader, createError } from 'h3'
-import { getSupabaseServerClient } from '~/server/utils/webPush'
+import { getFirebaseServerAdapter } from '~/server/utils/firebaseAdmin'
 import { checkRateLimit } from '~/server/utils/rateLimit'
 
 function formatIcsUtc(dateInput: Date | string | number): string {
@@ -66,7 +66,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const config = useRuntimeConfig(event)
-  const supabase = getSupabaseServerClient(config)
+  const supabase = getFirebaseServerAdapter() as any
 
   let eventsList: any[] = []
   let cancelledEvents: Array<{ event_id: string; cancelled_at: string }> = []

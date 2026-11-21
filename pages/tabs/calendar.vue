@@ -6,7 +6,7 @@
           <div class="header-action-row">
             <div>
               <div class="dn-header-title">
-                <span>Wspólny Terminarz</span>
+                <span>Terminarz</span>
               </div>
               <div class="header-status-line" v-if="isPartnerOnline">
                 <span class="partner-online-pill">
@@ -19,17 +19,20 @@
             <div class="header-buttons-group">
               <button
                 type="button"
-                class="header-sync-btn"
+                class="dn-header-btn dn-header-btn--icon dn-header-btn--soft"
                 @click="showSyncModal = true"
                 title="Synchronizuj z kalendarzem w telefonie, Google, Apple i Outlook"
                 aria-label="Synchronizacja kalendarza"
               >
                 <ion-icon :icon="ioniconsSyncOutline" />
-                <span>Synchronizuj</span>
               </button>
-              <button class="new-event-btn" @click="openAddModalForDate(selectedDateStr)">
+              <button
+                type="button"
+                class="dn-header-btn dn-header-btn--icon"
+                aria-label="Dodaj plan"
+                @click="openAddModalForDate(selectedDateStr)"
+              >
                 <ion-icon :icon="ioniconsAddOutline" />
-                <span>Dodaj plan</span>
               </button>
             </div>
           </div>
@@ -74,9 +77,9 @@
 
       <!-- VIEW MODE SEGMENT SWITCHER -->
       <div class="view-mode-bar">
-        <div class="mode-pills-container">
+        <div class="dn-subtabs">
           <button
-            class="mode-pill-btn"
+            type="button" class="dn-subtab"
             :class="{ active: activeViewMode === 'month' }"
             @click="activeViewMode = 'month'"
           >
@@ -84,7 +87,7 @@
             <span>Miesiąc</span>
           </button>
           <button
-            class="mode-pill-btn"
+            type="button" class="dn-subtab"
             :class="{ active: activeViewMode === 'week' }"
             @click="activeViewMode = 'week'"
           >
@@ -92,7 +95,7 @@
             <span>Tydzień</span>
           </button>
           <button
-            class="mode-pill-btn"
+            type="button" class="dn-subtab"
             :class="{ active: activeViewMode === 'agenda' }"
             @click="activeViewMode = 'agenda'"
           >
@@ -256,7 +259,6 @@
             <span>Zaplanuj</span>
           </button>
         </div>
-
 
         <!-- Events List on Selected Day (Unified Agenda Card Design) -->
         <TransitionGroup
@@ -620,7 +622,7 @@
             <!-- TITLE -->
             <div class="form-group">
               <label class="form-label">Tytuł planu *</label>
-              <ion-input
+              <ion-input aria-label="Tytuł planu"
                 v-model="modalForm.title"
                 maxlength="100"
                 placeholder="np. Kolacja we włoskiej restauracji Marcello, Wyjazd w góry..."
@@ -714,14 +716,14 @@
                     <span class="surprise-sub">Dla uśmiechu partnera!</span>
                   </div>
                 </div>
-                <ion-checkbox :checked="modalForm.isSurprise" @click.stop="modalForm.isSurprise = !modalForm.isSurprise" />
+                <ion-checkbox aria-label="Oznacz jako niespodziankę" :checked="modalForm.isSurprise" @click.stop @ionChange="modalForm.isSurprise = $event.detail.checked" />
               </div>
             </div>
 
             <!-- LOCATION -->
             <div class="form-group">
               <label class="form-label">Lokalizacja / Miejsce (opcjonalnie)</label>
-              <ion-input
+              <ion-input aria-label="Lokalizacja"
                 v-model="modalForm.location"
                 maxlength="100"
                 placeholder="np. Restauracja Marcello, Kino Muranów, Park Oliwski..."
@@ -733,7 +735,7 @@
             <!-- NOTES / WHAT TO BRING -->
             <div class="form-group">
               <label class="form-label">Notatki lub co zabrać</label>
-              <ion-textarea
+              <ion-textarea aria-label="Notatki lub co zabrać"
                 v-model="modalForm.description"
                 maxlength="500"
                 placeholder="np. Stolik zarezerwowany na 19:30, zabrać ciepły sweter..."
@@ -1540,7 +1542,7 @@ const handleRefresh = async (event: any) => {
 
 <style scoped>
 .calendar-page-content {
-  --background: #f8fafc;
+  --background: #f8f9fb;
 }
 
 .header-action-row {
@@ -1574,10 +1576,10 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  font-weight: 700;
-  color: #0f172a;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  font-weight: 500;
+  color: #1c1b19;
+  background: var(--dn-soft);
+  border: none;
   padding: 2px 8px;
   border-radius: 999px;
 }
@@ -1592,8 +1594,8 @@ const handleRefresh = async (event: any) => {
 .header-sync-btn {
   height: 34px;
   background: #ffffff;
-  color: #0f172a;
-  border: 1px solid #cbd5e1;
+  color: #1c1b19;
+  border: 1px solid #d4d4d4;
   border-radius: 10px;
   padding: 0 11px;
   font-size: 12.5px;
@@ -1602,24 +1604,24 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   gap: 5px;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-shadow: none;
   transition: all 0.15s ease;
   white-space: nowrap;
 }
 
 .header-sync-btn:hover {
-  background: #f8fafc;
-  border-color: #94a3b8;
+  background: #f8f9fb;
+  border-color: #a2a2a2;
 }
 
 .header-sync-btn:active {
   transform: scale(0.96);
-  background: #f1f5f9;
+  background: #f2f3f5;
 }
 
 .header-sync-btn ion-icon {
   font-size: 16px;
-  color: #0284c7;
+  color: #7d7d7d;
 }
 
 @media (max-width: 400px) {
@@ -1633,7 +1635,7 @@ const handleRefresh = async (event: any) => {
 
 .new-event-btn {
   height: 34px;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
   border-radius: 10px;
@@ -1644,7 +1646,7 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   gap: 5px;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+  box-shadow: none;
   transition: transform 0.15s ease, opacity 0.15s ease;
   white-space: nowrap;
   flex-shrink: 0;
@@ -1659,11 +1661,11 @@ const handleRefresh = async (event: any) => {
   margin: 12px 16px;
   padding: 16px;
   border-radius: 18px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(135deg, #1c1b19 0%, #1c1b19 100%);
   color: #ffffff;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.15);
+  box-shadow: none;
   cursor: pointer;
   transition: transform 0.2s ease;
   min-width: 0;
@@ -1695,7 +1697,7 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   gap: 5px;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
   background: rgba(255, 255, 255, 0.15);
   padding: 3px 8px;
@@ -1705,20 +1707,20 @@ const handleRefresh = async (event: any) => {
 
 .featured-countdown {
   font-size: 11px;
-  font-weight: 800;
-  background: #ffffff;
-  color: #0f172a;
+  font-weight: 500;
+  background: var(--dn-soft);
+  color: #1c1b19;
   padding: 3px 10px;
   border-radius: 999px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: none;
 }
 
 .featured-title {
   font-size: 17px;
-  font-weight: 800;
+  font-weight: 700;
   margin: 0 0 10px 0;
   line-height: 1.3;
-  color: #fff;
+  color: #ffffff;
   word-break: break-word;
   overflow-wrap: break-word;
   min-width: 0;
@@ -1752,41 +1754,6 @@ const handleRefresh = async (event: any) => {
 }
 
 /* VIEW MODE BAR */
-.view-mode-bar {
-  padding: 0 16px;
-  margin-bottom: 8px;
-}
-
-.mode-pills-container {
-  display: flex;
-  background: #f1f5f9;
-  padding: 4px;
-  border-radius: 14px;
-  gap: 4px;
-}
-
-.mode-pill-btn {
-  flex: 1;
-  background: transparent;
-  border: none;
-  border-radius: 10px;
-  padding: 7px 4px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #64748b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.mode-pill-btn.active {
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
 
 /* CATEGORY FILTER SCROLL */
 .category-filter-scroll {
@@ -1802,13 +1769,13 @@ const handleRefresh = async (event: any) => {
 }
 
 .cat-filter-chip {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--dn-soft);
+  border: none;
   border-radius: 999px;
   padding: 6px 12px;
   font-size: 12px;
-  font-weight: 700;
-  color: #475569;
+  font-weight: 500;
+  color: #545454;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1819,15 +1786,15 @@ const handleRefresh = async (event: any) => {
 }
 
 .cat-filter-chip.active {
-  background: #0f172a;
-  border-color: #0f172a;
+  background: #1c1b19;
+  border-color: #1c1b19;
   color: #ffffff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 
 .chip-count {
   font-size: 10px;
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(28, 27, 25, 0.08);
   padding: 1px 6px;
   border-radius: 999px;
 }
@@ -1858,19 +1825,19 @@ const handleRefresh = async (event: any) => {
 
 .month-label {
   font-size: 17px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   letter-spacing: -0.02em;
 }
 
 .today-chip-btn {
-  background: #f1f5f9;
-  color: #0f172a;
-  border: 1px solid #e2e8f0;
+  background: var(--dn-soft);
+  color: #1c1b19;
+  border: none;
   border-radius: 999px;
   padding: 2px 8px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -1878,9 +1845,9 @@ const handleRefresh = async (event: any) => {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #334155;
+  background: var(--dn-soft);
+  border: none;
+  color: #404040;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1896,8 +1863,8 @@ const handleRefresh = async (event: any) => {
 }
 
 .nav-arrow-btn:active {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f2f3f5;
+  color: #1c1b19;
 }
 
 /* WEEKDAYS HEADER */
@@ -1911,7 +1878,7 @@ const handleRefresh = async (event: any) => {
 .weekday-name {
   font-size: 11px;
   font-weight: 700;
-  color: #94a3b8;
+  color: #a2a2a2;
   padding: 4px 0;
 }
 
@@ -1944,28 +1911,28 @@ const handleRefresh = async (event: any) => {
 .day-number {
   font-size: 13px;
   font-weight: 700;
-  color: #1e293b;
+  color: #1c1b19;
   text-align: center;
   line-height: 1.35;
 }
 
 .day-cell.not-current-month .day-number {
-  color: #cbd5e1;
+  color: #d4d4d4;
 }
 
 .day-cell.is-today {
-  border-color: #0f172a;
-  background: #f8fafc;
+  border-color: #1c1b19;
+  background: #f8f9fb;
 }
 
 .day-cell.is-today .day-number {
-  color: #0f172a;
-  font-weight: 800;
+  color: #1c1b19;
+  font-weight: 700;
 }
 
 .day-cell.is-selected {
-  background: #0f172a !important;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
+  background: #1c1b19 !important;
+  box-shadow: none;
 }
 
 .day-cell.is-selected .day-number {
@@ -1998,8 +1965,8 @@ const handleRefresh = async (event: any) => {
 
 .more-dots-badge {
   font-size: 8px;
-  font-weight: 800;
-  color: #64748b;
+  font-weight: 700;
+  color: #737373;
   margin-left: 1px;
 }
 
@@ -2007,12 +1974,12 @@ const handleRefresh = async (event: any) => {
   color: #ffffff;
 }
 
-.dot-date { background: #0f172a; }
-.dot-trip { background: #1e293b; }
-.dot-home { background: #334155; }
-.dot-anniversary { background: #18181b; }
-.dot-work { background: #64748b; }
-.dot-other { background: #475569; }
+.dot-date { background: #1c1b19; }
+.dot-trip { background: #1c1b19; }
+.dot-home { background: #404040; }
+.dot-anniversary { background: #1c1b19; }
+.dot-work { background: #737373; }
+.dot-other { background: #545454; }
 
 /* WEEK STRIP VIEW */
 .week-strip-card {
@@ -2029,8 +1996,8 @@ const handleRefresh = async (event: any) => {
 
 .week-strip-title {
   font-size: 14px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .week-strip-grid {
@@ -2040,8 +2007,8 @@ const handleRefresh = async (event: any) => {
 }
 
 .week-day-pill {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 12px;
   padding: 8px 2px;
   display: flex;
@@ -2053,29 +2020,29 @@ const handleRefresh = async (event: any) => {
 }
 
 .week-day-pill.is-today {
-  border-color: #0f172a;
-  background: #f8fafc;
+  border-color: #1c1b19;
+  background: #f8f9fb;
 }
 
 .week-day-pill.is-selected {
-  background: #0f172a;
-  border-color: #0f172a;
+  background: #1c1b19;
+  border-color: #1c1b19;
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+  box-shadow: none;
 }
 
 .w-name {
   font-size: 11px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
   text-align: center;
   line-height: 1.35;
 }
 
 .w-num {
   font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   text-align: center;
   line-height: 1.35;
 }
@@ -2107,24 +2074,24 @@ const handleRefresh = async (event: any) => {
 
 .day-section-tag {
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
-  color: #0f172a;
+  color: #1c1b19;
   display: block;
   margin-bottom: 2px;
 }
 
 .day-card-header h3 {
   font-size: 17px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   text-transform: capitalize;
 }
 
 .day-quick-add-btn {
-  background: #f8fafc;
-  color: #0f172a;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  color: #1c1b19;
+  border: 1px solid #e5e6e8;
   padding: 6px 12px;
   border-radius: 10px;
   font-size: 12px;
@@ -2137,7 +2104,7 @@ const handleRefresh = async (event: any) => {
 }
 
 .day-quick-add-btn:active {
-  background: #f1f5f9;
+  background: #f2f3f5;
 }
 
 /* DAY EVENTS LIST */
@@ -2147,9 +2114,9 @@ const handleRefresh = async (event: any) => {
   gap: 6px;
   font-size: 11px;
   font-weight: 700;
-  color: #475569;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
+  color: #545454;
+  background: #f8f9fb;
+  border: 1px dashed #d4d4d4;
   border-radius: 8px;
   padding: 6px 12px;
   margin-bottom: 12px;
@@ -2169,14 +2136,14 @@ const handleRefresh = async (event: any) => {
   --padding-bottom: 12px;
   border-radius: 16px;
   margin-bottom: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   border-left-width: 4px;
   display: flex;
   align-items: flex-start;
   gap: 12px;
   min-width: 0;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  box-shadow: none;
 }
 
 .calendar-event-item ion-label {
@@ -2187,21 +2154,21 @@ const handleRefresh = async (event: any) => {
 
 .calendar-event-item.is-event-done {
   opacity: 0.65;
-  --background: #f8fafc;
+  --background: #f8f9fb;
 }
 
-.border-date { border-left-color: #0f172a; }
-.border-trip { border-left-color: #1e293b; }
-.border-home { border-left-color: #334155; }
-.border-anniversary { border-left-color: #18181b; }
-.border-work { border-left-color: #64748b; }
-.border-other { border-left-color: #475569; }
+.border-date { border-left-color: #1c1b19; }
+.border-trip { border-left-color: #1c1b19; }
+.border-home { border-left-color: #404040; }
+.border-anniversary { border-left-color: #1c1b19; }
+.border-work { border-left-color: #737373; }
+.border-other { border-left-color: #545454; }
 
 .event-done-toggle {
   background: none;
   border: none;
   font-size: 24px;
-  color: #94a3b8;
+  color: #a2a2a2;
   cursor: pointer;
   padding: 0;
   margin-top: 2px;
@@ -2217,7 +2184,7 @@ const handleRefresh = async (event: any) => {
 }
 
 .event-done-toggle.done {
-  color: #16a34a;
+  color: #8e8e8e;
 }
 
 .event-body {
@@ -2255,19 +2222,19 @@ const handleRefresh = async (event: any) => {
   flex-shrink: 0;
 }
 
-.cat-date { background: #f1f5f9; color: #0f172a; border: 1px solid #e2e8f0; }
-.cat-trip { background: #f8fafc; color: #1e293b; border: 1px solid #e2e8f0; }
-.cat-home { background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
-.cat-anniversary { background: #f8fafc; color: #18181b; border: 1px solid #e2e8f0; }
-.cat-work { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
-.cat-other { background: #f8fafc; color: #0f172a; border: 1px solid #e2e8f0; }
+.cat-date { background: #f2f3f5; color: #1c1b19; border: 1px solid #e5e6e8; }
+.cat-trip { background: #f8f9fb; color: #1c1b19; border: 1px solid #e5e6e8; }
+.cat-home { background: #f2f3f5; color: #404040; border: 1px solid #e5e6e8; }
+.cat-anniversary { background: #f8f9fb; color: #1c1b19; border: 1px solid #e5e6e8; }
+.cat-work { background: #f2f3f5; color: #545454; border: 1px solid #e5e6e8; }
+.cat-other { background: #f8f9fb; color: #1c1b19; border: 1px solid #e5e6e8; }
 
 .event-time-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #f1f5f9;
-  color: #334155;
+  background: #f2f3f5;
+  color: #404040;
   font-size: 11px;
   font-weight: 700;
   padding: 3px 8px;
@@ -2278,20 +2245,20 @@ const handleRefresh = async (event: any) => {
 
 .event-time-chip ion-icon {
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
 }
 
 .time-chip-end {
-  color: #64748b;
+  color: #737373;
   font-weight: 600;
 }
 
 .surprise-tag {
   font-size: 11px;
-  font-weight: 800;
-  background: #fdf2f8;
-  color: #db2777;
-  border: 1px solid #fbcfe8;
+  font-weight: 500;
+  background: var(--dn-soft);
+  color: var(--dn-ink);
+  border: none;
   padding: 2px 7px;
   border-radius: 999px;
   display: inline-flex;
@@ -2310,7 +2277,7 @@ const handleRefresh = async (event: any) => {
 
 .edit-btn, .delete-btn {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   border-radius: 8px;
   width: 30px;
   height: 30px;
@@ -2318,22 +2285,22 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   justify-content: center;
   font-size: 14px;
-  color: #64748b;
+  color: #737373;
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  box-shadow: none;
 }
 
 .edit-btn:hover {
-  color: #0f172a;
-  border-color: #cbd5e1;
-  background: #f8fafc;
+  color: #1c1b19;
+  border-color: #d4d4d4;
+  background: #f8f9fb;
 }
 
 .delete-btn:hover {
-  color: #ef4444;
-  border-color: #fecaca;
-  background: #fef2f2;
+  color: #d96856;
+  border-color: #fcefec;
+  background: #f3f4f6;
 }
 
 .event-title-wrap {
@@ -2345,7 +2312,7 @@ const handleRefresh = async (event: any) => {
   margin: 0;
   font-size: 15px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   line-height: 1.35;
   word-break: break-word;
   overflow-wrap: break-word;
@@ -2353,7 +2320,7 @@ const handleRefresh = async (event: any) => {
 
 .item-event-title.strike {
   text-decoration: line-through;
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 .event-extra-details {
@@ -2365,7 +2332,7 @@ const handleRefresh = async (event: any) => {
 
 .detail-location-link {
   font-size: 12px;
-  color: #475569;
+  color: #545454;
   font-weight: 600;
   text-decoration: none;
   display: inline-flex;
@@ -2374,21 +2341,21 @@ const handleRefresh = async (event: any) => {
   word-break: break-word;
   max-width: 100%;
   padding: 3px 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 6px;
   transition: all 0.15s ease;
 }
 
 .detail-location-link:hover {
-  background: #f1f5f9;
-  color: #0f172a;
-  border-color: #cbd5e1;
+  background: #f2f3f5;
+  color: #1c1b19;
+  border-color: #d4d4d4;
 }
 
 .location-icon {
   font-size: 13px;
-  color: #64748b;
+  color: #737373;
   flex-shrink: 0;
 }
 
@@ -2399,7 +2366,7 @@ const handleRefresh = async (event: any) => {
 
 .open-icon {
   font-size: 11px;
-  color: #94a3b8;
+  color: #a2a2a2;
   flex-shrink: 0;
   margin-left: 2px;
 }
@@ -2408,8 +2375,8 @@ const handleRefresh = async (event: any) => {
   min-width: 0;
   width: 100%;
   max-width: 100%;
-  background: #f8fafc;
-  border-left: 2.5px solid #cbd5e1;
+  background: #f8f9fb;
+  border-left: 2.5px solid #d4d4d4;
   border-radius: 4px 6px 6px 4px;
   padding: 6px 10px;
   box-sizing: border-box;
@@ -2420,7 +2387,7 @@ const handleRefresh = async (event: any) => {
 .event-description-text {
   margin: 0;
   font-size: 12px;
-  color: #475569;
+  color: #545454;
   line-height: 1.45;
   white-space: pre-line;
   word-break: break-word;
@@ -2455,8 +2422,8 @@ const handleRefresh = async (event: any) => {
   width: 54px;
   height: 54px;
   border-radius: 18px;
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f2f3f5;
+  color: #1c1b19;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2466,20 +2433,20 @@ const handleRefresh = async (event: any) => {
 .empty-day-state h4 {
   font-size: 15px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   margin: 0;
 }
 
 .empty-day-state p {
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
   margin: 4px 0 14px 0;
 }
 
 /* QUICK IDEAS */
 .quick-ideas-box {
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
+  background: #f8f9fb;
+  border: 1px dashed #d4d4d4;
   border-radius: 14px;
   padding: 12px;
   margin-bottom: 14px;
@@ -2488,8 +2455,8 @@ const handleRefresh = async (event: any) => {
 
 .ideas-header {
   font-size: 11px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -2503,13 +2470,13 @@ const handleRefresh = async (event: any) => {
 }
 
 .idea-chip {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--dn-soft);
+  border: none;
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 11px;
-  font-weight: 600;
-  color: #334155;
+  font-weight: 500;
+  color: #404040;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -2517,8 +2484,8 @@ const handleRefresh = async (event: any) => {
 }
 
 .idea-chip:active {
-  background: #f1f5f9;
-  border-color: #0f172a;
+  background: #f2f3f5;
+  border-color: #1c1b19;
 }
 
 .plan-btn {
@@ -2537,9 +2504,9 @@ const handleRefresh = async (event: any) => {
 
 .agenda-section-title {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
-  color: #0f172a;
+  color: #1c1b19;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2548,7 +2515,7 @@ const handleRefresh = async (event: any) => {
 }
 
 .agenda-section-title.completed-title {
-  color: #16a34a;
+  color: #8e8e8e;
 }
 
 .agenda-cards-list {
@@ -2564,11 +2531,11 @@ const handleRefresh = async (event: any) => {
 .agenda-card {
   padding: 14px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   border-left-width: 4px;
   cursor: pointer;
   border-radius: 18px;
-  box-shadow: var(--dn-card-shadow);
+  box-shadow: none;
   min-width: 0;
   overflow: hidden;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -2580,12 +2547,12 @@ const handleRefresh = async (event: any) => {
 
 .agenda-card.is-event-done {
   opacity: 0.72;
-  background: #f8fafc;
+  background: #f8f9fb;
 }
 
 .agenda-card.completed-agenda-card {
   opacity: 0.75;
-  border-left-color: #16a34a;
+  border-left-color: #8e8e8e;
 }
 
 .agenda-card-top {
@@ -2614,16 +2581,16 @@ const handleRefresh = async (event: any) => {
 }
 
 .upcoming-cat-badge.completed-badge {
-  background: #f0fdf4;
-  color: #16a34a;
+  background: #f8f9fb;
+  color: #8e8e8e;
 }
 
 .countdown-badge {
   font-size: 10px;
-  font-weight: 800;
-  background: #f1f5f9;
-  color: #0f172a;
-  border: 1px solid #e2e8f0;
+  font-weight: 500;
+  background: var(--dn-soft);
+  color: #1c1b19;
+  border: none;
   padding: 2px 8px;
   border-radius: 999px;
   display: inline-flex;
@@ -2635,7 +2602,7 @@ const handleRefresh = async (event: any) => {
 .agenda-title {
   font-size: 15px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   margin: 0 0 6px 0;
   word-break: break-word;
   overflow-wrap: anywhere;
@@ -2645,7 +2612,7 @@ const handleRefresh = async (event: any) => {
 
 .agenda-title.strike {
   text-decoration: line-through;
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 .agenda-meta-row {
@@ -2654,7 +2621,7 @@ const handleRefresh = async (event: any) => {
   gap: 12px;
   flex-wrap: wrap;
   font-size: 11.5px;
-  color: #64748b;
+  color: #737373;
   margin-bottom: 8px;
   min-width: 0;
 }
@@ -2667,7 +2634,7 @@ const handleRefresh = async (event: any) => {
 }
 
 .meta-loc {
-  color: #0f172a;
+  color: #1c1b19;
   text-decoration: none;
   font-weight: 600;
   transition: color 0.15s ease;
@@ -2675,7 +2642,7 @@ const handleRefresh = async (event: any) => {
 
 .meta-loc:hover {
   text-decoration: underline;
-  color: #1e293b;
+  color: #1c1b19;
 }
 
 .open-icon-mini {
@@ -2686,7 +2653,7 @@ const handleRefresh = async (event: any) => {
 
 .agenda-desc {
   font-size: 12px;
-  color: #475569;
+  color: #545454;
   margin: 2px 0 10px 0;
   line-height: 1.45;
   white-space: pre-line;
@@ -2696,8 +2663,8 @@ const handleRefresh = async (event: any) => {
   max-width: 100%;
   max-height: 180px;
   overflow-y: auto;
-  background: #f8fafc;
-  border-left: 2.5px solid #cbd5e1;
+  background: #f8f9fb;
+  border-left: 2.5px solid #d4d4d4;
   border-radius: 4px 8px 8px 4px;
   padding: 7px 10px;
   box-sizing: border-box;
@@ -2708,7 +2675,7 @@ const handleRefresh = async (event: any) => {
   justify-content: space-between;
   align-items: center;
   padding-top: 8px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #f2f3f5;
   gap: 8px;
 }
 
@@ -2735,8 +2702,8 @@ const handleRefresh = async (event: any) => {
 }
 
 .icon-action-btn {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 8px;
   width: 30px;
   height: 30px;
@@ -2744,39 +2711,39 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   justify-content: center;
   font-size: 15px;
-  color: #475569;
+  color: #545454;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .icon-action-btn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
-  border-color: #cbd5e1;
+  background: #f2f3f5;
+  color: #1c1b19;
+  border-color: #d4d4d4;
 }
 
 .icon-action-btn.done-btn {
-  color: #16a34a;
-  background: #f0fdf4;
-  border-color: #bbf7d0;
+  color: #8e8e8e;
+  background: #f8f9fb;
+  border-color: #e7e8ea;
 }
 
 .icon-action-btn.delete:hover {
-  color: #ef4444;
-  border-color: #fecaca;
-  background: #fef2f2;
+  color: #d96856;
+  border-color: #fcefec;
+  background: #f3f4f6;
 }
 
 .empty-agenda-card {
   text-align: center;
   padding: 30px 16px;
-  color: #64748b;
+  color: #737373;
 }
 
 .empty-agenda-card h3 {
   font-size: 16px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   margin: 10px 0 4px 0;
 }
 
@@ -2798,16 +2765,16 @@ const handleRefresh = async (event: any) => {
 }
 
 .modal-ideas-row {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 12px;
   padding: 10px 12px;
 }
 
 .modal-ideas-label {
   font-size: 11px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   display: block;
   margin-bottom: 6px;
 }
@@ -2820,13 +2787,13 @@ const handleRefresh = async (event: any) => {
 }
 
 .idea-pill-btn {
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
+  background: var(--dn-soft);
+  border: none;
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 11px;
-  font-weight: 700;
-  color: #0f172a;
+  font-weight: 500;
+  color: #1c1b19;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -2834,32 +2801,21 @@ const handleRefresh = async (event: any) => {
   cursor: pointer;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.form-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
 .modal-input {
-  --background: #f8fafc;
+  --background: var(--dn-field);
   --padding-start: 14px;
-  --border-radius: 12px;
-  border-radius: 12px;
+  --border-radius: 14px;
+  border-radius: 14px;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
-  font-size: 14px;
+  border: 1px solid var(--dn-field-line);
+  font-size: 16px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  min-height: 52px;
 }
 
 .modal-input:focus-within {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+  border-color: var(--dn-ink);
+  box-shadow: 0 0 0 3px rgba(28, 27, 25, 0.06);
 }
 
 .category-grid {
@@ -2869,8 +2825,8 @@ const handleRefresh = async (event: any) => {
 }
 
 .cat-select-btn {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 12px;
   padding: 10px 4px;
   display: flex;
@@ -2878,13 +2834,13 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   gap: 6px;
   cursor: pointer;
-  color: #475569;
+  color: #545454;
   transition: all 0.2s ease;
 }
 
 .cat-select-btn.active {
-  background: #0f172a;
-  border-color: #0f172a;
+  background: #1c1b19;
+  border-color: #1c1b19;
   color: #ffffff;
 }
 
@@ -2896,13 +2852,13 @@ const handleRefresh = async (event: any) => {
 .custom-datetime {
   border-radius: 18px;
   background: #ffffff;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid #e5e6e8;
   max-width: 100%;
   width: 100%;
   margin: 0 auto;
   display: flex;
   justify-content: center;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  box-shadow: none;
 }
 
 .custom-datetime.time-only {
@@ -2943,20 +2899,20 @@ const handleRefresh = async (event: any) => {
 
 .planner-chip {
   flex: 1;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--dn-soft);
+  border: none;
   border-radius: 999px;
   padding: 8px 6px;
   font-size: 12px;
-  font-weight: 700;
-  color: #475569;
+  font-weight: 500;
+  color: #545454;
   cursor: pointer;
   text-align: center;
 }
 
 .planner-chip.active {
-  background: #0f172a;
-  border-color: #0f172a;
+  background: #1c1b19;
+  border-color: #1c1b19;
   color: #ffffff;
 }
 
@@ -2964,16 +2920,16 @@ const handleRefresh = async (event: any) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #fdf2f8;
-  border: 1px solid #fbcfe8;
+  background: #f3f4f6;
+  border: 1px solid #dbdbdb;
   border-radius: 14px;
   padding: 10px 14px;
   cursor: pointer;
 }
 
 .surprise-toggle-card.active {
-  background: #fce7f3;
-  border-color: #ec4899;
+  background: #ebecee;
+  border-color: #888888;
 }
 
 .surprise-left {
@@ -2986,7 +2942,7 @@ const handleRefresh = async (event: any) => {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #f472b6;
+  background: #9f9f9f;
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -2996,13 +2952,13 @@ const handleRefresh = async (event: any) => {
 .surprise-title {
   font-size: 13px;
   font-weight: 700;
-  color: #be185d;
+  color: #636363;
   display: block;
 }
 
 .surprise-sub {
   font-size: 11px;
-  color: #db2777;
+  color: #757575;
 }
 
 .submit-btn {
@@ -3036,18 +2992,18 @@ const handleRefresh = async (event: any) => {
 }
 
 .icon-action-btn.sync-action-btn {
-  color: #0284c7;
+  color: #7d7d7d;
 }
 
 .icon-action-btn.sync-action-btn:hover {
-  background: #e0f2fe;
-  border-color: #bae6fd;
+  background: #edeef0;
+  border-color: #dfdfdf;
 }
 
 /* Modal sync box in event edit modal */
 .modal-sync-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 12px;
   padding: 10px 12px;
   margin-bottom: 16px;
@@ -3057,7 +3013,7 @@ const handleRefresh = async (event: any) => {
   display: block;
   font-size: 11px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
   margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -3075,11 +3031,11 @@ const handleRefresh = async (event: any) => {
   gap: 5px;
   padding: 6px 10px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   background: #ffffff;
   font-size: 12px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -3089,18 +3045,66 @@ const handleRefresh = async (event: any) => {
 }
 
 .modal-sync-chip.google {
-  color: #2563eb;
-  background: #eff6ff;
-  border-color: #bfdbfe;
+  color: #6d6d6d;
+  background: #f3f4f6;
+  border-color: #d8d8d8;
 }
 
 .modal-sync-chip.apple {
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .modal-sync-chip.outlook {
-  color: #0284c7;
-  background: #f0fdf4;
-  border-color: #bbf7d0;
+  color: #7d7d7d;
+  background: #f8f9fb;
+  border-color: #e7e8ea;
+}
+
+/* ===== Beige accent: featured event card ===== */
+.featured-hero-card {
+  background: var(--dn-cream) !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--dn-ink) !important;
+}
+
+.featured-hero-card .hero-glow-bg {
+  display: none !important;
+}
+
+.featured-hero-card .featured-tag {
+  background: transparent !important;
+  padding: 0 !important;
+  color: var(--dn-cream-ink) !important;
+  letter-spacing: 0.04em;
+}
+
+.featured-hero-card .featured-countdown {
+  background: var(--dn-ink) !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.featured-hero-card .featured-title {
+  font-family: var(--dn-serif);
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--dn-ink) !important;
+}
+
+.featured-hero-card .featured-badge {
+  background: #ffffff !important;
+  color: var(--dn-ink) !important;
+  border: none !important;
+}
+
+.featured-hero-card .featured-time,
+.featured-hero-card .featured-loc {
+  color: var(--dn-cream-ink) !important;
+}
+
+.empty-day-icon {
+  background: var(--dn-cream) !important;
+  color: var(--dn-cream-ink) !important;
 }
 </style>

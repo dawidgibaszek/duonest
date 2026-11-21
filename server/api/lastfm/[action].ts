@@ -1,58 +1,36 @@
-import { getMethod, getQuery, getRequestHeaders, readBody, setResponseHeaders, setResponseStatus } from 'h3'
-import { handler as callbackHandler } from '../../../netlify/functions/lastfm-callback'
-import { handler as connectHandler } from '../../../netlify/functions/lastfm-connect'
-import { handler as disconnectHandler } from '../../../netlify/functions/lastfm-disconnect'
-import { handler as playbackHandler } from '../../../netlify/functions/lastfm-playback'
-import { handler as startHandler } from '../../../netlify/functions/lastfm-start'
-import { handler as visibilityHandler } from '../../../netlify/functions/lastfm-visibility'
-import { handler as serviceHandler } from '../../../netlify/functions/lastfm-service'
+import { defineEventHandler, getMethod, getRequestHeader, readBody, setResponseHeader, setResponseStatus } from 'h3'
+import { getFirebaseAdminDb, requireFirebaseUser } from '~/server/utils/firebaseAdmin'
+import { resolveCallerProfile } from '~/server/utils/duoAccount'
+import { handleMusicAction, isMusicAction } from '~/server/utils/musicCore'
 
-const handlers: Record<string, (event: any) => Promise<any>> = {
-  callback: callbackHandler,
-  connect: connectHandler,
-  disconnect: disconnectHandler,
-  playback: playbackHandler,
-  service: serviceHandler,
-  start: startHandler,
-  status: playbackHandler,
-  visibility: visibilityHandler
-}
-
-export default defineEventHandler(async (request) => {
-  const action = request.context.params?.action || ''
-  const lastfmHandler = handlers[action]
-
-  if (!lastfmHandler) {
-    setResponseStatus(request, 404)
-    return { success: false, error: 'Last.fm endpoint not found' }
+/** /api/lastfm/:action – Last.fm music activity (see server/utils/musicCore.ts) */
+export default defineEventHandler(async (event) => {
+  const action = event.context.params?.action || ''
+  setResponseHeader(event, 'Cache-Control', 'no-store')
+  if (!isMusicAction('lastfm', action)) {
+    setResponseStatus(event, 404)
+    return { success: false, error: 'Music endpoint not found' }
   }
 
-  const body = ['POST', 'PUT', 'PATCH'].includes(getMethod(request))
-    ? await readBody(request)
-    : undefined
-
-  const result = await lastfmHandler({
-    httpMethod: getMethod(request),
-    headers: getRequestHeaders(request),
-    queryStringParameters: getQuery(request),
-    body: body === undefined ? undefined : JSON.stringify(body)
-  })
-
-  if (result?.headers) {
-    setResponseHeaders(request, result.headers)
-  }
-  if (result?.statusCode) {
-    setResponseStatus(request, result.statusCode)
+  const user = await requireFirebaseUser(event)
+  const db = getFirebaseAdminDb()
+  const profile = await resolveCallerProfile(db, user)
+  if (!profile) {
+    setResponseStatus(event, 403)
+    return { success: false, error: 'No profile linked to account' }
   }
 
-  if (typeof result?.body === 'string') {
-    try {
-      return JSON.parse(result.body)
-    } catch {
-      return result.body
-    }
-  }
-
-  return result?.body || result
+  const method = getMethod(event)
+  const body = method === 'POST' ? await readBody(event).catch(() => ({})) : undefined
+  const result = await handleMusicAction(
+    db,
+    { id: profile.id, partnership_id: profile.partnership_id || null },
+    'lastfm',
+    action,
+    method,
+    body,
+    getRequestHeader(event, 'origin')
+  )
+  setResponseStatus(event, result.status)
+  return result.body
 })
-

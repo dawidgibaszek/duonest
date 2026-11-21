@@ -3,11 +3,20 @@
     <ion-header :translucent="true">
       <ion-toolbar>
         <div class="dn-page-header">
-          <div class="dn-header-title">
-            <span>Filmy & Seriale</span>
-            <span class="count-chip" v-if="plannedCount > 0">{{ plannedCount }}</span>
+          <div class="header-action-row">
+            <div class="dn-header-title">
+              <span>Filmy</span>
+              <span class="count-chip" v-if="plannedCount > 0">{{ plannedCount }}</span>
+            </div>
+            <button
+              type="button"
+              class="dn-header-btn dn-header-btn--icon"
+              aria-label="Dodaj film lub serial"
+              @click="openSearchModal"
+            >
+              <ion-icon :icon="ioniconsAddOutline" />
+            </button>
           </div>
-          <p class="dn-header-subtitle">Wspólna lista seansów, maratony i Wasze recenzje</p>
         </div>
       </ion-toolbar>
 
@@ -19,7 +28,7 @@
             class="main-tab-pill active"
           >
             <ion-icon :icon="ioniconsFilmOutline" />
-            <span>Filmy & Seriale</span>
+            <span>Filmy i seriale</span>
             <span class="pill-count-chip" v-if="plannedCount > 0">{{ plannedCount }}</span>
           </button>
 
@@ -29,7 +38,7 @@
             @click="switchToWishlist"
           >
             <ion-icon :icon="ioniconsGiftOutline" />
-            <span>Wishlista</span>
+            <span>Lista życzeń</span>
             <span class="pill-count-chip" v-if="uncompletedWishlistCount > 0">{{ uncompletedWishlistCount }}</span>
           </button>
         </div>
@@ -121,7 +130,7 @@
               :class="{ active: activeMediaTypeFilter === mt.id }"
               @click="activeMediaTypeFilter = mt.id"
             >
-              <span>{{ mt.emoji }} {{ mt.label }}</span>
+              <span>{{ mt.label }}</span>
             </button>
           </div>
 
@@ -155,7 +164,7 @@
           <div
             v-for="movie in filteredMovies"
             :key="movie.id"
-            class="dn-card movie-card"
+            class="mv-row"
             :class="{
               'is-watched': movie.status === 'watched',
               'is-watching': movie.status === 'watching',
@@ -163,255 +172,81 @@
               'dn-item-deleting': deletingMovieIds.has(movie.id)
             }"
           >
-            <!-- TOP SECTION: POSTER & MAIN INFO -->
-            <div class="movie-card-main">
-              <!-- Poster -->
-              <div class="poster-container" @click="openMovieDetailsModal(movie)">
-                <img
-                  v-if="movie.poster_path"
-                  :src="movie.poster_path"
-                  :alt="movie.title"
-                  class="movie-poster-img"
-                  loading="lazy"
-                />
-                <div v-else class="poster-placeholder">
-                  <ion-icon :icon="ioniconsFilmOutline" />
-                  <span>{{ movie.title }}</span>
-                </div>
+            <button type="button" class="mv-poster" @click="openMovieDetailsModal(movie)" :aria-label="movie.title">
+              <img v-if="movie.poster_path" :src="movie.poster_path" :alt="movie.title" loading="lazy" />
+              <ion-icon v-else :icon="ioniconsFilmOutline" />
+            </button>
 
-                <!-- Badges over poster -->
-                <div class="poster-overlay-badges">
-                  <span class="type-tag" :class="'type-' + movie.media_type">
-                    {{ getMediaTypeLabel(movie.media_type) }}
-                  </span>
-                  <span v-if="movie.vote_average" class="tmdb-score-tag">
-                    <ion-icon :icon="ioniconsStar" />
-                    {{ movie.vote_average }}
-                  </span>
-                </div>
+            <div class="mv-body">
+              <button type="button" class="mv-title" @click="openMovieDetailsModal(movie)">{{ movie.title }}</button>
+              <span class="mv-meta">
+                {{ getMediaTypeLabel(movie.media_type) }}<template v-if="movie.release_year"> · {{ movie.release_year }}</template><template v-if="movie.genres && movie.genres.length"> · {{ movie.genres.slice(0, 2).join(', ') }}</template>
+              </span>
+
+              <!-- Status line -->
+              <div class="mv-status-row">
+                <span class="mv-status" :class="'is-' + movie.status">{{ getStatusLabel(movie.status) }}</span>
+                <span v-if="movie.vote_average" class="mv-score">
+                  <ion-icon :icon="ioniconsStar" />{{ movie.vote_average }}
+                </span>
+                <span v-if="movie.watched_at && movie.status === 'watched'" class="mv-date">{{ formatWatchedDate(movie.watched_at) }}</span>
               </div>
 
-              <!-- Meta Column -->
-              <div class="movie-meta-col">
-                <div class="title-row">
-                  <h3 class="movie-title" @click="openMovieDetailsModal(movie)">{{ movie.title }}</h3>
-                  <button type="button" class="more-menu-btn" @click="confirmDeleteMovie(movie)" title="Usuń z kolekcji">
-                    <ion-icon :icon="ioniconsTrashOutline" />
-                  </button>
-                </div>
-
-                <p v-if="movie.original_title && movie.original_title !== movie.title" class="movie-original-title">
-                  {{ movie.original_title }}
-                </p>
-
-                <div class="movie-sub-info">
-                  <span v-if="movie.release_year" class="year-tag">{{ movie.release_year }}</span>
-                  <span v-if="movie.release_year && movie.genres && movie.genres.length > 0" class="sub-info-bullet">•</span>
-                  <span v-if="movie.genres && movie.genres.length > 0" class="genres-text">
-                    {{ movie.genres.slice(0, 2).join(' • ') }}
-                  </span>
-                </div>
-
-                <!-- Status Badge -->
-                <div class="status-pill-row">
-                  <span class="status-pill" :class="'status-' + movie.status">
-                    <span class="status-dot"></span>
-                    {{ getStatusLabel(movie.status) }}
-                  </span>
-                  <span
-                    v-if="movie.status === 'watching' && isSeries(movie)"
-                    class="series-ep-pill"
-                    @click.stop="openEpisodeModal(movie)"
-                    title="Zmień odcinek"
-                  >
-                    <ion-icon :icon="ioniconsTvOutline" />
-                    <span>S{{ movie.last_watched_season || 1 }}:E{{ movie.last_watched_episode || 1 }}</span>
-                  </span>
-                  <span v-if="movie.watched_at && movie.status === 'watched'" class="watched-date-meta">
-                    {{ formatWatchedDate(movie.watched_at) }}
-                  </span>
-                </div>
-
-                <!-- Overview Excerpt -->
-                <p v-if="movie.overview" class="movie-overview-excerpt">
-                  {{ movie.overview }}
-                </p>
-              </div>
-            </div>
-
-            <!-- SERIES PROGRESS TRACKER (Visible when currently watching TV or Anime) -->
-            <div v-if="movie.status === 'watching' && isSeries(movie)" class="series-card-tracker">
-              <div class="series-tracker-left" @click="openEpisodeModal(movie)">
-                <div class="series-tracker-icon">
-                  <ion-icon :icon="ioniconsTvOutline" />
-                </div>
-                <div class="series-tracker-meta">
-                  <span class="series-tracker-label">Ostatnio obejrzany</span>
-                  <div class="series-tracker-badge">
-                    <span class="tracker-season">Sezon {{ movie.last_watched_season || 1 }}</span>
-                    <span class="tracker-dot">•</span>
-                    <span class="tracker-episode">Odcinek {{ movie.last_watched_episode || 1 }}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="series-tracker-controls">
+              <!-- Series episode stepper -->
+              <div v-if="movie.status === 'watching' && isSeries(movie)" class="mv-episode">
+                <button type="button" class="mv-ep-label" @click="openEpisodeModal(movie)">
+                  S{{ movie.last_watched_season || 1 }} · E{{ movie.last_watched_episode || 1 }}
+                </button>
                 <button
                   type="button"
-                  class="tracker-btn tracker-btn-minus"
-                  title="Poprzedni odcinek"
+                  class="mv-ep-btn"
+                  aria-label="Poprzedni odcinek"
                   :disabled="(movie.last_watched_episode || 1) <= 1"
                   @click.stop="decrementEpisode(movie)"
                 >
                   <ion-icon :icon="ioniconsRemove" />
                 </button>
-
-                <button
-                  type="button"
-                  class="tracker-btn tracker-btn-edit"
-                  title="Zmień odcinek"
-                  @click.stop="openEpisodeModal(movie)"
-                >
-                  <ion-icon :icon="ioniconsCreateOutline" />
-                </button>
-
-                <button
-                  type="button"
-                  class="tracker-btn tracker-btn-plus"
-                  title="Następny odcinek (+1)"
-                  @click.stop="incrementEpisode(movie)"
-                >
+                <button type="button" class="mv-ep-btn is-plus" aria-label="Następny odcinek" @click.stop="incrementEpisode(movie)">
                   <ion-icon :icon="ioniconsAdd" />
-                  <span>+1</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- REVIEWS SECTION (Visible especially for watched items or when reviews exist) -->
-            <div v-if="movie.status === 'watched' || hasReviews(movie)" class="reviews-section-box">
-              <div class="reviews-header-bar">
-                <div class="duo-score-chip" v-if="getDuoAverageRating(movie)">
-                  <ion-icon :icon="ioniconsStar" class="star-gold" />
-                  <span class="duo-score-val">{{ getDuoAverageRating(movie) }}</span>
-                  <span class="duo-score-sub">/ 10 Wasza ocena</span>
-                </div>
-                <div v-else class="duo-score-chip not-rated-chip">
-                  <ion-icon :icon="ioniconsChatbubbleEllipsesOutline" />
-                  <span>Brak recenzji</span>
-                </div>
-
-                <button
-                  type="button"
-                  class="add-review-btn"
-                  @click="openReviewModal(movie)"
-                >
-                  <ion-icon :icon="hasUserReviewed(movie) ? ioniconsCreateOutline : ioniconsStarOutline" />
-                  <span>{{ hasUserReviewed(movie) ? 'Edytuj recenzję' : 'Oceń seans' }}</span>
                 </button>
               </div>
 
-              <!-- Two Review Cards (Ty i Partner) -->
-              <div class="reviews-couple-grid">
-                <!-- User 1 Review (Ty) -->
-                <div
-                  class="review-bubble bubble-mine"
-                  :class="{ 'empty-bubble': !getUserReview(movie) }"
-                  :style="{ borderLeftColor: currentUserAccentColor }"
-                >
-                  <div class="review-user-header">
-                    <div class="avatar-circle-sm" :style="{ backgroundColor: currentUserAccentColor }">
-                      <span>{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
-                    </div>
-                    <span class="review-author-name">{{ currentUser.name || 'Ty' }}</span>
-                    <span v-if="getUserReview(movie)" class="user-score-badge">
-                      <ion-icon :icon="ioniconsStar" />
-                      {{ getUserReview(movie)?.rating }}/10
-                    </span>
-                  </div>
-
-                  <p v-if="getUserReview(movie)?.comment" class="review-comment-text">
-                    "{{ getUserReview(movie)?.comment }}"
-                  </p>
-                  <p v-else-if="getUserReview(movie)" class="review-comment-empty">
-                    Ocena: {{ getUserReview(movie)?.rating }}/10 (brak notatki)
-                  </p>
-                  <div v-else class="review-placeholder" @click="openReviewModal(movie)">
-                    <ion-icon :icon="ioniconsAddOutline" />
-                    <span>Dodaj swoją ocenę</span>
-                  </div>
-                </div>
-
-                <!-- User 2 Review (Partner) -->
-                <div
-                  class="review-bubble bubble-theirs"
-                  :class="{ 'empty-bubble': !getPartnerReview(movie) }"
-                  :style="{ borderLeftColor: partnerUserAccentColor }"
-                >
-                  <div class="review-user-header">
-                    <div class="avatar-circle-sm" :style="{ backgroundColor: partnerUserAccentColor }">
-                      <span>{{ partnerUser ? (partnerUser.name || 'P').charAt(0).toUpperCase() : '?' }}</span>
-                    </div>
-                    <span class="review-author-name">{{ partnerUser?.name || 'Partner' }}</span>
-                    <span v-if="getPartnerReview(movie)" class="user-score-badge partner-badge">
-                      <ion-icon :icon="ioniconsStar" />
-                      {{ getPartnerReview(movie)?.rating }}/10
-                    </span>
-                  </div>
-
-                  <p v-if="getPartnerReview(movie)?.comment" class="review-comment-text">
-                    "{{ getPartnerReview(movie)?.comment }}"
-                  </p>
-                  <p v-else-if="getPartnerReview(movie)" class="review-comment-empty">
-                    Ocena: {{ getPartnerReview(movie)?.rating }}/10 (brak notatki)
-                  </p>
-                  <p v-else class="review-waiting-note">
-                    Czeka na ocenę {{ partnerUser?.name || 'partnera' }}...
-                  </p>
-                </div>
-              </div>
+              <!-- Couple ratings -->
+              <button
+                v-if="movie.status === 'watched' || hasReviews(movie)"
+                type="button"
+                class="mv-ratings"
+                @click="openReviewModal(movie)"
+              >
+                <span class="mv-rate">
+                  <span class="mv-rate-av" :style="{ backgroundColor: currentUserAccentColor }">{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
+                  {{ getUserReview(movie) ? getUserReview(movie)?.rating + '/10' : 'Oceń' }}
+                </span>
+                <span class="mv-rate">
+                  <span class="mv-rate-av" :style="{ backgroundColor: partnerUserAccentColor }">{{ partnerUser ? (partnerUser.name || 'P').charAt(0).toUpperCase() : '?' }}</span>
+                  {{ getPartnerReview(movie) ? getPartnerReview(movie)?.rating + '/10' : '—' }}
+                </span>
+                <span v-if="getDuoAverageRating(movie)" class="mv-rate-avg">
+                  <ion-icon :icon="ioniconsStar" />{{ getDuoAverageRating(movie) }}
+                </span>
+              </button>
+              <p v-if="movie.status === 'watched' && (getUserReview(movie)?.comment || getPartnerReview(movie)?.comment)" class="mv-quote">
+                „{{ getUserReview(movie)?.comment || getPartnerReview(movie)?.comment }}”
+              </p>
             </div>
 
-            <!-- ACTION BUTTONS ROW -->
-            <div class="movie-actions-footer">
-              <!-- Status Toggle Action -->
+            <div class="mv-side">
               <button
-                v-if="movie.status !== 'watched'"
                 type="button"
-                class="footer-btn mark-watched-btn"
-                @click="toggleMovieStatus(movie, 'watched')"
+                class="mv-check"
+                :class="{ done: movie.status === 'watched' }"
+                :aria-label="movie.status === 'watched' ? 'Przywróć do planowanych' : 'Oznacz jako obejrzane'"
+                @click="toggleMovieStatus(movie, movie.status === 'watched' ? 'planned' : 'watched')"
               >
-                <ion-icon :icon="ioniconsCheckmarkCircleOutline" />
-                <span>Obejrzane</span>
+                <ion-icon :icon="ioniconsCheckmarkOutline" />
               </button>
-
-              <button
-                v-if="movie.status === 'planned'"
-                type="button"
-                class="footer-btn start-watching-btn"
-                @click="toggleMovieStatus(movie, 'watching')"
-              >
-                <ion-icon :icon="ioniconsPlayCircleOutline" />
-                <span>Oglądamy</span>
-              </button>
-
-              <button
-                v-if="movie.status === 'watched' || movie.status === 'watching'"
-                type="button"
-                class="footer-btn back-planned-btn"
-                @click="toggleMovieStatus(movie, 'planned')"
-              >
-                <ion-icon :icon="ioniconsTimeOutline" />
-                <span>Planowane</span>
-              </button>
-
-              <!-- Schedule Movie Date to Calendar -->
-              <button
-                type="button"
-                class="footer-btn schedule-date-btn"
-                @click="scheduleMovieDate(movie)"
-              >
-                <ion-icon :icon="ioniconsCalendarOutline" />
-                <span>Zaplanuj seans</span>
+              <button type="button" class="mv-more" aria-label="Więcej" @click="openMovieActions(movie)">
+                <ion-icon :icon="ioniconsEllipsisHorizontal" />
               </button>
             </div>
           </div>
@@ -538,7 +373,7 @@
           </div>
 
           <!-- Modal Scrollable Content -->
-          <div class="modal-scrollable-content search-results-scroll">
+          <div class="ion-content-scroll-host modal-scrollable-content search-results-scroll">
             <!-- Loading State with Pulsing Ring / Spinner -->
             <div v-if="isSearching" class="search-loading-state">
               <div class="spinner-pulse-ring">
@@ -783,7 +618,7 @@
             </button>
           </div>
 
-          <div class="modal-scrollable-content">
+          <div class="ion-content-scroll-host modal-scrollable-content">
             <!-- Movie Header Preview -->
             <div class="review-movie-preview">
               <img
@@ -910,7 +745,7 @@
           </div>
 
           <!-- Modal Scrollable Content -->
-          <div class="modal-scrollable-content random-picker-scroll">
+          <div class="ion-content-scroll-host modal-scrollable-content random-picker-scroll">
             <!-- 1. Source Choice Segmented Control (Z Waszej listy vs Odkrywaj z TMDB) -->
             <div class="random-source-tabs" data-no-swipe="true">
               <button
@@ -949,7 +784,7 @@
                   :class="{ active: randomFilterType === opt.id }"
                   @click="randomFilterType = opt.id; selectedRandomMovie = null"
                 >
-                  <span>{{ opt.emoji }} {{ opt.label }}</span>
+                  <span>{{ opt.label }}</span>
                 </button>
               </div>
 
@@ -979,7 +814,7 @@
                   :class="{ active: randomFilterType === opt.id }"
                   @click="randomFilterType = opt.id; selectedRandomMovie = null"
                 >
-                  <span>{{ opt.emoji }} {{ opt.label }}</span>
+                  <span>{{ opt.label }}</span>
                 </button>
               </div>
 
@@ -1196,7 +1031,7 @@
             </button>
           </div>
 
-          <div class="modal-scrollable-content manual-form-body">
+          <div class="ion-content-scroll-host modal-scrollable-content manual-form-body">
             <!-- Title -->
             <div class="form-group">
               <label class="form-label">Tytuł *</label>
@@ -1214,9 +1049,9 @@
               <div class="category-choice-row">
                 <button
                   v-for="cat in [
-                    { id: 'movie', label: '🎬 Film' },
-                    { id: 'tv', label: '📺 Serial' },
-                    { id: 'anime', label: '⛩️ Anime' }
+                    { id: 'movie', label: 'Film' },
+                    { id: 'tv', label: 'Serial' },
+                    { id: 'anime', label: 'Anime' }
                   ]"
                   :key="cat.id"
                   type="button"
@@ -1366,7 +1201,7 @@
             </button>
           </div>
 
-          <div class="modal-scrollable-content details-body">
+          <div class="ion-content-scroll-host modal-scrollable-content details-body">
             <!-- Backdrop Image & Floating Poster -->
             <div class="details-hero-wrap">
               <div class="details-poster-backdrop">
@@ -1658,7 +1493,7 @@
             </button>
           </div>
 
-          <div class="modal-scrollable-content ep-modal-scroll">
+          <div class="ion-content-scroll-host modal-scrollable-content ep-modal-scroll">
             <!-- Series preview bar -->
             <div class="ep-series-preview">
               <img
@@ -1784,13 +1619,33 @@
       </ion-modal>
 
       <!-- Floating bottom tab bar spacer so content never gets obscured -->
+      <DuoActionSheet
+        :is-open="movieSheet.open"
+        :title="movieSheet.title"
+        :subtitle="movieSheet.subtitle"
+        :buttons="movieSheet.buttons"
+        @dismiss="movieSheet.open = false"
+      />
+
       <div class="tab-bottom-spacer" style="height: 105px;" aria-hidden="true"></div>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
+import {
+  calendarOutline as ioniconsCalendarOutline,
+  checkmarkCircleOutline as ioniconsCheckmarkCircleOutline,
+  filmOutline as ioniconsFilmOutline,
+  informationCircleOutline as ioniconsInformationCircleOutline,
+  playCircleOutline as ioniconsPlayCircleOutline,
+  playOutline as ioniconsPlayOutline,
+  starOutline as ioniconsStarOutline,
+  timeOutline as ioniconsTimeOutline,
+  trashOutline as ioniconsTrashOutline
+} from 'ionicons/icons'
+import DuoActionSheet, { type DuoActionSheetButton } from '~/components/DuoActionSheet.vue'
 import { useDuoState, type MovieItem } from '~/composables/useDuoState'
 import { useConfirm } from '~/composables/useConfirm'
 import confetti from 'canvas-confetti'
@@ -2055,11 +1910,7 @@ const fetchTmdbApi = async (path: string, params: URLSearchParams): Promise<any>
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (customKey) headers['X-TMDB-API-Key'] = customKey
 
-  const funcName = path.replace('/api/movies/', 'movies-')
-  const endpoints = [
-    `${path}${queryString}`,
-    `/.netlify/functions/${funcName}${queryString}`
-  ]
+  const endpoints = [`${path}${queryString}`]
 
   for (const ep of endpoints) {
     try {
@@ -2804,6 +2655,39 @@ const getMediaTypeLabel = (type: string) => {
   }
 }
 
+// ---- Bottom action sheet for a movie row ----
+const movieSheet = reactive<{ open: boolean; title: string; subtitle: string; buttons: DuoActionSheetButton[] }>({
+  open: false,
+  title: '',
+  subtitle: '',
+  buttons: []
+})
+
+const openMovieActions = (movie: any) => {
+  movieSheet.title = movie.title
+  movieSheet.subtitle = getStatusLabel(movie.status)
+  const buttons: DuoActionSheetButton[] = []
+  if (movie.status === 'planned') {
+    buttons.push({ text: 'Oglądamy', description: 'Przenieś do „W trakcie”', icon: ioniconsPlayCircleOutline, handler: () => { toggleMovieStatus(movie, 'watching') } })
+  }
+  if (movie.status !== 'planned') {
+    buttons.push({ text: 'Przywróć do planowanych', icon: ioniconsTimeOutline, handler: () => { toggleMovieStatus(movie, 'planned') } })
+  }
+  if (movie.status !== 'watched') {
+    buttons.push({ text: 'Obejrzane', icon: ioniconsCheckmarkCircleOutline, handler: () => { toggleMovieStatus(movie, 'watched') } })
+  }
+  buttons.push({
+    text: hasUserReviewed(movie) ? 'Edytuj recenzję' : 'Oceń seans',
+    icon: ioniconsStarOutline,
+    handler: () => { openReviewModal(movie) }
+  })
+  buttons.push({ text: 'Zaplanuj seans', description: 'Dodaj do terminarza', icon: ioniconsCalendarOutline, handler: () => { scheduleMovieDate(movie) } })
+  buttons.push({ text: 'Szczegóły', icon: ioniconsInformationCircleOutline, handler: () => { openMovieDetailsModal(movie) } })
+  buttons.push({ text: 'Usuń z kolekcji', role: 'destructive', icon: ioniconsTrashOutline, handler: () => { confirmDeleteMovie(movie) } })
+  movieSheet.buttons = buttons
+  movieSheet.open = true
+}
+
 const getStatusLabel = (status: string) => {
   switch (status) {
     case 'watched': return 'Obejrzane'
@@ -2841,51 +2725,6 @@ onMounted(() => {
 
 <style scoped>
 /* MAIN TABS TOOLBAR & PILLS (Rozrywka: Filmy & Seriale | Wishlista) */
-.main-tabs-toolbar {
-  --background: #ffffff;
-  padding: 4px 16px 8px 16px;
-}
-
-.main-tabs-pill-row {
-  display: flex;
-  background: #f1f5f9;
-  padding: 4px;
-  border-radius: 14px;
-  gap: 4px;
-}
-
-.main-tab-pill {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: none;
-  background: transparent;
-  color: #64748b;
-  font-size: 13.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.main-tab-pill.active {
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.pill-count-chip {
-  background: #0f172a;
-  color: #ffffff;
-  font-size: 10.5px;
-  font-weight: 800;
-  padding: 1px 6px;
-  border-radius: 999px;
-}
 
 /* PAGE HEADER & GENERAL WRAPPERS */
 .movies-main-wrapper {
@@ -2895,42 +2734,8 @@ onMounted(() => {
   gap: 14px;
 }
 
-.dn-page-header {
-  padding: 8px 16px 12px;
-}
-
-.dn-header-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 22px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.dn-header-subtitle {
-  margin: 2px 0 0;
-  font-size: 13px;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.count-chip {
-  background: #0f172a;
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 999px;
-}
-
 /* CINEMA HUB CARD */
 .cinema-hub-card {
-  background: #ffffff;
-  border-radius: 20px;
-  padding: 12px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.05);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -2941,13 +2746,13 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  padding: 12px 14px;
-  border-radius: 14px;
-  color: #ffffff;
+  min-height: 52px;
+  padding: 6px 6px 6px 16px;
+  border-radius: 999px;
+  background: var(--dn-field);
+  border: 1px solid var(--dn-field-line);
+  color: var(--dn-ink);
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -2964,15 +2769,9 @@ onMounted(() => {
 }
 
 .search-trigger-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.12);
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  color: #38bdf8;
+  font-size: 20px;
+  color: var(--dn-muted);
   flex-shrink: 0;
 }
 
@@ -2984,42 +2783,35 @@ onMounted(() => {
 }
 
 .trigger-label {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #ffffff;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--dn-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  letter-spacing: -0.2px;
 }
 
 .trigger-hint {
-  font-size: 11px;
-  color: rgba(226, 232, 240, 0.75);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: none;
 }
 
 .trigger-action-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-  padding: 5px 10px;
+  gap: 5px;
+  min-height: 40px;
+  padding: 0 14px;
   border-radius: 999px;
-  font-size: 11.5px;
-  font-weight: 700;
+  background: var(--dn-ink);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
   flex-shrink: 0;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
 
 .trigger-action-pill ion-icon {
-  font-size: 13px;
-  color: #fbbf24;
+  font-size: 14px;
+  color: #ffffff;
 }
 
 /* Secondary Quick Tools */
@@ -3040,15 +2832,15 @@ onMounted(() => {
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  color: #1e293b;
+  border: 1px solid #e5e6e8;
+  background: #f8f9fb;
+  color: #1c1b19;
   -webkit-tap-highlight-color: transparent;
 }
 
 .tool-btn:active {
   transform: scale(0.97);
-  background: #f1f5f9;
+  background: #f2f3f5;
 }
 
 .tool-btn ion-icon {
@@ -3056,11 +2848,11 @@ onMounted(() => {
 }
 
 .tool-random ion-icon {
-  color: #f59e0b;
+  color: #b1b1b1;
 }
 
 .tool-manual ion-icon {
-  color: #0ea5e9;
+  color: #9b9b9b;
 }
 
 /* FILTERS CONTAINER */
@@ -3088,16 +2880,16 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--dn-soft);
+  border: none;
   border-radius: 999px;
   font-size: 12.5px;
-  font-weight: 700;
-  color: #64748b;
+  font-weight: 500;
+  color: var(--dn-ink);
   white-space: nowrap;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+  box-shadow: none;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -3107,15 +2899,15 @@ onMounted(() => {
 
 .filter-pill ion-icon {
   font-size: 15px;
-  color: #94a3b8;
+  color: #a2a2a2;
   transition: color 0.15s ease;
 }
 
 .filter-pill.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
-  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.15);
+  border-color: #1c1b19;
+  box-shadow: none;
 }
 
 .filter-pill.active ion-icon {
@@ -3124,9 +2916,9 @@ onMounted(() => {
 
 .filter-badge {
   font-size: 10px;
-  font-weight: 800;
-  background: #f1f5f9;
-  color: #475569;
+  font-weight: 500;
+  background: var(--dn-soft);
+  color: #545454;
   padding: 1.5px 6.5px;
   border-radius: 999px;
   line-height: 1.2;
@@ -3152,12 +2944,12 @@ onMounted(() => {
 
 .media-chip {
   padding: 5px 12px;
-  background: #f1f5f9;
+  background: var(--dn-soft);
   border: 1px solid transparent;
   border-radius: 999px;
   font-size: 11.5px;
-  font-weight: 700;
-  color: #64748b;
+  font-weight: 500;
+  color: var(--dn-ink);
   white-space: nowrap;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -3165,9 +2957,9 @@ onMounted(() => {
 }
 
 .media-chip.active {
-  background: #1e293b;
+  background: #1c1b19;
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.1);
+  box-shadow: none;
 }
 
 /* Collection Search Input */
@@ -3182,7 +2974,7 @@ onMounted(() => {
   position: absolute;
   left: 12px;
   font-size: 16px;
-  color: #94a3b8;
+  color: #a2a2a2;
   pointer-events: none;
 }
 
@@ -3190,23 +2982,23 @@ onMounted(() => {
   width: 100%;
   padding: 9px 34px 9px 36px;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   background: #ffffff;
   font-size: 12.5px;
-  color: #0f172a;
+  color: #1c1b19;
   outline: none;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.02);
+  box-shadow: none;
   transition: all 0.15s ease;
 }
 
 .collection-search-input:focus {
-  border-color: #0f172a;
+  border-color: #1c1b19;
   background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 0 0 3px rgba(28, 27, 25, 0.05);
 }
 
 .collection-search-input::placeholder {
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 .clear-search-btn {
@@ -3214,7 +3006,7 @@ onMounted(() => {
   right: 10px;
   background: none;
   border: none;
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 18px;
   cursor: pointer;
   display: flex;
@@ -3232,8 +3024,8 @@ onMounted(() => {
   background: #ffffff;
   border-radius: 20px;
   padding: 14px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: 0 2px 10px -2px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--dn-line);
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -3243,12 +3035,12 @@ onMounted(() => {
 }
 
 .movie-card.is-watched {
-  border-color: rgba(16, 185, 129, 0.25);
+  border-color: rgba(163, 163, 163, 0.25);
 }
 
 .movie-card.is-watching {
-  border-color: rgba(245, 158, 11, 0.35);
-  background: linear-gradient(180deg, #ffffff 0%, #fffdf5 100%);
+  border-color: rgba(177, 177, 177, 0.35);
+  background: linear-gradient(180deg, #ffffff 0%, #fdfdfd 100%);
 }
 
 .movie-card-main {
@@ -3264,8 +3056,8 @@ onMounted(() => {
   border-radius: 14px;
   overflow: hidden;
   position: relative;
-  background: #0f172a;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+  background: #1c1b19;
+  box-shadow: none;
   cursor: pointer;
   flex-shrink: 0;
   transition: transform 0.15s ease;
@@ -3285,8 +3077,8 @@ onMounted(() => {
 .poster-placeholder {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #1e293b, #334155);
-  color: #94a3b8;
+  background: linear-gradient(135deg, #1c1b19, #404040);
+  color: #a2a2a2;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3298,7 +3090,7 @@ onMounted(() => {
 
 .poster-placeholder ion-icon {
   font-size: 30px;
-  color: #cbd5e1;
+  color: #d4d4d4;
 }
 
 .poster-placeholder span {
@@ -3321,7 +3113,7 @@ onMounted(() => {
 
 .type-tag {
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 2.5px 6px;
   border-radius: 6px;
   color: #ffffff;
@@ -3329,18 +3121,18 @@ onMounted(() => {
   letter-spacing: 0.4px;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+  box-shadow: none;
 }
 
-.type-movie { background: rgba(15, 23, 42, 0.85); }
-.type-tv { background: rgba(30, 41, 59, 0.88); }
-.type-anime { background: rgba(51, 65, 85, 0.88); }
+.type-movie { background: rgba(28, 27, 25, 0.85); }
+.type-tv { background: rgba(28, 27, 25, 0.88); }
+.type-anime { background: rgba(64, 64, 64, 0.88); }
 
 .tmdb-score-tag {
   font-size: 9.5px;
-  font-weight: 800;
-  background: rgba(15, 23, 42, 0.85);
-  color: #fbbf24;
+  font-weight: 700;
+  background: rgba(28, 27, 25, 0.85);
+  color: #c8c8c8;
   padding: 2.5px 5.5px;
   border-radius: 6px;
   display: flex;
@@ -3348,7 +3140,7 @@ onMounted(() => {
   gap: 2.5px;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+  box-shadow: none;
 }
 
 .tmdb-score-tag ion-icon {
@@ -3374,8 +3166,8 @@ onMounted(() => {
 .movie-title {
   margin: 0;
   font-size: 15.5px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   line-height: 1.28;
   cursor: pointer;
   word-break: break-word;
@@ -3384,13 +3176,13 @@ onMounted(() => {
 }
 
 .movie-title:active {
-  color: #0284c7;
+  color: #7d7d7d;
 }
 
 .more-menu-btn {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 18px;
   padding: 2px;
   cursor: pointer;
@@ -3404,14 +3196,14 @@ onMounted(() => {
 
 .more-menu-btn:hover,
 .more-menu-btn:active {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.08);
+  color: #d96856;
+  background: rgba(217, 104, 86, 0.08);
 }
 
 .movie-original-title {
   margin: 1px 0 0;
   font-size: 11px;
-  color: #64748b;
+  color: #737373;
   font-style: italic;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3426,19 +3218,19 @@ onMounted(() => {
   gap: 5px;
   margin-top: 4px;
   font-size: 11.5px;
-  color: #64748b;
+  color: #737373;
   font-weight: 500;
   line-height: 1.35;
 }
 
 .year-tag {
   font-weight: 700;
-  color: #334155;
+  color: #404040;
   line-height: 1.35;
 }
 
 .sub-info-bullet {
-  color: #cbd5e1;
+  color: #d4d4d4;
   font-weight: 700;
 }
 
@@ -3470,26 +3262,26 @@ onMounted(() => {
 }
 
 .status-planned {
-  background: #f1f5f9;
-  color: #475569;
+  background: #f2f3f5;
+  color: #545454;
 }
-.status-planned .status-dot { background: #94a3b8; }
+.status-planned .status-dot { background: #a2a2a2; }
 
 .status-watching {
-  background: #fef3c7;
-  color: #b45309;
+  background: #f1f2f4;
+  color: #6f6f6f;
 }
 .status-watching .status-dot {
-  background: #f59e0b;
-  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+  background: #b1b1b1;
+  box-shadow: none;
   animation: pulseDot 1.5s infinite;
 }
 
 .status-watched {
-  background: #ecfdf5;
-  color: #065f46;
+  background: #f7f8fa;
+  color: #535353;
 }
-.status-watched .status-dot { background: #10b981; }
+.status-watched .status-dot { background: #a3a3a3; }
 
 .status-dot {
   width: 6px;
@@ -3506,14 +3298,14 @@ onMounted(() => {
 
 .watched-date-meta {
   font-size: 10.5px;
-  color: #94a3b8;
+  color: #a2a2a2;
   font-weight: 500;
 }
 
 .movie-overview-excerpt {
   margin: 6px 0 0;
   font-size: 11.5px;
-  color: #475569;
+  color: #545454;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -3524,8 +3316,8 @@ onMounted(() => {
 
 /* REVIEWS SECTION IN CARD */
 .reviews-section-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 14px;
   padding: 10px 12px;
   display: flex;
@@ -3547,41 +3339,41 @@ onMounted(() => {
   background: #ffffff;
   padding: 3px 9px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
+  border: 1px solid #e5e6e8;
+  box-shadow: none;
 }
 
 .star-gold {
-  color: #f59e0b;
+  color: #b1b1b1;
   font-size: 14px;
 }
 
 .duo-score-val {
   font-size: 12.5px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .duo-score-sub {
   font-size: 10px;
-  color: #64748b;
+  color: #737373;
   font-weight: 600;
 }
 
 .not-rated-chip {
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 11px;
   font-weight: 600;
 }
 
 .add-review-btn {
   background: #ffffff;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #d4d4d4;
   padding: 4px 10px;
   border-radius: 8px;
   font-size: 11px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -3592,7 +3384,7 @@ onMounted(() => {
 
 .add-review-btn:active {
   transform: scale(0.96);
-  background: #f1f5f9;
+  background: #f2f3f5;
 }
 
 /* Reviews Couple Grid */
@@ -3604,14 +3396,14 @@ onMounted(() => {
 
 .review-bubble {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   border-left-width: 3px;
   border-radius: 12px;
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.02);
+  box-shadow: none;
 }
 
 .review-user-header {
@@ -3626,7 +3418,7 @@ onMounted(() => {
   border-radius: 50%;
   color: #ffffff;
   font-size: 9.5px;
-  font-weight: 800;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3636,7 +3428,7 @@ onMounted(() => {
 .review-author-name {
   font-size: 11px;
   font-weight: 700;
-  color: #334155;
+  color: #404040;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3647,8 +3439,8 @@ onMounted(() => {
 .user-score-badge {
   margin-left: auto;
   font-size: 10px;
-  font-weight: 800;
-  color: #f59e0b;
+  font-weight: 700;
+  color: #b1b1b1;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -3662,7 +3454,7 @@ onMounted(() => {
 .review-comment-text {
   margin: 0;
   font-size: 11px;
-  color: #1e293b;
+  color: #1c1b19;
   font-style: italic;
   line-height: 1.35;
   word-break: break-word;
@@ -3671,7 +3463,7 @@ onMounted(() => {
 .review-comment-empty {
   margin: 0;
   font-size: 10px;
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 .review-placeholder {
@@ -3679,7 +3471,7 @@ onMounted(() => {
   align-items: center;
   gap: 4px;
   font-size: 10px;
-  color: #0284c7;
+  color: #7d7d7d;
   font-weight: 600;
   cursor: pointer;
   padding: 2px 0;
@@ -3688,7 +3480,7 @@ onMounted(() => {
 .review-waiting-note {
   margin: 0;
   font-size: 10px;
-  color: #94a3b8;
+  color: #a2a2a2;
   font-style: italic;
 }
 
@@ -3698,7 +3490,7 @@ onMounted(() => {
   gap: 8px;
   align-items: center;
   padding-top: 6px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #f2f3f5;
 }
 
 .footer-btn {
@@ -3722,32 +3514,32 @@ onMounted(() => {
 }
 
 .mark-watched-btn {
-  background: #059669;
+  background: #838383;
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.2);
+  box-shadow: none;
 }
 
 .start-watching-btn {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
+  box-shadow: none;
 }
 
 .back-planned-btn {
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #e2e8f0;
+  background: #f2f3f5;
+  color: #545454;
+  border: 1px solid #e5e6e8;
 }
 
 .schedule-date-btn {
   background: #ffffff;
-  color: #1e293b;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+  color: #1c1b19;
+  border: 1px solid #e5e6e8;
+  box-shadow: none;
 }
 
 .schedule-date-btn ion-icon {
-  color: #64748b;
+  color: #737373;
   font-size: 13px;
 }
 
@@ -3761,15 +3553,15 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
 }
 
 .empty-icon-wrap {
   width: 64px;
   height: 64px;
   border-radius: 20px;
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f2f3f5;
+  color: #1c1b19;
   font-size: 32px;
   display: flex;
   align-items: center;
@@ -3779,14 +3571,14 @@ onMounted(() => {
 .empty-movies-box h3 {
   margin: 0;
   font-size: 18px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .empty-movies-box p {
   margin: 0;
   font-size: 13px;
-  color: #64748b;
+  color: #737373;
   max-width: 300px;
   line-height: 1.45;
 }
@@ -3803,7 +3595,7 @@ onMounted(() => {
 .manual-fallback-btn {
   background: none;
   border: none;
-  color: #64748b;
+  color: #737373;
   font-size: 12px;
   font-weight: 600;
   padding: 6px;
@@ -3825,15 +3617,15 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
 }
 
 .not-paired-icon {
   width: 68px;
   height: 68px;
   border-radius: 22px;
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f2f3f5;
+  color: #1c1b19;
   font-size: 34px;
   display: flex;
   align-items: center;
@@ -3843,14 +3635,14 @@ onMounted(() => {
 .not-paired-card h3 {
   margin: 0;
   font-size: 19px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .not-paired-card p {
   margin: 0;
   font-size: 13.5px;
-  color: #64748b;
+  color: #737373;
   line-height: 1.5;
 }
 
@@ -3870,29 +3662,29 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f2f3f5;
 }
 
 .modal-title-col h3 {
   margin: 0;
   font-size: 18px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .modal-title-col p {
   margin: 2px 0 0;
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
 }
 
 .modal-close-btn {
-  background: #f1f5f9;
+  background: var(--dn-soft);
   border: none;
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  color: #64748b;
+  color: var(--dn-ink);
   font-size: 18px;
   display: flex;
   align-items: center;
@@ -3915,7 +3707,7 @@ onMounted(() => {
 ion-modal.dn-movies-search-modal {
   --border-radius: 28px 28px 0 0;
   --background: #ffffff;
-  --box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.16);
+  --box-shadow: 0 -12px 40px rgba(28, 27, 25, 0.16);
 }
 
 .search-modal-layout {
@@ -3932,7 +3724,7 @@ ion-modal.dn-movies-search-modal {
   justify-content: space-between;
   align-items: center;
   background: #ffffff;
-  border-bottom: 1px solid rgba(241, 245, 249, 0.9);
+  border-bottom: 1px solid rgba(242, 243, 245, 0.9);
 }
 
 .search-header-branding {
@@ -3945,13 +3737,13 @@ ion-modal.dn-movies-search-modal {
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: #0f172a;
+  background: #1c1b19;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
   font-size: 20px;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+  box-shadow: none;
   flex-shrink: 0;
 }
 
@@ -3968,10 +3760,10 @@ ion-modal.dn-movies-search-modal {
 }
 
 .tmdb-pill {
-  background: #01b4e4;
+  background: #a6a6a6;
   color: #ffffff;
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 1px 5px;
   border-radius: 4px;
   letter-spacing: 0.5px;
@@ -3979,10 +3771,10 @@ ion-modal.dn-movies-search-modal {
 }
 
 .catalog-live-pill {
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--dn-soft);
+  color: #545454;
   font-size: 10.5px;
-  font-weight: 600;
+  font-weight: 500;
   padding: 1px 7px;
   border-radius: 999px;
   display: inline-flex;
@@ -3994,14 +3786,14 @@ ion-modal.dn-movies-search-modal {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #10b981;
+  background: #a3a3a3;
 }
 
 .search-modal-heading {
   margin: 0;
   font-size: 17px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   letter-spacing: -0.2px;
 }
 
@@ -4009,12 +3801,12 @@ ion-modal.dn-movies-search-modal {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #f1f5f9;
+  background: var(--dn-soft);
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: var(--dn-ink);
   font-size: 20px;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -4022,8 +3814,8 @@ ion-modal.dn-movies-search-modal {
 }
 
 .modal-circle-close-btn:hover {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: #e5e6e8;
+  color: #1c1b19;
 }
 
 .modal-circle-close-btn:active {
@@ -4034,7 +3826,7 @@ ion-modal.dn-movies-search-modal {
 .search-controls-wrapper {
   padding: 12px 18px 10px;
   background: #ffffff;
-  border-bottom: 1px solid #f8fafc;
+  border-bottom: 1px solid #f8f9fb;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -4045,17 +3837,17 @@ ion-modal.dn-movies-search-modal {
   position: relative;
   display: flex;
   align-items: center;
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1.5px solid #e5e6e8;
   border-radius: 16px;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+  box-shadow: inset 0 1px 2px rgba(28, 27, 25, 0.02);
 }
 
 .tmdb-search-input-box.is-active {
-  border-color: #0f172a;
+  border-color: #1c1b19;
   background: #ffffff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: none;
 }
 
 .search-icon-orb {
@@ -4065,7 +3857,7 @@ ion-modal.dn-movies-search-modal {
   align-items: center;
   justify-content: center;
   font-size: 20px;
-  color: #64748b;
+  color: #737373;
   pointer-events: none;
 }
 
@@ -4076,12 +3868,12 @@ ion-modal.dn-movies-search-modal {
   background: transparent;
   font-size: 14.5px;
   font-weight: 600;
-  color: #0f172a;
+  color: #1c1b19;
   outline: none;
 }
 
 .tmdb-input::placeholder {
-  color: #94a3b8;
+  color: #a2a2a2;
   font-weight: 400;
 }
 
@@ -4090,7 +3882,7 @@ ion-modal.dn-movies-search-modal {
   right: 12px;
   background: none;
   border: none;
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 21px;
   cursor: pointer;
   display: flex;
@@ -4102,7 +3894,7 @@ ion-modal.dn-movies-search-modal {
 }
 
 .clear-btn:hover {
-  color: #64748b;
+  color: #737373;
 }
 
 .clear-btn:active {
@@ -4127,11 +3919,11 @@ ion-modal.dn-movies-search-modal {
   gap: 6px;
   padding: 7px 14px;
   border-radius: 999px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--dn-soft);
+  border: none;
   font-size: 12px;
-  font-weight: 700;
-  color: #475569;
+  font-weight: 500;
+  color: #545454;
   cursor: pointer;
   white-space: nowrap;
   touch-action: manipulation;
@@ -4144,8 +3936,8 @@ ion-modal.dn-movies-search-modal {
 }
 
 .search-tab-pill:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: #f2f3f5;
+  border-color: #d4d4d4;
 }
 
 .search-tab-pill:active {
@@ -4153,34 +3945,34 @@ ion-modal.dn-movies-search-modal {
 }
 
 .search-tab-pill.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border-color: #1c1b19;
+  box-shadow: none;
 }
 
 /* API Key Warning */
 .api-key-warning-card {
   padding: 10px 14px;
-  background: #fffbeb;
-  border: 1px solid #fde68a;
+  background: #f9fafc;
+  border: 1px solid #e4e5e7;
   border-radius: 14px;
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #92400e;
+  color: #585858;
 }
 
 .warning-icon-pill {
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  background: #fef3c7;
+  background: #f1f2f4;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 18px;
-  color: #d97706;
+  color: #909090;
   flex-shrink: 0;
 }
 
@@ -4193,22 +3985,22 @@ ion-modal.dn-movies-search-modal {
 .warning-title {
   font-size: 12px;
   font-weight: 700;
-  color: #92400e;
+  color: #585858;
 }
 
 .warning-desc {
   font-size: 11px;
-  color: #b45309;
+  color: #6f6f6f;
 }
 
 .warning-action-btn {
   padding: 6px 12px;
-  background: #f59e0b;
+  background: #b1b1b1;
   color: #ffffff;
   border: none;
   border-radius: 8px;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
   transition: transform 0.15s ease, background 0.15s ease;
@@ -4243,15 +4035,15 @@ ion-modal.dn-movies-search-modal {
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: #f1f5f9;
+  background: var(--dn-soft);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 0 6px rgba(15, 23, 42, 0.04);
+  box-shadow: none;
 }
 
 .loading-crescent {
-  color: #0f172a;
+  color: #1c1b19;
   width: 28px;
   height: 28px;
 }
@@ -4259,12 +4051,12 @@ ion-modal.dn-movies-search-modal {
 .loading-title {
   font-size: 15px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .loading-subtitle {
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
   max-width: 240px;
 }
 
@@ -4282,8 +4074,8 @@ ion-modal.dn-movies-search-modal {
   width: 54px;
   height: 54px;
   border-radius: 50%;
-  background: #fef2f2;
-  color: #ef4444;
+  background: var(--dn-soft);
+  color: var(--dn-ink);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4293,14 +4085,14 @@ ion-modal.dn-movies-search-modal {
 .error-title {
   margin: 0;
   font-size: 16px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .error-desc {
   margin: 0;
   font-size: 12.5px;
-  color: #64748b;
+  color: #737373;
   max-width: 280px;
 }
 
@@ -4308,9 +4100,9 @@ ion-modal.dn-movies-search-modal {
   margin-top: 6px;
   padding: 8px 16px;
   border-radius: 10px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  color: #0f172a;
+  background: #f2f3f5;
+  border: 1px solid #e5e6e8;
+  color: #1c1b19;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -4338,20 +4130,20 @@ ion-modal.dn-movies-search-modal {
 
 .results-count-title {
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #64748b;
+  color: #737373;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
 .count-bubble {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 1px 7px;
   border-radius: 999px;
 }
@@ -4359,7 +4151,7 @@ ion-modal.dn-movies-search-modal {
 .results-manual-link {
   background: none;
   border: none;
-  color: #0f172a;
+  color: #1c1b19;
   font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
@@ -4376,9 +4168,9 @@ ion-modal.dn-movies-search-modal {
   gap: 14px;
   padding: 12px;
   background: #ffffff;
-  border: 1px solid #f1f5f9;
+  border: 1px solid var(--dn-line);
   border-radius: 18px;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  box-shadow: none;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -4393,8 +4185,8 @@ ion-modal.dn-movies-search-modal {
   border-radius: 12px;
   overflow: hidden;
   position: relative;
-  background: #0f172a;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+  background: #1c1b19;
+  box-shadow: none;
 }
 
 .res-thumb-img {
@@ -4410,9 +4202,9 @@ ion-modal.dn-movies-search-modal {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: #737373;
   font-size: 28px;
-  background: #1e293b;
+  background: #1c1b19;
 }
 
 .res-type-pill {
@@ -4420,13 +4212,13 @@ ion-modal.dn-movies-search-modal {
   top: 6px;
   left: 6px;
   font-size: 8px;
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
   padding: 2px 6px;
   border-radius: 5px;
   color: #ffffff;
   letter-spacing: 0.4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 4px rgba(28, 27, 25, 0.3);
 }
 
 .res-meta-col {
@@ -4446,14 +4238,14 @@ ion-modal.dn-movies-search-modal {
 .res-main-title {
   margin: 0;
   font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   line-height: 1.25;
 }
 
 .res-orig-title {
   font-size: 11px;
-  color: #94a3b8;
+  color: #a2a2a2;
   font-style: italic;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4469,8 +4261,8 @@ ion-modal.dn-movies-search-modal {
 }
 
 .meta-year-badge {
-  background: #f1f5f9;
-  color: #475569;
+  background: #f2f3f5;
+  color: #545454;
   font-size: 11px;
   font-weight: 700;
   padding: 1px 6px;
@@ -4478,11 +4270,11 @@ ion-modal.dn-movies-search-modal {
 }
 
 .meta-rating-badge {
-  background: #fffbeb;
-  color: #b45309;
-  border: 1px solid #fef3c7;
+  background: #f9fafc;
+  color: #6f6f6f;
+  border: 1px solid #f1f2f4;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 1px 6px;
   border-radius: 6px;
   display: inline-flex;
@@ -4491,12 +4283,12 @@ ion-modal.dn-movies-search-modal {
 }
 
 .meta-rating-badge .star-icon {
-  color: #f59e0b;
+  color: #b1b1b1;
   font-size: 12px;
 }
 
 .meta-genre-badge {
-  color: #64748b;
+  color: #737373;
   font-size: 11px;
   font-weight: 600;
   overflow: hidden;
@@ -4508,7 +4300,7 @@ ion-modal.dn-movies-search-modal {
 .res-synopsis {
   margin: 2px 0 6px;
   font-size: 11.5px;
-  color: #475569;
+  color: #545454;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -4541,16 +4333,16 @@ ion-modal.dn-movies-search-modal {
 }
 
 .action-pill-btn.btn-plan {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 
 .action-pill-btn.btn-watched {
-  background: #ecfdf5;
-  color: #059669;
-  border: 1.5px solid #a7f3d0;
+  background: #f7f8fa;
+  color: #838383;
+  border: 1.5px solid #e1e2e4;
 }
 
 .already-added-indicator {
@@ -4559,9 +4351,9 @@ ion-modal.dn-movies-search-modal {
   gap: 5px;
   padding: 6px 10px;
   border-radius: 10px;
-  background: #ecfdf5;
-  color: #059669;
-  border: 1px solid #bbf7d0;
+  background: #f7f8fa;
+  color: #838383;
+  border: 1px solid #e7e8ea;
   font-size: 11px;
   font-weight: 700;
 }
@@ -4593,28 +4385,28 @@ ion-modal.dn-movies-search-modal {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: #fef2f2;
-  color: #ef4444;
-  border: 1px solid #fee2e2;
+  background: #f3f4f6;
+  color: #d96856;
+  border: 1px solid #e6e7e9;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 18px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  box-shadow: none;
   flex-shrink: 0;
 }
 
 .trending-heading {
   margin: 0;
   font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .trending-subheading {
   margin: 1px 0 0;
   font-size: 11.5px;
-  color: #64748b;
+  color: #737373;
 }
 
 .trending-loading-box {
@@ -4624,7 +4416,7 @@ ion-modal.dn-movies-search-modal {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: #64748b;
+  color: #737373;
   font-size: 13.5px;
   font-weight: 500;
 }
@@ -4632,7 +4424,7 @@ ion-modal.dn-movies-search-modal {
 .trending-loading-box ion-spinner {
   width: 32px;
   height: 32px;
-  color: #ec4899;
+  color: #888888;
 }
 
 .trending-posters-grid {
@@ -4660,8 +4452,8 @@ ion-modal.dn-movies-search-modal {
   border-radius: 14px;
   overflow: hidden;
   position: relative;
-  background: #0f172a;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  background: #1c1b19;
+  box-shadow: none;
 }
 
 .tr-poster-img {
@@ -4677,9 +4469,9 @@ ion-modal.dn-movies-search-modal {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: #737373;
   font-size: 24px;
-  background: #1e293b;
+  background: #1c1b19;
 }
 
 .tr-top-glass-tags {
@@ -4694,25 +4486,25 @@ ion-modal.dn-movies-search-modal {
 }
 
 .tr-glass-score {
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(28, 27, 25, 0.75);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-radius: 6px;
-  color: #fbbf24;
+  color: #c8c8c8;
   font-size: 9.5px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 2px 5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 
 .tr-glass-type {
   font-size: 8px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 2px 5px;
   border-radius: 6px;
   text-transform: uppercase;
   color: #ffffff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 
 .tr-add-hover-btn {
@@ -4722,7 +4514,7 @@ ion-modal.dn-movies-search-modal {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(28, 27, 25, 0.75);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: #ffffff;
@@ -4730,12 +4522,12 @@ ion-modal.dn-movies-search-modal {
   align-items: center;
   justify-content: center;
   font-size: 18px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 2px 8px rgba(28, 27, 25, 0.25);
   transition: all 0.15s ease;
 }
 
 .tr-add-hover-btn.is-added {
-  background: #10b981;
+  background: #a3a3a3;
   color: #ffffff;
 }
 
@@ -4748,7 +4540,7 @@ ion-modal.dn-movies-search-modal {
 .tr-title-text {
   font-size: 11.5px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4759,41 +4551,41 @@ ion-modal.dn-movies-search-modal {
 
 .tr-meta-text {
   font-size: 10.5px;
-  color: #64748b;
+  color: #737373;
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
 .tr-on-list-tag {
-  color: #10b981;
+  color: #a3a3a3;
   font-weight: 700;
 }
 
 .trending-placeholder-note {
   padding: 36px 16px;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
+  background: #f8f9fb;
+  border: 1px dashed #d4d4d4;
   border-radius: 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   gap: 10px;
-  color: #64748b;
+  color: #737373;
 }
 
 .note-icon-wrap {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--dn-soft);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 20px;
-  color: #8b5cf6;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  color: var(--dn-ink);
+  box-shadow: none;
 }
 
 /* No Results State */
@@ -4810,26 +4602,26 @@ ion-modal.dn-movies-search-modal {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: #f1f5f9;
-  color: #64748b;
+  background: var(--dn-soft);
+  color: var(--dn-ink);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 32px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: none;
 }
 
 .no-results-title {
   margin: 0;
   font-size: 16px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .no-results-desc {
   margin: 0;
   font-size: 12.5px;
-  color: #64748b;
+  color: #737373;
   max-width: 290px;
   line-height: 1.4;
 }
@@ -4874,9 +4666,9 @@ ion-modal.dn-movies-search-modal {
   display: flex;
   gap: 12px;
   padding: 12px;
-  background: #f8fafc;
+  background: #f8f9fb;
   border-radius: 14px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
 }
 
 .review-thumb {
@@ -4895,20 +4687,20 @@ ion-modal.dn-movies-search-modal {
 .review-preview-meta h4 {
   margin: 0;
   font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .review-preview-meta span {
   font-size: 11.5px;
-  color: #64748b;
+  color: #737373;
   margin-top: 2px;
 }
 
 .preview-desc-trunc {
   margin: 4px 0 0;
   font-size: 11px;
-  color: #475569;
+  color: #545454;
   line-height: 1.35;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -4922,15 +4714,15 @@ ion-modal.dn-movies-search-modal {
   align-items: center;
   gap: 10px;
   padding: 16px 12px;
-  background: #faf5ff;
-  border: 1px solid #f3e8ff;
+  background: #f5f6f8;
+  border: 1px solid #eaebed;
   border-radius: 16px;
 }
 
 .rating-title-label {
   font-size: 13px;
   font-weight: 700;
-  color: #6b21a8;
+  color: #4b4b4b;
 }
 
 .rating-display-badge {
@@ -4941,21 +4733,21 @@ ion-modal.dn-movies-search-modal {
 
 .rating-big-num {
   font-size: 42px;
-  font-weight: 900;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   line-height: 1;
 }
 
 .rating-big-scale {
   font-size: 16px;
   font-weight: 700;
-  color: #334155;
+  color: #404040;
 }
 
 .rating-descriptor {
   font-size: 14px;
   font-weight: 700;
-  color: #475569;
+  color: #545454;
   margin-left: 8px;
 }
 
@@ -4968,14 +4760,14 @@ ion-modal.dn-movies-search-modal {
   background: none;
   border: none;
   font-size: 26px;
-  color: #cbd5e1;
+  color: #d4d4d4;
   cursor: pointer;
   padding: 2px;
   transition: transform 0.15s ease;
 }
 
 .star-score-btn.active {
-  color: #f59e0b;
+  color: #b1b1b1;
 }
 
 .rating-quick-chips {
@@ -4989,18 +4781,18 @@ ion-modal.dn-movies-search-modal {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
+  border: none;
+  background: var(--dn-soft);
   font-size: 12px;
-  font-weight: 700;
-  color: #475569;
+  font-weight: 500;
+  color: #545454;
   cursor: pointer;
 }
 
 .rating-chip-btn.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
+  border-color: #1c1b19;
 }
 
 .review-textarea-section {
@@ -5015,12 +4807,12 @@ ion-modal.dn-movies-search-modal {
   align-items: center;
   font-size: 13px;
   font-weight: 700;
-  color: #1e293b;
+  color: #1c1b19;
 }
 
 .textarea-hint {
   font-size: 11px;
-  color: #94a3b8;
+  color: #a2a2a2;
   font-weight: 500;
 }
 
@@ -5028,22 +4820,22 @@ ion-modal.dn-movies-search-modal {
   width: 100%;
   padding: 12px;
   border-radius: 12px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #d4d4d4;
   font-size: 13.5px;
-  color: #0f172a;
-  background: #f8fafc;
+  color: #1c1b19;
+  background: #f8f9fb;
   outline: none;
   font-family: inherit;
   resize: vertical;
 }
 
 .review-textarea:focus {
-  border-color: #0f172a;
+  border-color: #1c1b19;
 }
 
 .partner-existing-review-box {
   padding: 12px;
-  background: #f1f5f9;
+  background: #f2f3f5;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -5053,13 +4845,13 @@ ion-modal.dn-movies-search-modal {
 .partner-rev-title {
   font-size: 12px;
   font-weight: 700;
-  color: #334155;
+  color: #404040;
 }
 
 .partner-rev-quote {
   margin: 0;
   font-size: 12px;
-  color: #0f172a;
+  color: #1c1b19;
   font-style: italic;
 }
 
@@ -5076,7 +4868,7 @@ ion-modal.dn-movies-search-modal {
 ion-modal.dn-movies-random-modal {
   --border-radius: 28px 28px 0 0;
   --background: #ffffff;
-  --box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.16);
+  --box-shadow: 0 -12px 40px rgba(28, 27, 25, 0.16);
 }
 
 .random-modal-layout {
@@ -5093,7 +4885,7 @@ ion-modal.dn-movies-random-modal {
   justify-content: space-between;
   align-items: center;
   background: #ffffff;
-  border-bottom: 1px solid rgba(241, 245, 249, 0.9);
+  border-bottom: 1px solid rgba(242, 243, 245, 0.9);
 }
 
 .random-header-branding {
@@ -5103,17 +4895,17 @@ ion-modal.dn-movies-random-modal {
 }
 
 .glyph-amber {
-  background: #fef3c7 !important;
-  color: #d97706 !important;
-  border: 1px solid #fde68a !important;
+  background: #f1f2f4 !important;
+  color: #909090 !important;
+  border: 1px solid #e4e5e7 !important;
   box-shadow: none !important;
 }
 
 .random-brand-badge {
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--dn-soft);
+  color: #545454;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 500;
   padding: 2px 7px;
   border-radius: 999px;
   text-transform: uppercase;
@@ -5125,8 +4917,8 @@ ion-modal.dn-movies-random-modal {
 .random-modal-heading {
   margin: 2px 0 0;
   font-size: 17px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   letter-spacing: -0.2px;
 }
 
@@ -5146,7 +4938,7 @@ ion-modal.dn-movies-random-modal {
   grid-template-columns: 1fr 1fr;
   gap: 4px;
   padding: 4px;
-  background: #f1f5f9;
+  background: #f2f3f5;
   border-radius: 14px;
 }
 
@@ -5161,7 +4953,7 @@ ion-modal.dn-movies-random-modal {
   background: transparent;
   font-size: 13px;
   font-weight: 600;
-  color: #64748b;
+  color: #737373;
   cursor: pointer;
   touch-action: manipulation;
   transition: all 0.15s ease;
@@ -5173,29 +4965,29 @@ ion-modal.dn-movies-random-modal {
 
 .source-tab-pill.active {
   background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  color: #1c1b19;
+  box-shadow: none;
   font-weight: 700;
 }
 
 .source-count-tag {
-  background: #e2e8f0;
-  color: #475569;
+  background: #e5e6e8;
+  color: #545454;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 1px 6px;
   border-radius: 999px;
 }
 
 .source-tab-pill.active .source-count-tag {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f2f3f5;
+  color: #1c1b19;
 }
 
 /* Filters Containers */
 .source-filters-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 14px;
   padding: 10px 12px;
   display: flex;
@@ -5205,8 +4997,8 @@ ion-modal.dn-movies-random-modal {
 
 .filters-sub-label {
   font-size: 10.5px;
-  font-weight: 800;
-  color: #64748b;
+  font-weight: 700;
+  color: #737373;
   text-transform: uppercase;
   letter-spacing: 0.4px;
   margin-top: 2px;
@@ -5227,11 +5019,11 @@ ion-modal.dn-movies-random-modal {
 .random-filter-pill {
   padding: 5px 11px;
   border-radius: 999px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
+  border: none;
+  background: var(--dn-soft);
   font-size: 12px;
-  font-weight: 600;
-  color: #475569;
+  font-weight: 500;
+  color: #545454;
   cursor: pointer;
   white-space: nowrap;
   touch-action: manipulation;
@@ -5243,24 +5035,24 @@ ion-modal.dn-movies-random-modal {
 }
 
 .random-filter-pill.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border-color: #1c1b19;
+  box-shadow: none;
 }
 
 .available-counter-bar {
   font-size: 11px;
-  color: #64748b;
+  color: #737373;
   margin-top: 1px;
 }
 
 .available-counter-bar strong {
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .empty-warn-text {
-  color: #dc2626;
+  color: #c2412d;
   font-weight: 600;
 }
 
@@ -5284,10 +5076,10 @@ ion-modal.dn-movies-random-modal {
   padding: 5px 11px;
   border-radius: 9px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   font-size: 12px;
   font-weight: 600;
-  color: #475569;
+  color: #545454;
   cursor: pointer;
   white-space: nowrap;
   touch-action: manipulation;
@@ -5299,10 +5091,10 @@ ion-modal.dn-movies-random-modal {
 }
 
 .genre-chip-btn.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border-color: #1c1b19;
+  box-shadow: none;
 }
 
 .random-ratings-row {
@@ -5321,10 +5113,10 @@ ion-modal.dn-movies-random-modal {
   padding: 5px 10px;
   border-radius: 8px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   font-size: 11.5px;
   font-weight: 600;
-  color: #475569;
+  color: #545454;
   cursor: pointer;
   white-space: nowrap;
   touch-action: manipulation;
@@ -5336,10 +5128,10 @@ ion-modal.dn-movies-random-modal {
 }
 
 .rating-filter-pill.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border-color: #1c1b19;
+  box-shadow: none;
 }
 
 /* Shuffler / Winner Card */
@@ -5349,8 +5141,8 @@ ion-modal.dn-movies-random-modal {
   padding: 16px;
   background: #ffffff;
   border-radius: 18px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.03);
+  border: 1px solid var(--dn-line);
+  box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5372,13 +5164,13 @@ ion-modal.dn-movies-random-modal {
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--dn-soft);
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 28px;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .dice-spin-anim {
@@ -5394,17 +5186,17 @@ ion-modal.dn-movies-random-modal {
 .spinning-header {
   margin: 0;
   font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .shuffle-title-badge {
   padding: 5px 12px;
   border-radius: 999px;
-  background: #f1f5f9;
-  color: #0f172a;
+  background: var(--dn-soft);
+  color: #1c1b19;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
   max-width: 280px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5432,8 +5224,8 @@ ion-modal.dn-movies-random-modal {
   border-radius: 12px;
   overflow: hidden;
   position: relative;
-  background: #0f172a;
-  border: 1px solid #e2e8f0;
+  background: #1c1b19;
+  border: 1px solid #e5e6e8;
   flex-shrink: 0;
 }
 
@@ -5447,8 +5239,8 @@ ion-modal.dn-movies-random-modal {
 .winner-poster-empty {
   width: 100%;
   height: 100%;
-  background: #1e293b;
-  color: #94a3b8;
+  background: #1c1b19;
+  color: #a2a2a2;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5460,7 +5252,7 @@ ion-modal.dn-movies-random-modal {
   top: 5px;
   left: 5px;
   font-size: 9px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 2px 5px;
   border-radius: 4px;
   color: #ffffff;
@@ -5480,8 +5272,8 @@ ion-modal.dn-movies-random-modal {
 
 .winner-badge-pill {
   font-size: 11px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -5490,8 +5282,8 @@ ion-modal.dn-movies-random-modal {
 .winner-title {
   margin: 0;
   font-size: 15.5px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   line-height: 1.25;
   overflow: hidden;
   display: -webkit-box;
@@ -5508,8 +5300,8 @@ ion-modal.dn-movies-random-modal {
 }
 
 .winner-year {
-  background: #f1f5f9;
-  color: #475569;
+  background: #f2f3f5;
+  color: #545454;
   font-size: 10.5px;
   font-weight: 600;
   padding: 1px 5px;
@@ -5517,9 +5309,9 @@ ion-modal.dn-movies-random-modal {
 }
 
 .winner-score {
-  background: #fffbeb;
-  color: #b45309;
-  border: 1px solid #fef3c7;
+  background: #f9fafc;
+  color: #6f6f6f;
+  border: 1px solid #f1f2f4;
   font-size: 10.5px;
   font-weight: 700;
   padding: 1px 5px;
@@ -5527,7 +5319,7 @@ ion-modal.dn-movies-random-modal {
 }
 
 .winner-genre {
-  color: #64748b;
+  color: #737373;
   font-size: 11px;
   font-weight: 600;
 }
@@ -5535,7 +5327,7 @@ ion-modal.dn-movies-random-modal {
 .winner-desc {
   margin: 1px 0 0;
   font-size: 11.5px;
-  color: #64748b;
+  color: #737373;
   line-height: 1.35;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -5550,7 +5342,7 @@ ion-modal.dn-movies-random-modal {
   gap: 4px;
   font-size: 11px;
   font-weight: 700;
-  color: #059669;
+  color: #838383;
 }
 
 /* Prompt State */
@@ -5559,7 +5351,7 @@ ion-modal.dn-movies-random-modal {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  color: #64748b;
+  color: #737373;
   padding: 12px;
 }
 
@@ -5567,9 +5359,9 @@ ion-modal.dn-movies-random-modal {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #0f172a;
+  background: var(--dn-soft);
+  border: none;
+  color: #1c1b19;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5579,8 +5371,8 @@ ion-modal.dn-movies-random-modal {
 .random-prompt-state h4 {
   margin: 0;
   font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .random-prompt-state p {
@@ -5596,20 +5388,20 @@ ion-modal.dn-movies-random-modal {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  color: #64748b;
+  color: #737373;
   padding: 16px;
 }
 
 .error-glyph {
   font-size: 32px;
-  color: #ef4444;
+  color: #d96856;
 }
 
 .random-error-state h4 {
   margin: 0;
   font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .random-error-state p {
@@ -5629,7 +5421,7 @@ ion-modal.dn-movies-random-modal {
 
 .winner-primary-btn {
   width: 100%;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
   border-radius: 14px;
@@ -5640,7 +5432,7 @@ ion-modal.dn-movies-random-modal {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
   cursor: pointer;
   transition: transform 0.15s ease, background 0.15s ease;
   touch-action: manipulation;
@@ -5648,7 +5440,7 @@ ion-modal.dn-movies-random-modal {
 
 .winner-primary-btn:active {
   transform: scale(0.97);
-  background: #1e293b;
+  background: #1c1b19;
 }
 
 .winner-secondary-row {
@@ -5665,9 +5457,9 @@ ion-modal.dn-movies-random-modal {
 .winner-secondary-btn {
   padding: 10px 12px;
   border-radius: 12px;
-  background: #f8fafc;
-  color: #1e293b;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  color: #1c1b19;
+  border: 1px solid #e5e6e8;
   font-size: 12.5px;
   font-weight: 600;
   display: inline-flex;
@@ -5681,12 +5473,12 @@ ion-modal.dn-movies-random-modal {
 
 .winner-secondary-btn:active {
   transform: scale(0.97);
-  background: #f1f5f9;
+  background: #f2f3f5;
 }
 
 .spin-main-btn {
   width: 100%;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
   border-radius: 14px;
@@ -5697,7 +5489,7 @@ ion-modal.dn-movies-random-modal {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
   cursor: pointer;
   transition: transform 0.15s ease, background 0.15s ease;
   touch-action: manipulation;
@@ -5705,7 +5497,7 @@ ion-modal.dn-movies-random-modal {
 
 .spin-main-btn:active {
   transform: scale(0.97);
-  background: #1e293b;
+  background: #1c1b19;
 }
 
 .spin-again-btn {
@@ -5713,8 +5505,8 @@ ion-modal.dn-movies-random-modal {
   padding: 10px;
   border-radius: 12px;
   background: transparent;
-  color: #64748b;
-  border: 1px solid #e2e8f0;
+  color: #737373;
+  border: 1px solid #e5e6e8;
   font-size: 13px;
   font-weight: 600;
   display: inline-flex;
@@ -5728,13 +5520,13 @@ ion-modal.dn-movies-random-modal {
 
 .spin-again-btn:active {
   transform: scale(0.97);
-  background: #f8fafc;
+  background: #f8f9fb;
 }
 
 .empty-list-switch-box {
   padding: 12px;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
+  background: #f8f9fb;
+  border: 1px dashed #d4d4d4;
   border-radius: 12px;
   text-align: center;
   display: flex;
@@ -5746,13 +5538,13 @@ ion-modal.dn-movies-random-modal {
 .empty-list-switch-box p {
   margin: 0;
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
 }
 
 .switch-to-tmdb-btn {
   background: none;
   border: none;
-  color: #0f172a;
+  color: #1c1b19;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -5770,48 +5562,36 @@ ion-modal.dn-movies-random-modal {
   gap: 14px;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.form-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: #1e293b;
-}
-
 .form-input {
   width: 100%;
   padding: 12px;
   border-radius: 12px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--dn-line);
   font-size: 13.5px;
-  color: #0f172a;
+  color: #1c1b19;
   outline: none;
-  background: #fff;
+  background: #ffffff;
 }
 
 .form-input:focus {
-  border-color: #0f172a;
+  border-color: #1c1b19;
 }
 
 .form-textarea {
   width: 100%;
   padding: 12px;
   border-radius: 12px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--dn-line);
   font-size: 13.5px;
-  color: #0f172a;
+  color: #1c1b19;
   outline: none;
   font-family: inherit;
   resize: vertical;
-  background: #fff;
+  background: #ffffff;
 }
 
 .form-textarea:focus {
-  border-color: #0f172a;
+  border-color: #1c1b19;
 }
 
 .form-row-2col {
@@ -5829,18 +5609,18 @@ ion-modal.dn-movies-random-modal {
   flex: 1;
   padding: 8px;
   border-radius: 10px;
-  border: 1px solid #cbd5e1;
-  background: #f8fafc;
+  border: 1px solid #d4d4d4;
+  background: #f8f9fb;
   font-size: 12px;
   font-weight: 700;
-  color: #475569;
+  color: #545454;
   cursor: pointer;
 }
 
 .choice-pill.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
+  border-color: #1c1b19;
 }
 
 .submit-manual-btn {
@@ -5856,7 +5636,7 @@ ion-modal.dn-movies-random-modal {
 ion-modal.dn-movies-details-modal {
   --border-radius: 28px 28px 0 0;
   --background: #ffffff;
-  --box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.16);
+  --box-shadow: 0 -12px 40px rgba(28, 27, 25, 0.16);
 }
 
 .details-modal-layout {
@@ -5869,7 +5649,7 @@ ion-modal.dn-movies-details-modal {
 
 .details-modal-header {
   padding: 14px 18px 12px;
-  border-bottom: 1px solid rgba(241, 245, 249, 0.9);
+  border-bottom: 1px solid rgba(242, 243, 245, 0.9);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -5877,7 +5657,7 @@ ion-modal.dn-movies-details-modal {
 
 .details-top-badge {
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 2px 7px;
   border-radius: 999px;
   text-transform: uppercase;
@@ -5887,20 +5667,20 @@ ion-modal.dn-movies-details-modal {
 }
 
 .badge-saved {
-  background: #dcfce7;
-  color: #15803d;
+  background: #f2f3f5;
+  color: #6f6f6f;
 }
 
 .badge-tmdb {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f2f3f5;
+  color: #1c1b19;
 }
 
 .details-header-title {
   margin: 0;
   font-size: 17px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -5919,7 +5699,7 @@ ion-modal.dn-movies-details-modal {
   position: relative;
   overflow: hidden;
   min-height: 230px;
-  background: #0f172a;
+  background: #1c1b19;
 }
 
 .details-poster-backdrop {
@@ -5929,7 +5709,7 @@ ion-modal.dn-movies-details-modal {
   height: 100%;
   overflow: hidden;
   z-index: 0;
-  background: #0f172a;
+  background: #1c1b19;
 }
 
 .details-backdrop-img {
@@ -5946,10 +5726,10 @@ ion-modal.dn-movies-details-modal {
   inset: 0;
   background: linear-gradient(
     to bottom,
-    rgba(15, 23, 42, 0.1) 0%,
-    rgba(15, 23, 42, 0.35) 45%,
-    rgba(15, 23, 42, 0.75) 80%,
-    rgba(15, 23, 42, 0.92) 100%
+    rgba(28, 27, 25, 0.1) 0%,
+    rgba(28, 27, 25, 0.35) 45%,
+    rgba(28, 27, 25, 0.75) 80%,
+    rgba(28, 27, 25, 0.92) 100%
   );
 }
 
@@ -5970,8 +5750,8 @@ ion-modal.dn-movies-details-modal {
   height: 144px;
   border-radius: 14px;
   overflow: hidden;
-  background: #1e293b;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+  background: #1c1b19;
+  box-shadow: none;
   border: 2px solid rgba(255, 255, 255, 0.9);
   flex-shrink: 0;
 }
@@ -5989,7 +5769,7 @@ ion-modal.dn-movies-details-modal {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 32px;
 }
 
@@ -6005,21 +5785,21 @@ ion-modal.dn-movies-details-modal {
 .float-title {
   margin: 0;
   font-size: 18px;
-  font-weight: 900;
+  font-weight: 700;
   color: #ffffff;
   line-height: 1.25;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+  text-shadow: 0 1px 4px rgba(28, 27, 25, 0.7);
   word-break: break-word;
 }
 
 .float-orig-title {
   font-size: 11.5px;
-  color: #cbd5e1;
+  color: #d4d4d4;
   font-style: italic;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 1px 2px rgba(28, 27, 25, 0.6);
 }
 
 .details-pills-row {
@@ -6055,8 +5835,8 @@ ion-modal.dn-movies-details-modal {
 .details-section-heading {
   margin: 6px 0 2px;
   font-size: 12px;
-  font-weight: 800;
-  color: #64748b;
+  font-weight: 700;
+  color: #737373;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -6064,7 +5844,7 @@ ion-modal.dn-movies-details-modal {
 .details-full-desc {
   margin: 0;
   font-size: 13.5px;
-  color: #334155;
+  color: #404040;
   line-height: 1.55;
 }
 
@@ -6076,16 +5856,16 @@ ion-modal.dn-movies-details-modal {
 
 .genre-pill {
   padding: 4px 10px;
-  background: #f1f5f9;
+  background: #f2f3f5;
   border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
-  color: #475569;
+  color: #545454;
 }
 
 .details-reviews-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 14px;
   padding: 12px;
   display: flex;
@@ -6103,23 +5883,23 @@ ion-modal.dn-movies-details-modal {
   padding: 8px 10px;
   background: #ffffff;
   border-radius: 10px;
-  border-left: 3px solid #0f172a;
+  border-left: 3px solid #1c1b19;
 }
 
 .mini-review-card.partner {
-  border-left-color: #06b6d4;
+  border-left-color: #a6a6a6;
 }
 
 .review-user-name {
   font-size: 11px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .review-comment-text {
   margin: 2px 0 0;
   font-size: 12px;
-  color: #475569;
+  color: #545454;
   line-height: 1.35;
   overflow-wrap: break-word;
   word-break: break-word;
@@ -6131,14 +5911,14 @@ ion-modal.dn-movies-details-modal {
   gap: 12px;
   margin-top: 10px;
   padding-top: 14px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #f2f3f5;
 }
 
 .details-add-options-label,
 .details-status-label {
   font-size: 11px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 2px;
@@ -6155,7 +5935,7 @@ ion-modal.dn-movies-details-modal {
   width: 100%;
   padding: 13px 18px;
   border-radius: 13px;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   font-size: 14px;
   font-weight: 700;
@@ -6165,14 +5945,14 @@ ion-modal.dn-movies-details-modal {
   justify-content: center;
   gap: 8px;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  box-shadow: none;
   touch-action: manipulation;
   transition: transform 0.15s ease, background 0.15s ease;
 }
 
 .details-btn-primary:active {
   transform: scale(0.98);
-  background: #1e293b;
+  background: #1c1b19;
 }
 
 .details-btn-primary ion-icon {
@@ -6180,8 +5960,8 @@ ion-modal.dn-movies-details-modal {
 }
 
 .details-btn-primary.review-btn {
-  background: #0f172a;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  background: #1c1b19;
+  box-shadow: none;
 }
 
 .details-secondary-row {
@@ -6193,9 +5973,9 @@ ion-modal.dn-movies-details-modal {
 .details-btn-secondary {
   padding: 11px 12px;
   border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #1e293b;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
+  color: #1c1b19;
   font-size: 12.5px;
   font-weight: 600;
   display: inline-flex;
@@ -6209,19 +5989,19 @@ ion-modal.dn-movies-details-modal {
 
 .details-btn-secondary:active {
   transform: scale(0.97);
-  background: #f1f5f9;
+  background: #f2f3f5;
 }
 
 .details-btn-secondary ion-icon {
   font-size: 16px;
-  color: #64748b;
+  color: #737373;
 }
 
 .details-btn-secondary.date-btn {
   width: 100%;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
-  color: #334155;
+  background: #f8f9fb;
+  border: 1px dashed #d4d4d4;
+  color: #404040;
 }
 
 .details-status-control-box {
@@ -6235,7 +6015,7 @@ ion-modal.dn-movies-details-modal {
   grid-template-columns: 1fr 1fr 1fr;
   gap: 4px;
   padding: 4px;
-  background: #f1f5f9;
+  background: #f2f3f5;
   border-radius: 12px;
 }
 
@@ -6246,7 +6026,7 @@ ion-modal.dn-movies-details-modal {
   background: transparent;
   font-size: 12px;
   font-weight: 600;
-  color: #64748b;
+  color: #737373;
   cursor: pointer;
   text-align: center;
   touch-action: manipulation;
@@ -6255,15 +6035,15 @@ ion-modal.dn-movies-details-modal {
 
 .status-toggle-pill.active {
   background: #ffffff;
-  color: #0f172a;
+  color: #1c1b19;
   font-weight: 700;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 
 .details-delete-btn {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 12px;
   font-weight: 600;
   padding: 8px;
@@ -6278,7 +6058,7 @@ ion-modal.dn-movies-details-modal {
 }
 
 .details-delete-btn:active {
-  color: #ef4444;
+  color: #d96856;
 }
 
 .details-delete-btn ion-icon {
@@ -6287,7 +6067,7 @@ ion-modal.dn-movies-details-modal {
 
 /* BUTTONS */
 .dn-button-primary {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
   border-radius: 14px;
@@ -6300,12 +6080,12 @@ ion-modal.dn-movies-details-modal {
   gap: 8px;
   cursor: pointer;
   transition: transform 0.15s ease, background-color 0.15s ease;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  box-shadow: none;
 }
 
 .dn-button-primary:active {
   transform: scale(0.97);
-  background: #1e293b;
+  background: #1c1b19;
 }
 
 /* SERIES EPISODE BADGE (IN STATUS ROW) */
@@ -6313,11 +6093,11 @@ ion-modal.dn-movies-details-modal {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #334155;
+  background: var(--dn-soft);
+  border: none;
+  color: #404040;
   font-size: 10.5px;
-  font-weight: 700;
+  font-weight: 500;
   padding: 2.5px 7.5px;
   border-radius: 999px;
   cursor: pointer;
@@ -6327,20 +6107,20 @@ ion-modal.dn-movies-details-modal {
 }
 
 .series-ep-pill:active {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: #f2f3f5;
+  border-color: #d4d4d4;
 }
 
 .series-ep-pill ion-icon {
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
 }
 
 /* SERIES CARD TRACKER BOX */
 .series-card-tracker {
   padding: 8px 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 14px;
   display: flex;
   align-items: center;
@@ -6362,12 +6142,12 @@ ion-modal.dn-movies-details-modal {
   height: 28px;
   border-radius: 8px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 15px;
-  color: #0f172a;
+  color: #1c1b19;
   flex-shrink: 0;
 }
 
@@ -6381,7 +6161,7 @@ ion-modal.dn-movies-details-modal {
 .series-tracker-label {
   font-size: 8.5px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
@@ -6392,12 +6172,12 @@ ion-modal.dn-movies-details-modal {
   gap: 5px;
   font-size: 11px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   white-space: nowrap;
 }
 
 .tracker-dot {
-  color: #cbd5e1;
+  color: #d4d4d4;
   font-size: 11px;
 }
 
@@ -6413,9 +6193,9 @@ ion-modal.dn-movies-details-modal {
   min-width: 30px;
   padding: 0 8px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   background: #ffffff;
-  color: #334155;
+  color: #404040;
   font-size: 12px;
   display: inline-flex;
   align-items: center;
@@ -6429,7 +6209,7 @@ ion-modal.dn-movies-details-modal {
 
 .tracker-btn:active {
   transform: scale(0.94);
-  background: #f1f5f9;
+  background: #f2f3f5;
 }
 
 .tracker-btn:disabled {
@@ -6438,28 +6218,28 @@ ion-modal.dn-movies-details-modal {
 }
 
 .tracker-btn-edit {
-  color: #64748b;
+  color: #737373;
   font-size: 13px;
 }
 
 .tracker-btn-plus {
-  background: #0f172a;
-  border-color: #0f172a;
+  background: #1c1b19;
+  border-color: #1c1b19;
   color: #ffffff;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   gap: 2px;
   padding: 0 9px;
 }
 
 .tracker-btn-plus:active {
-  background: #1e293b;
+  background: #1c1b19;
 }
 
 /* DETAILS MODAL SERIES TRACKER BOX */
 .details-series-tracker-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 14px;
   padding: 12px;
   display: flex;
@@ -6479,20 +6259,20 @@ ion-modal.dn-movies-details-modal {
   gap: 6px;
   font-size: 11.5px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
 
 .details-series-title-grp ion-icon {
   font-size: 14px;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .details-series-indicator {
   font-size: 11.5px;
-  font-weight: 800;
-  background: #0f172a;
+  font-weight: 700;
+  background: #1c1b19;
   color: #ffffff;
   padding: 2px 7px;
   border-radius: 6px;
@@ -6506,7 +6286,7 @@ ion-modal.dn-movies-details-modal {
 
 .series-stepper-cell {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   border-radius: 11px;
   padding: 8px 10px;
   display: flex;
@@ -6517,7 +6297,7 @@ ion-modal.dn-movies-details-modal {
 .stepper-sublabel {
   font-size: 10.5px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
@@ -6532,9 +6312,9 @@ ion-modal.dn-movies-details-modal {
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  color: #0f172a;
+  border: 1px solid #e5e6e8;
+  background: #f8f9fb;
+  color: #1c1b19;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6554,15 +6334,15 @@ ion-modal.dn-movies-details-modal {
 }
 
 .step-circle-plus {
-  background: #0f172a;
-  border-color: #0f172a;
+  background: #1c1b19;
+  border-color: #1c1b19;
   color: #ffffff;
 }
 
 .step-num-val {
   font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .ep-custom-change-btn {
@@ -6595,8 +6375,8 @@ ion-modal.dn-movies-episode-modal {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 14px;
   padding: 10px 12px;
 }
@@ -6607,7 +6387,7 @@ ion-modal.dn-movies-episode-modal {
   border-radius: 8px;
   object-fit: cover;
   flex-shrink: 0;
-  background: #0f172a;
+  background: #1c1b19;
 }
 
 .ep-series-meta {
@@ -6620,8 +6400,8 @@ ion-modal.dn-movies-episode-modal {
 .ep-series-meta h4 {
   margin: 0;
   font-size: 14.5px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   line-height: 1.25;
 }
 
@@ -6631,7 +6411,7 @@ ion-modal.dn-movies-episode-modal {
   gap: 5px;
   font-size: 11.5px;
   font-weight: 600;
-  color: #475569;
+  color: #545454;
 }
 
 .ep-selectors-grid {
@@ -6641,8 +6421,8 @@ ion-modal.dn-movies-episode-modal {
 }
 
 .ep-stepper-card {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 14px;
   padding: 12px;
   display: flex;
@@ -6653,8 +6433,8 @@ ion-modal.dn-movies-episode-modal {
 
 .ep-card-title {
   font-size: 10.5px;
-  font-weight: 800;
-  color: #64748b;
+  font-weight: 700;
+  color: #737373;
   letter-spacing: 0.6px;
 }
 
@@ -6671,8 +6451,8 @@ ion-modal.dn-movies-episode-modal {
   height: 36px;
   border-radius: 10px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  color: #0f172a;
+  border: 1px solid #e5e6e8;
+  color: #1c1b19;
   font-size: 18px;
   display: flex;
   align-items: center;
@@ -6692,8 +6472,8 @@ ion-modal.dn-movies-episode-modal {
 }
 
 .ep-circle-stepper-btn.ep-circle-primary {
-  background: #0f172a;
-  border-color: #0f172a;
+  background: #1c1b19;
+  border-color: #1c1b19;
   color: #ffffff;
 }
 
@@ -6704,13 +6484,13 @@ ion-modal.dn-movies-episode-modal {
 
 .ep-big-num {
   font-size: 24px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .ep-manual-input-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 14px;
   padding: 12px 14px;
   display: flex;
@@ -6721,7 +6501,7 @@ ion-modal.dn-movies-episode-modal {
 .ep-input-label {
   font-size: 11px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
@@ -6731,7 +6511,7 @@ ion-modal.dn-movies-episode-modal {
   align-items: center;
   gap: 10px;
   background: #ffffff;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #d4d4d4;
   border-radius: 11px;
   padding: 6px 12px;
 }
@@ -6739,7 +6519,7 @@ ion-modal.dn-movies-episode-modal {
 .ep-input-prefix {
   font-size: 13px;
   font-weight: 600;
-  color: #64748b;
+  color: #737373;
   white-space: nowrap;
 }
 
@@ -6748,7 +6528,7 @@ ion-modal.dn-movies-episode-modal {
   background: transparent;
   font-size: 15px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   width: 100%;
   outline: none;
 }
@@ -6764,8 +6544,8 @@ ion-modal.dn-movies-episode-modal {
   padding: 6px 10px;
   border-radius: 8px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  color: #334155;
+  border: 1px solid #e5e6e8;
+  color: #404040;
   font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
@@ -6775,10 +6555,298 @@ ion-modal.dn-movies-episode-modal {
 
 .ep-preset-chip:active {
   transform: scale(0.96);
-  background: #f1f5f9;
+  background: #f2f3f5;
 }
 
 .ep-save-btn {
   margin-top: 6px;
+}
+
+.pill-emoji,
+.genre-emoji {
+  display: none;
+}
+
+/* ===== Beige accent: empty states ===== */
+.empty-icon-wrap {
+  background: var(--dn-cream) !important;
+  color: var(--dn-cream-ink) !important;
+  border: none !important;
+}
+
+/* =========================================================
+   MOVIE LIST – compact rows (mv-*)
+   ========================================================= */
+.movies-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  margin: 4px 0 0 !important;
+  padding: 0 !important;
+}
+
+.mv-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--dn-line);
+}
+
+.mv-row:last-child {
+  border-bottom: none;
+}
+
+.mv-poster {
+  width: 64px;
+  height: 92px;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--dn-cream);
+  color: var(--dn-cream-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.mv-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mv-row.is-watched .mv-poster {
+  opacity: 0.72;
+}
+
+.mv-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding-top: 2px;
+}
+
+.mv-title {
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--dn-ink);
+  text-align: left;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.mv-meta {
+  max-width: 100%;
+  font-size: 13px;
+  color: var(--dn-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mv-status-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.mv-status {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--dn-soft);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dn-muted);
+}
+
+.mv-status.is-watching {
+  background: var(--dn-cream);
+  color: var(--dn-cream-ink);
+}
+
+.mv-status.is-watched {
+  background: var(--dn-ink);
+  color: #ffffff;
+}
+
+.mv-score,
+.mv-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12.5px;
+  color: var(--dn-muted);
+}
+
+.mv-score ion-icon {
+  font-size: 12px;
+  color: var(--dn-cream-ink);
+}
+
+.mv-episode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.mv-ep-label {
+  height: 30px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 999px;
+  background: var(--dn-cream);
+  color: var(--dn-ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mv-ep-btn {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: var(--dn-soft);
+  color: var(--dn-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.mv-ep-btn.is-plus {
+  background: var(--dn-ink);
+  color: #ffffff;
+}
+
+.mv-ep-btn:disabled {
+  opacity: 0.4;
+}
+
+.mv-ratings {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.mv-rate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px 0 3px;
+  border-radius: 999px;
+  background: var(--dn-soft);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--dn-ink);
+}
+
+.mv-rate-av {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mv-rate-avg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--dn-cream);
+  color: var(--dn-cream-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.mv-quote {
+  margin: 4px 0 0;
+  font-family: var(--dn-serif);
+  font-size: 14px;
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--dn-muted);
+}
+
+.mv-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mv-check {
+  width: 30px;
+  height: 30px;
+  border: 1.5px solid #c9ccd2;
+  border-radius: 50%;
+  background: transparent;
+  color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.mv-check.done {
+  background: var(--dn-ink);
+  border-color: var(--dn-ink);
+  color: #ffffff;
+}
+
+.mv-more {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--dn-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
 }
 </style>

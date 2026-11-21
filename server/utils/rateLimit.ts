@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { isIP } from 'node:net'
-import { getSupabaseServerClient } from './webPush'
+import { getFirebaseAdminDb } from './firebaseAdmin'
 
 // In-memory sliding window rate limiter for API endpoints (OWASP API4:2023 mitigation)
 interface RateLimitRecord {
@@ -26,9 +26,10 @@ function ensureCleanup() {
 export function getClientIp(event: any): string {
   if (!event) return 'unknown'
   const req = event.node?.req
-  const trustedNetlifyIp = req?.headers?.['x-nf-client-connection-ip']
-  const clientIp = Array.isArray(trustedNetlifyIp) ? trustedNetlifyIp[0] : trustedNetlifyIp
-  if (typeof clientIp === 'string' && isIP(clientIp.trim())) return clientIp.trim()
+  // Firebase Hosting → Cloud Functions: the client IP is the first X-Forwarded-For entry
+  const forwarded = req?.headers?.['x-forwarded-for']
+  const first = String(Array.isArray(forwarded) ? forwarded[0] : forwarded || '').split(',')[0].trim()
+  if (first && isIP(first)) return first
 
   const socketIp = req?.socket?.remoteAddress
   return typeof socketIp === 'string' && isIP(socketIp) ? socketIp : 'unknown'
@@ -40,43 +41,39 @@ export async function checkRateLimit(
 ): Promise<{ allowed: boolean; remaining: number; resetAt: number; retryAfterSeconds?: number; unavailable?: boolean }> {
   const limit = Math.max(1, Math.min(options.maxRequests || 30, 10000))
   const windowMs = Math.max(1000, Math.min(options.windowMs || 60000, 3600000))
-  const windowSeconds = Math.ceil(windowMs / 1000)
   const prefix = String(options.keyPrefix || 'api').slice(0, 80)
   const clientIp = getClientIp(event)
   const ipHash = createHash('sha256').update(clientIp).digest('hex')
   const bucketKey = `${prefix}:${ipHash}`
   const now = Date.now()
 
+  // Shared limiter backed by Firestore (works across serverless instances).
   try {
-    const config = useRuntimeConfig(event)
-    const supabase = getSupabaseServerClient(config)
-    if (supabase) {
-      const { data, error } = await supabase.rpc('consume_api_rate_limit', {
-        p_bucket_key: bucketKey,
-        p_limit: limit,
-        p_window_seconds: windowSeconds
-      })
-      const result = Array.isArray(data) ? data[0] : null
-      if (error || !result) {
-        console.error('[RateLimit] Shared limiter unavailable:', error?.message || 'empty RPC result')
-        return { allowed: false, remaining: 0, resetAt: now + windowMs, retryAfterSeconds: windowSeconds, unavailable: true }
+    const db = getFirebaseAdminDb()
+    const ref = db.collection('rate_limits').doc(createHash('sha256').update(bucketKey).digest('hex'))
+    const result = await db.runTransaction(async (tx: any) => {
+      const snap = await tx.get(ref)
+      const data = snap.exists ? snap.data() : null
+      const resetAt = Number(data?.reset_at) || 0
+      if (!data || now > resetAt) {
+        tx.set(ref, { count: 1, reset_at: now + windowMs, expires_at: new Date(now + windowMs) })
+        return { allowed: true, count: 1, resetAt: now + windowMs }
       }
-      return {
-        allowed: Boolean(result.allowed),
-        remaining: result.allowed ? Math.max(0, limit - 1) : 0,
-        resetAt: now + Math.max(1, Number(result.retry_after_seconds) || windowSeconds) * 1000,
-        retryAfterSeconds: Math.max(1, Number(result.retry_after_seconds) || windowSeconds)
-      }
+      const count = Number(data.count) || 0
+      if (count >= limit) return { allowed: false, count, resetAt }
+      tx.update(ref, { count: count + 1 })
+      return { allowed: true, count: count + 1, resetAt }
+    })
+    const retryAfterSeconds = Math.max(1, Math.ceil((result.resetAt - now) / 1000))
+    return {
+      allowed: result.allowed,
+      remaining: Math.max(0, limit - result.count),
+      resetAt: result.resetAt,
+      retryAfterSeconds: result.allowed ? undefined : retryAfterSeconds
     }
   } catch (error: any) {
-    if (!process.dev) {
-      console.error('[RateLimit] Unable to initialize shared limiter:', error?.message || error)
-      return { allowed: false, remaining: 0, resetAt: now + windowMs, retryAfterSeconds: windowSeconds, unavailable: true }
-    }
-  }
-
-  if (!process.dev) {
-    return { allowed: false, remaining: 0, resetAt: now + windowMs, retryAfterSeconds: windowSeconds, unavailable: true }
+    // Fall back to the per-instance in-memory limiter instead of rejecting everyone.
+    console.warn('[RateLimit] Shared limiter unavailable, using in-memory fallback:', error?.message || error)
   }
 
   ensureCleanup()

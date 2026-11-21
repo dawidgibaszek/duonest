@@ -3,1676 +3,776 @@
     <ion-header :translucent="true">
       <ion-toolbar>
         <div class="dn-page-header">
-          <div class="dn-header-title">
-            <span>{{ currentCategory === 'relationship' ? 'Strefa Relacji' : 'Ustawienia Gniazdka' }}</span>
+          <div class="header-action-row">
+            <div class="dn-header-title">
+              <span>Relacja</span>
+            </div>
+            <button
+              type="button"
+              class="dn-header-btn dn-header-btn--icon dn-header-btn--soft"
+              aria-label="Edytuj profil"
+              @click="openEditProfileModal"
+            >
+              <ion-icon :icon="ioniconsCreateOutline" />
+            </button>
           </div>
-          <p class="dn-header-subtitle">
-            {{ currentCategory === 'relationship' ? 'Nastroje, drobne gesty i Wasza bliskość' : 'Personalizacja Waszego domu, kolory i konto' }}
-          </p>
+        </div>
+      </ion-toolbar>
+      <ion-toolbar class="dn-subtabs-toolbar" data-no-swipe>
+        <div class="dn-subtabs">
+          <button
+            type="button"
+            class="dn-subtab"
+            :class="{ active: currentCategory === 'relationship' }"
+            @click="currentCategory = 'relationship'"
+          >
+            <span>Na co dzień</span>
+          </button>
+          <button
+            type="button"
+            class="dn-subtab"
+            :class="{ active: currentCategory === 'nest_settings' }"
+            @click="currentCategory = 'nest_settings'"
+          >
+            <span>Ustawienia</span>
+          </button>
         </div>
       </ion-toolbar>
     </ion-header>
 
     <ion-content :fullscreen="true">
-      <!-- Native Pull-To-Refresh -->
       <ion-refresher slot="fixed" @ionRefresh="handleRefresh($event)">
         <ion-refresher-content pulling-text="Przeciągnij, aby odświeżyć..." refreshing-spinner="crescent" />
       </ion-refresher>
 
-      <!-- CATEGORY SEGMENTED SELECTOR -->
-      <div class="category-toggle-container">
-        <div class="category-toggle-pill">
-          <button
-            type="button"
-            class="cat-toggle-btn"
-            :class="{ active: currentCategory === 'relationship' }"
-            @click="currentCategory = 'relationship'"
-          >
-            <ion-icon :icon="ioniconsHeart" />
-            <span>Strefa Relacji</span>
-          </button>
-          <button
-            type="button"
-            class="cat-toggle-btn"
-            :class="{ active: currentCategory === 'nest_settings' }"
-            @click="currentCategory = 'nest_settings'"
-          >
-            <ion-icon :icon="ioniconsSettingsOutline" />
-            <span>Ustawienia Gniazdka</span>
-          </button>
-        </div>
-      </div>
+      <!-- ============================================== -->
+      <!-- NA CO DZIEŃ                                     -->
+      <!-- ============================================== -->
+      <div v-show="currentCategory === 'relationship'" class="rl-page">
+        <!-- COUPLE CARD (cream accent) -->
+        <section class="rl-couple">
+          <div class="rl-couple-people">
+            <div class="rl-person">
+              <span class="rl-avatar" :style="{ backgroundColor: currentUserAccentColor }">
+                {{ (currentUser.name || 'T').charAt(0).toUpperCase() }}
+              </span>
+              <span class="rl-person-name">{{ currentUser.name || 'Ty' }}</span>
+              <span class="rl-person-meta">Ty</span>
+            </div>
 
-      <!-- ============================================== -->
-      <!-- KATEGORIA 1: STREFA RELACJI                   -->
-      <!-- ============================================== -->
-      <div v-show="currentCategory === 'relationship'" class="category-content-wrap">
-        
-        <!-- 1. KARTA NASZEJ RELACJI (THE COUPLE HUB) -->
-        <div class="dn-card couple-hub-card">
-          <div class="card-title-row">
-            <span class="section-tag couple-tag">
-              <ion-icon :icon="ioniconsHeart" />
-              NASZA RELACJA
-            </span>
-            <button class="edit-profile-pill-btn" @click="openEditProfileModal" title="Edytuj swój profil">
-              <DuoIcon name="edit" :size="13" />
-              <span>Edytuj profil</span>
+            <div class="rl-couple-bridge">
+              <span class="rl-bridge-line"></span>
+              <span class="rl-bridge-heart"><ion-icon :icon="ioniconsHeart" /></span>
+              <span class="rl-bridge-line"></span>
+            </div>
+
+            <div v-if="partnerUser" class="rl-person">
+              <span class="rl-avatar" :style="{ backgroundColor: partnerUserAccentColor }">
+                {{ (partnerUser.name || 'P').charAt(0).toUpperCase() }}
+                <span class="rl-online-pip" :class="{ 'is-online': isPartnerOnline }"></span>
+              </span>
+              <span class="rl-person-name">{{ partnerUser.name || 'Partner' }}</span>
+              <span class="rl-person-meta">{{ isPartnerOnline ? 'Online' : 'Offline' }}</span>
+            </div>
+            <button v-else type="button" class="rl-person rl-person--empty" @click="currentCategory = 'nest_settings'">
+              <span class="rl-avatar rl-avatar--empty"><ion-icon :icon="ioniconsPersonAddOutline" /></span>
+              <span class="rl-person-name">Brak pary</span>
+              <span class="rl-person-meta">Połącz teraz</span>
             </button>
           </div>
 
-          <!-- COUPLE HERO BANNER (AVATARS & HEART BRIDGE) -->
-          <div class="couple-hero-banner">
-            <!-- Left: Current User -->
-            <div class="couple-member-col">
-              <div class="avatar-ring" :style="{ backgroundColor: currentUserAccentColor }">
-                <span class="avatar-initial">{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
-              </div>
-              <div class="member-info">
-                <span class="member-name">{{ currentUser.name || 'Ty' }}</span>
-                <span class="member-badge me-badge">Ty</span>
-              </div>
-            </div>
-
-            <!-- Center: Love Bridge & Days Together -->
-            <div class="couple-bridge-col">
-              <div class="heart-pulse-node">
-                <ion-icon :icon="ioniconsHeart" class="heart-node-icon" />
-              </div>
-              <span class="days-together-pill">
-                <ion-icon :icon="ioniconsSparkles" class="sparkle-mini" />
-                {{ daysTogether }} dni razem
-              </span>
-            </div>
-
-            <!-- Right: Partner User -->
-            <div class="couple-member-col" v-if="partnerUser">
-              <div class="avatar-ring partner-ring" :style="{ backgroundColor: partnerUserAccentColor }">
-                <span class="avatar-initial">{{ (partnerUser.name || 'P').charAt(0).toUpperCase() }}</span>
-              </div>
-              <div class="member-info">
-                <span class="member-name">{{ partnerUser.name || 'Partner' }}</span>
-                <span class="partner-status-pill" :class="{ 'is-online': isPartnerOnline }">
-                  <span class="live-dot" :class="{ 'is-online': isPartnerOnline }"></span>
-                  {{ isPartnerOnline ? 'W aplikacji' : 'Offline' }}
-                </span>
-              </div>
-            </div>
-            <!-- Unpaired Placeholder -->
-            <div class="couple-member-col unpaired-col" v-else @click="currentCategory = 'nest_settings'">
-              <div class="avatar-ring unpaired-ring">
-                <ion-icon :icon="ioniconsPersonOutline" />
-              </div>
-              <div class="member-info">
-                <span class="member-name">Brak pary</span>
-                <span class="pair-now-badge">Połącz teraz</span>
-              </div>
-            </div>
+          <div class="rl-couple-days">
+            <span class="rl-days-num">{{ daysTogether }}</span>
+            <span class="rl-days-label">dni razem</span>
           </div>
 
-          <!-- LOVE NOTES BUBBLES TRAY -->
-          <div class="couple-notes-tray" v-if="(currentUser.love_note && currentUser.love_note.trim()) || (partnerUser?.love_note && partnerUser.love_note.trim())">
-            <!-- User Note -->
-            <div class="love-bubble user-bubble" v-if="currentUser.love_note && currentUser.love_note.trim()">
-              <div class="bubble-initial" :style="{ backgroundColor: currentUserAccentColor }">
-                {{ (currentUser.name || 'T').charAt(0).toUpperCase() }}
-              </div>
-              <div class="bubble-text-wrap">
-                <span class="bubble-author">{{ currentUser.name || 'Ty' }}:</span>
-                <p class="bubble-quote">"{{ currentUser.love_note }}"</p>
-              </div>
-            </div>
-
-            <!-- Partner Note -->
-            <div class="love-bubble partner-bubble" v-if="partnerUser?.love_note && partnerUser.love_note.trim()">
-              <div class="bubble-initial" :style="{ backgroundColor: partnerUserAccentColor }">
-                {{ (partnerUser.name || 'P').charAt(0).toUpperCase() }}
-              </div>
-              <div class="bubble-text-wrap">
-                <span class="bubble-author">{{ partnerUser.name || 'Partner' }}:</span>
-                <p class="bubble-quote">"{{ partnerUser.love_note }}"</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Empty Note Invite -->
+          <!-- Love notes -->
           <div
-            class="empty-notes-invite"
-            v-else
-            @click="openEditProfileModal"
+            v-if="(currentUser.love_note && currentUser.love_note.trim()) || (partnerUser?.love_note && partnerUser.love_note.trim())"
+            class="rl-notes"
           >
-            <ion-icon :icon="ioniconsSparkles" class="invite-sparkle" />
-            <div class="invite-text">
-              <span class="invite-title">Napisz coś czułego dla partnera!</span>
-              <span class="invite-sub">Kliknij tutaj, aby dodać motto lub ciepłą myśl widoczną w Waszym profilu.</span>
+            <div v-if="currentUser.love_note && currentUser.love_note.trim()" class="rl-note">
+              <span class="rl-note-author">{{ currentUser.name || 'Ty' }}</span>
+              <p class="rl-note-text">„{{ currentUser.love_note }}”</p>
             </div>
-            <ion-icon :icon="ioniconsChevronForwardOutline" class="invite-arrow" />
-          </div>
-
-          <!-- ŚCIĄGAWKA DLA WAS (ULUBIONE NAPOJE I SMAKOŁYKI) -->
-          <div class="couple-cheatsheet-section">
-            <div class="cheatsheet-header">
-              <div class="cs-header-left">
-                <ion-icon :icon="ioniconsSparkles" class="cs-sparkle-icon" />
-                <span class="cs-title">Ściągawka małych przyjemności</span>
-              </div>
-              <span class="cs-sub">Wiesz, co sprawi uśmiech!</span>
-            </div>
-
-            <div class="cheatsheet-grid">
-              <!-- Ulubiony napój -->
-              <div class="cheatsheet-card">
-                <div class="cs-card-top">
-                  <DuoIcon name="drink" :size="16" />
-                  <span class="cs-card-label">Ulubiony napój</span>
-                </div>
-                <div class="cs-item-row">
-                  <span class="cs-who" :style="{ color: currentUserAccentColor }">Ty:</span>
-                  <span class="cs-val">{{ currentUser.favorite_drink || 'Nie podano' }}</span>
-                </div>
-                <div class="cs-item-row" v-if="partnerUser">
-                  <span class="cs-who" :style="{ color: partnerUserAccentColor }">{{ partnerUser.name || 'Partner' }}:</span>
-                  <span class="cs-val">{{ partnerUser.favorite_drink || 'Nie podano' }}</span>
-                </div>
-              </div>
-
-              <!-- Ulubiona przekąska -->
-              <div class="cheatsheet-card">
-                <div class="cs-card-top">
-                  <DuoIcon name="treat" :size="16" />
-                  <span class="cs-card-label">Ulubiona przekąska</span>
-                </div>
-                <div class="cs-item-row">
-                  <span class="cs-who" :style="{ color: currentUserAccentColor }">Ty:</span>
-                  <span class="cs-val">{{ currentUser.favorite_treat || 'Nie podano' }}</span>
-                </div>
-                <div class="cs-item-row" v-if="partnerUser">
-                  <span class="cs-who" :style="{ color: partnerUserAccentColor }">{{ partnerUser.name || 'Partner' }}:</span>
-                  <span class="cs-val">{{ partnerUser.favorite_treat || 'Nie podano' }}</span>
-                </div>
-              </div>
+            <div v-if="partnerUser?.love_note && partnerUser.love_note.trim()" class="rl-note">
+              <span class="rl-note-author">{{ partnerUser.name || 'Partner' }}</span>
+              <p class="rl-note-text">„{{ partnerUser.love_note }}”</p>
             </div>
           </div>
-        </div>
+          <button v-else type="button" class="rl-note rl-note--invite" @click="openEditProfileModal">
+            <span class="rl-note-author">Dodaj czułą myśl</span>
+            <span class="rl-note-hint">Będzie widoczna w Waszym profilu</span>
+            <ion-icon :icon="ioniconsChevronForwardOutline" class="rl-note-chevron" />
+          </button>
+        </section>
 
-        <!-- 2. CENTRUM SAMOPOCZUCIA I NASTROJU (MOOD HUB) -->
-        <div class="dn-card mood-hub-card">
-          <div class="card-title-row">
-            <span class="section-tag mood-tag">
-              <ion-icon :icon="ioniconsHappyOutline" />
-              SAMOPOCZUCIE
+        <!-- MOOD -->
+        <section class="rl-section">
+          <div class="rl-section-head">
+            <h3 class="rl-section-title">Samopoczucie</h3>
+            <span class="rl-section-meta">{{ formattedPartnerMoodTime }}</span>
+          </div>
+
+          <div v-if="partnerUser" class="rl-row rl-row--card">
+            <span class="rl-row-icon rl-row-icon--cream">
+              <DuoIcon :name="'mood-' + (partnerUser.current_mood || 'happy')" :size="22" />
             </span>
-            <span class="active-mood-badge">
-              <DuoIcon :name="'mood-' + (currentUser.current_mood || 'happy')" :size="14" />
-              <span>Twój nastrój: {{ getMoodLabel(currentUser.current_mood) }}</span>
+            <span class="rl-row-body">
+              <span class="rl-row-title">{{ partnerUser.name }} · {{ getMoodLabel(partnerUser.current_mood) }}</span>
+              <span class="rl-row-sub">{{ partnerUser.mood_note ? `„${partnerUser.mood_note}”` : 'Bez notatki na dziś' }}</span>
             </span>
           </div>
 
-          <!-- A. STAN PARTNERA (WIDOCZNY NA PIERWSZYM MIEJSCU) -->
-          <div class="partner-mood-spotlight" v-if="partnerUser">
-            <div class="spotlight-header-row">
-              <div class="spotlight-title-group">
-                <span class="spotlight-mini-tag">STAN PARTNERA</span>
-                <h4>Aktualne samopoczucie: {{ partnerUser.name }}</h4>
-              </div>
-              <span class="spotlight-sync-time">{{ formattedPartnerMoodTime }}</span>
-            </div>
-
-            <div class="spotlight-content-box">
-              <div class="spotlight-icon-wrap" :style="{ backgroundColor: partnerUserAccentColor }">
-                <DuoIcon :name="'mood-' + (partnerUser.current_mood || 'happy')" :size="28" />
-              </div>
-              <div class="spotlight-texts">
-                <span class="spotlight-mood-name">{{ getMoodLabel(partnerUser.current_mood) }}</span>
-                <p class="spotlight-note" v-if="partnerUser.mood_note">
-                  "{{ partnerUser.mood_note }}"
-                </p>
-                <p class="spotlight-note-empty" v-else>
-                  Partner nie dodał jeszcze dzisiaj notatki.
-                </p>
-              </div>
-            </div>
+          <p class="rl-label">Jak się dziś czujesz?</p>
+          <div class="rl-chips" data-no-swipe>
+            <button
+              v-for="m in moodChoices"
+              :key="m.id"
+              type="button"
+              class="rl-mood"
+              :class="{ active: selectedMood === m.id }"
+              @click="selectedMood = m.id"
+            >
+              <DuoIcon :name="'mood-' + m.id" :size="18" />
+              <span>{{ m.label }}</span>
+            </button>
           </div>
 
-          <!-- B. JAK SIĘ DZIŚ CZUJESZ? (TWOJA AKTUALIZACJA) -->
-          <div class="my-mood-section">
-            <div class="my-mood-header">
-              <h4>Jak się dziś czujesz?</h4>
-              <p class="section-desc">Twój aktualny nastrój i samopoczucie na dziś.</p>
-            </div>
-
-            <!-- Mood Buttons Grid -->
-            <div class="mood-chips-grid">
-              <button
-                type="button"
-                v-for="m in moodChoices"
-                :key="m.id"
-                class="mood-chip-btn"
-                :class="{ active: selectedMood === m.id }"
-                @click="selectedMood = m.id"
-              >
-                <div class="mood-chip-icon">
-                  <DuoIcon :name="'mood-' + m.id" :size="20" />
-                </div>
-                <span class="mood-chip-label">{{ m.label }}</span>
-              </button>
-            </div>
-
-            <!-- Mood Note & Save Button -->
-            <div class="mood-action-box">
-              <div class="input-with-icon-wrap">
-                <ion-icon :icon="ioniconsHeartOutline" class="input-leading-icon" />
-                <ion-input
-                  v-model="moodNote"
-                  placeholder="Krótka notatka dla partnera (np. Chwila relaksu, zmęczenie pracą...)"
-                  class="dn-styled-input"
-                  :clear-input="true"
-                />
-              </div>
-              <button class="dn-button-sea save-mood-btn" @click="handleSaveMood">
-                <ion-icon :icon="ioniconsCheckmarkOutline" />
-                <span>Zapisz mój nastrój</span>
-              </button>
-            </div>
+          <div class="rl-field">
+            <ion-input aria-label="Notatka do nastroju"
+              v-model="moodNote"
+              placeholder="Krótka notatka dla partnera (opcjonalnie)"
+              class="rl-input"
+              :clear-input="true"
+            />
           </div>
-        </div>
+          <button type="button" class="dn-button-primary rl-full-btn" @click="handleSaveMood">
+            Zapisz nastrój
+          </button>
+        </section>
 
-        <!-- 3. CODZIENNE PUKNIĘCIE (NUDGE / DROBNE GESTY) -->
-        <div class="dn-card daily-nudge-card">
-          <div class="card-title-row">
-            <span class="section-tag love-tag">
-              <ion-icon :icon="ioniconsHeartOutline" />
-              DROBNE GESTY
-            </span>
-            <span class="limit-badge" :class="{ 'points-done': hasSentDailyNudge }">
-              {{ hasSentDailyNudge ? 'Wysłano dzisiaj • +5 pkt' : '1 raz na dobę • +5 pkt' }}
+        <!-- GESTURES -->
+        <section class="rl-section">
+          <div class="rl-section-head">
+            <h3 class="rl-section-title">Drobny gest</h3>
+            <span class="rl-section-meta">{{ hasSentDailyNudge ? 'Wysłano dziś' : 'Raz dziennie · +5 pkt' }}</span>
+          </div>
+
+          <div v-if="hasSentDailyNudge" class="rl-row rl-row--card">
+            <span class="rl-row-icon rl-row-icon--ink"><ion-icon :icon="ioniconsCheckmarkOutline" /></span>
+            <span class="rl-row-body">
+              <span class="rl-row-title">{{ partnerUser?.name || 'Partner' }} dostał(a) Twój gest</span>
+              <span class="rl-row-sub">Kolejny za {{ formattedNextNudgeTime }}</span>
             </span>
           </div>
-          <h4>Codzienne puknięcie (Nudge)</h4>
 
-          <!-- STATE A: ALREADY SENT TODAY -->
-          <div v-if="hasSentDailyNudge" class="nudge-already-sent-box">
-            <div class="sent-status-icon-row">
-              <div class="sent-sparkle-badge">
-                <ion-icon :icon="ioniconsCheckmarkCircle" />
-              </div>
-              <div class="sent-status-texts">
-                <span class="sent-title">Wysłano dzisiejsze puknięcie! 💕</span>
-                <span class="sent-subtitle">{{ partnerUser?.name || 'Partner' }} otrzymał Twój ciepły gest.</span>
-              </div>
-            </div>
-
-            <div class="nudge-timer-pill">
-              <ion-icon :icon="ioniconsTimeOutline" class="timer-clock-icon" />
-              <span>Kolejne puknięcie możesz wysłać za: <strong>{{ formattedNextNudgeTime }}</strong></span>
-            </div>
-          </div>
-
-          <!-- STATE B: AVAILABLE TO SEND -->
           <template v-else>
-            <p class="section-desc">Wyślij ciepły gest, aby przypomnieć o sobie w ciągu dnia.</p>
-
-            <div class="nudge-types-grid">
+            <div class="rl-gestures" data-no-swipe>
               <button
-                type="button"
                 v-for="n in nudgePresets"
                 :key="n.id"
-                class="nudge-preset-btn"
+                type="button"
+                class="rl-gesture"
                 :class="{ active: selectedNudgeType === n.id }"
                 @click="selectedNudgeType = n.id"
               >
-                <div class="nudge-icon-circle">
-                  <DuoIcon :name="'nudge-' + n.id" :size="22" />
-                </div>
-                <span class="nudge-name">{{ n.title }}</span>
+                <span class="rl-gesture-icon"><DuoIcon :name="'nudge-' + n.id" :size="22" /></span>
+                <span class="rl-gesture-label">{{ n.title }}</span>
               </button>
             </div>
-
-            <div class="nudge-send-box">
-              <div class="input-with-icon-wrap">
-                <ion-icon :icon="ioniconsHeartOutline" class="input-leading-icon" />
-                <ion-input
-                  v-model="customNudgeMessage"
-                  placeholder="Opcjonalna czuła wiadomość do gestu..."
-                  class="dn-styled-input"
-                  :clear-input="true"
-                />
-              </div>
-              <button class="dn-button-sea send-nudge-btn" @click="handleSendNudge">
-                <ion-icon :icon="ioniconsHeartOutline" />
-                <span>Wyślij puknięcie (+5 pkt)</span>
-              </button>
-            </div>
-          </template>
-
-          <!-- RECENT NUDGES LOG -->
-          <div class="recent-nudges-section" v-if="nudgesList.length > 0">
-            <span class="sub-heading">Ostatnie gesty:</span>
-            <div class="nudges-history-list">
-              <div v-for="ndg in nudgesList.slice(0, 3)" :key="ndg.id" class="history-item">
-                <div class="history-icon-bubble">
-                  <DuoIcon :name="'nudge-' + ndg.nudge_type" :size="16" />
-                </div>
-                <div class="history-text">
-                  <span class="history-author">
-                    {{ ndg.sender_id === currentUser?.id ? 'Ty' : (partnerUser?.name || 'Partner') }}:
-                  </span>
-                  <span class="history-msg">{{ ndg.message || getNudgeTitle(ndg.nudge_type) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- ============================================== -->
-      <!-- KATEGORIA 2: USTAWIENIA GNIAZDKA (DEDYKOWANE)  -->
-      <!-- ============================================== -->
-      <div v-show="currentCategory === 'nest_settings'" class="category-content-wrap">
-        <!-- 1. WASZE GNIAZDKO & DATA ROCZNICY -->
-        <div class="dn-card nest-config-card">
-          <!-- Card Header & Status -->
-          <div class="card-title-row">
-            <span class="section-tag nest-section-tag">
-              <ion-icon :icon="ioniconsHeart" />
-              WASZE GNIAZDKO
-            </span>
-            <span class="days-together-badge">
-              <ion-icon :icon="ioniconsHeart" />
-              {{ daysTogether }} dni razem
-            </span>
-          </div>
-
-          <!-- Hero Intro Box -->
-          <div class="nest-hero-banner">
-            <div class="nest-hero-icon-wrap">
-              <ion-icon :icon="ioniconsHeart" />
-            </div>
-            <div class="nest-hero-text">
-              <h4>{{ nestNameInput || 'Wasze Ciepłe Gniazdko' }}</h4>
-              <p>Tworzycie własną przestrzeń i wspólną historię dzień po dniu.</p>
-            </div>
-          </div>
-
-          <!-- Field 1: Nazwa Gniazdka -->
-          <div class="settings-form-group">
-            <div class="label-with-hint">
-              <label class="form-label">Nazwa Waszego Gniazdka</label>
-              <span class="field-hint">Widoczna w nagłówku i na ekranie głównym</span>
-            </div>
-            <div class="input-with-icon-wrap">
-              <ion-icon :icon="ioniconsSparkles" class="input-leading-icon" />
-              <ion-input
-                v-model="nestNameInput"
-                placeholder="np. Nasze Ciepłe Gniazdko"
-                class="dn-styled-input"
+            <div class="rl-field">
+              <ion-input aria-label="Czuła wiadomość"
+                v-model="customNudgeMessage"
+                placeholder="Czuła wiadomość (opcjonalnie)"
+                class="rl-input"
                 :clear-input="true"
               />
             </div>
-            <!-- Quick Name Suggestions -->
-            <div class="quick-chips-row">
-              <span class="chips-mini-label">Propozycje:</span>
-              <button
-                type="button"
-                v-for="sugg in nestNameSuggestions"
-                :key="sugg"
-                class="chip-btn"
-                :class="{ active: nestNameInput === sugg }"
-                @click="nestNameInput = sugg"
-              >
-                {{ sugg }}
-              </button>
+            <button type="button" class="dn-button-primary rl-full-btn" @click="handleSendNudge">
+              Wyślij gest
+            </button>
+          </template>
+
+          <div v-if="nudgesList.length > 0" class="rl-history">
+            <p class="rl-label">Ostatnie</p>
+            <div v-for="ndg in nudgesList.slice(0, 3)" :key="ndg.id" class="rl-row rl-row--list">
+              <span class="rl-row-icon rl-row-icon--sm"><DuoIcon :name="'nudge-' + ndg.nudge_type" :size="16" /></span>
+              <span class="rl-row-body">
+                <span class="rl-row-title">{{ ndg.message || getNudgeTitle(ndg.nudge_type) }}</span>
+                <span class="rl-row-sub">{{ ndg.sender_id === currentUser?.id ? 'Od Ciebie' : ('Od ' + (partnerUser?.name || 'partnera')) }}</span>
+              </span>
             </div>
           </div>
+        </section>
 
-          <!-- Field 2: Data Rocznicy -->
-          <div class="settings-form-group">
-            <div class="label-with-hint">
-              <label class="form-label">Data rocznicy / początku relacji</label>
-              <span class="field-hint">DuoNest liczy dzięki niej Wasze wspólne dni</span>
+        <!-- CHEATSHEET -->
+        <section class="rl-section">
+          <div class="rl-section-head">
+            <h3 class="rl-section-title">Ściągawka</h3>
+            <button type="button" class="rl-link" @click="openEditProfileModal">Uzupełnij</button>
+          </div>
+          <div class="rl-cheats">
+            <div class="rl-cheat">
+              <span class="rl-cheat-head"><DuoIcon name="drink" :size="16" /> Ulubiony napój</span>
+              <span class="rl-cheat-row"><span class="rl-cheat-who">Ty</span>{{ currentUser.favorite_drink || '—' }}</span>
+              <span v-if="partnerUser" class="rl-cheat-row"><span class="rl-cheat-who">{{ partnerUser.name || 'Partner' }}</span>{{ partnerUser.favorite_drink || '—' }}</span>
             </div>
-            <div class="input-with-icon-wrap">
-              <ion-icon :icon="ioniconsCalendarOutline" class="input-leading-icon" />
-              <ion-input
-                type="date"
-                v-model="anniversaryInput"
-                class="dn-styled-input date-styled-input"
-              />
-            </div>
-
-            <!-- Milestone preview badge -->
-            <div class="anniversary-milestone-box" v-if="anniversaryInput">
-              <div class="milestone-icon-wrap">
-                <ion-icon :icon="ioniconsHeart" />
-              </div>
-              <div class="milestone-content">
-                <span class="milestone-title">Świętujecie od: <strong>{{ formattedAnniversaryDisplay }}</strong></span>
-                <span class="milestone-subtitle">To już ponad <strong>{{ daysTogether }}</strong> wspaniałych dni razem! 🎉</span>
-              </div>
-            </div>
-            <div class="anniversary-empty-hint" v-else>
-              <ion-icon :icon="ioniconsSparkles" />
-              <span>Wybierzcie datę pierwszej randki lub ślubu, aby odliczać Wasze wspólne dni!</span>
+            <div class="rl-cheat">
+              <span class="rl-cheat-head"><DuoIcon name="treat" :size="16" /> Ulubiona przekąska</span>
+              <span class="rl-cheat-row"><span class="rl-cheat-who">Ty</span>{{ currentUser.favorite_treat || '—' }}</span>
+              <span v-if="partnerUser" class="rl-cheat-row"><span class="rl-cheat-who">{{ partnerUser.name || 'Partner' }}</span>{{ partnerUser.favorite_treat || '—' }}</span>
             </div>
           </div>
+        </section>
+      </div>
 
-          <!-- Save Button -->
-          <button class="dn-button-sea save-settings-btn" @click="handleSaveNestSettings">
-            <ion-icon :icon="ioniconsCheckmarkDoneOutline" />
-            <span>Zapisz dane Gniazdka</span>
-          </button>
-        </div>
+      <!-- ============================================== -->
+      <!-- USTAWIENIA                                      -->
+      <!-- ============================================== -->
+      <div v-show="currentCategory === 'nest_settings'" class="rl-page">
+        <!-- NEST -->
+        <section class="rl-section">
+          <div class="rl-section-head">
+            <h3 class="rl-section-title">Gniazdko</h3>
+          </div>
 
-        <!-- 2. TWÓJ KOLOR AKCENTU W GNIAZDKU -->
-        <div class="dn-card accent-color-card">
-          <div class="card-title-row">
-            <span class="section-tag" :style="{ color: selectedCustomColor }">
-              <ion-icon :icon="ioniconsColorPaletteOutline" />
-              <span>TWÓJ KOLOR AKCENTU</span>
-            </span>
-            <span
-              class="active-color-badge"
-              :style="{
-                backgroundColor: hexToRgba(selectedCustomColor, 0.15),
-                color: selectedCustomColor,
-                borderColor: hexToRgba(selectedCustomColor, 0.3)
-              }"
+          <label class="rl-label">Nazwa</label>
+          <div class="rl-field">
+            <ion-input aria-label="Nazwa gniazdka"
+              v-model="nestNameInput"
+              placeholder="np. Nasze Ciepłe Gniazdko"
+              class="rl-input"
+              :clear-input="true"
+            />
+          </div>
+          <div class="rl-chips rl-chips--wrap">
+            <button
+              v-for="sugg in nestNameSuggestions"
+              :key="sugg"
+              type="button"
+              class="dn-filter-chip"
+              :class="{ active: nestNameInput === sugg }"
+              @click="nestNameInput = sugg"
             >
-              {{ selectedCustomColor.toUpperCase() }}
-            </span>
+              {{ sugg }}
+            </button>
           </div>
-          <h4>Wybierz swój kolor z pełnej palety</h4>
-          <p class="section-desc">
-            Przesuwaj suwaki, aby stworzyć własny odcień z całej palety barw. Twój kolor wyróżnia Twoje zadania, zakupy, awatar i wszystkie elementy przypisane do Ciebie!
+
+          <label class="rl-label">Data rocznicy</label>
+          <div class="rl-field">
+            <ion-input aria-label="Data rocznicy" type="date" v-model="anniversaryInput" class="rl-input rl-input--date" />
+          </div>
+          <p class="rl-hint">
+            <template v-if="anniversaryInput">Razem od {{ formattedAnniversaryDisplay }} · {{ daysTogether }} dni</template>
+            <template v-else>Data pierwszej randki lub ślubu – od niej liczymy Wasze dni</template>
           </p>
 
-          <!-- INTERACTIVE RGB COLOR PICKER WITH SLIDERS -->
-          <div class="rgb-picker-container">
-            <!-- Top Bar: Preview swatch, HEX code, RGB label & Apply Button -->
-            <div class="picker-top-row">
-              <div
-                class="color-swatch-disc"
-                :style="{ backgroundColor: selectedCustomColor }"
-                @click="openNativeColorPicker"
-                title="Dotknij, aby otworzyć koło kolorów"
-              >
-                <ion-icon :icon="ioniconsColorPaletteOutline" class="swatch-pipette-icon" />
-                <input
-                  type="color"
-                  ref="nativeColorInputRef"
-                  class="native-color-hidden-input"
-                  :value="selectedCustomColor"
-                  @input="onNativeColorChange"
-                />
-              </div>
+          <button type="button" class="dn-button-primary rl-full-btn" @click="handleSaveNestSettings">
+            Zapisz
+          </button>
+        </section>
 
-              <div class="color-meta-info">
-                <div class="hex-input-wrap">
-                  <span class="hash-label">#</span>
-                  <input
-                    type="text"
-                    class="hex-text-input"
-                    :value="selectedCustomColor.replace('#', '').toUpperCase()"
-                    @input="handleHexInput"
-                    placeholder="HEX"
-                    maxlength="6"
-                  />
-                </div>
-                <span class="rgb-label">{{ hexToRgbString(selectedCustomColor) }}</span>
-              </div>
-
-              <button
-                type="button"
-                class="apply-accent-btn"
-                :style="{
-                  backgroundColor: selectedCustomColor,
-                  color: isLightColor(selectedCustomColor) ? '#0f172a' : '#ffffff'
-                }"
-                :disabled="isSavingColor"
-                @click="handleSaveCustomColor"
-              >
-                <ion-spinner name="crescent" v-if="isSavingColor" class="save-color-spinner" />
-                <template v-else>
-                  <ion-icon :icon="ioniconsCheckmark" />
-                  <span>Zapisz</span>
-                </template>
-              </button>
-            </div>
-
-            <!-- SLIDER 1: ODCIEN (HUE 0-360) -->
-            <div class="slider-control-group">
-              <div class="slider-header-row">
-                <span class="slider-title">Odcień barwy (RGB)</span>
-                <span class="slider-value-pill">{{ pickerHue }}°</span>
-              </div>
-              <div class="slider-track-wrap">
-                <input
-                  type="range"
-                  min="0"
-                  max="360"
-                  step="1"
-                  v-model.number="pickerHue"
-                  class="duo-color-range hue-range"
-                />
-              </div>
-            </div>
-
-            <!-- SLIDER 2: NASYCENIE (SATURATION 5-100) -->
-            <div class="slider-control-group">
-              <div class="slider-header-row">
-                <span class="slider-title">Nasycenie (Intensywność)</span>
-                <span class="slider-value-pill">{{ pickerSaturation }}%</span>
-              </div>
-              <div class="slider-track-wrap">
-                <input
-                  type="range"
-                  min="5"
-                  max="100"
-                  step="1"
-                  v-model.number="pickerSaturation"
-                  class="duo-color-range saturation-range"
-                  :style="{
-                    background: `linear-gradient(to right, hsl(${pickerHue}, 5%, ${pickerLightness}%), hsl(${pickerHue}, 100%, ${pickerLightness}%))`
-                  }"
-                />
-              </div>
-            </div>
-
-            <!-- SLIDER 3: JASNOSC (LIGHTNESS 10-90) -->
-            <div class="slider-control-group">
-              <div class="slider-header-row">
-                <span class="slider-title">Jasność / Cień</span>
-                <span class="slider-value-pill">{{ pickerLightness }}%</span>
-              </div>
-              <div class="slider-track-wrap">
-                <input
-                  type="range"
-                  min="10"
-                  max="90"
-                  step="1"
-                  v-model.number="pickerLightness"
-                  class="duo-color-range lightness-range"
-                  :style="{
-                    background: `linear-gradient(to right, #000000 0%, hsl(${pickerHue}, ${pickerSaturation}%, 50%) 50%, #ffffff 100%)`
-                  }"
-                />
-              </div>
-            </div>
-
-            <!-- SZYBKIE INSPIRACJE KOLORYSTYCZNE -->
-            <div class="inspirations-section">
-              <span class="inspirations-label">Szybkie inspiracje:</span>
-              <div class="inspirations-chips-scroll">
-                <button
-                  type="button"
-                  v-for="c in quickColorInspirations"
-                  :key="c.hex"
-                  class="inspiration-swatch-btn"
-                  :class="{ active: selectedCustomColor.toLowerCase() === c.hex.toLowerCase() }"
-                  :style="{ backgroundColor: c.hex }"
-                  @click="handleSelectInspiration(c.hex)"
-                  :title="c.label"
-                >
-                  <ion-icon
-                    v-if="selectedCustomColor.toLowerCase() === c.hex.toLowerCase()"
-                    :icon="ioniconsCheckmark"
-                    class="swatch-check"
-                  />
-                </button>
-              </div>
-            </div>
+        <!-- ACCENT COLOUR -->
+        <section class="rl-section">
+          <div class="rl-section-head">
+            <h3 class="rl-section-title">Twój kolor</h3>
+            <span class="rl-section-meta">{{ selectedCustomColor.toUpperCase() }}</span>
           </div>
+          <p class="rl-desc">Wyróżnia Twój awatar i wszystko, co przypisane do Ciebie.</p>
 
-          <!-- LIVE PREVIEW BOX -->
-          <div class="live-preview-box" :style="{ borderColor: hexToRgba(selectedCustomColor, 0.35) }">
-            <div class="preview-header">
-              <ion-icon :icon="ioniconsSparkles" class="preview-sparkle" :style="{ color: selectedCustomColor }" />
-              <span>Podgląd na żywo Twojego stylu:</span>
-            </div>
-
-            <!-- Sample Task Preview -->
-            <div
-              class="sample-task-card"
-              :style="{
-                borderLeft: `4px solid ${selectedCustomColor}`,
-                backgroundColor: hexToRgba(selectedCustomColor, 0.05)
-              }"
+          <div class="rl-color-top">
+            <button
+              type="button"
+              class="rl-swatch"
+              :style="{ backgroundColor: selectedCustomColor }"
+              @click="openNativeColorPicker"
+              aria-label="Otwórz koło kolorów"
             >
-              <div
-                class="sample-checkbox"
-                :style="{
-                  backgroundColor: selectedCustomColor,
-                  borderColor: selectedCustomColor
-                }"
-              >
-                <ion-icon :icon="ioniconsCheckmark" />
-              </div>
-              <div class="sample-task-info">
-                <span class="sample-task-title">Przykładowe zadanie domowe</span>
-                <div class="sample-tags-row">
-                  <span
-                    class="sample-pill"
-                    :style="{
-                      backgroundColor: hexToRgba(selectedCustomColor, 0.14),
-                      color: selectedCustomColor,
-                      borderColor: hexToRgba(selectedCustomColor, 0.3)
-                    }"
-                  >
-                    <ion-icon :icon="ioniconsPersonOutline" />
-                    <span>Moje zadanie</span>
-                  </span>
-                  <span class="sample-pts-badge">+15 pkt</span>
-                </div>
-              </div>
+              <span>{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
+              <input
+                type="color"
+                ref="nativeColorInputRef"
+                class="native-color-hidden-input"
+                :value="selectedCustomColor"
+                @input="onNativeColorChange"
+              />
+            </button>
+            <div class="rl-hex">
+              <span class="rl-hex-hash">#</span>
+              <input
+                type="text"
+                class="rl-hex-input"
+                :value="selectedCustomColor.replace('#', '').toUpperCase()"
+                @input="handleHexInput"
+                placeholder="HEX"
+                maxlength="6"
+              />
             </div>
-
-            <!-- Sample Avatar Preview -->
-            <div class="sample-avatar-row">
-              <div class="sample-avatar-circle" :style="{ backgroundColor: selectedCustomColor }">
-                <span>{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
-              </div>
-              <div class="sample-avatar-text-col">
-                <span class="sample-avatar-desc">
-                  Twój awatar: <strong>{{ currentUser.name || 'Ty' }}</strong>
-                </span>
-                <span class="sample-avatar-sub">
-                  {{ currentUserAccentColor.toLowerCase() === selectedCustomColor.toLowerCase() ? 'Ten kolor jest aktualnie zapisany' : 'Przesuń suwaki i kliknij Zapisz' }}
-                </span>
-              </div>
-            </div>
+            <button
+              type="button"
+              class="rl-color-save"
+              :disabled="isSavingColor"
+              @click="handleSaveCustomColor"
+            >
+              <ion-spinner v-if="isSavingColor" name="crescent" />
+              <span v-else>Zapisz</span>
+            </button>
           </div>
-        </div>
 
-        <!-- 3. AKTYWNOŚĆ MUZYCZNA (SPOTIFY, APPLE MUSIC, TIDAL, YT MUSIC) -->
-        <div class="dn-card music-settings-card">
-          <div class="card-title-row">
-            <span class="section-tag music-section-tag">
-              <DuoMusicLogo :service="musicConnection.music_service || 'spotify'" size="xs" />
-              <span>MUZYKA</span>
-            </span>
-            <span class="music-status-pill" :class="{ 'is-connected': musicConnection.connected }">
-              <span class="status-indicator-dot"></span>
+          <div class="rl-swatches" data-no-swipe>
+            <button
+              v-for="c in quickColorInspirations"
+              :key="c.hex"
+              type="button"
+              class="rl-swatch-dot"
+              :class="{ active: selectedCustomColor.toLowerCase() === c.hex.toLowerCase() }"
+              :style="{ backgroundColor: c.hex }"
+              :aria-label="c.label"
+              @click="handleSelectInspiration(c.hex)"
+            ></button>
+          </div>
+
+          <div class="rl-slider">
+            <div class="rl-slider-head"><span>Odcień</span><span>{{ pickerHue }}°</span></div>
+            <input type="range" min="0" max="360" step="1" v-model.number="pickerHue" class="duo-color-range hue-range" />
+          </div>
+          <div class="rl-slider">
+            <div class="rl-slider-head"><span>Nasycenie</span><span>{{ pickerSaturation }}%</span></div>
+            <input
+              type="range" min="5" max="100" step="1" v-model.number="pickerSaturation"
+              class="duo-color-range"
+              :style="{ background: `linear-gradient(to right, hsl(${pickerHue}, 5%, ${pickerLightness}%), hsl(${pickerHue}, 100%, ${pickerLightness}%))` }"
+            />
+          </div>
+          <div class="rl-slider">
+            <div class="rl-slider-head"><span>Jasność</span><span>{{ pickerLightness }}%</span></div>
+            <input
+              type="range" min="10" max="90" step="1" v-model.number="pickerLightness"
+              class="duo-color-range"
+              :style="{ background: `linear-gradient(to right, #000000 0%, hsl(${pickerHue}, ${pickerSaturation}%, 50%) 50%, #ffffff 100%)` }"
+            />
+          </div>
+        </section>
+
+        <!-- MUSIC -->
+        <section class="rl-section">
+          <div class="rl-section-head">
+            <h3 class="rl-section-title">Muzyka</h3>
+            <span class="rl-status" :class="{ 'is-on': musicConnection.connected }">
               {{ musicConnection.connected ? 'Połączone' : 'Niepołączone' }}
             </span>
           </div>
 
-          <h4>Muzyka, której słuchacie</h4>
-          <p class="section-desc">
-            Pokaż partnerowi, czego aktualnie słuchasz. Budujcie wspólną atmosferę i dzielcie się ulubioną muzyką w czasie rzeczywistym.
-          </p>
+          <div v-if="musicSuccessMessage" class="rl-banner">{{ musicSuccessMessage }}</div>
+          <div v-if="musicErrorMessage" class="rl-banner rl-banner--error">{{ musicErrorMessage }}</div>
 
-          <div v-if="musicSuccessMessage" class="music-success-box">
-            <ion-icon :icon="ioniconsCheckmarkCircle" class="success-icon" />
-            <span>{{ musicSuccessMessage }}</span>
-          </div>
-
-          <div v-if="musicErrorMessage" class="music-error-box">
-            <ion-icon :icon="ioniconsAlertCircleOutline" class="error-icon" />
-            <span>{{ musicErrorMessage }}</span>
-          </div>
-
-          <!-- STATE A: Disconnected Hero Banner -->
-          <div v-if="!musicConnection.connected" class="music-connect-card">
-            <div class="music-connect-hero-icon">
-              <ion-icon :icon="ioniconsMusicalNotes" />
-            </div>
-            <h5 class="connect-card-title">Muzyka na żywo w Waszym Gniazdku</h5>
-            <p class="connect-card-desc">
-              Dzięki Last.fm partner zobaczy na żywo, czego słuchasz w swojej ulubionej aplikacji muzycznej:
-            </p>
-
-            <!-- Supported Music Platforms Badges with authentic logos -->
-            <div class="supported-platforms-pills">
-              <span class="platform-pill">
-                <DuoMusicLogo service="spotify" size="xs" />
-                <span>Spotify</span>
-              </span>
-              <span class="platform-pill">
-                <DuoMusicLogo service="apple_music" size="xs" />
-                <span>Apple Music</span>
-              </span>
-              <span class="platform-pill">
-                <DuoMusicLogo service="youtube_music" size="xs" />
-                <span>YouTube Music</span>
-              </span>
-              <span class="platform-pill">
-                <DuoMusicLogo service="tidal" size="xs" />
-                <span>Tidal</span>
-              </span>
-              <span class="platform-pill">
-                <DuoMusicLogo service="lastfm" size="xs" />
-                <span>Last.fm</span>
+          <template v-if="!musicConnection.connected">
+            <p class="rl-desc">Partner zobaczy na żywo, czego słuchasz – przez Last.fm, z każdej aplikacji.</p>
+            <div class="rl-platforms">
+              <span v-for="sv in ['spotify', 'apple_music', 'youtube_music', 'tidal', 'lastfm']" :key="sv" class="rl-platform">
+                <DuoMusicLogo :service="sv" size="xs" />
               </span>
             </div>
-
-            <div class="lastfm-guide-card">
-              <div class="guide-step">
-                <span class="step-badge">1</span>
-                <span>Włącz scrobblowanie w aplikacji (np. w Spotify: <a href="https://www.last.fm/settings/applications" target="_blank" rel="noopener noreferrer">last.fm/settings/applications</a> kliknij <em>Connect</em>, a w Apple Music / YT Music włącz w aplikacji Last.fm).</span>
-              </div>
-              <div class="guide-step">
-                <span class="step-badge">2</span>
-                <span>Zaloguj konto Last.fm w DuoNest:</span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              class="dn-button-sea music-connect-btn"
-              @click="connectMusic"
-              :disabled="musicLoading"
-            >
+            <ol class="rl-steps">
+              <li>Włącz scrobblowanie w aplikacji muzycznej (Spotify: <a href="https://www.last.fm/settings/applications" target="_blank" rel="noopener noreferrer">last.fm/settings/applications</a> → <em>Connect</em>).</li>
+              <li>Zaloguj konto Last.fm poniżej.</li>
+            </ol>
+            <button type="button" class="dn-button-primary rl-full-btn" :disabled="musicLoading" @click="connectMusic">
               <ion-spinner v-if="musicLoading" name="crescent" />
-              <template v-else>
-                <ion-icon :icon="ioniconsLogInOutline" />
-                <span>Zaloguj przez Last.fm</span>
-              </template>
+              <span v-else>Zaloguj przez Last.fm</span>
             </button>
-
-            <div class="manual-nick-container">
+            <button type="button" class="rl-link rl-link--center" @click="showManualNickInput = !showManualNickInput">
+              {{ showManualNickInput ? 'Ukryj' : 'Albo wpisz login Last.fm' }}
+            </button>
+            <div v-if="showManualNickInput" class="rl-inline-form">
+              <input
+                v-model="lastFmUsernameInput"
+                type="text"
+                placeholder="Login Last.fm"
+                class="rl-native-input"
+                @keydown.enter="handleManualConnect"
+              />
               <button
                 type="button"
-                class="manual-nick-link"
-                @click="showManualNickInput = !showManualNickInput"
+                class="rl-inline-btn"
+                :disabled="!lastFmUsernameInput.trim() || musicLoading"
+                @click="handleManualConnect"
               >
-                {{ showManualNickInput ? 'Ukryj wpisywanie loginu' : 'Albo połącz wpisując swój login Last.fm' }}
-              </button>
-
-              <div v-if="showManualNickInput" class="manual-nick-form">
-                <div class="input-with-icon-wrap manual-input-wrap">
-                  <ion-icon :icon="ioniconsPersonOutline" class="input-leading-icon" />
-                  <input
-                    v-model="lastFmUsernameInput"
-                    type="text"
-                    placeholder="Wpisz swój login Last.fm"
-                    class="manual-nick-input dn-styled-input"
-                    @keydown.enter="handleManualConnect"
-                  />
-                </div>
-                <button
-                  type="button"
-                  class="manual-nick-submit dn-button-sea"
-                  :disabled="!lastFmUsernameInput.trim() || musicLoading"
-                  @click="handleManualConnect"
-                >
-                  Połącz
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- STATE B: Connected Settings -->
-          <template v-else>
-            <!-- 1. Connected Account Panel -->
-            <div class="music-account-panel">
-              <div class="account-top-row">
-                <div class="music-avatar-wrap">
-                  <DuoMusicLogo :service="musicConnection.music_service || 'spotify'" size="medium" />
-                  <span class="online-indicator-dot" title="Połączone"></span>
-                </div>
-                <div class="account-identity">
-                  <div class="account-meta-line">
-                    <span class="account-label">Połączone konto</span>
-                    <span class="account-status-badge">
-                      <span class="status-live-dot"></span>
-                      <span>Aktywne &bull; {{ currentPlatformName }}</span>
-                    </span>
-                  </div>
-                  <strong class="account-username" :title="musicConnection.display_name || 'Last.fm'">
-                    {{ musicConnection.display_name || 'Last.fm' }}
-                  </strong>
-                </div>
-              </div>
-
-              <div class="account-actions-row">
-                <button
-                  type="button"
-                  class="account-action-btn refresh-btn"
-                  @click="refreshMusicStatus(true)"
-                  :disabled="musicLoading"
-                  title="Odśwież status z Last.fm"
-                >
-                  <ion-icon :icon="ioniconsRefreshOutline" :class="{ 'is-spinning': musicLoading }" />
-                  <span>Odśwież status</span>
-                </button>
-                <button
-                  type="button"
-                  class="account-action-btn disconnect-btn"
-                  @click="disconnectMusic"
-                  :disabled="musicLoading"
-                  title="Odłącz konto muzyczne"
-                >
-                  <ion-spinner v-if="musicLoading" name="crescent" />
-                  <template v-else>
-                    <ion-icon :icon="ioniconsLogOutOutline" />
-                    <span>Odłącz konto</span>
-                  </template>
-                </button>
-              </div>
-            </div>
-
-            <!-- 2. Sync Hint Callout -->
-            <div class="music-sync-hint">
-              <div class="sync-hint-icon-bubble">
-                <ion-icon :icon="ioniconsInformationCircleOutline" />
-              </div>
-              <div class="sync-hint-body">
-                <p>Status utworu jest pobierany na żywo z Twojego profilu Last.fm.</p>
-                <a
-                  href="https://www.last.fm/settings/applications"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="sync-hint-link"
-                >
-                  <span>Jeśli utwór się nie zmienia, kliknij tutaj, aby odłączyć i połączyć ponownie „Spotify Scrobbling” w Last.fm &rarr;</span>
-                </a>
-              </div>
-            </div>
-
-            <!-- 3. Preferred Platform Selector -->
-            <div class="music-platform-selector-box">
-              <div class="platform-selector-header">
-                <div class="platform-header-icon-bubble">
-                  <ion-icon :icon="ioniconsMusicalNotesOutline" />
-                </div>
-                <div class="platform-header-text">
-                  <strong class="platform-header-title">Twoja główna platforma muzyczna</strong>
-                  <span class="platform-header-desc">Wybierz serwis, z którego partner zobaczy logo i przycisk w Gniazdku.</span>
-                </div>
-              </div>
-
-              <div class="platform-choice-grid">
-                <button
-                  v-for="platform in availablePlatforms"
-                  :key="platform.id"
-                  type="button"
-                  class="platform-choice-btn"
-                  :class="{ 'is-selected': (musicConnection.music_service || 'spotify') === platform.id }"
-                  @click="handleSelectService(platform.id)"
-                >
-                  <div class="platform-logo-wrap">
-                    <DuoMusicLogo :service="platform.id" size="small" />
-                  </div>
-                  <span class="choice-name">{{ platform.name }}</span>
-                  <div v-if="(musicConnection.music_service || 'spotify') === platform.id" class="choice-active-badge">
-                    <ion-icon :icon="ioniconsCheckmark" />
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            <!-- 4. Visibility Switch (Matching DuoNest master toggle style) -->
-            <div class="music-visibility-box">
-              <div class="visibility-left">
-                <div class="visibility-icon-bubble">
-                  <ion-icon :icon="ioniconsEyeOutline" />
-                </div>
-                <div class="visibility-text">
-                  <strong class="visibility-title">Pokazuj partnerowi, czego słucham</strong>
-                  <span class="visibility-desc">Gdy wyłączone, Twoja aktywność nie pojawi się w Gniazdku partnera.</span>
-                </div>
-              </div>
-              <ion-toggle
-                :checked="musicConnection.visible_to_partner"
-                @ionChange="setMusicVisibility($event.detail.checked)"
-                class="music-styled-toggle dn-styled-toggle"
-              />
-            </div>
-
-            <!-- 5. Live Preview Container -->
-            <div class="music-preview-section">
-              <div class="music-preview-heading">
-                <div class="preview-heading-text">
-                  <strong>Podgląd dla partnera</strong>
-                  <span>Tak Twoja aktywność wygląda na ekranie Gniazdka partnera.</span>
-                </div>
-                <span class="music-preview-label">PODGLĄD</span>
-              </div>
-
-              <!-- When playing and visible: render DuoMusicCard -->
-              <div
-                v-if="musicConnection.visible_to_partner && myMusicPlayback"
-                class="music-preview-card-wrap"
-              >
-                <DuoMusicCard
-                  :playback="myMusicPlayback"
-                  user-name="Ty"
-                  :is-preview="true"
-                  :service="musicConnection.music_service || 'spotify'"
-                />
-              </div>
-
-              <!-- Empty preview state -->
-              <div v-else class="music-preview-empty-card">
-                <div class="empty-icon-wrap">
-                  <DuoMusicLogo :service="musicConnection.music_service || 'spotify'" size="medium" />
-                </div>
-                <div class="empty-text-wrap">
-                  <strong>{{ !musicConnection.visible_to_partner ? 'Podgląd jest ukryty' : 'Oczekiwanie na muzykę' }}</strong>
-                  <p v-if="!musicConnection.visible_to_partner">
-                    Udostępnianie partnerowi jest wyłączone. Włącz przełącznik powyżej, aby aktywować podgląd i dzielić się muzyką.
-                  </p>
-                  <p v-else>
-                    Włącz dowolny utwór w Twojej aplikacji muzycznej — pojawi się tutaj w czasie rzeczywistym z okładką albumu i paskiem postępu!
-                  </p>
-                </div>
-              </div>
-            </div>
-          </template>
-        </div>
-
-        <!-- 4. POWIADOMIENIA PUSH & ALERTY GNIAZDKA -->
-        <div class="dn-card push-settings-card">
-          <div class="card-title-row">
-            <span class="section-tag push-section-tag">POWIADOMIENIA PUSH</span>
-            <span
-              class="push-status-pill"
-              :class="{
-                'is-active': pushPermission === 'granted' && isPushEnabled,
-                'is-waiting': pushPermission === 'default',
-                'is-denied': pushPermission === 'denied',
-                'is-disabled': pushPermission === 'granted' && !isPushEnabled
-              }"
-            >
-              <ion-icon
-                :icon="
-                  pushPermission === 'granted' && isPushEnabled
-                    ? ioniconsCheckmarkCircle
-                    : (pushPermission === 'denied' ? ioniconsCloseCircle : ioniconsAlertCircle)
-                "
-              />
-              <span v-if="pushPermission === 'granted' && isPushEnabled">Aktywne</span>
-              <span v-else-if="pushPermission === 'granted' && !isPushEnabled">Wyłączone</span>
-              <span v-else-if="pushPermission === 'denied'">Zablokowane</span>
-              <span v-else>Wymaga zgody</span>
-            </span>
-          </div>
-
-          <h4>Powiadomienia w telefonie</h4>
-          <p class="section-desc">
-            Bądźcie zawsze blisko - otrzymuj natychmiastowe alerty o gestach, nastroju, planach, zakupach i marzeniach od partnera.
-          </p>
-
-          <!-- Master Toggle Box -->
-          <div class="push-master-toggle-box">
-            <div class="master-toggle-left">
-              <div class="master-toggle-icon">
-                <ion-icon :icon="ioniconsNotificationsOutline" />
-              </div>
-              <div class="master-toggle-text">
-                <span class="master-toggle-title">Główne powiadomienia na tym urządzeniu</span>
-                <span class="master-toggle-subtitle">
-                  {{ isPushEnabled ? 'Powiadomienia są włączone dla tego telefonu/przeglądarki' : 'Włącz, aby nie przegapić wiadomości od partnera' }}
-                </span>
-              </div>
-            </div>
-            <ion-toggle
-              :checked="isPushEnabled && pushPermission === 'granted'"
-              @ionChange="toggleMasterPush()"
-              class="dn-push-toggle"
-            />
-          </div>
-
-          <!-- Alert for Denied Permission -->
-          <div v-if="pushPermission === 'denied'" class="push-denied-box">
-            <ion-icon :icon="ioniconsAlertCircle" class="denied-icon" />
-            <div class="denied-content">
-              <strong>Powiadomienia są zablokowane w przeglądarce</strong>
-              <p>
-                Aby je odblokować na telefonie: kliknij ikonę kłódki 🔒 (lub suwaków) obok adresu strony w przeglądarce, wybierz <em>Uprawnienia → Powiadomienia → Zezwól</em>, a następnie odśwież stronę.
-              </p>
-            </div>
-          </div>
-
-          <!-- Prompt button if Default Permission -->
-          <div v-if="pushPermission === 'default' && isPushSupported" class="push-prompt-box">
-            <button type="button" class="dn-button-sea request-perm-btn" @click="requestPushPermission">
-              <ion-icon :icon="ioniconsNotificationsOutline" />
-              <span>Zezwól na powiadomienia w przeglądarce</span>
-            </button>
-          </div>
-
-          <!-- Granular Category Settings List -->
-          <div class="push-granularity-section">
-            <span class="group-title-label">SZCZEGÓŁOWE KATEGORIE POWIADOMIEŃ</span>
-            <p class="group-sub-desc">Wybierz, o czym chcesz być natychmiast powiadamiany:</p>
-
-            <div class="push-toggles-list">
-              <!-- 1. NUDGES & LOVE -->
-              <div class="push-toggle-item">
-                <div class="toggle-item-left">
-                  <div class="toggle-icon-wrap love-icon-bg">
-                    <ion-icon :icon="ioniconsHeartOutline" />
-                  </div>
-                  <div class="toggle-item-info">
-                    <span class="toggle-name">Puknięcia i gesty miłości</span>
-                    <span class="toggle-desc">Buziaki, uściski, herbatka i gesty czułości od partnera</span>
-                  </div>
-                </div>
-                <ion-toggle
-                  :checked="pushSettings.nudges"
-                  @ionChange="togglePushCategory('nudges', $event.detail?.checked)"
-                  class="dn-push-toggle"
-                />
-              </div>
-
-              <!-- 2. MOOD -->
-              <div class="push-toggle-item">
-                <div class="toggle-item-left">
-                  <div class="toggle-icon-wrap mood-icon-bg">
-                    <ion-icon :icon="ioniconsHappyOutline" />
-                  </div>
-                  <div class="toggle-item-info">
-                    <span class="toggle-name">Nastrój partnera</span>
-                    <span class="toggle-desc">Zmiana samopoczucia i notatki o nastroju</span>
-                  </div>
-                </div>
-                <ion-toggle
-                  :checked="pushSettings.mood"
-                  @ionChange="togglePushCategory('mood', $event.detail?.checked)"
-                  class="dn-push-toggle"
-                />
-              </div>
-
-              <!-- 3. CALENDAR -->
-              <div class="push-toggle-item">
-                <div class="toggle-item-left">
-                  <div class="toggle-icon-wrap calendar-icon-bg">
-                    <ion-icon :icon="ioniconsCalendarOutline" />
-                  </div>
-                  <div class="toggle-item-info">
-                    <span class="toggle-name">Wspólny terminarz & randki</span>
-                    <span class="toggle-desc">Nowe plany, przypomnienia i zrealizowane wydarzenia</span>
-                  </div>
-                </div>
-                <ion-toggle
-                  :checked="pushSettings.calendar"
-                  @ionChange="togglePushCategory('calendar', $event.detail?.checked)"
-                  class="dn-push-toggle"
-                />
-              </div>
-
-              <!-- 4. SHOPPING -->
-              <div class="push-toggle-item">
-                <div class="toggle-item-left">
-                  <div class="toggle-icon-wrap shopping-icon-bg">
-                    <ion-icon :icon="ioniconsCartOutline" />
-                  </div>
-                  <div class="toggle-item-info">
-                    <span class="toggle-name">Wspólna lista zakupów</span>
-                    <span class="toggle-desc">Gdy partner doda nowe produkty do koszyka</span>
-                  </div>
-                </div>
-                <ion-toggle
-                  :checked="pushSettings.shopping"
-                  @ionChange="togglePushCategory('shopping', $event.detail?.checked)"
-                  class="dn-push-toggle"
-                />
-              </div>
-
-              <!-- 5. TASKS -->
-              <div class="push-toggle-item">
-                <div class="toggle-item-left">
-                  <div class="toggle-icon-wrap tasks-icon-bg">
-                    <ion-icon :icon="ioniconsCheckboxOutline" />
-                  </div>
-                  <div class="toggle-item-info">
-                    <span class="toggle-name">Zadania domowe i punkty</span>
-                    <span class="toggle-desc">Ukończone obowiązki i zdobyte punkty do Gniazdka</span>
-                  </div>
-                </div>
-                <ion-toggle
-                  :checked="pushSettings.tasks"
-                  @ionChange="togglePushCategory('tasks', $event.detail?.checked)"
-                  class="dn-push-toggle"
-                />
-              </div>
-
-              <!-- 6. MEALS & DINNERS -->
-              <div class="push-toggle-item">
-                <div class="toggle-item-left">
-                  <div class="toggle-icon-wrap meals-icon-bg">
-                    <ion-icon :icon="ioniconsRestaurantOutline" />
-                  </div>
-                  <div class="toggle-item-info">
-                    <span class="toggle-name">Planer obiadów i posiłków</span>
-                    <span class="toggle-desc">Wspólne menu, nowe propozycje dań i ugotowane obiady</span>
-                  </div>
-                </div>
-                <ion-toggle
-                  :checked="pushSettings.meals"
-                  @ionChange="togglePushCategory('meals', $event.detail?.checked)"
-                  class="dn-push-toggle"
-                />
-              </div>
-
-              <!-- 7. WISHLIST & GIFTS -->
-              <div class="push-toggle-item">
-                <div class="toggle-item-left">
-                  <div class="toggle-icon-wrap wishlist-icon-bg">
-                    <ion-icon :icon="ioniconsGiftOutline" />
-                  </div>
-                  <div class="toggle-item-info">
-                    <span class="toggle-name">Wishlista i marzenia</span>
-                    <span class="toggle-desc">Nowe marzenia partnera oraz spełnione prezenty (niespodzianki pozostają tajne)</span>
-                  </div>
-                </div>
-                <ion-toggle
-                  :checked="pushSettings.wishlist"
-                  @ionChange="togglePushCategory('wishlist', $event.detail?.checked)"
-                  class="dn-push-toggle"
-                />
-              </div>
-
-              <!-- 8. SAVINGS & GOALS -->
-              <div class="push-toggle-item">
-                <div class="toggle-item-left">
-                  <div class="toggle-icon-wrap savings-icon-bg">
-                    <ion-icon :icon="ioniconsWalletOutline" />
-                  </div>
-                  <div class="toggle-item-info">
-                    <span class="toggle-name">Skarbonki i cele finansowe</span>
-                    <span class="toggle-desc">Wpłaty, wypłaty, nowe cele i zrealizowane skarbonki</span>
-                  </div>
-                </div>
-                <ion-toggle
-                  :checked="pushSettings.savings"
-                  @ionChange="togglePushCategory('savings', $event.detail?.checked)"
-                  class="dn-push-toggle"
-                />
-              </div>
-
-              <!-- 9. PARTNER ONLINE -->
-              <div class="push-toggle-item">
-                <div class="toggle-item-left">
-                  <div class="toggle-icon-wrap online-icon-bg">
-                    <ion-icon :icon="ioniconsPersonOutline" />
-                  </div>
-                  <div class="toggle-item-info">
-                    <span class="toggle-name">Wejście partnera do aplikacji</span>
-                    <span class="toggle-desc">Dyskretny sygnał, gdy partner otwiera DuoNest</span>
-                  </div>
-                </div>
-                <ion-toggle
-                  :checked="pushSettings.partnerOnline"
-                  @ionChange="togglePushCategory('partnerOnline', $event.detail?.checked)"
-                  class="dn-push-toggle"
-                />
-              </div>
-            </div>
-
-            <span class="group-title-label mt-label">SYGNALIZACJA I DŹWIĘK</span>
-            <p class="group-sub-desc">Ustawienia te sterują dźwiękiem i haptyką alertów w aplikacji oraz wyciszaniem powiadomień telefonu.</p>
-            <div class="push-toggles-list">
-              <!-- 7. SOUND -->
-              <div class="push-toggle-item">
-                <div class="toggle-item-left">
-                  <div class="toggle-icon-wrap sound-icon-bg">
-                    <ion-icon :icon="ioniconsVolumeMediumOutline" />
-                  </div>
-                  <div class="toggle-item-info">
-                    <span class="toggle-name">Dźwięk powiadomienia</span>
-                    <span class="toggle-desc">Sygnał dźwiękowy przy alertach i powiadomieniach</span>
-                  </div>
-                </div>
-                <ion-toggle
-                  :checked="pushSettings.sound"
-                  @ionChange="togglePushCategory('sound', $event.detail?.checked)"
-                  class="dn-push-toggle"
-                />
-              </div>
-
-              <!-- 8. VIBRATION -->
-              <div class="push-toggle-item">
-                <div class="toggle-item-left">
-                  <div class="toggle-icon-wrap vibrate-icon-bg">
-                    <ion-icon :icon="ioniconsPhonePortraitOutline" />
-                  </div>
-                  <div class="toggle-item-info">
-                    <span class="toggle-name">Wibracja telefonu</span>
-                    <span class="toggle-desc">Impuls haptyczny przy nadejściu powiadomień</span>
-                  </div>
-                </div>
-                <ion-toggle
-                  :checked="pushSettings.vibrate"
-                  @ionChange="togglePushCategory('vibrate', $event.detail?.checked)"
-                  class="dn-push-toggle"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- Test Button -->
-          <div class="push-test-action-wrap">
-            <button
-              type="button"
-              class="push-test-btn"
-              @click="sendTestNotification()"
-            >
-              <ion-icon :icon="ioniconsSendOutline" />
-              <span>Wyślij testowe powiadomienie push</span>
-            </button>
-            <span class="test-hint">Sprawdź, jak powiadomienie wyświetla się w pasku powiadomień telefonu</span>
-          </div>
-        </div>
-
-        <!-- 4. POŁĄCZENIE PARY & KOD PAROWANIA -->
-        <div class="dn-card pairing-card" v-if="partnership">
-          <div class="card-title-row">
-            <span class="section-tag pairing-tag">POŁĄCZENIE PARY</span>
-            <span class="connected-pill">
-              <ion-icon :icon="ioniconsCheckmarkCircle" />
-              Połączono
-            </span>
-          </div>
-          <h4>Wasze połączenie</h4>
-          <p class="section-desc" v-if="partnerUser">
-            Jesteście sparowani z: <strong>{{ partnerUser.name || 'Partner' }}</strong>
-          </p>
-
-          <div class="my-code-box">
-            <span class="code-label">TWÓJ KOD PAROWANIA</span>
-            <div class="code-display-row">
-              <span class="code-text">{{ currentUser.pairing_code }}</span>
-              <button class="copy-btn" @click="copyPairingCode" title="Kopiuj kod">
-                <ion-icon :icon="ioniconsCopyOutline" />
-                <span>{{ copyStatus }}</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="partnership-buttons-row">
-            <button class="disconnect-pair-btn" @click="handleDisconnect">
-              <ion-icon :icon="ioniconsLogOutOutline" />
-              <span>Rozłącz konto pary</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Jeśli niepołączony -->
-        <div class="dn-card pairing-card" v-else>
-          <div class="card-title-row">
-            <span class="section-tag pairing-tag">POŁĄCZENIE PARY</span>
-          </div>
-          <h4>Połącz się z partnerem</h4>
-          <p class="section-desc">Wpisz kod partnera lub przekaż mu swój kod, aby połączyć Wasze konta.</p>
-
-          <div class="my-code-box">
-            <span class="code-label">TWÓJ KOD</span>
-            <div class="code-display-row">
-              <span class="code-text">{{ currentUser.pairing_code }}</span>
-              <button class="copy-btn" @click="copyPairingCode" title="Kopiuj kod">
-                <ion-icon :icon="ioniconsCopyOutline" />
-                <span>{{ copyStatus }}</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="join-box">
-            <label class="input-label">Kod partnera:</label>
-            <div class="join-input-row">
-              <ion-input
-                v-model="inputPartnerCode"
-                placeholder="np. DN-LOVE"
-                class="partner-code-input"
-                :maxlength="10"
-              />
-              <button class="join-submit-btn" @click="handlePairWithCode" :disabled="!inputPartnerCode.trim()">
                 Połącz
               </button>
             </div>
-            <span class="error-text" v-if="pairingError">{{ pairingError }}</span>
-          </div>
-        </div>
+          </template>
 
-        <!-- 5. KONTO I BEZPIECZEŃSTWO -->
-        <div class="dn-card account-card">
-          <div class="card-title-row">
-            <span class="section-tag">KONTO</span>
-          </div>
-          <h4>Zarządzanie kontem</h4>
-          <p class="section-desc">
-            Zalogowano jako: <strong>{{ currentUser.email || currentUser.name || 'Użytkownik' }}</strong>
-          </p>
-
-          <div class="account-actions-box">
-            <!-- PRZYCISK ROZWIJAJĄCY FORMULARZ ZMIANY HASŁA -->
-            <button
-              type="button"
-              class="change-password-toggle-btn"
-              :class="{ 'is-open': isPasswordChangeOpen }"
-              @click="togglePasswordChangeForm"
-            >
-              <div class="toggle-btn-left">
-                <ion-icon :icon="ioniconsLockClosedOutline" class="btn-icon" />
-                <span>Zmień hasło do konta</span>
-              </div>
-              <ion-icon
-                :icon="isPasswordChangeOpen ? ioniconsChevronUpOutline : ioniconsChevronDownOutline"
-                class="chevron-icon"
-              />
-            </button>
-
-            <!-- ROZWIJANY FORMULARZ ZMIANY HASŁA -->
-            <transition name="expand">
-              <div class="password-change-container" v-if="isPasswordChangeOpen">
-                <form @submit.prevent="handleChangePassword" class="password-change-form">
-                  <!-- OBECNE HASŁO -->
-                  <div class="pwd-field">
-                    <label class="pwd-label">Obecne hasło</label>
-                    <div class="pwd-input-wrap">
-                      <ion-icon :icon="ioniconsLockClosedOutline" class="pwd-input-icon" />
-                      <input
-                        v-model="currentPasswordInput"
-                        :type="showCurrentPassword ? 'text' : 'password'"
-                        placeholder="Wpisz dotychczasowe hasło"
-                        class="pwd-native-input"
-                        autocomplete="current-password"
-                        required
-                      />
-                      <button
-                        type="button"
-                        class="pwd-eye-btn"
-                        @click="showCurrentPassword = !showCurrentPassword"
-                        tabindex="-1"
-                      >
-                        <ion-icon :icon="showCurrentPassword ? ioniconsEyeOffOutline : ioniconsEyeOutline" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- NOWE HASŁO -->
-                  <div class="pwd-field">
-                    <div class="pwd-label-row">
-                      <label class="pwd-label">Nowe hasło</label>
-                      <span class="pwd-hint">min. 6 znaków</span>
-                    </div>
-                    <div class="pwd-input-wrap">
-                      <ion-icon :icon="ioniconsKeyOutline" class="pwd-input-icon" />
-                      <input
-                        v-model="newPasswordInput"
-                        :type="showNewPassword ? 'text' : 'password'"
-                        placeholder="Wpisz nowe hasło (min. 6 znaków)"
-                        class="pwd-native-input"
-                        autocomplete="new-password"
-                        minlength="6"
-                        required
-                      />
-                      <button
-                        type="button"
-                        class="pwd-eye-btn"
-                        @click="showNewPassword = !showNewPassword"
-                        tabindex="-1"
-                      >
-                        <ion-icon :icon="showNewPassword ? ioniconsEyeOffOutline : ioniconsEyeOutline" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- POWTÓRZ NOWE HASŁO -->
-                  <div class="pwd-field">
-                    <label class="pwd-label">Powtórz nowe hasło</label>
-                    <div class="pwd-input-wrap">
-                      <ion-icon :icon="ioniconsKeyOutline" class="pwd-input-icon" />
-                      <input
-                        v-model="confirmNewPasswordInput"
-                        :type="showConfirmNewPassword ? 'text' : 'password'"
-                        placeholder="Powtórz nowe hasło"
-                        class="pwd-native-input"
-                        autocomplete="new-password"
-                        minlength="6"
-                        required
-                      />
-                      <button
-                        type="button"
-                        class="pwd-eye-btn"
-                        @click="showConfirmNewPassword = !showConfirmNewPassword"
-                        tabindex="-1"
-                      >
-                        <ion-icon :icon="showConfirmNewPassword ? ioniconsEyeOffOutline : ioniconsEyeOutline" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- BŁĄD -->
-                  <div class="pwd-banner error" v-if="changePasswordError">
-                    <ion-icon :icon="ioniconsAlertCircleOutline" class="banner-icon" />
-                    <span>{{ changePasswordError }}</span>
-                  </div>
-
-                  <!-- SUKCES -->
-                  <div class="pwd-banner success" v-if="changePasswordSuccess">
-                    <ion-icon :icon="ioniconsCheckmarkCircleOutline" class="banner-icon" />
-                    <span>{{ changePasswordSuccess }}</span>
-                  </div>
-
-                  <!-- PRZYCISKI AKCJI -->
-                  <div class="pwd-buttons-row">
-                    <button
-                      type="submit"
-                      class="save-pwd-btn"
-                      :disabled="isChangingPassword || !isPasswordFormValid"
-                    >
-                      <ion-spinner name="crescent" v-if="isChangingPassword" class="pwd-spinner" />
-                      <span v-else>Zapisz nowe hasło</span>
-                    </button>
-                    <button
-                      type="button"
-                      class="cancel-pwd-btn"
-                      @click="cancelPasswordChange"
-                      :disabled="isChangingPassword"
-                    >
-                      Anuluj
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </transition>
-
-            <div class="partnership-buttons-row">
-              <button class="signout-app-btn" @click="handleSignOut">
-                <ion-icon :icon="ioniconsPowerOutline" />
-                <span>Wyloguj się z DuoNest</span>
+          <template v-else>
+            <div class="rl-row rl-row--card">
+              <span class="rl-row-icon rl-row-icon--plain">
+                <DuoMusicLogo :service="musicConnection.music_service || 'spotify'" size="small" />
+              </span>
+              <span class="rl-row-body">
+                <span class="rl-row-title">{{ musicConnection.display_name || 'Last.fm' }}</span>
+                <span class="rl-row-sub">{{ currentPlatformName }}</span>
+              </span>
+              <button type="button" class="rl-icon-btn" :disabled="musicLoading" aria-label="Odśwież" @click="refreshMusicStatus(true)">
+                <ion-icon :icon="ioniconsRefreshOutline" :class="{ 'is-spinning': musicLoading }" />
               </button>
             </div>
+
+            <p class="rl-label">Główna platforma</p>
+            <div class="rl-chips" data-no-swipe>
+              <button
+                v-for="platform in availablePlatforms"
+                :key="platform.id"
+                type="button"
+                class="dn-filter-chip rl-platform-chip"
+                :class="{ active: (musicConnection.music_service || 'spotify') === platform.id }"
+                @click="handleSelectService(platform.id)"
+              >
+                <DuoMusicLogo :service="platform.id" size="xs" />
+                <span>{{ platform.name }}</span>
+              </button>
+            </div>
+
+            <div class="rl-list">
+              <div class="rl-toggle-row">
+                <span class="rl-row-body">
+                  <span class="rl-row-title">Pokazuj partnerowi</span>
+                  <span class="rl-row-sub">Twoja muzyka w Gniazdku partnera</span>
+                </span>
+                <ion-toggle aria-label="Pokazuj muzykę partnerowi"
+                  :checked="musicConnection.visible_to_partner"
+                  @ionChange="runToggle($event, () => setMusicVisibility($event.detail.checked), () => musicConnection.visible_to_partner)"
+                />
+              </div>
+            </div>
+
+            <div v-if="musicConnection.visible_to_partner && myMusicPlayback" class="rl-music-preview">
+              <DuoMusicCard
+                :playback="myMusicPlayback"
+                user-name="Ty"
+                :is-preview="true"
+                :service="musicConnection.music_service || 'spotify'"
+              />
+            </div>
+            <p v-else class="rl-hint">
+              {{ !musicConnection.visible_to_partner ? 'Udostępnianie jest wyłączone.' : 'Włącz utwór – pojawi się tu podgląd.' }}
+              Utwór się nie zmienia?
+              <a href="https://www.last.fm/settings/applications" target="_blank" rel="noopener noreferrer">Połącz ponownie Spotify w Last.fm</a>.
+            </p>
+
+            <button type="button" class="rl-danger-link" :disabled="musicLoading" @click="disconnectMusic">
+              Odłącz konto muzyczne
+            </button>
+          </template>
+        </section>
+
+        <!-- NOTIFICATIONS -->
+        <section class="rl-section">
+          <div class="rl-section-head">
+            <h3 class="rl-section-title">Powiadomienia</h3>
+            <span class="rl-status" :class="{ 'is-on': isMasterPushChecked && (!isPushNativeApp || nativeRegistered) }">
+              <template v-if="pushPermission === 'denied'">Zablokowane</template>
+              <template v-else-if="isPushSubscribing">Łączenie</template>
+              <template v-else-if="isMasterPushChecked && isPushNativeApp && !nativeRegistered">Wymaga ponowienia</template>
+              <template v-else-if="isMasterPushChecked">Aktywne</template>
+              <template v-else-if="pushPermission === 'granted'">Wyłączone</template>
+              <template v-else>Wymaga zgody</template>
+            </span>
           </div>
-        </div>
+
+          <div class="rl-list">
+            <div class="rl-toggle-row rl-toggle-row--main">
+              <span class="rl-row-body">
+                <span class="rl-row-title">Na tym urządzeniu</span>
+                <span class="rl-row-sub">Wiadomości i aktywność partnera</span>
+              </span>
+              <ion-toggle
+                aria-label="Powiadomienia na tym urządzeniu"
+                :checked="isMasterPushChecked"
+                :disabled="!isPushSupported || isPushSubscribing || isTestingPush || isTogglingMasterPush"
+                @ionChange="handleMasterPushToggle($event)"
+              />
+            </div>
+          </div>
+
+          <div v-if="pushPermission === 'denied'" class="rl-banner rl-banner--error">
+            <template v-if="isPushNativeApp">Powiadomienia są wyłączone dla DuoNest. Otwórz Ustawienia iOS → Powiadomienia → DuoNest → Zezwalaj na powiadomienia.</template>
+            <template v-else>Powiadomienia są zablokowane w przeglądarce. Kliknij ikonę kłódki obok adresu strony → Uprawnienia → Powiadomienia → Zezwól, a potem odśwież stronę.</template>
+          </div>
+
+          <button
+            v-if="pushPermission !== 'denied' && isPushSupported && (!isMasterPushChecked || (isPushNativeApp && !nativeRegistered))"
+            type="button"
+            class="dn-button-primary rl-full-btn"
+            :disabled="isPushSubscribing || isTestingPush"
+            @click="requestPushPermission"
+          >
+            {{ isMasterPushChecked ? 'Ponów rejestrację' : 'Zezwól na powiadomienia' }}
+          </button>
+
+          <p class="rl-label">Powiadamiaj mnie o</p>
+          <div class="rl-list">
+            <div
+              v-for="row in [
+                { key: 'nudges', icon: ioniconsHeartOutline, title: 'Gestach', desc: 'Buziaki, uściski i czułości' },
+                { key: 'mood', icon: ioniconsHappyOutline, title: 'Nastroju partnera', desc: 'Zmiana samopoczucia i notatki' },
+                { key: 'calendar', icon: ioniconsCalendarOutline, title: 'Terminarzu', desc: 'Nowe plany i przypomnienia' },
+                { key: 'shopping', icon: ioniconsCartOutline, title: 'Zakupach', desc: 'Nowe produkty na liście' },
+                { key: 'tasks', icon: ioniconsCheckboxOutline, title: 'Zadaniach', desc: 'Ukończone obowiązki i punkty' },
+                { key: 'meals', icon: ioniconsRestaurantOutline, title: 'Obiadach', desc: 'Menu i nowe propozycje dań' },
+                { key: 'wishlist', icon: ioniconsGiftOutline, title: 'Liście życzeń', desc: 'Nowe marzenia (niespodzianki zostają tajne)' },
+                { key: 'savings', icon: ioniconsWalletOutline, title: 'Skarbonkach', desc: 'Wpłaty, wypłaty i nowe cele' },
+                { key: 'partnerOnline', icon: ioniconsPersonOutline, title: 'Wejściu partnera', desc: 'Gdy partner otwiera DuoNest' },
+                { key: 'sound', icon: ioniconsVolumeMediumOutline, title: 'Dźwięk', desc: 'Sygnał przy powiadomieniu' },
+                { key: 'vibrate', icon: ioniconsPhonePortraitOutline, title: 'Wibracja', desc: 'Impuls haptyczny' }
+              ].filter(row => !isPushNativeApp || (row.key !== 'vibrate' && row.key !== 'partnerOnline'))"
+              :key="row.key"
+              class="rl-toggle-row"
+            >
+              <span class="rl-row-icon rl-row-icon--sm"><ion-icon :icon="row.icon" /></span>
+              <span class="rl-row-body">
+                <span class="rl-row-title">{{ row.title }}</span>
+                <span class="rl-row-sub">{{ row.desc }}</span>
+              </span>
+              <ion-toggle :aria-label="`Powiadomienia: ${row.title}`"
+                :checked="(pushSettings as any)[row.key]"
+                @ionChange="runToggle($event, () => togglePushCategory(row.key as any, $event.detail?.checked), () => (pushSettings as any)[row.key])"
+              />
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="dn-button-secondary rl-full-btn"
+            :disabled="!isMasterPushChecked || isPushSubscribing || isTestingPush || isTogglingMasterPush"
+            @click="sendTestNotification()"
+          >
+            {{ isTestingPush ? 'Wysyłanie…' : 'Wyślij testowe powiadomienie' }}
+          </button>
+        </section>
+
+        <!-- PAIR -->
+        <section class="rl-section">
+          <div class="rl-section-head">
+            <h3 class="rl-section-title">Para</h3>
+            <span v-if="partnership" class="rl-status is-on">Połączono</span>
+          </div>
+          <p v-if="partnership && partnerUser" class="rl-desc">Jesteście połączeni z: <strong>{{ partnerUser.name || 'Partner' }}</strong></p>
+          <p v-else-if="!partnership" class="rl-desc">Przekaż partnerowi swój kod albo wpisz jego.</p>
+
+          <div class="rl-code">
+            <span class="rl-code-label">Twój kod</span>
+            <span class="rl-code-text">{{ currentUser.pairing_code }}</span>
+            <button type="button" class="rl-code-copy" @click="copyPairingCode">
+              <ion-icon :icon="ioniconsCopyOutline" />
+              <span>{{ copyStatus }}</span>
+            </button>
+          </div>
+
+          <template v-if="!partnership">
+            <label class="rl-label">Kod partnera</label>
+            <div class="rl-inline-form">
+              <ion-input aria-label="Kod partnera" v-model="inputPartnerCode" placeholder="np. DN-LOVE" class="rl-input" :maxlength="10" />
+              <button type="button" class="rl-inline-btn" :disabled="!inputPartnerCode.trim()" @click="handlePairWithCode">
+                Połącz
+              </button>
+            </div>
+            <p v-if="pairingError" class="rl-error">{{ pairingError }}</p>
+          </template>
+          <button v-else type="button" class="rl-danger-link" @click="handleDisconnect">
+            Rozłącz konto pary
+          </button>
+        </section>
+
+        <!-- ACCOUNT -->
+        <section class="rl-section">
+          <div class="rl-section-head">
+            <h3 class="rl-section-title">Konto</h3>
+          </div>
+          <p class="rl-desc">{{ currentUser.email || currentUser.name || 'Użytkownik' }}</p>
+
+          <div class="rl-list">
+            <button type="button" class="rl-toggle-row rl-nav-row" @click="togglePasswordChangeForm">
+              <span class="rl-row-icon rl-row-icon--sm"><ion-icon :icon="ioniconsLockClosedOutline" /></span>
+              <span class="rl-row-body"><span class="rl-row-title">Zmień hasło</span></span>
+              <ion-icon :icon="isPasswordChangeOpen ? ioniconsChevronUpOutline : ioniconsChevronDownOutline" class="rl-chevron" />
+            </button>
+          </div>
+
+          <transition name="expand">
+            <form v-if="isPasswordChangeOpen" class="rl-pwd-form" @submit.prevent="handleChangePassword">
+              <div class="rl-pwd-field">
+                <input
+                  v-model="currentPasswordInput"
+                  :type="showCurrentPassword ? 'text' : 'password'"
+                  placeholder="Obecne hasło"
+                  class="rl-native-input"
+                  autocomplete="current-password"
+                  required
+                />
+                <button type="button" class="rl-eye" tabindex="-1" @click="showCurrentPassword = !showCurrentPassword">
+                  <ion-icon :icon="showCurrentPassword ? ioniconsEyeOffOutline : ioniconsEyeOutline" />
+                </button>
+              </div>
+              <div class="rl-pwd-field">
+                <input
+                  v-model="newPasswordInput"
+                  :type="showNewPassword ? 'text' : 'password'"
+                  placeholder="Nowe hasło (min. 6 znaków)"
+                  class="rl-native-input"
+                  autocomplete="new-password"
+                  minlength="6"
+                  required
+                />
+                <button type="button" class="rl-eye" tabindex="-1" @click="showNewPassword = !showNewPassword">
+                  <ion-icon :icon="showNewPassword ? ioniconsEyeOffOutline : ioniconsEyeOutline" />
+                </button>
+              </div>
+              <div class="rl-pwd-field">
+                <input
+                  v-model="confirmNewPasswordInput"
+                  :type="showConfirmNewPassword ? 'text' : 'password'"
+                  placeholder="Powtórz nowe hasło"
+                  class="rl-native-input"
+                  autocomplete="new-password"
+                  minlength="6"
+                  required
+                />
+                <button type="button" class="rl-eye" tabindex="-1" @click="showConfirmNewPassword = !showConfirmNewPassword">
+                  <ion-icon :icon="showConfirmNewPassword ? ioniconsEyeOffOutline : ioniconsEyeOutline" />
+                </button>
+              </div>
+
+              <div v-if="changePasswordError" class="rl-banner rl-banner--error">{{ changePasswordError }}</div>
+              <div v-if="changePasswordSuccess" class="rl-banner">{{ changePasswordSuccess }}</div>
+
+              <div class="rl-btn-row">
+                <button type="button" class="dn-button-secondary" :disabled="isChangingPassword" @click="cancelPasswordChange">Anuluj</button>
+                <button type="submit" class="dn-button-primary" :disabled="isChangingPassword || !isPasswordFormValid">
+                  <ion-spinner v-if="isChangingPassword" name="crescent" />
+                  <span v-else>Zapisz hasło</span>
+                </button>
+              </div>
+            </form>
+          </transition>
+
+          <button type="button" class="dn-button-secondary rl-full-btn rl-signout" @click="handleSignOut">
+            <ion-icon :icon="ioniconsPowerOutline" />
+            <span>Wyloguj się</span>
+          </button>
+        </section>
       </div>
 
-      <!-- 6. EDIT PROFILE MODAL -->
+      <!-- EDIT PROFILE SHEET -->
       <ion-modal
         :is-open="isEditProfileModalOpen"
         @didDismiss="closeEditProfileModal"
-        class="dn-edit-profile-modal"
-        :breakpoints="[0, 0.95, 1]"
-        :initial-breakpoint="0.95"
+        class="dn-form-sheet-modal"
+        :breakpoints="[0, 0.92, 1]"
+        :initial-breakpoint="0.92"
         :handle="true"
+        data-no-swipe="true"
       >
-        <ion-header class="modal-custom-header">
+        <ion-header class="dn-form-sheet-header ion-no-border">
           <div class="dn-form-sheet-handle-spacer" aria-hidden="true"></div>
           <ion-toolbar>
-            <div class="modal-header-inner">
-              <div class="modal-title-wrap">
-                <ion-icon :icon="ioniconsPersonOutline" class="modal-title-icon" />
-                <ion-title>Edycja Twojego Profilu</ion-title>
+            <div class="dn-form-sheet-heading">
+              <div class="dn-form-sheet-title-row">
+                <div class="dn-form-sheet-title-text">
+                  <h3 class="dn-form-sheet-title">Twój profil</h3>
+                  <span class="dn-form-sheet-subtitle">Widoczny dla partnera w Gniazdku</span>
+                </div>
               </div>
-              <ion-buttons slot="end">
-                <button type="button" class="modal-close-icon-btn" @click="closeEditProfileModal" aria-label="Zamknij">
-                  <ion-icon :icon="ioniconsCloseOutline" />
-                </button>
-              </ion-buttons>
+              <button type="button" class="dn-form-sheet-close" @click="closeEditProfileModal" aria-label="Zamknij">
+                <ion-icon :icon="ioniconsCloseOutline" />
+              </button>
             </div>
           </ion-toolbar>
         </ion-header>
 
-        <ion-content class="ion-padding edit-modal-content">
-          <div class="modal-form-wrapper">
-            <!-- LIVE AVATAR & IDENTITY BANNER -->
-            <div class="profile-modal-hero">
-              <div
-                class="profile-modal-avatar"
-                :style="{
-                  backgroundColor: currentUserAccentColor,
-                  boxShadow: `0 8px 24px ${hexToRgba(currentUserAccentColor, 0.4)}`
-                }"
-              >
-                <span>{{ (editProfileForm.name || currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
-                <div class="avatar-star-badge">
-                  <ion-icon :icon="ioniconsSparkles" />
-                </div>
-              </div>
-              <div class="profile-modal-hero-text">
-                <h3>{{ editProfileForm.name || 'Twój Profil' }}</h3>
-                <span class="live-sync-pill">
-                  <span class="live-dot"></span>
-                  Twój profil w Gniazdku
-                </span>
-              </div>
+        <ion-content class="ion-padding">
+          <div class="rl-sheet">
+            <label class="rl-label">Imię lub pseudonim</label>
+            <div class="rl-field">
+              <ion-input aria-label="Imię lub pseudonim" v-model="editProfileForm.name" placeholder="np. Dawid, Kasia..." class="rl-input" :clear-input="true" />
             </div>
 
-            <!-- GROUP 1: TWOJE IMIĘ -->
-            <div class="modal-section-card">
-              <div class="section-card-header">
-                <span class="mini-section-tag">TOŻSAMOŚĆ</span>
-                <label class="form-label">Twoje imię lub pseudonim</label>
-              </div>
-              <div class="input-with-icon-wrap">
-                <ion-icon :icon="ioniconsPersonOutline" class="input-leading-icon" />
-                <ion-input
-                  v-model="editProfileForm.name"
-                  placeholder="np. Dawid, Kasia..."
-                  class="dn-styled-input"
-                  :clear-input="true"
-                />
-              </div>
+            <label class="rl-label">Czuła myśl</label>
+            <div class="rl-field">
+              <ion-textarea aria-label="Czuła myśl"
+                v-model="editProfileForm.love_note"
+                placeholder="np. Zawsze przy Tobie!"
+                class="rl-input rl-textarea"
+                :rows="2"
+                :auto-grow="true"
+              />
             </div>
-
-            <!-- GROUP 2: KĄCIK UCZUĆ / LOVE NOTE -->
-            <div class="modal-section-card">
-              <div class="section-card-header">
-                <span class="mini-section-tag tag-love">CZUŁOŚĆ</span>
-                <label class="form-label">Czuła wiadomość / Twoje motto</label>
-              </div>
-              <p class="section-micro-desc">Wiadomość wyświetlana w nagłówku Twojego profilu.</p>
-
-              <div class="textarea-with-icon-wrap">
-                <DuoIcon name="quote" :size="16" class="textarea-leading-icon" />
-                <ion-textarea
-                  v-model="editProfileForm.love_note"
-                  placeholder="np. Zawsze przy Tobie! / Dziękuję, że jesteś..."
-                  class="dn-styled-textarea"
-                  :rows="2"
-                  :auto-grow="true"
-                />
-              </div>
-
-              <!-- Quick Love Note Suggestions -->
-              <div class="quick-chips-row mt-chips">
-                <span class="chips-mini-label">Inspiracje:</span>
-                <button
-                  type="button"
-                  v-for="note in quickLoveNoteSuggestions"
-                  :key="note"
-                  class="chip-btn love-chip"
-                  :class="{ active: editProfileForm.love_note === note }"
-                  @click="editProfileForm.love_note = note"
-                >
-                  {{ note }}
-                </button>
-              </div>
-            </div>
-
-            <!-- GROUP 3: ŚCIĄGAWKA DLA PARTNERA (PREFERENCJE) -->
-            <div class="modal-section-card">
-              <div class="section-card-header">
-                <span class="mini-section-tag tag-prefs">ŚCIĄGAWKA DLA PARTNERA</span>
-                <label class="form-label">Co najbardziej lubisz?</label>
-              </div>
-              <p class="section-micro-desc">
-                Partner od razu wie, jaką kawę kupić lub czym osłodzić Ci trudniejszy dzień!
-              </p>
-
-              <!-- Ulubiony napój -->
-              <div class="pref-subfield">
-                <span class="subfield-title">
-                  <DuoIcon name="drink" :size="15" />
-                  <span>Ulubiony napój</span>
-                </span>
-                <div class="input-with-icon-wrap">
-                  <ion-input
-                    v-model="editProfileForm.favorite_drink"
-                    placeholder="np. Kawa z mlekiem owsianym, Matcha..."
-                    class="dn-styled-input"
-                    :clear-input="true"
-                  />
-                </div>
-                <div class="quick-chips-row">
-                  <button
-                    type="button"
-                    v-for="drink in quickDrinkSuggestions"
-                    :key="drink"
-                    class="chip-btn"
-                    :class="{ active: editProfileForm.favorite_drink === drink }"
-                    @click="editProfileForm.favorite_drink = drink"
-                  >
-                    {{ drink }}
-                  </button>
-                </div>
-              </div>
-
-              <!-- Ulubiony smakołyk -->
-              <div class="pref-subfield mt-subfield">
-                <span class="subfield-title">
-                  <DuoIcon name="treat" :size="15" />
-                  <span>Ulubiony smakołyk / przekąska</span>
-                </span>
-                <div class="input-with-icon-wrap">
-                  <ion-input
-                    v-model="editProfileForm.favorite_treat"
-                    placeholder="np. Pistacje, Czekolada z solą morską..."
-                    class="dn-styled-input"
-                    :clear-input="true"
-                  />
-                </div>
-                <div class="quick-chips-row">
-                  <button
-                    type="button"
-                    v-for="treat in quickTreatSuggestions"
-                    :key="treat"
-                    class="chip-btn"
-                    :class="{ active: editProfileForm.favorite_treat === treat }"
-                    @click="editProfileForm.favorite_treat = treat"
-                  >
-                    {{ treat }}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Save Action Button -->
-            <div class="modal-actions-row">
+            <div class="rl-chips" data-no-swipe>
               <button
-                class="dn-button-sea save-all-profile-btn"
-                @click="handleSaveProfile"
-                :disabled="!editProfileForm.name.trim()"
+                v-for="note in quickLoveNoteSuggestions"
+                :key="note"
+                type="button"
+                class="dn-filter-chip"
+                :class="{ active: editProfileForm.love_note === note }"
+                @click="editProfileForm.love_note = note"
               >
-                <ion-icon :icon="ioniconsCheckmarkDoneOutline" />
-                <span>Zapisz zmiany w profilu</span>
+                {{ note }}
               </button>
             </div>
+
+            <label class="rl-label">Ulubiony napój</label>
+            <div class="rl-field">
+              <ion-input aria-label="Ulubiony napój" v-model="editProfileForm.favorite_drink" placeholder="np. Matcha latte" class="rl-input" :clear-input="true" />
+            </div>
+            <div class="rl-chips" data-no-swipe>
+              <button
+                v-for="drink in quickDrinkSuggestions"
+                :key="drink"
+                type="button"
+                class="dn-filter-chip"
+                :class="{ active: editProfileForm.favorite_drink === drink }"
+                @click="editProfileForm.favorite_drink = drink"
+              >
+                {{ drink }}
+              </button>
+            </div>
+
+            <label class="rl-label">Ulubiona przekąska</label>
+            <div class="rl-field">
+              <ion-input aria-label="Ulubiona przekąska" v-model="editProfileForm.favorite_treat" placeholder="np. Pistacje" class="rl-input" :clear-input="true" />
+            </div>
+            <div class="rl-chips" data-no-swipe>
+              <button
+                v-for="treat in quickTreatSuggestions"
+                :key="treat"
+                type="button"
+                class="dn-filter-chip"
+                :class="{ active: editProfileForm.favorite_treat === treat }"
+                @click="editProfileForm.favorite_treat = treat"
+              >
+                {{ treat }}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              class="dn-button-primary rl-full-btn rl-sheet-save"
+              :disabled="!editProfileForm.name.trim()"
+              @click="handleSaveProfile"
+            >
+              Zapisz profil
+            </button>
           </div>
         </ion-content>
       </ion-modal>
 
-      <!-- Floating bottom tab bar spacer so content never gets obscured -->
       <div class="tab-bottom-spacer" style="height: 105px;" aria-hidden="true"></div>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import confetti from 'canvas-confetti'
 import { useDuoState } from '~/composables/useDuoState'
 import { usePushNotifications } from '~/composables/usePushNotifications'
@@ -1680,6 +780,21 @@ import { useMusic } from '~/composables/useMusic'
 import { useConfirm } from '~/composables/useConfirm'
 import DuoIcon from '~/components/DuoIcon.vue'
 import DuoMusicCard from '~/components/DuoMusicCard.vue'
+
+/**
+ * ion-toggle with a one-way `:checked` flips itself on tap. If the action fails or is
+ * refused (e.g. notification permission denied), Vue does not re-render because the
+ * bound value did not change – so we put the toggle back to the real state.
+ */
+const runToggle = async (event: any, action: () => unknown, actual: () => unknown) => {
+  const el = event?.target as HTMLIonToggleElement | null
+  try {
+    await action()
+  } finally {
+    await nextTick()
+    if (el) el.checked = Boolean(actual())
+  }
+}
 
 const route = useRoute()
 
@@ -1720,15 +835,38 @@ const {
 } = useDuoState()
 
 const {
+  isNativeApp: isPushNativeApp,
   isSupported: isPushSupported,
   permission: pushPermission,
   isPushEnabled,
+  isSubscribing: isPushSubscribing,
+  nativeRegistered,
+  isTestingPush,
   pushSettings,
   requestPermission: requestPushPermission,
   toggleMasterPush,
   toggleCategory: togglePushCategory,
   sendTestNotification
 } = usePushNotifications()
+
+const isMasterPushChecked = computed(() => Boolean(isPushEnabled.value && pushPermission.value === 'granted'))
+const isTogglingMasterPush = ref(false)
+const handleMasterPushToggle = async (event: any) => {
+  if (isTogglingMasterPush.value) return
+  const el = event?.target as HTMLIonToggleElement | null
+  const targetVal = Boolean(event?.detail?.checked)
+  if (targetVal === isMasterPushChecked.value) return
+  isTogglingMasterPush.value = true
+  try {
+    await toggleMasterPush(targetVal)
+  } catch (err) {
+    console.warn('[Push] Master toggle error:', err)
+  } finally {
+    await nextTick()
+    if (el) el.checked = isMasterPushChecked.value
+    isTogglingMasterPush.value = false
+  }
+}
 
 const {
   connection: musicConnection,
@@ -1843,12 +981,27 @@ const formattedAnniversaryDisplay = computed(() => {
 })
 
 const handleSaveNestSettings = async () => {
-  await updatePartnershipSettings(nestNameInput.value, anniversaryInput.value)
-  confetti({
-    particleCount: 50,
-    spread: 60,
-    origin: { y: 0.6 }
-  })
+  const nestName = nestNameInput.value.trim()
+  if (!nestName) {
+    triggerToast('Podaj nazwę gniazdka', { type: 'warning' })
+    return
+  }
+
+  try {
+    await updatePartnershipSettings({
+      nest_name: nestName,
+      anniversary_date: anniversaryInput.value || null
+    })
+    nestNameInput.value = nestName
+    triggerToast('Zapisano ustawienia gniazdka')
+    confetti({
+      particleCount: 50,
+      spread: 60,
+      origin: { y: 0.6 }
+    })
+  } catch (_) {
+    triggerToast('Nie udało się zapisać ustawień gniazdka', { type: 'warning' })
+  }
 }
 
 // ==========================================================
@@ -2270,1253 +1423,952 @@ const handleRefresh = async (event: any) => {
 </script>
 
 <style scoped>
-/* ========================================================== */
-/* GENERAL CARD & HEADER STRUCTURE                            */
-/* ========================================================== */
-.card-title-row {
+
+/* =========================================================
+   RELACJA – Minimal (rl-*) · beige accent from the welcome screen
+   ========================================================= */
+.header-action-row {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
+  gap: 12px;
 }
 
-.section-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.07em;
-  color: #0f172a;
-  text-transform: uppercase;
+.rl-page {
+  padding: 8px 0 24px;
 }
 
-.section-tag.couple-tag {
-  color: #f43f5e;
+/* ---------- Couple card (cream) ---------- */
+.rl-couple {
+  margin: 4px 20px 6px;
+  padding: 22px 18px 18px;
+  border-radius: 28px;
+  background: var(--dn-cream);
 }
 
-.section-tag.mood-tag {
-  color: #0f172a;
-}
-
-.section-tag.love-tag {
-  color: #e11d48;
-}
-
-.section-tag.nest-section-tag {
-  color: #f43f5e;
-}
-
-.section-tag.push-section-tag {
-  color: #0f172a;
-}
-
-.section-tag.pairing-tag {
-  color: #0f172a;
-}
-
-.section-desc {
-  font-size: 13px;
-  color: #64748b;
-  margin: 4px 0 12px 0;
-  line-height: 1.4;
-}
-
-/* ========================================================== */
-/* CATEGORY SEGMENTED SELECTOR                                */
-/* ========================================================== */
-.category-toggle-container {
+.rl-couple-people {
   display: flex;
-  justify-content: center;
-  padding: 12px 16px 8px 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
 }
 
-.category-toggle-pill {
+.rl-person {
+  flex: 0 0 96px;
   display: flex;
-  background: #f1f5f9;
-  padding: 4px;
-  border-radius: 14px;
+  flex-direction: column;
+  align-items: center;
   gap: 4px;
-  width: 100%;
-  max-width: 420px;
-}
-
-.cat-toggle-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 9px 14px;
+  padding: 0;
   border: none;
   background: transparent;
-  color: #64748b;
-  font-size: 13px;
-  font-weight: 700;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+  color: var(--dn-ink);
 }
 
-.cat-toggle-btn.active {
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.category-content-wrap {
-  display: flex;
-  flex-direction: column;
-}
-
-/* ========================================================== */
-/* KARTA NASZEJ RELACJI (COUPLE HUB CARD)                    */
-/* ========================================================== */
-.couple-hub-card {
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.85);
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+.rl-avatar {
   position: relative;
-  overflow: hidden;
-}
-
-.edit-profile-pill-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #0f172a;
-  font-size: 11.5px;
-  font-weight: 700;
-  padding: 5px 12px;
-  border-radius: 9999px;
-  cursor: pointer;
-  transition: all 0.18s ease;
-}
-
-.edit-profile-pill-btn:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-}
-
-.edit-profile-pill-btn:active {
-  transform: scale(0.96);
-}
-
-.couple-hero-banner {
-  background: linear-gradient(135deg, #fff5f5 0%, #f0fdfa 100%);
-  border: 1px solid #ffe4e6;
-  border-radius: 18px;
-  padding: 16px 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.couple-member-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-  text-align: center;
-}
-
-.avatar-ring {
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  height: 60px;
+  margin-bottom: 4px;
   border-radius: 50%;
-  color: #ffffff;
+  border: 3px solid #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
-  font-weight: 800;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  border: 3px solid #ffffff;
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 600;
 }
 
-.avatar-initial {
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+.rl-avatar--empty {
+  background: #ffffff;
+  color: var(--dn-cream-ink);
+  font-size: 24px;
 }
 
-.member-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  width: 100%;
+.rl-online-pip {
+  position: absolute;
+  right: -2px;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2.5px solid var(--dn-cream);
+  background: #c3c6cc;
 }
 
-.member-name {
-  font-size: 13px;
-  font-weight: 800;
-  color: #0f172a;
-  white-space: nowrap;
+.rl-online-pip.is-online {
+  background: #2fa36b;
+}
+
+.rl-person-name {
+  max-width: 100%;
+  font-size: 15px;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 105px;
-  line-height: 1.35;
-  padding-bottom: 1.5px;
-}
-
-.member-badge.me-badge {
-  font-size: 9.5px;
-  font-weight: 800;
-  text-transform: uppercase;
-  background: #ffffff;
-  color: #0f172a;
-  border: 1px solid #e2e8f0;
-  padding: 1px 7px;
-  border-radius: 999px;
-}
-
-.partner-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 9.5px;
-  font-weight: 700;
-  color: #64748b;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  padding: 1px 7px;
-  border-radius: 999px;
-}
-
-.partner-status-pill.is-online {
-  color: #16a34a;
-  border-color: #bbf7d0;
-  background: #f0fdf4;
-}
-
-.live-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #94a3b8;
-}
-
-.live-dot.is-online {
-  background: #16a34a;
-  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.25);
-  animation: pulseLiveDot 1.6s infinite ease-in-out;
-}
-
-@keyframes pulseLiveDot {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.2); opacity: 0.6; }
-}
-
-.couple-bridge-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 0 4px;
-}
-
-.heart-pulse-node {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  box-shadow: 0 3px 10px rgba(244, 63, 94, 0.35);
-  animation: pulseHeartNode 2s infinite ease-in-out;
-}
-
-@keyframes pulseHeartNode {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.08); }
-}
-
-.days-together-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 10px;
-  font-weight: 800;
-  color: #9f1239;
-  background: #ffe4e6;
-  border: 1px solid #fecdd3;
-  padding: 2px 8px;
-  border-radius: 999px;
   white-space: nowrap;
 }
 
-.sparkle-mini {
-  font-size: 11px;
-  color: #f43f5e;
+.rl-person-meta {
+  font-size: 12.5px;
+  color: var(--dn-cream-ink);
 }
 
-.unpaired-ring {
-  background: #f1f5f9;
-  color: #94a3b8;
-  font-size: 22px;
-}
-
-.pair-now-badge {
-  font-size: 9.5px;
-  font-weight: 700;
-  color: #0f172a;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  padding: 1px 7px;
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-/* Love Notes Tray */
-.couple-notes-tray {
+.rl-couple-bridge {
+  flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 14px;
+  align-items: center;
+  gap: 6px;
+  margin-top: 24px;
 }
 
-.love-bubble {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: 14px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+.rl-bridge-line {
+  flex: 1;
+  height: 0;
+  border-top: 1.5px dashed var(--dn-cream-deep);
+  filter: brightness(0.9);
 }
 
-.love-bubble.partner-bubble {
-  background: #f0fdfa;
-  border-color: #ccfbf1;
-}
-
-.bubble-initial {
-  width: 24px;
-  height: 24px;
+.rl-bridge-heart {
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  color: #ffffff;
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-weight: 800;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.bubble-text-wrap {
-  flex: 1;
-  min-width: 0;
-}
-
-.bubble-author {
-  font-size: 10.5px;
-  font-weight: 700;
-  color: #64748b;
-  display: block;
-  margin-bottom: 2px;
-}
-
-.bubble-quote {
-  font-size: 12.5px;
-  font-style: italic;
-  color: #1e293b;
-  line-height: 1.4;
-  margin: 0;
-  word-break: break-word;
-}
-
-.empty-notes-invite {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 11px 14px;
-  border-radius: 14px;
-  background: #fffbeb;
-  border: 1px dashed #fcd34d;
-  cursor: pointer;
-  margin-bottom: 14px;
-  transition: all 0.18s ease;
-}
-
-.empty-notes-invite:hover {
-  background: #fef3c7;
-}
-
-.invite-sparkle {
-  font-size: 20px;
-  color: #f59e0b;
+  color: var(--dn-danger);
+  font-size: 14px;
   flex-shrink: 0;
 }
 
-.invite-text {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.invite-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: #92400e;
-}
-
-.invite-sub {
-  font-size: 11px;
-  color: #b45309;
-  line-height: 1.3;
-}
-
-.invite-arrow {
-  font-size: 16px;
-  color: #d97706;
-  flex-shrink: 0;
-}
-
-/* Cheatsheet section */
-.couple-cheatsheet-section {
-  border-top: 1px solid #f1f5f9;
-  padding-top: 12px;
-}
-
-.cheatsheet-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.cs-header-left {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.cs-sparkle-icon {
-  font-size: 15px;
-  color: #f59e0b;
-}
-
-.cs-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.cs-sub {
-  font-size: 11px;
-  color: #94a3b8;
-}
-
-.cheatsheet-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.cheatsheet-card {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.cs-card-top {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: #64748b;
-  margin-bottom: 2px;
-}
-
-.cs-card-label {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: #475569;
-  letter-spacing: 0.04em;
-}
-
-.cs-item-row {
+.rl-couple-days {
   display: flex;
   align-items: baseline;
-  gap: 4px;
-  font-size: 11.5px;
-  min-width: 0;
+  justify-content: center;
+  gap: 8px;
+  margin: 18px 0 16px;
 }
 
-.cs-who {
-  font-weight: 800;
-  font-size: 10.5px;
-  flex-shrink: 0;
-}
-
-.cs-val {
+.rl-days-num {
+  font-family: var(--dn-serif);
+  font-size: 40px;
   font-weight: 600;
-  color: #1e293b;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--dn-ink);
 }
 
-/* ========================================================== */
-/* CENTRUM SAMOPOCZUCIA I NASTROJU (MOOD HUB)                 */
-/* ========================================================== */
-.mood-hub-card {
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.85);
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
-}
-
-.active-mood-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #0f172a;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  padding: 3px 9px;
-  border-radius: 999px;
-}
-
-.partner-mood-spotlight {
-  background: linear-gradient(135deg, #f0fdfa 0%, #f8fafc 100%);
-  border: 1px solid #ccfbf1;
-  border-radius: 16px;
-  padding: 14px;
-  margin-bottom: 16px;
-}
-
-.spotlight-header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 10px;
-}
-
-.spotlight-mini-tag {
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 0.07em;
-  color: #0d9488;
-  text-transform: uppercase;
-  display: block;
-}
-
-.spotlight-title-group h4 {
-  margin: 2px 0 0 0;
+.rl-days-label {
   font-size: 14px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 500;
+  color: var(--dn-cream-ink);
 }
 
-.spotlight-sync-time {
-  font-size: 11px;
-  color: #94a3b8;
-  font-weight: 600;
-}
-
-.spotlight-content-box {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.spotlight-icon-wrap {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
-}
-
-.spotlight-texts {
-  flex: 1;
-  min-width: 0;
-}
-
-.spotlight-mood-name {
-  font-size: 13.5px;
-  font-weight: 800;
-  color: #0d9488;
-  display: block;
-}
-
-.spotlight-note {
-  font-size: 12.5px;
-  font-style: italic;
-  color: #334155;
-  margin: 3px 0 0 0;
-  line-height: 1.35;
-  word-break: break-word;
-}
-
-.spotlight-note-empty {
-  font-size: 11.5px;
-  color: #94a3b8;
-  margin: 3px 0 0 0;
-}
-
-.my-mood-header h4 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.mood-chips-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin: 12px 0 14px 0;
-}
-
-.mood-chip-btn {
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 10px 4px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.mood-chip-btn:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-}
-
-.mood-chip-btn.active {
-  background: #0f172a;
-  border-color: #0f172a;
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
-}
-
-.mood-chip-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #e2e8f0;
-  color: #0f172a;
-  transition: all 0.2s ease;
-}
-
-.mood-chip-btn.active .mood-chip-icon {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: transparent;
-  color: #ffffff;
-}
-
-.mood-chip-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #475569;
-}
-
-.mood-chip-btn.active .mood-chip-label {
-  color: #ffffff;
-}
-
-.mood-action-box {
+.rl-notes {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.save-mood-btn {
+.rl-note {
+  position: relative;
   width: 100%;
-  padding: 13px;
-  font-size: 13.5px;
-  font-weight: 800;
-  border-radius: 13px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-/* ========================================================== */
-/* CODZIENNE PUKNIĘCIE (DAILY NUDGE)                          */
-/* ========================================================== */
-.daily-nudge-card {
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.85);
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
-}
-
-.daily-nudge-card h4 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.limit-badge {
-  font-size: 10px;
-  font-weight: 700;
-  color: #f43f5e;
-  background: #fff1f2;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid #ffe4e6;
-}
-
-.limit-badge.points-done {
-  background: #dcfce7;
-  color: var(--dn-activity-accent);
-  border-color: #86efac;
-}
-
-.nudge-already-sent-box {
-  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
-  border: 1px solid #bbf7d0;
-  border-radius: 16px;
-  padding: 14px;
-  margin-top: 10px;
-  margin-bottom: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.sent-status-icon-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.sent-sparkle-badge {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: #16a34a;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  flex-shrink: 0;
-}
-
-.sent-status-texts {
   display: flex;
   flex-direction: column;
   gap: 2px;
-}
-
-.sent-title {
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--dn-activity-accent);
-}
-
-.sent-subtitle {
-  font-size: 12px;
-  color: #166534;
-}
-
-.nudge-timer-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 18px;
   background: #ffffff;
-  border: 1px solid #86efac;
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 12px;
-  color: #166534;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  width: fit-content;
+  font-family: inherit;
+  text-align: left;
+  color: var(--dn-ink);
 }
 
-.timer-clock-icon {
-  font-size: 15px;
-  color: #16a34a;
-}
-
-.nudge-types-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
-  margin: 10px 0 12px 0;
-}
-
-.nudge-preset-btn {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 13px;
-  padding: 8px 2px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
+.rl-note--invite {
+  padding-right: 40px;
   cursor: pointer;
-  transition: all 0.2s ease;
 }
 
-.nudge-preset-btn.active {
-  background: #fff1f2;
-  border-color: #f43f5e;
-  color: #f43f5e;
+.rl-note-author {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dn-ink);
 }
 
-.nudge-icon-circle {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: #ffffff;
+.rl-note-text {
+  margin: 0;
+  font-family: var(--dn-serif);
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--dn-ink);
+}
+
+.rl-note-hint {
+  font-size: 13px;
+  color: var(--dn-muted);
+}
+
+.rl-note-chevron {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: var(--dn-faint);
+}
+
+/* ---------- Sections ---------- */
+.rl-section {
+  margin: 0 20px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--dn-line);
+}
+
+.rl-section:last-child {
+  border-bottom: none;
+}
+
+.rl-section-head {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: #f43f5e;
-  border: 1px solid #fecdd3;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
 }
 
-.nudge-name {
-  font-size: 10px;
-  font-weight: 700;
-  color: #475569;
+.rl-section-title {
+  margin: 0;
+  font-family: var(--dn-serif);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--dn-ink);
 }
 
-.nudge-send-box {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.rl-section-meta {
+  font-size: 13px;
+  color: var(--dn-muted);
 }
 
-.send-nudge-btn {
-  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
-  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.35);
-  width: 100%;
-  padding: 13px;
-  font-size: 13.5px;
-  font-weight: 800;
-  border-radius: 13px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+.rl-desc {
+  margin: -6px 0 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--dn-muted);
 }
 
-.recent-nudges-section {
-  margin-top: 14px;
-  border-top: 1px solid #f1f5f9;
-  padding-top: 10px;
+.rl-desc strong {
+  color: var(--dn-ink);
+  font-weight: 600;
 }
 
-.sub-heading {
-  font-size: 11px;
-  font-weight: 700;
-  color: #64748b;
+.rl-label {
   display: block;
-  margin-bottom: 6px;
+  margin: 18px 0 8px;
+  padding-left: 2px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dn-muted);
 }
 
-.nudges-history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+.rl-section-head + .rl-label {
+  margin-top: 0;
 }
 
-.history-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  background: #f8fafc;
-  border-radius: 10px;
+.rl-hint {
+  margin: 8px 2px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dn-muted);
 }
 
-.history-icon-bubble {
-  color: #f43f5e;
+.rl-hint a,
+.rl-steps a {
+  color: var(--dn-ink);
 }
 
-.history-text {
-  font-size: 12px;
+.rl-error {
+  margin: 8px 2px 0;
+  font-size: 13px;
+  color: var(--dn-danger);
 }
 
-.history-author {
-  font-weight: 700;
-  color: #0f172a;
+.rl-link {
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--dn-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 
-.history-msg {
-  color: #475569;
-  margin-left: 4px;
-  overflow-wrap: break-word;
-  word-break: break-word;
+.rl-link--center {
+  display: block;
+  margin: 14px auto 0;
 }
 
-/* ========================================================== */
-/* SEKCJA INFORMACJI O GNIAZDKU (NEST CONFIG CARD)           */
-/* ========================================================== */
-.nest-config-card {
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.85);
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
-  position: relative;
-  overflow: hidden;
+.rl-danger-link {
+  display: block;
+  margin-top: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--dn-danger);
+  cursor: pointer;
 }
 
-.days-together-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #f43f5e;
-  background: #fff1f2;
-  border: 1px solid #fecdd3;
-  padding: 2px 8px;
+.rl-status {
+  padding: 4px 10px;
   border-radius: 999px;
+  background: var(--dn-soft);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dn-muted);
 }
 
-.nest-hero-banner {
-  background: linear-gradient(135deg, #fff1f2 0%, #f0fdfa 100%);
-  border: 1px solid #ffe4e6;
-  border-radius: 16px;
-  padding: 14px 16px;
+.rl-status.is-on {
+  background: var(--dn-cream);
+  color: var(--dn-cream-ink);
+}
+
+.rl-banner {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--dn-cream);
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--dn-ink);
+}
+
+.rl-banner--error {
+  background: #fcefec;
+  color: var(--dn-danger);
+}
+
+/* ---------- Rows ---------- */
+.rl-row {
   display: flex;
   align-items: center;
   gap: 14px;
-  margin: 10px 0 16px 0;
 }
 
-.nest-hero-icon-wrap {
+.rl-row--card {
+  padding: 12px;
+  border-radius: 20px;
+  background: var(--dn-soft);
+}
+
+.rl-row--list {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--dn-line);
+}
+
+.rl-row--list:last-child {
+  border-bottom: none;
+}
+
+.rl-row-icon {
   width: 44px;
   height: 44px;
   border-radius: 14px;
-  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
-  color: #ffffff;
+  background: #ffffff;
+  color: var(--dn-ink);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
   flex-shrink: 0;
-  box-shadow: 0 4px 14px rgba(244, 63, 94, 0.35);
+  font-size: 19px;
 }
 
-.nest-hero-text h4 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 800;
-  color: #0f172a;
+.rl-row-icon--cream {
+  background: var(--dn-cream);
 }
 
-.nest-hero-text p {
-  margin: 2px 0 0 0;
-  font-size: 12px;
-  color: #64748b;
-  line-height: 1.35;
+.rl-row-icon--ink {
+  background: var(--dn-ink);
+  color: #ffffff;
 }
 
-.settings-form-group {
+.rl-row-icon--plain {
+  background: #ffffff;
+}
+
+.rl-row-icon--sm {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--dn-soft);
+  font-size: 17px;
+}
+
+.rl-row-body {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.rl-row-title {
+  font-size: 15.5px;
+  font-weight: 500;
+  color: var(--dn-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rl-row-sub {
+  font-size: 13px;
+  color: var(--dn-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rl-icon-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--dn-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.rl-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.rl-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 60px;
+  padding: 8px 0;
+  border: none;
+  border-bottom: 1px solid var(--dn-line);
+  background: transparent;
+  font-family: inherit;
+  color: var(--dn-ink);
+}
+
+.rl-toggle-row:last-child {
+  border-bottom: none;
+}
+
+.rl-toggle-row--main {
+  padding: 10px 14px;
+  border-radius: 20px;
+  background: var(--dn-soft);
+  border-bottom: none;
+}
+
+.rl-nav-row {
+  width: 100%;
+  cursor: pointer;
+}
+
+.rl-chevron {
+  font-size: 18px;
+  color: var(--dn-faint);
+}
+
+/* ---------- Inputs ---------- */
+.rl-field {
+  margin-bottom: 4px;
+}
+
+.rl-input {
+  --background: var(--dn-field);
+  --padding-start: 16px;
+  --padding-end: 12px;
+  --placeholder-color: var(--dn-faint);
+  --placeholder-opacity: 1;
+  min-height: 52px;
+  border: 1px solid var(--dn-field-line);
+  border-radius: 14px;
+  font-size: 16px;
+  color: var(--dn-ink);
+  overflow: hidden;
+}
+
+.rl-input--date {
+  text-align: left;
+}
+
+.rl-textarea {
+  --padding-top: 14px;
+  --padding-bottom: 14px;
+}
+
+.rl-native-input {
+  flex: 1;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 1px solid var(--dn-field-line);
+  border-radius: 14px;
+  background: var(--dn-field);
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--dn-ink);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.rl-native-input:focus {
+  border-color: var(--dn-ink);
+}
+
+.rl-inline-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.rl-inline-form .rl-input {
+  flex: 1;
+}
+
+.rl-inline-btn {
+  min-height: 52px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 999px;
+  background: var(--dn-ink);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rl-inline-btn:disabled {
+  opacity: 0.4;
+}
+
+.rl-full-btn {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.rl-btn-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.rl-btn-row > * {
+  flex: 1;
+}
+
+/* ---------- Chips ---------- */
+.rl-chips {
+  display: flex;
+  gap: 8px;
+  margin: 0 -20px;
+  padding: 0 20px 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.rl-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.rl-chips--wrap {
+  flex-wrap: wrap;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.rl-section .rl-field + .rl-chips {
+  margin-top: 10px;
+}
+
+.rl-mood {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--dn-soft);
+  color: var(--dn-ink);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.rl-mood.active {
+  background: var(--dn-ink);
+  color: #ffffff;
+}
+
+.rl-chips + .rl-field {
+  margin-top: 12px;
+}
+
+.rl-platform-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---------- Gestures ---------- */
+.rl-gestures {
+  display: flex;
+  justify-content: space-between;
   gap: 6px;
   margin-bottom: 14px;
 }
 
-.label-with-hint {
+.rl-gesture {
+  flex: 1;
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.form-label {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #1e293b;
-}
-
-.field-hint {
-  font-size: 11px;
-  color: #94a3b8;
-  font-weight: 500;
-}
-
-.input-with-icon-wrap {
-  position: relative;
-  display: flex;
+  flex-direction: column;
   align-items: center;
-}
-
-.input-leading-icon {
-  position: absolute;
-  left: 12px;
-  font-size: 18px;
-  color: #0f172a;
-  pointer-events: none;
-  z-index: 2;
-}
-
-.input-with-icon-wrap .dn-styled-input {
-  width: 100%;
-  --padding-start: 38px;
-  --padding-end: 14px;
-  --background: #ffffff;
-  --border-radius: 14px;
-  border-radius: 14px;
-  overflow: hidden;
-  border: 1.5px solid #e2e8f0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #0f172a;
-  transition: all 0.2s ease;
-}
-
-.input-with-icon-wrap .dn-styled-input:focus-within {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
-}
-
-.date-styled-input {
+  gap: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  color: var(--dn-ink);
   cursor: pointer;
-  --text-align: center;
-  text-align: center;
-  --padding-end: 38px; /* symmetric with --padding-start: 38px so text is centered */
 }
 
-.date-styled-input::part(native) {
-  text-align: center !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
-.date-styled-input :deep(input::-webkit-date-and-time-value) {
-  text-align: center !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  min-height: 1.4em !important;
-  height: 100% !important;
-  margin: 0 auto !important;
-  padding: 0 !important;
-}
-
-.quick-chips-row {
+.rl-gesture-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--dn-soft);
+  color: var(--dn-ink);
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+  justify-content: center;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.rl-gesture.active .rl-gesture-icon {
+  background: var(--dn-cream);
+  box-shadow: inset 0 0 0 2px var(--dn-ink);
+}
+
+.rl-gesture:active .rl-gesture-icon {
+  transform: scale(0.94);
+}
+
+.rl-gesture-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dn-ink);
+  text-align: center;
+}
+
+.rl-history {
   margin-top: 6px;
 }
 
-.chips-mini-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #94a3b8;
-  margin-right: 2px;
+/* ---------- Cheatsheet ---------- */
+.rl-cheats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
-.chip-btn {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 9999px;
-  padding: 5px 11px;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: #475569;
-  cursor: pointer;
-  transition: all 0.18s ease;
+.rl-cheat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 20px;
+  background: var(--dn-cream);
+  min-width: 0;
+}
+
+.rl-cheat-head {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--dn-cream-ink);
 }
 
-.chip-btn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
-  border-color: #cbd5e1;
+.rl-cheat-row {
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--dn-ink);
+  overflow-wrap: anywhere;
 }
 
-.chip-btn.active {
-  background: #0f172a;
-  color: #ffffff;
-  border-color: #0f172a;
-  font-weight: 700;
+.rl-cheat-who {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--dn-muted);
 }
 
-.anniversary-milestone-box {
-  margin-top: 8px;
-  background: linear-gradient(135deg, #fff1f2 0%, #fffbeb 100%);
-  border: 1px solid #fed7aa;
-  border-radius: 14px;
-  padding: 10px 14px;
+/* ---------- Colour ---------- */
+.rl-color-top {
   display: flex;
   align-items: center;
-  gap: 12px;
-  animation: fadeInMilestone 0.25s ease;
+  gap: 10px;
 }
 
-@keyframes fadeInMilestone {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+.rl-swatch {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 600;
+  flex-shrink: 0;
+  overflow: hidden;
+  cursor: pointer;
 }
 
-.milestone-icon-wrap {
+.rl-hex {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid var(--dn-field-line);
+  border-radius: 14px;
+  background: var(--dn-field);
+}
+
+.rl-hex-hash {
+  color: var(--dn-faint);
+  font-size: 16px;
+}
+
+.rl-hex-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--dn-ink);
+  outline: none;
+}
+
+.rl-color-save {
+  min-height: 52px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 999px;
+  background: var(--dn-ink);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rl-swatches {
+  display: flex;
+  gap: 10px;
+  margin: 16px -20px 4px;
+  padding: 2px 20px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.rl-swatches::-webkit-scrollbar {
+  display: none;
+}
+
+.rl-swatch-dot {
+  flex: 0 0 auto;
   width: 34px;
   height: 34px;
-  border-radius: 10px;
-  background: #f43f5e;
-  color: #ffffff;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--dn-line);
+  cursor: pointer;
+}
+
+.rl-swatch-dot.active {
+  box-shadow: 0 0 0 2px var(--dn-ink);
+}
+
+.rl-slider {
+  margin-top: 16px;
+}
+
+.rl-slider-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dn-muted);
+}
+
+/* ---------- Music ---------- */
+.rl-platforms {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.rl-platform {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--dn-soft);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
-  box-shadow: 0 3px 8px rgba(244, 63, 94, 0.3);
 }
 
-.milestone-content {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.milestone-title {
-  font-size: 12.5px;
-  color: #9a3412;
-  overflow-wrap: break-word;
-  word-break: break-word;
-}
-
-.milestone-subtitle {
-  font-size: 12px;
-  color: #7c2d12;
-}
-
-.anniversary-empty-hint {
-  margin-top: 6px;
-  font-size: 11.5px;
-  color: #64748b;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
-}
-
-.anniversary-empty-hint ion-icon {
-  color: #f59e0b;
-}
-
-.save-settings-btn {
-  width: 100%;
-  padding: 13px;
-  font-size: 13.5px;
-  font-weight: 800;
-  border-radius: 13px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 6px;
-}
-
-/* ========================================================== */
-/* TWÓJ KOLOR AKCENTU (ACCENT COLOR CARD)                    */
-/* ========================================================== */
-.accent-color-card {
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.85);
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
-}
-
-.accent-color-card h4 {
+.rl-steps {
   margin: 0;
-  font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+  padding-left: 20px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--dn-muted);
 }
 
-.active-color-badge {
-  font-size: 11px;
-  font-weight: 800;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid currentColor;
+.rl-steps li + li {
+  margin-top: 6px;
 }
 
-/* ========================================================== */
-/* RGB COLOR PICKER SLIDERS & CONTROLS                        */
-/* ========================================================== */
-.rgb-picker-container {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 16px;
-  margin: 14px 0 16px 0;
+.rl-music-preview {
+  margin: 12px -20px 0;
 }
 
-.picker-top-row {
+/* ---------- Pair code (cream) ---------- */
+.rl-code {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 14px 14px 14px 16px;
+  border-radius: 20px;
+  background: var(--dn-cream);
 }
 
-.color-swatch-disc {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: 3px solid #ffffff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.08);
+.rl-code-label {
+  font-size: 12.5px;
+  color: var(--dn-cream-ink);
+}
+
+.rl-code-text {
+  flex: 1;
+  font-family: var(--dn-serif);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--dn-ink);
+}
+
+.rl-code-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--dn-ink);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
   cursor: pointer;
+}
+
+/* ---------- Password ---------- */
+.rl-pwd-form {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.rl-pwd-field {
+  position: relative;
+}
+
+.rl-pwd-field .rl-native-input {
+  padding-right: 52px;
+}
+
+.rl-eye {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  color: var(--dn-muted);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.rl-signout {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  flex-shrink: 0;
-  transition: transform 0.18s ease;
+  gap: 8px;
 }
 
-.color-swatch-disc:hover {
-  transform: scale(1.05);
+/* ---------- Profile sheet ---------- */
+.rl-sheet {
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
 }
 
-.swatch-pipette-icon {
-  font-size: 20px;
-  color: rgba(255, 255, 255, 0.9);
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
-  pointer-events: none;
+.rl-sheet .rl-label:first-child {
+  margin-top: 4px;
 }
 
+.rl-sheet .rl-chips {
+  margin-top: 10px;
+}
+
+.rl-sheet-save {
+  margin-top: 24px;
+}
+
+/* kept: colour picker internals */
 .native-color-hidden-input {
   position: absolute;
   top: 0;
@@ -3528,113 +2380,6 @@ const handleRefresh = async (event: any) => {
   border: none;
   padding: 0;
 }
-
-.color-meta-info {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  flex: 1;
-}
-
-.hex-input-wrap {
-  display: flex;
-  align-items: center;
-  background: #ffffff;
-  border: 1.5px solid #cbd5e1;
-  border-radius: 10px;
-  padding: 4px 10px;
-  max-width: 130px;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-.hash-label {
-  font-size: 13px;
-  font-weight: 800;
-  color: #94a3b8;
-  margin-right: 2px;
-}
-
-.hex-text-input {
-  width: 100%;
-  border: none;
-  background: transparent;
-  font-size: 14px;
-  font-weight: 800;
-  font-family: monospace;
-  color: #0f172a;
-  outline: none;
-  letter-spacing: 0.05em;
-}
-
-.rgb-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: #64748b;
-  font-family: monospace;
-  padding-left: 2px;
-}
-
-.apply-accent-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px 18px;
-  border-radius: 12px;
-  font-size: 13.5px;
-  font-weight: 800;
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  flex-shrink: 0;
-}
-
-.apply-accent-btn:active {
-  transform: scale(0.96);
-}
-
-.save-color-spinner {
-  width: 18px;
-  height: 18px;
-}
-
-.slider-control-group {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.slider-header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.slider-title {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #475569;
-}
-
-.slider-value-pill {
-  font-size: 10.5px;
-  font-weight: 800;
-  color: #0f172a;
-  background: #ffffff;
-  padding: 1px 7px;
-  border-radius: 999px;
-  border: 1px solid #cbd5e1;
-  font-family: monospace;
-}
-
-.slider-track-wrap {
-  width: 100%;
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
 .duo-color-range {
   -webkit-appearance: none;
   appearance: none;
@@ -3643,23 +2388,11 @@ const handleRefresh = async (event: any) => {
   border-radius: 999px;
   outline: none;
   cursor: pointer;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 0 rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(28, 27, 25, 0.06);
 }
-
 .hue-range {
-  background: linear-gradient(
-    to right,
-    #ff0000 0%,
-    #ffff00 17%,
-    #00ff00 33%,
-    #00ffff 50%,
-    #0000ff 67%,
-    #ff00ff 83%,
-    #ff0000 100%
-  );
+  background: linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%);
 }
-
-/* Custom thumb styling across webkit and moz */
 .duo-color-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -3667,1945 +2400,21 @@ const handleRefresh = async (event: any) => {
   height: 24px;
   border-radius: 50%;
   background: #ffffff;
-  border: 2.5px solid #0f172a;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  border: 2px solid #1c1b19;
+  box-shadow: none;
   cursor: pointer;
   transition: transform 0.1s ease;
 }
-
 .duo-color-range::-webkit-slider-thumb:active {
   transform: scale(1.18);
 }
-
 .duo-color-range::-moz-range-thumb {
   width: 24px;
   height: 24px;
   border-radius: 50%;
   background: #ffffff;
-  border: 2.5px solid #0f172a;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-  cursor: pointer;
-}
-
-/* Inspirations swatches */
-.inspirations-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 4px;
-  padding-top: 12px;
-  border-top: 1px solid #e2e8f0;
-}
-
-.inspirations-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.inspirations-chips-scroll {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 4px 2px 6px 2px;
-  -webkit-overflow-scrolling: touch;
-}
-
-.inspiration-swatch-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 2.5px solid #ffffff;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
-  cursor: pointer;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  font-size: 16px;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.inspiration-swatch-btn:active {
-  transform: scale(0.92);
-}
-
-.inspiration-swatch-btn.active {
-  transform: scale(1.15);
-  box-shadow: 0 0 0 2px #0f172a, 0 3px 8px rgba(0, 0, 0, 0.25);
-}
-
-.swatch-check {
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
-}
-
-.sample-avatar-text-col {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.sample-avatar-sub {
-  font-size: 11px;
-  color: #64748b;
-  font-weight: 600;
-}
-
-.live-preview-box {
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  transition: border-color 0.25s ease;
-}
-
-.preview-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 800;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.sample-task-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: #ffffff;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  transition: all 0.2s ease;
-}
-
-.sample-checkbox {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.sample-task-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.sample-task-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.sample-tags-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sample-pill {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 6px;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  border: 1px solid;
-}
-
-.sample-pts-badge {
-  font-size: 10px;
-  font-weight: 800;
-  background: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
-  padding: 1px 6px;
-  border-radius: 999px;
-}
-
-.sample-avatar-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-top: 4px;
-}
-
-.sample-avatar-circle {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  font-weight: 800;
-  font-size: 13px;
-  flex-shrink: 0;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
-}
-
-.sample-avatar-desc {
-  font-size: 12px;
-  color: #64748b;
-}
-
-/* ========================================================== */
-/* MUSIC SETTINGS & ACTIVITY CARD (DUONEST DESIGN SYSTEM)     */
-/* ========================================================== */
-.music-settings-card {
-  margin-bottom: 16px;
-  border-radius: 18px;
-  background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.85);
-  box-shadow: var(--dn-card-shadow);
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.music-section-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.07em;
-  color: #0f172a;
-  text-transform: uppercase;
-}
-
-.music-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  border: 1px solid #e2e8f0;
-  border-radius: 9999px;
-  background: #f8fafc;
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 700;
-  transition: all 0.2s ease;
-}
-
-.status-indicator-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #94a3b8;
-  display: inline-block;
-  transition: background 0.2s ease;
-}
-
-.music-status-pill.is-connected {
-  border-color: #bbf7d0;
-  background: #f0fdf4;
-  color: #16a34a;
-}
-
-.music-status-pill.is-connected .status-indicator-dot {
-  background: #16a34a;
-  box-shadow: 0 0 4px rgba(22, 163, 74, 0.4);
-}
-
-.music-success-box {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #166534;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.music-success-box .success-icon {
-  font-size: 18px;
-  flex-shrink: 0;
-  color: #16a34a;
-}
-
-.music-error-box {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: #fff1f2;
-  border: 1px solid #fecdd3;
-  color: #9f1239;
-  font-size: 12.5px;
-  line-height: 1.4;
-}
-
-.music-error-box .error-icon {
-  font-size: 18px;
-  flex-shrink: 0;
-  color: #e11d48;
-}
-
-/* STATE A: Disconnected Hero Banner */
-.music-connect-card {
-  position: relative;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 18px;
-  padding: 22px 18px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-top: 8px;
-}
-
-.music-connect-hero-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  margin-bottom: 12px;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
-}
-
-.connect-card-title {
-  margin: 0 0 4px 0;
-  font-size: 16px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.connect-card-desc {
-  margin: 0 0 14px 0;
-  font-size: 12.5px;
-  color: #64748b;
-  line-height: 1.45;
-  max-width: 380px;
-}
-
-.supported-platforms-pills {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 16px;
-  max-width: 440px;
-}
-
-.platform-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border-radius: 9999px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #334155;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
-}
-
-.lastfm-guide-card {
-  width: 100%;
-  max-width: 440px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 14px 16px;
-  margin-bottom: 16px;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.guide-step {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  font-size: 12.5px;
-  color: #334155;
-  line-height: 1.45;
-}
-
-.guide-step a {
-  color: #0f172a;
-  font-weight: 700;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.step-badge {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #0f172a;
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.music-connect-btn {
-  padding: 12px 24px;
-  border-radius: 12px;
-  font-size: 13.5px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
-  transition: transform 0.15s ease, background 0.15s ease;
-  touch-action: manipulation;
-}
-
-.music-connect-btn:active {
-  transform: scale(0.97);
-}
-
-.manual-nick-container {
-  margin-top: 14px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  max-width: 360px;
-}
-
-.manual-nick-link {
-  background: none;
-  border: none;
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 4px 8px;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  transition: color 0.15s ease;
-}
-
-.manual-nick-link:hover,
-.manual-nick-link:active {
-  color: #0f172a;
-}
-
-.manual-nick-form {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  margin-top: 4px;
-}
-
-.manual-input-wrap {
-  flex: 1;
-}
-
-.manual-nick-input {
-  width: 100%;
-  height: 42px;
-  font-size: 13px;
-}
-
-.manual-nick-submit {
-  padding: 0 16px;
-  height: 42px;
-  font-size: 13px;
-  border-radius: 12px;
-}
-
-/* STATE B: Connected Settings */
-.music-account-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  margin-bottom: 12px;
-}
-
-.account-top-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.music-avatar-wrap {
-  position: relative;
-  width: 44px;
-  height: 44px;
-  border-radius: 13px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
-}
-
-.online-indicator-dot {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #16a34a;
-  border: 2px solid #ffffff;
-}
-
-.account-identity {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  flex: 1;
-}
-
-.account-meta-line {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px 8px;
-  flex-wrap: wrap;
-}
-
-.account-label {
-  font-size: 10.5px;
-  font-weight: 700;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.account-status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: #16a34a;
-  font-size: 10.5px;
-  font-weight: 700;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.status-live-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #16a34a;
-  display: inline-block;
-}
-
-.account-username {
-  color: #0f172a;
-  font-size: 15.5px;
-  font-weight: 800;
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding-bottom: 2px;
-}
-
-.account-actions-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border-top: 1px solid #edf2f7;
-  padding-top: 10px;
-}
-
-.account-action-btn {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: 11px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  color: #334155;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
-  transition: all 0.15s ease;
-  touch-action: manipulation;
-}
-
-.account-action-btn:active {
-  background: #f1f5f9;
-  transform: scale(0.98);
-}
-
-.account-action-btn.disconnect-btn {
-  color: #64748b;
-}
-
-.account-action-btn.disconnect-btn:active {
-  color: #ef4444;
-  border-color: #fecaca;
-  background: #fef2f2;
-}
-
-.account-action-btn:disabled {
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-/* Callout Hint */
-.music-sync-hint {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px 14px;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  margin-bottom: 14px;
-}
-
-.sync-hint-icon-bubble {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  color: #3b82f6;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
-}
-
-.sync-hint-body {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.sync-hint-body p {
-  margin: 0;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.sync-hint-link {
-  color: #2563eb;
-  font-size: 11.5px;
-  font-weight: 600;
-  line-height: 1.4;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  transition: color 0.15s ease;
-}
-
-.sync-hint-link:active {
-  color: #1d4ed8;
-}
-
-/* Platform Selector Card */
-.music-platform-selector-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 14px 16px;
-  margin-bottom: 14px;
-}
-
-.platform-selector-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.platform-header-icon-bubble {
-  width: 36px;
-  height: 36px;
-  border-radius: 11px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  color: #0f172a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
-}
-
-.platform-header-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.platform-header-title {
-  font-size: 13.5px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.platform-header-desc {
-  font-size: 12px;
-  color: #64748b;
-  line-height: 1.35;
-}
-
-.platform-choice-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-
-.platform-choice-btn {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 10px 12px;
-  background: #ffffff;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 13px;
-  cursor: pointer;
-  transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
-  text-align: left;
-  touch-action: manipulation;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
-}
-
-.platform-choice-btn:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-}
-
-.platform-choice-btn.is-selected {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  border-color: #0f172a;
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.18);
-  transform: translateY(-1px);
-}
-
-.platform-logo-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.choice-name {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #334155;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  line-height: 1.35;
-  padding-bottom: 1px;
-}
-
-.platform-choice-btn.is-selected .choice-name {
-  color: #ffffff;
-}
-
-.choice-active-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #ffffff;
-  color: #0f172a;
-  font-size: 12px;
-  font-weight: 800;
-  flex-shrink: 0;
-}
-
-/* Visibility Master Box */
-.music-visibility-box {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  margin-bottom: 14px;
-}
-
-.visibility-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  flex: 1;
-}
-
-.visibility-icon-bubble {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  color: #0f172a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 19px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
-  flex-shrink: 0;
-}
-
-.visibility-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.visibility-title {
-  color: #0f172a;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.visibility-desc {
-  color: #64748b;
-  font-size: 11.5px;
-  line-height: 1.35;
-}
-
-.music-styled-toggle {
-  --track-background-checked: #0f172a;
-  --handle-background-checked: #ffffff;
-  flex-shrink: 0;
-}
-
-/* Preview Section */
-.music-preview-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 14px;
-  padding: 14px;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  background: #f8fafc;
-}
-
-.music-preview-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.preview-heading-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.preview-heading-text strong {
-  color: #0f172a;
-  font-size: 13.5px;
-  font-weight: 700;
-}
-
-.preview-heading-text span {
-  color: #64748b;
-  font-size: 11.5px;
-  line-height: 1.35;
-}
-
-.music-preview-label {
-  flex-shrink: 0;
-  padding: 3px 8px;
-  border-radius: 9999px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  color: #475569;
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-}
-
-.music-preview-card-wrap :deep(.music-activity-card) {
-  margin: 0;
+  border: 2px solid #1c1b19;
   box-shadow: none;
-}
-
-.music-preview-empty-card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px;
-  border: 1.5px dashed #cbd5e1;
-  border-radius: 14px;
-  background: #ffffff;
-}
-
-.empty-icon-wrap {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: #f1f5f9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.empty-text-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.empty-text-wrap strong {
-  color: #0f172a;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.empty-text-wrap p {
-  margin: 0;
-  color: #64748b;
-  font-size: 11.5px;
-  line-height: 1.4;
-}
-
-.push-settings-card {
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.85);
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
-}
-
-.push-settings-card h4 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.push-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  border-radius: 9999px;
-  font-size: 11px;
-  font-weight: 700;
-  border: 1px solid transparent;
-}
-
-.push-status-pill.is-active {
-  background: #f0fdf4;
-  color: #16a34a;
-  border-color: #bbf7d0;
-}
-
-.push-status-pill.is-waiting {
-  background: #fefce8;
-  color: #ca8a04;
-  border-color: #fef08a;
-}
-
-.push-status-pill.is-denied {
-  background: #fef2f2;
-  color: #dc2626;
-  border-color: #fecaca;
-}
-
-.push-status-pill.is-disabled {
-  background: #f1f5f9;
-  color: #64748b;
-  border-color: #e2e8f0;
-}
-
-.push-master-toggle-box {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 14px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 14px 0;
-}
-
-.master-toggle-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-}
-
-.master-toggle-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
-}
-
-.master-toggle-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.master-toggle-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.master-toggle-subtitle {
-  font-size: 12px;
-  color: #64748b;
-  line-height: 1.35;
-}
-
-.dn-push-toggle {
-  --track-background-checked: #0f172a;
-  --handle-background-checked: #ffffff;
-}
-
-.push-denied-box {
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  border-radius: 14px;
-  padding: 12px 14px;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.denied-icon {
-  font-size: 20px;
-  color: #ea580c;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.denied-content strong {
-  display: block;
-  font-size: 13px;
-  color: #9a3412;
-  margin-bottom: 2px;
-}
-
-.denied-content p {
-  margin: 0;
-  font-size: 12px;
-  color: #7c2d12;
-  line-height: 1.4;
-}
-
-.push-prompt-box {
-  margin-bottom: 16px;
-}
-
-.request-perm-btn {
-  width: 100%;
-  padding: 12px 16px;
-  border-radius: 14px;
-  font-size: 13.5px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.push-granularity-section {
-  margin-top: 18px;
-  border-top: 1px dashed #e2e8f0;
-  padding-top: 16px;
-}
-
-.group-title-label {
-  display: block;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  color: #0f172a;
-  margin-bottom: 2px;
-}
-
-.group-title-label.mt-label {
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid #f1f5f9;
-}
-
-.group-sub-desc {
-  font-size: 12.5px;
-  color: #64748b;
-  margin: 0 0 12px 0;
-}
-
-.push-toggles-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.push-toggle-item {
-  background: #ffffff;
-  border: 1px solid #f1f5f9;
-  border-radius: 14px;
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  transition: all 0.15s ease;
-}
-
-.push-toggle-item:hover {
-  background: #f8fafc;
-  border-color: #e2e8f0;
-}
-
-.toggle-item-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-}
-
-.toggle-icon-wrap {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-.love-icon-bg { background: #f1f5f9; color: #0f172a; }
-.mood-icon-bg { background: #f8fafc; color: #1e293b; }
-.calendar-icon-bg { background: #f1f5f9; color: #334155; }
-.shopping-icon-bg { background: #f8fafc; color: #18181b; }
-.tasks-icon-bg { background: #f1f5f9; color: #0f172a; }
-.meals-icon-bg { background: #f8fafc; color: #0f172a; }
-.wishlist-icon-bg { background: #f8fafc; color: #1e293b; }
-.savings-icon-bg { background: #f1f5f9; color: #0f172a; }
-.online-icon-bg { background: #f1f5f9; color: #334155; }
-.sound-icon-bg { background: #f8fafc; color: #475569; }
-.vibrate-icon-bg { background: #f1f5f9; color: #64748b; }
-
-.toggle-item-info {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.toggle-name {
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.toggle-desc {
-  font-size: 11px;
-  color: #64748b;
-  line-height: 1.3;
-}
-
-.push-test-action-wrap {
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px dashed #e2e8f0;
-  text-align: center;
-}
-
-.push-test-btn {
-  background: #0f172a;
-  color: #ffffff;
-  border: none;
-  border-radius: 14px;
-  padding: 12px 18px;
-  font-size: 13.5px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  width: 100%;
-}
-
-.push-test-btn:hover {
-  background: #1e293b;
-}
-
-.push-test-btn:active {
-  transform: scale(0.98);
-}
-
-.test-hint {
-  display: block;
-  font-size: 11px;
-  color: #94a3b8;
-  margin-top: 6px;
-}
-
-/* ========================================================== */
-/* POŁĄCZENIE PARY (PAIRING CARD)                             */
-/* ========================================================== */
-.pairing-card {
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.85);
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
-}
-
-.pairing-card h4 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.connected-pill {
-  font-size: 11px;
-  font-weight: 700;
-  color: #16a34a;
-  background: #f0fdf4;
-  padding: 2px 8px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.my-code-box {
-  background: #f8fafc;
-  border: 1.5px dashed #cbd5e1;
-  border-radius: 16px;
-  padding: 14px;
-  text-align: center;
-  margin: 12px 0 16px 0;
-}
-
-.code-label {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  color: #64748b;
-  display: block;
-}
-
-.code-display-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin: 8px 0;
-}
-
-.code-text {
-  font-size: 26px;
-  font-weight: 900;
-  letter-spacing: 0.15em;
-  color: #0f172a;
-  font-family: monospace;
-}
-
-.copy-btn {
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  color: #0f172a;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  transition: all 0.18s ease;
-}
-
-.copy-btn:hover {
-  background: #f1f5f9;
-}
-
-.join-box {
-  margin-top: 14px;
-}
-
-.input-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: #334155;
-  display: block;
-  margin-bottom: 6px;
-}
-
-.join-input-row {
-  display: flex;
-  gap: 8px;
-}
-
-.partner-code-input {
-  flex: 1;
-  --background: #f8fafc;
-  --padding-start: 14px;
-  --border-radius: 12px;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.partner-code-input:focus-within {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
-}
-
-.join-submit-btn {
-  background: #0f172a;
-  color: #ffffff;
-  border: none;
-  border-radius: 12px;
-  padding: 0 18px;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.error-text {
-  font-size: 12px;
-  color: #ef4444;
-  margin-top: 6px;
-  display: block;
-}
-
-.partnership-buttons-row {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.disconnect-pair-btn {
-  width: 100%;
-  background: #fff1f2;
-  border: 1px solid #fecdd3;
-  border-radius: 12px;
-  padding: 11px;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #e11d48;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  cursor: pointer;
-  transition: all 0.18s ease;
-}
-
-.disconnect-pair-btn:active {
-  background: #ffe4e6;
-}
-
-/* ========================================================== */
-/* KONTO I BEZPIECZEŃSTWO (ACCOUNT CARD)                      */
-/* ========================================================== */
-.account-card {
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.85);
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
-}
-
-.account-card h4 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.account-actions-box {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.change-password-toggle-btn {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 12px 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  color: #1e293b;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.change-password-toggle-btn:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-}
-
-.change-password-toggle-btn.is-open {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  color: #0f172a;
-}
-
-.toggle-btn-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.toggle-btn-left .btn-icon {
-  font-size: 18px;
-  color: #0f172a;
-}
-
-.chevron-icon {
-  font-size: 16px;
-  color: #64748b;
-  transition: transform 0.2s ease;
-}
-
-.password-change-container {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
-}
-
-.password-change-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.pwd-field {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.pwd-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.pwd-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #475569;
-}
-
-.pwd-hint {
-  font-size: 11px;
-  color: #94a3b8;
-}
-
-.pwd-input-wrap {
-  display: flex;
-  align-items: center;
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 0 12px;
-  transition: all 0.2s ease;
-}
-
-.pwd-input-wrap:focus-within {
-  background: #ffffff;
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.12);
-}
-
-.pwd-input-icon {
-  font-size: 17px;
-  color: #64748b;
-  margin-right: 8px;
-  flex-shrink: 0;
-}
-
-.pwd-native-input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  padding: 10px 0;
-  font-size: 14px;
-  color: #0f172a;
-  outline: none;
-  font-family: inherit;
-}
-
-.pwd-native-input::placeholder {
-  color: #94a3b8;
-  font-size: 13px;
-}
-
-.pwd-eye-btn {
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  cursor: pointer;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-}
-
-.pwd-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.pwd-banner.error {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #dc2626;
-}
-
-.pwd-banner.success {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #16a34a;
-}
-
-.banner-icon {
-  font-size: 16px;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.pwd-buttons-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.save-pwd-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 16px;
-  background: #0f172a;
-  color: #ffffff;
-  border: none;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
-  transition: background 0.15s ease;
-}
-
-.save-pwd-btn:hover:not(:disabled) {
-  background: #1e293b;
-}
-
-.save-pwd-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cancel-pwd-btn {
-  padding: 10px 14px;
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.cancel-pwd-btn:hover {
-  background: #e2e8f0;
-  color: #0f172a;
-}
-
-.pwd-spinner {
-  font-size: 18px;
-  color: #ffffff;
-}
-
-.signout-app-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 16px;
-  background: #f8fafc;
-  color: #475569;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  width: 100%;
-  justify-content: center;
-}
-
-.signout-app-btn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-
-/* ========================================================== */
-/* MODAL EDYCJI PROFILU (EDIT PROFILE MODAL)                  */
-/* ========================================================== */
-ion-modal.dn-edit-profile-modal {
-  --border-radius: 28px 28px 0 0;
-  --background: #ffffff;
-  --box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
-}
-
-.modal-custom-header ion-toolbar {
-  --background: #ffffff;
-  --border-width: 0;
-  padding: 4px 8px;
-}
-
-.modal-header-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 0 4px;
-}
-
-.modal-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.modal-title-icon {
-  font-size: 20px;
-  color: #0f172a;
-}
-
-.modal-title-wrap ion-title {
-  font-size: 17px;
-  font-weight: 800;
-  color: #0f172a;
-  padding: 0;
-}
-
-.modal-close-icon-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: none;
-  background: #f1f5f9;
-  color: #64748b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.modal-close-icon-btn:hover {
-  background: #e2e8f0;
-  color: #0f172a;
-}
-
-.edit-modal-content {
-  --background: #f8fafc;
-}
-
-.modal-form-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding-bottom: 24px;
-}
-
-.profile-modal-hero {
-  background: #ffffff;
-  border-radius: 20px;
-  border: 1px solid #e2e8f0;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
-}
-
-.profile-modal-avatar {
-  position: relative;
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  font-weight: 800;
-  flex-shrink: 0;
-}
-
-.avatar-star-badge {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 22px;
-  height: 22px;
-  background: #ffffff;
-  color: #0f172a;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-.profile-modal-hero-text h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.live-sync-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #0d9488;
-  background: #ccfbf1;
-  border: 1px solid #99f6e4;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  margin-top: 4px;
-}
-
-.modal-section-card {
-  background: #ffffff;
-  border-radius: 18px;
-  border: 1px solid #e2e8f0;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-}
-
-.section-card-header {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-bottom: 8px;
-}
-
-.mini-section-tag {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #0f172a;
-}
-
-.mini-section-tag.tag-love {
-  color: #f43f5e;
-}
-
-.mini-section-tag.tag-prefs {
-  color: #0d9488;
-}
-
-.section-micro-desc {
-  margin: 0 0 10px 0;
-  font-size: 11.5px;
-  color: #64748b;
-  line-height: 1.35;
-}
-
-.textarea-with-icon-wrap {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-}
-
-.textarea-leading-icon {
-  position: absolute;
-  left: 12px;
-  top: 14px;
-  color: #f43f5e;
-  pointer-events: none;
-  z-index: 2;
-}
-
-.textarea-with-icon-wrap .dn-styled-textarea {
-  width: 100%;
-  --padding-start: 38px;
-  --padding-end: 14px;
-  --background: #ffffff;
-  --border-radius: 14px;
-  border-radius: 14px;
-  overflow: hidden;
-  border: 1.5px solid #e2e8f0;
-  font-size: 13.5px;
-  color: #0f172a;
-  line-height: 1.45;
-  transition: all 0.2s ease;
-}
-
-.textarea-with-icon-wrap .dn-styled-textarea:focus-within {
-  border-color: #f43f5e;
-  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.14);
-}
-
-.mt-chips {
-  margin-top: 10px;
-}
-
-.chip-btn.love-chip:hover {
-  background: #fff1f2;
-  border-color: #fecdd3;
-  color: #e11d48;
-}
-
-.chip-btn.love-chip.active {
-  background: #ffe4e6;
-  color: #e11d48;
-  border-color: #fda4af;
-}
-
-.pref-subfield {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.pref-subfield.mt-subfield {
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px dashed #e2e8f0;
-}
-
-.subfield-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #1e293b;
-}
-
-.modal-actions-row {
-  margin-top: 10px;
-}
-
-.save-all-profile-btn {
-  width: 100%;
-  padding: 14px;
-  font-size: 14px;
-  font-weight: 800;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.15);
-}
-
-.save-all-profile-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 </style>

@@ -76,7 +76,7 @@ self.addEventListener('push', (event) => {
     title: 'DuoNest',
     body: 'Nowa wiadomość w Waszym Gniazdku! 💌',
     icon: '/pwa-192x192.png',
-    badge: '/favicon.png',
+    badge: '/badge-96.png',
     data: { url: '/tabs/nest' }
   }
 
@@ -130,7 +130,7 @@ self.addEventListener('push', (event) => {
       const notificationOptions = {
         body: payload.body,
         icon: payload.icon || '/pwa-192x192.png',
-        badge: payload.badge || '/favicon.png',
+        badge: payload.badge || '/badge-96.png',
         data: payload.data,
         vibrate: vibratePattern,
         silent: isSilent,

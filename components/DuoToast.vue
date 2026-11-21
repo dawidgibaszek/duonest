@@ -458,18 +458,14 @@ onUnmounted(() => {
   pointer-events: auto;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 38px;
-  max-width: min(92vw, 380px);
-  padding: 6px 12px 6px 10px;
-  background: rgba(255, 255, 255, 0.97);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(226, 232, 240, 0.95);
+  gap: 10px;
+  min-height: 48px;
+  max-width: min(92vw, 400px);
+  padding: 8px 10px 8px 8px;
+  background: var(--dn-ink, #1c1b19);
+  border: none;
   border-radius: 9999px;
-  box-shadow:
-    0 10px 24px -4px rgba(15, 23, 42, 0.12),
-    0 2px 6px -1px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 12px 32px -12px rgba(28, 27, 25, 0.45);
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
@@ -478,10 +474,7 @@ onUnmounted(() => {
 }
 
 .duo-toast-pill:hover {
-  border-color: #cbd5e1;
-  box-shadow:
-    0 12px 28px -4px rgba(15, 23, 42, 0.15),
-    0 3px 8px -1px rgba(15, 23, 42, 0.07);
+  box-shadow: 0 12px 32px -12px rgba(28, 27, 25, 0.5);
 }
 
 .duo-toast-pill:active {
@@ -492,89 +485,92 @@ onUnmounted(() => {
 /* ICON DOT                                                   */
 /* ========================================================== */
 .toast-icon-dot {
-  width: 22px;
-  height: 22px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
 }
 
 .toast-svg {
-  width: 12.5px;
-  height: 12.5px;
+  width: 15px;
+  height: 15px;
 }
 
 /* Type variations - subtle clean tints */
 .icon-points {
-  background: #fef3c7;
-  color: #d97706;
+  background: #f1f2f4;
+  color: #909090;
 }
 
 .icon-love {
-  background: #ffe4e6;
-  color: #e11d48;
+  color: #f2a596 !important;
 }
 
 .icon-calendar {
-  background: #e0e7ff;
-  color: #4338ca;
+  background: #e5e6e8;
+  color: #515151;
 }
 
 .icon-shopping {
-  background: #ccfbf1;
-  color: #0f766e;
+  background: #eff0f2;
+  color: #696969;
 }
 
 .icon-tasks,
 .icon-meals {
-  background: #f1f5f9;
-  color: #334155;
+  background: #f2f3f5;
+  color: #404040;
 }
 
 .icon-movies {
-  background: #fae8ff;
-  color: #a21caf;
+  background: #ecedef;
+  color: #606060;
 }
 
 .icon-wishlist {
-  background: #fef9c3;
-  color: #a16207;
+  background: #f5f6f8;
+  color: #707070;
 }
 
 .icon-savings {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f2f3f5;
+  color: #1c1b19;
 }
 
 .icon-mood {
-  background: #ede9fe;
-  color: #6d28d9;
+  background: #e9eaec;
+  color: #585858;
 }
 
 .icon-warning {
-  background: #ffedd5;
-  color: #c2410c;
+  color: #f2a596 !important;
 }
 
 .icon-success {
-  background: #dcfce7;
-  color: #15803d;
+  background: #f2f3f5;
+  color: #6f6f6f;
 }
 
 /* ========================================================== */
 /* MESSAGE TEXT                                               */
 /* ========================================================== */
 .toast-message {
-  font-size: 13px;
-  font-weight: 600;
-  color: #0f172a;
+  font-size: 14px;
+  font-weight: 500;
+  color: #ffffff;
   line-height: 1.35;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 280px;
+  max-width: min(320px, calc(100vw - 110px));
 }
 
 /* ========================================================== */
@@ -583,7 +579,7 @@ onUnmounted(() => {
 .toast-close-btn {
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: rgba(255, 255, 255, 0.55);
   padding: 0;
   width: 18px;
   height: 18px;
@@ -598,8 +594,8 @@ onUnmounted(() => {
 }
 
 .toast-close-btn:hover {
-  color: #0f172a;
-  background: #f1f5f9;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .toast-close-btn svg {

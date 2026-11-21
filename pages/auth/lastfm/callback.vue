@@ -1,51 +1,55 @@
 <template>
-  <div class="lastfm-callback-page">
-    <div class="callback-card">
-      <div class="logo-wrap">
-        <DuoMusicLogo service="lastfm" size="large" />
+  <ion-page>
+    <ion-content :fullscreen="true">
+      <div class="lastfm-callback-page">
+        <div class="callback-card">
+          <div class="logo-wrap">
+            <DuoMusicLogo service="lastfm" size="large" />
+          </div>
+
+          <!-- State 1: Loading -->
+          <template v-if="status === 'loading'">
+            <ion-spinner name="crescent" class="status-spinner" />
+            <h3 class="status-title">Łączenie z Last.fm...</h3>
+            <p class="status-desc">Weryfikujemy Twoją sesję w Last.fm, za moment wrócisz do aplikacji.</p>
+          </template>
+
+          <!-- State 2: Success -->
+          <template v-else-if="status === 'success'">
+            <div class="icon-circle success">
+              <ion-icon :icon="ioniconsCheckmark" />
+            </div>
+            <h3 class="status-title">Połączono pomyślnie!</h3>
+            <p class="status-desc">
+              Zalogowano jako <strong>{{ username }}</strong>. Wracamy do aplikacji...
+            </p>
+
+            <button type="button" class="primary-btn" @click="goToNestSettings">
+              Przejdź do aplikacji
+            </button>
+          </template>
+
+          <!-- State 3: Error -->
+          <template v-else>
+            <div class="icon-circle error">
+              <ion-icon :icon="ioniconsAlertCircleOutline" />
+            </div>
+            <h3 class="status-title">Nie udało się połączyć</h3>
+            <p class="status-desc error-text">{{ errorMessage }}</p>
+
+            <div class="actions-row">
+              <button type="button" class="retry-btn" @click="handleRetry">
+                Ponów próbę
+              </button>
+              <button type="button" class="return-btn" @click="handleReturn">
+                Wróć do ustawień
+              </button>
+            </div>
+          </template>
+        </div>
       </div>
-
-      <!-- State 1: Loading -->
-      <template v-if="status === 'loading'">
-        <ion-spinner name="crescent" class="status-spinner" />
-        <h3 class="status-title">Łączenie z Last.fm...</h3>
-        <p class="status-desc">Weryfikujemy Twoją sesję w Last.fm, za moment wrócisz do aplikacji.</p>
-      </template>
-
-      <!-- State 2: Success -->
-      <template v-else-if="status === 'success'">
-        <div class="icon-circle success">
-          <ion-icon :icon="ioniconsCheckmark" />
-        </div>
-        <h3 class="status-title">Połączono pomyślnie!</h3>
-        <p class="status-desc">
-          Zalogowano jako <strong>{{ username }}</strong>. Wracamy do aplikacji...
-        </p>
-
-        <button type="button" class="primary-btn" @click="goToNestSettings">
-          Przejdź do aplikacji
-        </button>
-      </template>
-
-      <!-- State 3: Error -->
-      <template v-else>
-        <div class="icon-circle error">
-          <ion-icon :icon="ioniconsAlertCircleOutline" />
-        </div>
-        <h3 class="status-title">Nie udało się połączyć</h3>
-        <p class="status-desc error-text">{{ errorMessage }}</p>
-
-        <div class="actions-row">
-          <button type="button" class="retry-btn" @click="handleRetry">
-            Ponów próbę
-          </button>
-          <button type="button" class="return-btn" @click="handleReturn">
-            Wróć do ustawień
-          </button>
-        </div>
-      </template>
-    </div>
-  </div>
+    </ion-content>
+  </ion-page>
 </template>
 
 <script setup lang="ts">
@@ -108,7 +112,7 @@ const resolveToken = (): string => {
 }
 
 const resolveAccessToken = async (): Promise<string> => {
-  const client = useSupabaseClient()
+  const client = getFirebaseBridge()
   for (let i = 0; i < 6; i++) {
     const { data } = await client.auth.getSession()
     if (data?.session?.access_token) {
@@ -185,29 +189,29 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: #f8fafc;
+  background: #f8f9fb;
 }
 
 .callback-card {
   width: 100%;
   max-width: 380px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   border-radius: 20px;
   padding: 32px 24px;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 4px 12px rgba(28, 27, 25, 0.05);
 }
 
 .logo-wrap {
   width: 54px;
   height: 54px;
   border-radius: 14px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -217,7 +221,7 @@ onMounted(() => {
 .status-spinner {
   width: 36px;
   height: 36px;
-  color: #0f172a;
+  color: #1c1b19;
   margin-bottom: 16px;
 }
 
@@ -233,35 +237,35 @@ onMounted(() => {
 }
 
 .icon-circle.success {
-  background: #ecfdf5;
-  color: #059669;
+  background: #f7f8fa;
+  color: #838383;
 }
 
 .icon-circle.error {
-  background: #fef2f2;
-  color: #dc2626;
+  background: #f3f4f6;
+  color: #c2412d;
 }
 
 .status-title {
   margin: 0 0 8px 0;
   font-size: 18px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .status-desc {
   margin: 0 0 16px 0;
   font-size: 13.5px;
-  color: #64748b;
+  color: #737373;
   line-height: 1.5;
 }
 
 .error-text {
-  color: #b91c1c;
+  color: #c2412d;
 }
 
 .primary-btn {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
   border-radius: 12px;
@@ -286,7 +290,7 @@ onMounted(() => {
 }
 
 .retry-btn {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
   border-radius: 12px;
@@ -302,9 +306,9 @@ onMounted(() => {
 }
 
 .return-btn {
-  background: #f1f5f9;
-  color: #334155;
-  border: 1px solid #e2e8f0;
+  background: #f2f3f5;
+  color: #404040;
+  border: 1px solid #e5e6e8;
   border-radius: 12px;
   padding: 10px 18px;
   font-size: 13.5px;
@@ -314,6 +318,6 @@ onMounted(() => {
 }
 
 .return-btn:active {
-  background: #e2e8f0;
+  background: #e5e6e8;
 }
 </style>

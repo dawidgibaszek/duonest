@@ -208,240 +208,144 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* ========================================================== */
-/* OVERLAY & BACKDROP                                         */
-/* ========================================================== */
+/* Bottom card in the DuoNest Minimal style: serif title, stacked pill buttons */
 .duo-confirm-overlay {
   position: fixed;
   inset: 0;
   z-index: 1000000;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  padding: 18px;
-  background: rgba(15, 23, 42, 0.58);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+  background: rgba(28, 27, 25, 0.32);
   box-sizing: border-box;
 }
 
-/* ========================================================== */
-/* MODAL CARD                                                 */
-/* ========================================================== */
 .duo-confirm-card {
   position: relative;
   width: 100%;
-  max-width: 380px;
+  max-width: 440px;
   background: #ffffff;
-  border-radius: 24px;
-  padding: 24px 20px 20px;
-  box-shadow:
-    0 25px 50px -12px rgba(15, 23, 42, 0.28),
-    0 0 0 1px rgba(226, 232, 240, 0.9);
+  border-radius: 28px;
+  padding: 28px 22px 18px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   box-sizing: border-box;
-  transform-origin: center center;
+  box-shadow: 0 24px 60px -24px rgba(28, 27, 25, 0.35);
 }
 
-/* ========================================================== */
-/* ICON BADGE                                                 */
-/* ========================================================== */
 .duo-confirm-badge-wrap {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 12px;
+  margin-bottom: 18px;
 }
 
 .duo-confirm-icon-badge {
-  width: 54px;
-  height: 54px;
-  border-radius: 18px;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s ease;
+  background: var(--dn-cream, #f6f2e7);
+  color: var(--dn-ink, #1c1b19);
 }
 
 .confirm-svg {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
 }
 
-/* Badge Color Themes */
 .duo-confirm-icon-badge.badge-danger {
-  background: #fef2f2;
-  border: 1.5px solid #fecaca;
-  color: #ef4444;
-  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.08);
+  background: #fcefec;
+  color: var(--dn-danger, #c2412d);
 }
 
-.duo-confirm-icon-badge.badge-warning {
-  background: #fffbeb;
-  border: 1.5px solid #fde68a;
-  color: #d97706;
-  box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.08);
-}
-
-.duo-confirm-icon-badge.badge-info,
-.duo-confirm-icon-badge.badge-primary {
-  background: #eff6ff;
-  border: 1.5px solid #bfdbfe;
-  color: #2563eb;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
-}
-
-.duo-confirm-icon-badge.badge-icon-logout,
-.duo-confirm-icon-badge.badge-icon-unlink {
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
-  color: #0f172a;
-  box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.06);
-}
-
-/* ========================================================== */
-/* HEADER & TEXTS                                             */
-/* ========================================================== */
 .duo-confirm-header {
-  text-align: center;
-  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
 }
 
 .duo-confirm-title {
-  margin: 0 0 8px;
-  font-size: 17.5px;
-  font-weight: 800;
-  color: #0f172a;
-  letter-spacing: -0.3px;
-  line-height: 1.3;
+  margin: 0;
+  font-family: var(--dn-serif, 'Fraunces', Georgia, serif);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--dn-ink, #1c1b19);
 }
 
 .duo-confirm-desc {
   margin: 0;
-  font-size: 13.5px;
-  color: #64748b;
+  font-size: 15px;
   line-height: 1.5;
-  word-break: break-word;
+  color: var(--dn-muted, #6b6e75);
 }
 
-/* ========================================================== */
-/* ITEM HIGHLIGHT                                             */
-/* ========================================================== */
 .duo-confirm-highlight {
   width: 100%;
-  margin-top: 12px;
-  padding: 8px 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  text-align: center;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--dn-field, #f5f6f8);
+  border: 1px solid var(--dn-field-line, #e3e6eb);
   box-sizing: border-box;
 }
 
 .highlight-text {
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--dn-ink, #1c1b19);
   word-break: break-word;
 }
 
-/* ========================================================== */
-/* ACTION BUTTONS                                             */
-/* ========================================================== */
 .duo-confirm-actions {
   display: flex;
-  gap: 10px;
+  flex-direction: column-reverse;
+  gap: 8px;
   width: 100%;
-  margin-top: 20px;
+  margin-top: 24px;
 }
 
 .duo-confirm-btn {
-  flex: 1;
-  height: 44px;
-  border-radius: 13px;
-  font-size: 13.5px;
-  font-weight: 700;
+  width: 100%;
+  min-height: 52px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all 0.18s ease;
-  outline: none;
+  padding: 0 18px;
   border: none;
-  font-family: inherit;
-  padding: 0 14px;
+  outline: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.18s ease;
+}
+
+.duo-confirm-btn:active {
+  transform: scale(0.98);
 }
 
 .duo-confirm-cancel-btn {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #475569;
+  background: var(--dn-soft, #f2f3f5);
+  color: var(--dn-ink, #1c1b19);
 }
 
-.duo-confirm-cancel-btn:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  color: #0f172a;
+.duo-confirm-submit-btn {
+  background: var(--dn-ink, #1c1b19);
+  color: #ffffff;
 }
 
-.duo-confirm-cancel-btn:active {
-  transform: scale(0.97);
-}
-
-.duo-confirm-cancel-btn:focus-visible {
-  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.2);
-}
-
-/* Confirm Submit Themes */
 .duo-confirm-submit-btn.btn-danger {
-  background: #ef4444;
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.32);
+  background: var(--dn-danger, #c2412d);
 }
 
-.duo-confirm-submit-btn.btn-danger:hover {
-  background: #dc2626;
-  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
-  transform: translateY(-1px);
-}
-
-.duo-confirm-submit-btn.btn-danger:active {
-  transform: scale(0.97);
-}
-
-.duo-confirm-submit-btn.btn-warning {
-  background: #f59e0b;
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.32);
-}
-
-.duo-confirm-submit-btn.btn-warning:hover {
-  background: #d97706;
-  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.4);
-  transform: translateY(-1px);
-}
-
-.duo-confirm-submit-btn.btn-warning:active {
-  transform: scale(0.97);
-}
-
-.duo-confirm-submit-btn.btn-primary,
-.duo-confirm-submit-btn.btn-info {
-  background: #0f172a;
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.28);
-}
-
-.duo-confirm-submit-btn.btn-primary:hover,
-.duo-confirm-submit-btn.btn-info:hover {
-  background: #1e293b;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.36);
-  transform: translateY(-1px);
-}
-
-.duo-confirm-submit-btn:focus-visible {
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.2);
+.duo-confirm-btn:focus-visible {
+  box-shadow: 0 0 0 3px rgba(28, 27, 25, 0.18);
 }
 
 /* ========================================================== */
@@ -464,7 +368,7 @@ onUnmounted(() => {
 
 .duo-confirm-fade-enter-from .duo-confirm-card,
 .duo-confirm-fade-leave-to .duo-confirm-card {
-  transform: scale(0.92) translateY(10px);
+  transform: translateY(24px);
   opacity: 0;
 }
 </style>

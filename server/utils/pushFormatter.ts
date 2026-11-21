@@ -128,6 +128,7 @@ export function formatPartnerAction(
     }
 
     case 'WISHLIST_ADD': {
+      if (data?.is_visible_to_partner === false) return null
       const wishTitle = data?.title || 'nowe marzenie'
       return {
         title: `Wishlista i marzenia`,
@@ -138,6 +139,7 @@ export function formatPartnerAction(
     }
 
     case 'WISHLIST_UPDATE': {
+      if (data?.item?.is_visible_to_partner === false || data?.updates?.is_visible_to_partner === false) return null
       const wishTitle = data?.updates?.title || data?.item?.title || 'marzenie'
       return {
         title: `Wishlista i marzenia`,
@@ -147,7 +149,9 @@ export function formatPartnerAction(
       }
     }
 
+    case 'WISHLIST_TOGGLE':
     case 'WISHLIST_TOGGLE_COMPLETED': {
+      if (data?.is_visible_to_partner === false) return null
       if (data?.is_completed) {
         const wishTitle = data?.title || 'marzenie'
         return {
@@ -223,6 +227,7 @@ export function formatPartnerAction(
       }
     }
 
+    case 'MEAL_TOGGLE':
     case 'MEAL_TOGGLE_COMPLETED': {
       if (data?.is_completed) {
         const mealTitle = data?.titlePl || data?.title || 'dzisiejszy obiad'
@@ -289,6 +294,14 @@ export function formatPartnerAction(
         category: 'savings'
       }
     }
+
+    case 'DOODLE_SAVE':
+      return {
+        title: 'Wspólny rysunek',
+        body: `${name} zapisał(a) zmiany we wspólnym rysunku.`,
+        url: '/tabs/nest',
+        category: 'nudges'
+      }
 
     default:
       return null

@@ -1,45 +1,26 @@
-import { defineEventHandler, readBody, createError } from 'h3'
-import { getAuthenticatedPushContext } from '~/server/utils/pushAuth'
+import { defineEventHandler, readBody, createError, setResponseStatus } from 'h3'
+import { getFirebaseAdminDb, getFirebaseAdminMessaging, requireFirebaseUser } from '~/server/utils/firebaseAdmin'
+import { resolveCallerProfile } from '~/server/utils/duoAccount'
 import { checkRateLimit } from '~/server/utils/rateLimit'
+import { handlePushAction } from '~/server/utils/pushCore'
 
+/** POST /api/push/unsubscribe – see server/utils/pushCore.ts (Web Push + FCM) */
 export default defineEventHandler(async (event) => {
-  const rate = await checkRateLimit(event, { maxRequests: 20, windowMs: 60000, keyPrefix: 'push_unsub' })
-  if (!rate.allowed) {
-    throw createError({
-      statusCode: 429,
-      statusMessage: 'Zbyt wiele żądań wyrejestrowania. Odczekaj chwilę.'
-    })
-  }
+  const rate = await checkRateLimit(event, { maxRequests: 20, windowMs: 60000, keyPrefix: 'push_unsubscribe' })
+  if (!rate.allowed) throw createError({ statusCode: 429, statusMessage: 'Zbyt wiele żądań. Odczekaj chwilę.' })
 
-  const config = useRuntimeConfig(event)
-  const body = await readBody(event)
+  const user = await requireFirebaseUser(event)
+  const db = getFirebaseAdminDb()
+  const profile = await resolveCallerProfile(db, user)
+  if (!profile) throw createError({ statusCode: 403, statusMessage: 'No profile is linked to this account' })
 
-  if (!body || !body.endpoint || typeof body.endpoint !== 'string') {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Missing or invalid endpoint URL'
-    })
-  }
-
-  const { supabase, profile } = await getAuthenticatedPushContext(event, config)
-
-  const { error } = await supabase
-    .from('push_subscriptions')
-    .delete()
-    .eq('endpoint', body.endpoint)
-    .eq('user_id', profile.id)
-
-  if (error) {
-    console.error('[WebPush] Error deleting push subscription:', error)
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'Nie udało się usunąć subskrypcji'
-    })
-  }
-
-  return {
-    success: true,
-    message: 'Push subscription removed successfully'
-  }
+  const body = await readBody(event).catch(() => ({}))
+  const result = await handlePushAction(db, getFirebaseAdminMessaging(), {
+    uid: user.uid,
+    profileId: profile.id,
+    partnershipId: profile.partnership_id || null,
+    name: profile.name || null
+  }, 'unsubscribe', body || {})
+  setResponseStatus(event, result.status)
+  return result.body
 })
-

@@ -1,0 +1,42 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "members": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    },
+
+    "live": {
+      "broadcast": {
+        "$channel": {
+          ".read": "auth != null && root.child('members').child(auth.uid).child('partnership_id').isString() && $channel === 'duonest_channel_' + root.child('members').child(auth.uid).child('partnership_id').val()",
+          ".indexOn": ["ts"],
+          "$msgId": {
+            ".write": "auth != null && root.child('members').child(auth.uid).child('partnership_id').isString() && $channel === 'duonest_channel_' + root.child('members').child(auth.uid).child('partnership_id').val()",
+            ".validate": "!newData.exists() || (newData.child('event').isString() && newData.child('event').val().length <= 64 && newData.child('ts').exists())"
+          }
+        }
+      },
+
+      "presence": {
+        "$channel": {
+          ".read": "auth != null && root.child('members').child(auth.uid).child('partnership_id').isString() && $channel === 'duonest_channel_' + root.child('members').child(auth.uid).child('partnership_id').val()",
+          "$key": {
+            ".write": "auth != null && root.child('members').child(auth.uid).child('partnership_id').isString() && $channel === 'duonest_channel_' + root.child('members').child(auth.uid).child('partnership_id').val() && $key === root.child('members').child(auth.uid).child('profile_id').val()"
+          }
+        }
+      },
+
+      "music": {
+        "$partnershipId": {
+          ".read": "auth != null && root.child('members').child(auth.uid).child('partnership_id').val() === $partnershipId",
+          ".write": false
+        }
+      }
+    }
+  }
+}

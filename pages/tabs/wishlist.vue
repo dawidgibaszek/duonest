@@ -3,11 +3,20 @@
     <ion-header :translucent="true">
       <ion-toolbar>
         <div class="dn-page-header">
-          <div class="dn-header-title">
-            <span>Wishlista & Prezenty</span>
-            <span class="count-chip">{{ uncompletedCount }}</span>
+          <div class="header-action-row">
+            <div class="dn-header-title">
+              <span>Lista życzeń</span>
+              <span class="count-chip" v-if="uncompletedCount > 0">{{ uncompletedCount }}</span>
+            </div>
+            <button
+              type="button"
+              class="dn-header-btn dn-header-btn--icon"
+              aria-label="Dodaj do listy życzeń"
+              @click="openManualAddModal"
+            >
+              <ion-icon :icon="ioniconsAddOutline" />
+            </button>
           </div>
-          <p class="dn-header-subtitle">Wspólne marzenia, inspiracje i pomysły na prezenty</p>
         </div>
       </ion-toolbar>
 
@@ -20,7 +29,7 @@
             @click="switchToMovies"
           >
             <ion-icon :icon="ioniconsFilmOutline" />
-            <span>Filmy & Seriale</span>
+            <span>Filmy i seriale</span>
             <span class="pill-count-chip" v-if="plannedMoviesCount > 0">{{ plannedMoviesCount }}</span>
           </button>
 
@@ -29,7 +38,7 @@
             class="main-tab-pill active"
           >
             <ion-icon :icon="ioniconsGiftOutline" />
-            <span>Wishlista</span>
+            <span>Lista życzeń</span>
             <span class="pill-count-chip" v-if="uncompletedCount > 0">{{ uncompletedCount }}</span>
           </button>
         </div>
@@ -41,56 +50,6 @@
       <ion-refresher slot="fixed" @ionRefresh="handleRefresh($event)">
         <ion-refresher-content pulling-text="Przeciągnij, aby odświeżyć..." refreshing-spinner="crescent" />
       </ion-refresher>
-
-      <!-- LINK SCRAPER & QUICK ADD CARD -->
-      <div class="dn-card add-wish-card">
-        <div class="scraper-header">
-          <div class="scraper-icon-wrap">
-            <ion-icon :icon="ioniconsLinkOutline" />
-          </div>
-          <div class="scraper-text">
-            <span class="scraper-title">Automatyczne pobieranie z linku</span>
-            <span class="scraper-desc">Wklej link z Allegro, Amazon, Zalando, eBay, IKEA, Ceneo itp.</span>
-          </div>
-        </div>
-
-        <form @submit.prevent="handleScrapeUrl" class="scraper-form">
-          <div class="scraper-input-row">
-            <ion-input
-              v-model="urlInput"
-              type="url"
-              placeholder="https://..."
-              class="scraper-ion-input"
-              :clear-input="true"
-              :disabled="isScraping"
-              @keydown.enter.prevent="handleScrapeUrl"
-            />
-            <button
-              type="submit"
-              class="dn-button-primary scrape-action-btn"
-              :disabled="!urlInput.trim() || isScraping"
-            >
-              <ion-spinner v-if="isScraping" name="crescent" class="btn-spinner" />
-              <ion-icon v-else :icon="ioniconsFlashOutline" />
-              <span>{{ isScraping ? 'Pobieram...' : 'Pobierz' }}</span>
-            </button>
-          </div>
-        </form>
-
-        <!-- Scraping status notice (error or info) -->
-        <div v-if="scrapeError" class="scraper-error-banner">
-          <ion-icon :icon="ioniconsAlertCircleOutline" />
-          <span>{{ scrapeError }}</span>
-        </div>
-
-        <!-- Manual Add Button (Backup) -->
-        <div class="manual-add-row">
-          <button type="button" class="manual-add-btn" @click="openManualAddModal">
-            <ion-icon :icon="ioniconsAddCircleOutline" />
-            <span>Wpisz dane ręcznie (bez linku)</span>
-          </button>
-        </div>
-      </div>
 
       <!-- FILTER TABS -->
       <div class="filter-scroll" data-no-swipe="true">
@@ -120,130 +79,48 @@
           <div
             v-for="item in filteredItems"
             :key="item.id"
-            class="wishlist-card dn-card"
+            class="wl-row"
             :class="{
               'is-completed': item.is_completed,
-              'is-surprise': !item.is_visible_to_partner,
               'dn-completing': completingWishlistIds.has(item.id),
               'dn-item-deleting': deletingWishlistIds.has(item.id)
             }"
           >
-          <!-- CARD HEADER: TARGET BADGE, SURPRISE BADGE, STORE NAME -->
-          <div class="card-meta-row">
-            <div class="badges-group">
-              <!-- Target badge -->
-              <span
-                class="meta-badge target-badge"
-                :style="getTargetBadgeStyle(item)"
+            <button type="button" class="wl-thumb" @click="openEditModal(item)" :aria-label="item.title">
+              <img v-if="item.image_url" :src="item.image_url" :alt="item.title" loading="lazy" @error="onImageError($event)" />
+              <ion-icon v-else :icon="ioniconsGiftOutline" />
+            </button>
+
+            <div class="wl-body" @click="openEditModal(item)">
+              <span class="wl-title">{{ item.title }}</span>
+              <span class="wl-meta">
+                <span class="wl-target" :style="getTargetBadgeStyle(item)">{{ getTargetLabel(item) }}</span>
+                <template v-if="item.site_name"> · {{ item.site_name }}</template>
+              </span>
+              <span v-if="item.note" class="wl-note">{{ item.note }}</span>
+              <span class="wl-tags">
+                <span v-if="item.price" class="wl-price">{{ item.price }} {{ item.currency || 'PLN' }}</span>
+                <span v-if="!item.is_visible_to_partner" class="wl-secret">
+                  <ion-icon :icon="ioniconsEyeOffOutline" />Niespodzianka
+                </span>
+              </span>
+            </div>
+
+            <div class="wl-side">
+              <button
+                type="button"
+                class="wl-check"
+                :class="{ done: item.is_completed }"
+                :aria-label="item.is_completed ? 'Oznacz jako niekupione' : 'Oznacz jako kupione'"
+                @click="handleToggleCompleted(item.id)"
               >
-                <ion-icon :icon="getTargetIcon(item)" />
-                <span>{{ getTargetLabel(item) }}</span>
-              </span>
-
-              <!-- Secret surprise badge -->
-              <span v-if="!item.is_visible_to_partner" class="meta-badge surprise-badge">
-                <ion-icon :icon="ioniconsEyeOffOutline" />
-                <span>Niespodzianka</span>
-              </span>
-
-              <!-- Completed badge -->
-              <span v-if="item.is_completed" class="meta-badge completed-badge">
-                <ion-icon :icon="ioniconsCheckmarkCircleOutline" />
-                <span>Spełnione!</span>
-              </span>
-            </div>
-
-            <!-- Shop / Store badge -->
-            <span v-if="item.site_name" class="meta-badge store-badge">
-              <ion-icon :icon="ioniconsStorefrontOutline" />
-              <span>{{ item.site_name }}</span>
-            </span>
-          </div>
-
-          <!-- CARD BODY -->
-          <div class="card-main-content">
-            <!-- Thumbnail Image -->
-            <div class="card-thumb-wrap" v-if="item.image_url">
-              <img
-                :src="item.image_url"
-                :alt="item.title"
-                class="card-thumb-img"
-                loading="lazy"
-                @error="onImageError($event)"
-              />
-            </div>
-            <div class="card-thumb-wrap placeholder" v-else>
-              <ion-icon :icon="ioniconsGiftOutline" />
-            </div>
-
-            <!-- Info (Title, Price, Note) -->
-            <div class="card-info-col">
-              <h4 class="card-item-title" :class="{ 'strike-title': item.is_completed }">
-                {{ item.title }}
-              </h4>
-
-              <div class="card-price-row" v-if="item.price">
-                <span class="price-val">{{ item.price }}</span>
-                <span class="currency-val">{{ item.currency || 'PLN' }}</span>
-              </div>
-
-              <p class="card-note-text" v-if="item.note">
-                <ion-icon :icon="ioniconsChatboxEllipsesOutline" />
-                <span>{{ item.note }}</span>
-              </p>
-
-              <!-- Secret surprise note reminder -->
-              <p v-if="!item.is_visible_to_partner" class="surprise-explainer-note">
-                🔒 Partner nie widzi tej propozycji - idealna na prezent!
-              </p>
+                <ion-icon :icon="ioniconsCheckmarkOutline" />
+              </button>
+              <button type="button" class="wl-more" aria-label="Więcej" @click="openWishActions(item)">
+                <ion-icon :icon="ioniconsEllipsisHorizontal" />
+              </button>
             </div>
           </div>
-
-          <!-- CARD FOOTER ACTIONS -->
-          <div class="card-actions-bar">
-            <!-- Open external store URL button -->
-            <button
-              v-if="item.url"
-              type="button"
-              class="card-btn link-btn"
-              @click="openExternalUrl(item.url)"
-            >
-              <ion-icon :icon="ioniconsOpenOutline" />
-              <span>Sklep</span>
-            </button>
-
-            <!-- Toggle Completed button -->
-            <button
-              type="button"
-              class="card-btn complete-btn"
-              :class="{ 'is-completed': item.is_completed }"
-              @click="handleToggleCompleted(item.id)"
-            >
-              <ion-icon :icon="item.is_completed ? ioniconsCheckmarkCircle : ioniconsCheckmarkCircleOutline" />
-              <span>{{ item.is_completed ? 'Kupione' : 'Kupione?' }}</span>
-            </button>
-
-            <!-- Edit button -->
-            <button
-              type="button"
-              class="card-btn edit-btn"
-              @click="openEditModal(item)"
-              aria-label="Edytuj"
-            >
-              <ion-icon :icon="ioniconsPencilOutline" />
-            </button>
-
-            <!-- Delete button -->
-            <button
-              type="button"
-              class="card-btn delete-btn"
-              @click.stop="handleDeleteItem(item.id, item.title)"
-              aria-label="Usuń"
-            >
-              <ion-icon :icon="ioniconsTrashOutline" />
-            </button>
-          </div>
-        </div>
       </TransitionGroup>
     </div>
 
@@ -269,11 +146,90 @@
         </button>
       </div>
 
+      <DuoActionSheet
+        :is-open="wishSheet.open"
+        :title="wishSheet.title"
+        :subtitle="wishSheet.subtitle"
+        :buttons="wishSheet.buttons"
+        @dismiss="wishSheet.open = false"
+      />
+
       <!-- Floating bottom tab bar spacer so content never gets obscured -->
       <div class="tab-bottom-spacer" style="height: 105px;" aria-hidden="true"></div>
     </ion-content>
 
     <!-- 3. ADD / EDIT MODAL (BOTTOM SHEET WITH DRAG HANDLE & BREAKPOINTS) -->
+    <!-- ADD SHEET: paste a link or add manually (opened from the "+" in the header) -->
+    <ion-modal
+      :is-open="isAddSheetOpen"
+      @didDismiss="isAddSheetOpen = false"
+      class="dn-form-sheet-modal"
+      :breakpoints="[0, 0.75, 0.92]"
+      :initial-breakpoint="0.75"
+      :handle="true"
+      data-no-swipe="true"
+    >
+      <ion-header class="dn-form-sheet-header ion-no-border">
+        <div class="dn-form-sheet-handle-spacer" aria-hidden="true"></div>
+        <ion-toolbar>
+          <div class="dn-form-sheet-heading">
+            <div class="dn-form-sheet-title-row">
+              <div class="dn-form-sheet-title-text">
+                <h3 class="dn-form-sheet-title">Import z linku</h3>
+              </div>
+            </div>
+            <button type="button" class="dn-form-sheet-close" @click="isAddSheetOpen = false" aria-label="Zamknij">
+              <ion-icon :icon="ioniconsCloseOutline" />
+            </button>
+          </div>
+        </ion-toolbar>
+      </ion-header>
+
+      <ion-content class="ion-padding">
+        <div class="wi-hero">
+          <span class="wi-hero-icon">
+            <ion-icon :icon="ioniconsSparklesOutline" />
+          </span>
+          <h4 class="wi-hero-title">Wklej link do produktu</h4>
+          <p class="wi-hero-desc">Pobierzemy nazwę, cenę, sklep i zdjęcie. Wystarczy potem sprawdzić szczegóły.</p>
+          <div class="wi-stores">
+            <span v-for="store in ['Allegro', 'Amazon', 'Zalando', 'IKEA', 'Ceneo', 'eBay']" :key="store" class="wi-store">{{ store }}</span>
+          </div>
+        </div>
+
+        <form @submit.prevent="handleScrapeUrl" class="wi-form">
+          <label class="form-label">Link</label>
+          <ion-input aria-label="Link do produktu"
+            v-model="urlInput"
+            type="url"
+            inputmode="url"
+            placeholder="https://"
+            class="wi-input"
+            :clear-input="true"
+            :disabled="isScraping"
+            @keydown.enter.prevent="handleScrapeUrl"
+          >
+            <ion-icon slot="start" :icon="ioniconsLinkOutline" class="wi-input-icon" />
+          </ion-input>
+
+          <div v-if="scrapeError" class="wi-error">
+            <ion-icon :icon="ioniconsAlertCircleOutline" />
+            <span>{{ scrapeError }}</span>
+          </div>
+
+          <button type="submit" class="dn-button-primary wi-submit" :disabled="!urlInput.trim() || isScraping">
+            <ion-spinner v-if="isScraping" name="crescent" class="wi-spinner" />
+            <ion-icon v-else :icon="ioniconsSparklesOutline" />
+            <span>{{ isScraping ? 'Pobieram dane…' : 'Pobierz dane' }}</span>
+          </button>
+        </form>
+
+        <button type="button" class="wi-manual" @click="isModalOpen ? (isAddSheetOpen = false) : openManualAddModal()">
+          Wolę wpisać ręcznie
+        </button>
+      </ion-content>
+    </ion-modal>
+
     <ion-modal
       :is-open="isModalOpen"
       @didDismiss="closeModal"
@@ -289,9 +245,9 @@
           <div class="modal-header-inner">
             <div class="modal-title-wrap">
               <ion-icon :icon="ioniconsGiftOutline" class="modal-title-icon" />
-              <ion-title>{{ editingItemId ? 'Edytuj marzenie' : 'Dodaj do wishlisty' }}</ion-title>
+              <h2 class="modal-main-title">{{ editingItemId ? 'Edytuj marzenie' : 'Dodaj do wishlisty' }}</h2>
             </div>
-            <ion-buttons slot="end">
+            <div class="modal-header-actions">
               <button
                 type="button"
                 class="modal-close-icon-btn"
@@ -300,13 +256,24 @@
               >
                 <ion-icon :icon="ioniconsCloseOutline" />
               </button>
-            </ion-buttons>
+            </div>
           </div>
         </ion-toolbar>
       </ion-header>
 
       <ion-content class="ion-padding wishlist-modal-content">
         <div class="modal-form-body">
+            <button v-if="!editingItemId" type="button" class="wi-entry" @click="openImportSheet">
+              <span class="wi-entry-icon">
+                <ion-icon :icon="ioniconsSparklesOutline" />
+              </span>
+              <span class="wi-entry-text">
+                <span class="wi-entry-title">Importuj z linku</span>
+                <span class="wi-entry-sub">Uzupełnimy nazwę, cenę i zdjęcie za Ciebie</span>
+              </span>
+              <ion-icon :icon="ioniconsChevronForwardOutline" class="wi-entry-arrow" />
+            </button>
+
             <!-- PREVIEW CARD INSIDE MODAL IF SCRAPED -->
             <div v-if="formData.image_url || formData.site_name" class="modal-scraped-preview">
               <div class="preview-thumb-box" v-if="formData.image_url">
@@ -409,7 +376,7 @@
             <!-- 3. NAZWA PRZEDMIOTU (TITLE) -->
             <div class="form-group">
               <label class="form-label">Nazwa przedmiotu *</label>
-              <ion-input
+              <ion-input aria-label="Nazwa przedmiotu"
                 v-model="formData.title"
                 maxlength="120"
                 placeholder="np. Słuchawki bezprzewodowe, Ulubione perfumy..."
@@ -421,7 +388,7 @@
             <div class="form-group">
               <label class="form-label">Cena i waluta (opcjonalnie)</label>
               <div class="price-input-row">
-                <ion-input
+                <ion-input aria-label="Cena"
                   v-model="formData.price"
                   type="text"
                   maxlength="20"
@@ -440,7 +407,7 @@
             <!-- 5. SKLEP / MARKA -->
             <div class="form-group">
               <label class="form-label">Sklep lub marka (opcjonalnie)</label>
-              <ion-input
+              <ion-input aria-label="Sklep lub marka"
                 v-model="formData.site_name"
                 maxlength="60"
                 placeholder="np. Allegro, Amazon, Zalando, IKEA..."
@@ -451,7 +418,7 @@
             <!-- 6. LINK DO PRZEDMIOTU -->
             <div class="form-group">
               <label class="form-label">Link do przedmiotu (opcjonalnie)</label>
-              <ion-input
+              <ion-input aria-label="Link do przedmiotu"
                 v-model="formData.url"
                 type="url"
                 maxlength="500"
@@ -463,7 +430,7 @@
             <!-- 7. LINK DO ZDJĘCIA -->
             <div class="form-group">
               <label class="form-label">Link do zdjęcia przedmiotu (opcjonalnie)</label>
-              <ion-input
+              <ion-input aria-label="Link do zdjęcia przedmiotu"
                 v-model="formData.image_url"
                 type="url"
                 maxlength="500"
@@ -475,7 +442,7 @@
             <!-- 8. NOTATKA / ROZMIAR / WSKAZÓWKI -->
             <div class="form-group">
               <label class="form-label">Notatka (rozmiar, kolor, wersja itp.)</label>
-              <ion-textarea
+              <ion-textarea aria-label="Notatka"
                 v-model="formData.note"
                 maxlength="500"
                 placeholder="np. Rozmiar M, kolor czarny, wersja 128GB..."
@@ -518,11 +485,39 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch, reactive } from 'vue'
+import {
+  openOutline as ioniconsOpenOutline,
+  pencilOutline as ioniconsPencilOutline,
+  trashOutline as ioniconsTrashOutline
+} from 'ionicons/icons'
+import DuoActionSheet, { type DuoActionSheetButton } from '~/components/DuoActionSheet.vue'
 import { useDuoState, type WishlistItem } from '~/composables/useDuoState'
 import { useConfirm } from '~/composables/useConfirm'
 import { formatSiteName, extractTitleFromUrl } from '~/utils/wishlistParser'
 import confetti from 'canvas-confetti'
+
+
+// ---- Bottom action sheet for a wish row ----
+const wishSheet = reactive<{ open: boolean; title: string; subtitle: string; buttons: DuoActionSheetButton[] }>({
+  open: false,
+  title: '',
+  subtitle: '',
+  buttons: []
+})
+
+const openWishActions = (item: any) => {
+  wishSheet.title = item.title
+  wishSheet.subtitle = [item.price ? `${item.price} ${item.currency || 'PLN'}` : '', item.site_name || ''].filter(Boolean).join(' · ')
+  const buttons: DuoActionSheetButton[] = []
+  if (item.url) {
+    buttons.push({ text: 'Otwórz w sklepie', description: item.site_name || undefined, icon: ioniconsOpenOutline, handler: () => { openExternalUrl(item.url) } })
+  }
+  buttons.push({ text: 'Edytuj', icon: ioniconsPencilOutline, handler: () => { openEditModal(item) } })
+  buttons.push({ text: 'Usuń', role: 'destructive', icon: ioniconsTrashOutline, handler: () => { handleDeleteItem(item.id, item.title) } })
+  wishSheet.buttons = buttons
+  wishSheet.open = true
+}
 
 const contentRef = ref<any>(null)
 
@@ -584,6 +579,12 @@ const filters = [
 
 // Form & Modal state
 const isModalOpen = ref(false)
+const isAddSheetOpen = ref(false)
+
+// The item form opens after a successful scrape or "Dodaj ręcznie" – close the add sheet so sheets never stack
+watch(isModalOpen, (open) => {
+  if (open) isAddSheetOpen.value = false
+})
 const editingItemId = ref<string | null>(null)
 const formTarget = ref<'me' | 'partner' | 'together'>('me')
 
@@ -731,8 +732,8 @@ const handleScrapeUrl = async () => {
   let resData: any = null
   let resNotice = ''
 
-  // 1. Try server endpoints (Nitro endpoint or Netlify Function)
-  const endpoints = ['/api/wishlist/preview', '/.netlify/functions/wishlist-preview']
+  // 1. Try the server endpoint
+  const endpoints = ['/api/wishlist/preview']
   for (const ep of endpoints) {
     try {
       const response = await fetch(ep, {
@@ -800,6 +801,7 @@ const handleScrapeUrl = async () => {
     editingItemId.value = null
     formTarget.value = resolveDefaultTarget()
     isModalOpen.value = true
+    isAddSheetOpen.value = false
     urlInput.value = ''
     triggerToast(resNotice || 'Pobrano dane')
   } else {
@@ -822,6 +824,7 @@ const handleScrapeUrl = async () => {
     editingItemId.value = null
     formTarget.value = resolveDefaultTarget()
     isModalOpen.value = true
+    isAddSheetOpen.value = false
     urlInput.value = ''
     scrapeError.value = 'Wpisz szczegóły przedmiotu ręcznie.'
     triggerToast('Wpisz dane ręcznie')
@@ -830,8 +833,15 @@ const handleScrapeUrl = async () => {
   isScraping.value = false
 }
 
+// Open the link-import sheet (stacked over the add form)
+const openImportSheet = () => {
+  scrapeError.value = null
+  isAddSheetOpen.value = true
+}
+
 // Open manual add modal (backup when no link)
 const openManualAddModal = () => {
+  isAddSheetOpen.value = false
   editingItemId.value = null
   formTarget.value = resolveDefaultTarget()
   formData.value = {
@@ -1114,93 +1124,14 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 
 <style scoped>
 /* MAIN TABS TOOLBAR & PILLS (Rozrywka: Filmy & Seriale | Wishlista) */
-.main-tabs-toolbar {
-  --background: #ffffff;
-  padding: 4px 16px 8px 16px;
-}
-
-.main-tabs-pill-row {
-  display: flex;
-  background: #f1f5f9;
-  padding: 4px;
-  border-radius: 14px;
-  gap: 4px;
-}
-
-.main-tab-pill {
-  flex: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: none;
-  background: transparent;
-  color: #64748b;
-  font-size: 13.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.main-tab-pill.active {
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.pill-count-chip {
-  background: #0f172a;
-  color: #ffffff;
-  font-size: 10.5px;
-  font-weight: 800;
-  padding: 1px 6px;
-  border-radius: 999px;
-}
 
 /* PAGE HEADER */
-.dn-page-header {
-  padding: 12px 16px 8px;
-}
-
-.dn-header-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 22px;
-  font-weight: 800;
-  color: #0f172a;
-  letter-spacing: -0.5px;
-}
-
-.count-chip {
-  font-size: 11px;
-  font-weight: 700;
-  background: #0f172a;
-  color: #ffffff;
-  padding: 2px 7px;
-  border-radius: 999px;
-}
-
-.dn-header-subtitle {
-  font-size: 13px;
-  color: #64748b;
-  margin: 2px 0 0;
-  font-weight: 500;
-}
 
 /* ADD WISH / SCRAPER CARD */
 .add-wish-card {
-  margin: 12px 16px;
-  padding: 14px 16px;
-  background: #ffffff;
-  border-radius: 18px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: var(--dn-card-shadow);
-  min-width: 0;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .scraper-header {
@@ -1214,8 +1145,8 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f2f3f5;
+  color: #1c1b19;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1231,12 +1162,12 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 .scraper-title {
   font-size: 13.5px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .scraper-desc {
   font-size: 11.5px;
-  color: #64748b;
+  color: #737373;
 }
 
 .scraper-input-row {
@@ -1247,21 +1178,21 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 
 .scraper-ion-input {
   flex: 1;
-  background: #f8fafc;
-  --background: #f8fafc;
+  background: #f8f9fb;
+  --background: var(--dn-field);
   --padding-start: 12px;
   --padding-end: 8px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  font-size: 13.5px;
-  color: #0f172a;
+  border: 1px solid var(--dn-field-line);
+  border-radius: 14px;
+  font-size: 16px;
+  color: #1c1b19;
   min-height: 42px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .scraper-ion-input:focus-within {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+  border-color: var(--dn-ink);
+  box-shadow: 0 0 0 3px rgba(28, 27, 25, 0.06);
 }
 
 .scrape-action-btn {
@@ -1275,11 +1206,11 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   font-size: 13.5px;
   font-weight: 700;
   white-space: nowrap;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+  box-shadow: none;
   transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
@@ -1303,10 +1234,10 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   gap: 6px;
   margin-top: 10px;
   padding: 8px 12px;
-  background: #fff1f2;
-  border: 1px solid #ffe4e6;
+  background: #f2f3f5;
+  border: 1px solid #e8e9eb;
   border-radius: 10px;
-  color: #e11d48;
+  color: #c2412d;
   font-size: 12px;
   font-weight: 600;
 }
@@ -1314,7 +1245,7 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 .manual-add-row {
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px dashed #f1f5f9;
+  border-top: 1px dashed #f2f3f5;
   display: flex;
   justify-content: flex-end;
 }
@@ -1322,7 +1253,7 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 .manual-add-btn {
   background: none;
   border: none;
-  color: #0f172a;
+  color: #1c1b19;
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
@@ -1335,7 +1266,7 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 }
 
 .manual-add-btn:hover {
-  background: #f0f9ff;
+  background: #f6f7f9;
 }
 
 /* FILTER CHIPS */
@@ -1357,27 +1288,27 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   align-items: center;
   gap: 5px;
   padding: 6px 12px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--dn-soft);
+  border: none;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 600;
-  color: #64748b;
+  font-weight: 500;
+  color: var(--dn-ink);
   white-space: nowrap;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  box-shadow: none;
 }
 
 .filter-pill.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border-color: #1c1b19;
+  box-shadow: none;
 }
 
 .filter-badge {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(28, 27, 25, 0.08);
   padding: 1px 6px;
   border-radius: 999px;
   font-size: 10px;
@@ -1393,8 +1324,8 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 .wishlist-section-header {
   padding: 6px 18px 4px;
   font-size: 11px;
-  font-weight: 800;
-  color: #94a3b8;
+  font-weight: 700;
+  color: #a2a2a2;
   letter-spacing: 0.5px;
 }
 
@@ -1408,15 +1339,15 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   align-items: center;
   background: #ffffff;
   border-radius: 20px;
-  border: 1px dashed #cbd5e1;
+  border: 1px dashed #d4d4d4;
 }
 
 .empty-icon-wrap {
   width: 58px;
   height: 58px;
   border-radius: 20px;
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f2f3f5;
+  color: #1c1b19;
   font-size: 30px;
   display: flex;
   align-items: center;
@@ -1426,14 +1357,14 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 
 .empty-title {
   font-size: 16px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   margin: 0 0 6px;
 }
 
 .empty-desc {
   font-size: 13px;
-  color: #64748b;
+  color: #737373;
   margin: 0 0 16px;
   max-width: 290px;
   line-height: 1.4;
@@ -1447,11 +1378,11 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   border-radius: 12px;
   font-size: 13.5px;
   font-weight: 700;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+  box-shadow: none;
 }
 
 /* WISHLIST GRID & CARDS */
@@ -1466,8 +1397,8 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   background: #ffffff;
   border-radius: 18px;
   padding: 14px 16px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  box-shadow: var(--dn-card-shadow);
+  border: 1px solid var(--dn-line);
+  box-shadow: none;
   transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
   position: relative;
   min-width: 0;
@@ -1476,13 +1407,13 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 
 .wishlist-card.is-completed {
   opacity: 0.65;
-  background: #f8fafc;
-  border-color: #e2e8f0;
+  background: #f8f9fb;
+  border-color: #e5e6e8;
 }
 
 .wishlist-card.is-surprise {
-  border-left: 4px solid #0f172a;
-  background: linear-gradient(to right, #f8fafc 0%, #ffffff 15%);
+  border-left: 4px solid #1c1b19;
+  background: linear-gradient(to right, #f8f9fb 0%, #ffffff 15%);
 }
 
 /* CARD META ROW */
@@ -1513,21 +1444,21 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 }
 
 .surprise-badge {
-  background: #f1f5f9;
-  color: #0f172a;
-  border: 1px solid #e2e8f0;
+  background: #f2f3f5;
+  color: #1c1b19;
+  border: 1px solid #e5e6e8;
 }
 
 .completed-badge {
-  background: #dcfce7;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
+  background: #f2f3f5;
+  color: #6f6f6f;
+  border: 1px solid #e7e8ea;
 }
 
 .store-badge {
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #e2e8f0;
+  background: #f2f3f5;
+  color: #545454;
+  border: 1px solid #e5e6e8;
 }
 
 /* CARD MAIN CONTENT */
@@ -1541,13 +1472,13 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   width: 76px;
   height: 76px;
   border-radius: 12px;
-  background: #f1f5f9;
+  background: #f2f3f5;
   overflow: hidden;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
 }
 
 .card-thumb-img {
@@ -1557,7 +1488,7 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 }
 
 .card-thumb-wrap.placeholder {
-  color: #cbd5e1;
+  color: #d4d4d4;
   font-size: 32px;
 }
 
@@ -1569,7 +1500,7 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 .card-item-title {
   font-size: 15px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   margin: 0 0 4px;
   line-height: 1.3;
   word-break: break-word;
@@ -1577,7 +1508,7 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 
 .strike-title {
   text-decoration: line-through;
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 .card-price-row {
@@ -1589,20 +1520,20 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 
 .price-val {
   font-size: 16px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .currency-val {
   font-size: 12px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
 }
 
 .card-note-text {
   font-size: 12px;
-  color: #475569;
-  background: #f8fafc;
+  color: #545454;
+  background: #f8f9fb;
   padding: 4px 8px;
   border-radius: 8px;
   margin: 4px 0 0;
@@ -1618,7 +1549,7 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 
 .surprise-explainer-note {
   font-size: 11px;
-  color: #64748b;
+  color: #737373;
   margin: 6px 0 0;
   font-weight: 600;
 }
@@ -1631,7 +1562,7 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   gap: 6px;
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #f2f3f5;
 }
 
 .card-btn {
@@ -1642,9 +1573,9 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
   font-size: 12px;
   font-weight: 700;
   padding: 6px 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   background: #ffffff;
-  color: #475569;
+  color: #545454;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -1654,20 +1585,20 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 }
 
 .link-btn {
-  color: #0f172a;
-  background: #f1f5f9;
-  border-color: #e2e8f0;
+  color: #1c1b19;
+  background: #f2f3f5;
+  border-color: #e5e6e8;
 }
 
 .complete-btn {
-  color: #166534;
-  background: #f0fdf4;
-  border-color: #bbf7d0;
+  color: #585858;
+  background: #f8f9fb;
+  border-color: #e7e8ea;
 }
 
 .complete-btn.is-completed {
-  background: #dcfce7;
-  color: #15803d;
+  background: #f2f3f5;
+  color: #6f6f6f;
 }
 
 .edit-btn, .delete-btn {
@@ -1676,23 +1607,23 @@ const getTargetBadgeStyle = (item: WishlistItem) => {
 }
 
 .edit-btn:hover {
-  background: #f8fafc;
-  color: #0f172a;
+  background: #f8f9fb;
+  color: #1c1b19;
 }
 
 .delete-btn {
-  color: #dc2626;
+  color: #c2412d;
 }
 
 .delete-btn:hover {
-  background: #fef2f2;
+  background: #f3f4f6;
 }
 
 /* WISHLIST SHEET MODAL (DRAGGABLE BOTTOM SHEET) */
 ion-modal.dn-wishlist-modal {
   --border-radius: 28px 28px 0 0;
   --background: #ffffff;
-  --box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
+  --box-shadow: 0 -10px 40px rgba(28, 27, 25, 0.15);
 }
 
 .dn-wishlist-modal .modal-custom-header ion-toolbar {
@@ -1717,18 +1648,18 @@ ion-modal.dn-wishlist-modal {
 
 .dn-wishlist-modal .modal-title-icon {
   font-size: 20px;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
-.dn-wishlist-modal .modal-title-wrap ion-title {
+.dn-wishlist-modal .modal-title-wrap .modal-main-title {
   font-size: 17px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   padding: 0;
 }
 
 .modal-close-icon-btn {
-  background: #f1f5f9;
+  background: var(--dn-soft);
   border: none;
   width: 36px;
   height: 36px;
@@ -1737,7 +1668,7 @@ ion-modal.dn-wishlist-modal {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #475569;
+  color: #545454;
   cursor: pointer;
   font-size: 22px;
   touch-action: manipulation;
@@ -1745,8 +1676,8 @@ ion-modal.dn-wishlist-modal {
 }
 
 .modal-close-icon-btn:hover {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: #e5e6e8;
+  color: #1c1b19;
 }
 
 .modal-close-icon-btn:active {
@@ -1772,8 +1703,8 @@ ion-modal.dn-wishlist-modal {
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 14px;
 }
 
@@ -1783,7 +1714,7 @@ ion-modal.dn-wishlist-modal {
   border-radius: 8px;
   overflow: hidden;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
 }
 
 .preview-thumb-box img {
@@ -1801,7 +1732,7 @@ ion-modal.dn-wishlist-modal {
 .preview-store-pill {
   font-size: 11px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1809,20 +1740,8 @@ ion-modal.dn-wishlist-modal {
 
 .preview-price-tag {
   font-size: 13.5px;
-  font-weight: 800;
-  color: #0f172a;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.form-label {
-  font-size: 12px;
   font-weight: 700;
-  color: #475569;
+  color: #1c1b19;
 }
 
 /* TARGET CHOICE GRID */
@@ -1833,8 +1752,8 @@ ion-modal.dn-wishlist-modal {
 }
 
 .target-choice-btn {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 12px;
   padding: 8px 6px;
   display: flex;
@@ -1843,13 +1762,13 @@ ion-modal.dn-wishlist-modal {
   text-align: center;
   cursor: pointer;
   transition: all 0.15s ease;
-  color: #000;
+  color: #1c1b19;
 }
 
 .target-btn-icon {
   font-size: 20px;
   margin-bottom: 4px;
-  color: #64748b;
+  color: #737373;
 }
 
 .target-btn-title {
@@ -1859,26 +1778,26 @@ ion-modal.dn-wishlist-modal {
 }
 
 .target-choice-btn.active {
-  background: #f1f5f9;
-  border-color: #0f172a;
-  color: #0f172a;
+  background: #f2f3f5;
+  border-color: #1c1b19;
+  color: #1c1b19;
 }
 
 .target-choice-btn.active .target-btn-icon {
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .target-btn-sub {
   font-size: 9.5px;
-  color: #94a3b8;
+  color: #a2a2a2;
   display: block;
   margin-top: 2px;
 }
 
 /* VISIBILITY CHOICE TOGGLE */
 .visibility-box-group {
-  background: #fff1f2;
-  border: 1px solid #ffe4e6;
+  background: #f2f3f5;
+  border: 1px solid #e8e9eb;
   border-radius: 14px;
   padding: 12px;
 }
@@ -1892,7 +1811,7 @@ ion-modal.dn-wishlist-modal {
 
 .vis-choice-btn {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   border-radius: 10px;
   padding: 8px;
   display: flex;
@@ -1904,25 +1823,25 @@ ion-modal.dn-wishlist-modal {
 }
 
 .vis-choice-btn.active {
-  border-color: #0f172a;
-  background: #f8fafc;
+  border-color: #1c1b19;
+  background: #f8f9fb;
 }
 
 .vis-choice-btn.surprise.active {
-  border-color: #0f172a;
+  border-color: #1c1b19;
   background: #ffffff;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  box-shadow: none;
 }
 
 .vis-icon {
   font-size: 18px;
-  color: #64748b;
+  color: #737373;
   flex-shrink: 0;
   margin-top: 2px;
 }
 
 .vis-choice-btn.surprise.active .vis-icon {
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .vis-texts {
@@ -1933,38 +1852,39 @@ ion-modal.dn-wishlist-modal {
 .vis-title {
   font-size: 12px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .vis-sub {
   font-size: 10px;
-  color: #64748b;
+  color: #737373;
   margin-top: 2px;
   line-height: 1.2;
 }
 
 .visibility-hint {
   font-size: 11px;
-  color: #64748b;
+  color: #737373;
   margin: 8px 0 0;
   line-height: 1.3;
 }
 
 /* INPUT STYLES */
 .modal-styled-input {
-  background: #f8fafc;
-  --background: #f8fafc;
+  background: #f8f9fb;
+  --background: var(--dn-field);
   --padding-start: 12px;
   --padding-end: 12px;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  font-size: 13.5px;
-  color: #0f172a;
+  border-radius: 14px;
+  border: 1px solid var(--dn-field-line);
+  font-size: 16px;
+  color: #1c1b19;
+  min-height: 52px;
 }
 
 .modal-styled-input:focus-within {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+  border-color: var(--dn-ink);
+  box-shadow: 0 0 0 3px rgba(28, 27, 25, 0.06);
 }
 
 .modal-textarea-styled {
@@ -1983,18 +1903,18 @@ ion-modal.dn-wishlist-modal {
 
 .modal-styled-select {
   width: 90px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 12px;
   font-size: 13px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   padding: 0 8px;
   outline: none;
 }
 
 .modal-styled-select:focus {
-  border-color: #0f172a;
+  border-color: #1c1b19;
 }
 
 /* MODAL ACTIONS */
@@ -2003,13 +1923,13 @@ ion-modal.dn-wishlist-modal {
   gap: 10px;
   margin-top: 10px;
   padding-top: 12px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #f2f3f5;
 }
 
 .delete-item-btn {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #dc2626;
+  background: #f3f4f6;
+  border: 1px solid #fcefec;
+  color: #c2412d;
   font-size: 13px;
   font-weight: 700;
   padding: 10px 14px;
@@ -2030,7 +1950,7 @@ ion-modal.dn-wishlist-modal {
   border-radius: 12px;
   font-size: 14px;
   font-weight: 700;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
   cursor: pointer;
@@ -2039,5 +1959,376 @@ ion-modal.dn-wishlist-modal {
 .save-item-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ===== Beige accent: empty states ===== */
+.empty-icon-wrap {
+  background: var(--dn-cream) !important;
+  color: var(--dn-cream-ink) !important;
+  border: none !important;
+}
+
+/* =========================================================
+   WISHLIST – compact rows (wl-*)
+   ========================================================= */
+.wishlist-grid {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  margin: 0 !important;
+  padding: 0 20px !important;
+}
+
+.wl-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--dn-line);
+}
+
+.wl-row:last-child {
+  border-bottom: none;
+}
+
+.wl-thumb {
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border: none;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--dn-cream);
+  color: var(--dn-cream-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.wl-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.wl-row.is-completed .wl-thumb {
+  opacity: 0.6;
+}
+
+.wl-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 2px;
+  cursor: pointer;
+}
+
+.wl-title {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--dn-ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wl-row.is-completed .wl-title {
+  color: var(--dn-faint);
+  text-decoration: line-through;
+}
+
+.wl-meta {
+  font-size: 13px;
+  color: var(--dn-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wl-target {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  color: var(--dn-muted) !important;
+}
+
+.wl-note {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--dn-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wl-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.wl-tags:empty {
+  display: none;
+}
+
+.wl-price {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--dn-cream);
+  color: var(--dn-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.wl-secret {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--dn-soft);
+  color: var(--dn-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.wl-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.wl-check {
+  width: 30px;
+  height: 30px;
+  border: 1.5px solid #c9ccd2;
+  border-radius: 50%;
+  background: transparent;
+  color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.wl-check.done {
+  background: var(--dn-ink);
+  border-color: var(--dn-ink);
+  color: #ffffff;
+}
+
+.wl-more {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--dn-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+/* =========================================================
+   WISHLIST – link import (wi-*)
+   ========================================================= */
+.wi-entry {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 12px 14px 12px 12px;
+  border: none;
+  border-radius: 20px;
+  background: var(--dn-cream);
+  font-family: inherit;
+  text-align: left;
+  color: var(--dn-ink);
+  cursor: pointer;
+}
+
+.wi-entry-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--dn-cream-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 21px;
+  flex-shrink: 0;
+}
+
+.wi-entry-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wi-entry-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.wi-entry-sub {
+  font-size: 12.5px;
+  color: var(--dn-cream-ink);
+}
+
+.wi-entry-arrow {
+  font-size: 16px;
+  color: var(--dn-cream-ink);
+  flex-shrink: 0;
+}
+
+.wi-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 22px 18px 20px;
+  border-radius: 24px;
+  background: var(--dn-cream);
+  text-align: center;
+}
+
+.wi-hero-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: #ffffff;
+  color: var(--dn-cream-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+
+.wi-hero-title {
+  margin: 14px 0 0;
+  font-family: var(--dn-serif);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--dn-ink);
+}
+
+.wi-hero-desc {
+  margin: 6px 0 0;
+  max-width: 300px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--dn-cream-ink);
+}
+
+.wi-stores {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.wi-store {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--dn-ink);
+}
+
+.wi-form {
+  margin-top: 22px;
+}
+
+.wi-input {
+  --background: var(--dn-field);
+  --padding-start: 14px;
+  --padding-end: 12px;
+  --placeholder-color: var(--dn-faint);
+  --placeholder-opacity: 1;
+  --color: var(--dn-ink);
+  min-height: 52px;
+  border: 1px solid var(--dn-field-line);
+  border-radius: 16px;
+  font-size: 15.5px;
+}
+
+.wi-input-icon {
+  margin-right: 8px;
+  font-size: 18px;
+  color: var(--dn-muted);
+}
+
+.wi-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #fbefec;
+  color: var(--dn-danger);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.wi-error ion-icon {
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.wi-submit {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.wi-submit:disabled {
+  opacity: 0.4;
+}
+
+.wi-spinner {
+  width: 18px;
+  height: 18px;
+  color: #ffffff;
+}
+
+.wi-manual {
+  display: block;
+  margin: 14px auto 0;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--dn-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 </style>

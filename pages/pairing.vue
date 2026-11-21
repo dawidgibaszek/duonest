@@ -1,232 +1,274 @@
 <template>
   <ion-page>
-    <ion-content :fullscreen="true" class="pairing-content">
-      <div class="pairing-container">
-        <!-- BRAND HEADER -->
-        <div class="pairing-hero">
-          <img src="/favicon.png" alt="DuoNest Logo" class="pairing-logo" />
-          <h1 class="pairing-title">DuoNest</h1>
-          <p class="pairing-subtitle">Połączcie swoje konta, by wspólnie budować Wasze domowe gniazdko.</p>
-        </div>
+    <ion-content :fullscreen="true" class="dn-auth-content">
+      <div class="dn-auth-page">
 
-        <!-- USER IDENTITY BAR -->
-        <div class="dn-card identity-card">
-          <div class="card-label">TWOJE IMIĘ W APLIKACJI</div>
-          <div class="name-edit-row">
-            <ion-input
+        <div class="dn-auth-body">
+          <!-- HEADING -->
+          <header class="dn-auth-heading">
+            <h1 class="dn-auth-title">Połączcie się w parę</h1>
+            <DuoAuthHero :tiles="heroTiles" bare />
+            <p class="dn-auth-subtitle">Połączcie swoje konta, by wspólnie budować Wasze domowe gniazdko.</p>
+          </header>
+
+          <!-- USER NAME -->
+          <div class="name-field">
+            <DuoAuthField
               v-model="myNameInput"
+              label="Twoje imię w aplikacji"
               placeholder="np. Jan"
-              class="name-input"
-              @ionBlur="saveMyName"
-            />
-            <button class="save-name-btn" @click="saveMyName" :disabled="!myNameInput.trim()">
-              Zapisz
-            </button>
+              autocomplete="given-name"
+              maxlength="40"
+              :clearable="false"
+              @keyup.enter="saveMyName"
+            >
+              <template #trailing>
+                <button type="button" class="dn-auth-inline-btn" @click="saveMyName" :disabled="!myNameInput.trim()">
+                  Zapisz
+                </button>
+              </template>
+            </DuoAuthField>
           </div>
-          <div class="account-session-row" v-if="currentUser.email">
-            <span class="account-email-label">Zalogowano: <strong>{{ currentUser.email }}</strong></span>
-            <button type="button" class="logout-link-btn" @click="handleSignOut">
-              Wyloguj się
+
+          <!-- SEGMENT SWITCHER: MÓJ KOD / DOŁĄCZ -->
+          <div class="dn-auth-segment" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              :aria-selected="activeMode === 'share'"
+              :class="{ active: activeMode === 'share' }"
+              @click="activeMode = 'share'"
+            >
+              <ion-icon :icon="ioniconsQrCodeOutline" />
+              <span>Mój kod</span>
             </button>
-          </div>
-        </div>
-
-        <!-- SEGMENT SWITCHER: POKAŻ KOD / DOŁĄCZ -->
-        <div class="mode-tabs">
-          <button
-            class="mode-tab-btn"
-            :class="{ active: activeMode === 'share' }"
-            @click="activeMode = 'share'"
-          >
-            <ion-icon :icon="ioniconsQrCodeOutline" />
-            <span>Mój Kod & QR</span>
-          </button>
-          <button
-            class="mode-tab-btn"
-            :class="{ active: activeMode === 'join' }"
-            @click="activeMode = 'join'"
-          >
-            <ion-icon :icon="ioniconsScanOutline" />
-            <span>Dołącz do Partnera</span>
-          </button>
-        </div>
-
-        <!-- MODE 1: WYŚWIETLENIE SWOJEGO KODU & KODU QR -->
-        <div v-if="activeMode === 'share'" class="dn-card share-card">
-          <h3>Pokaż kod swojemu partnerowi</h3>
-          <p class="section-info">Partner może przepisać poniższy kod lub zeskanować kod QR swoim aparatem:</p>
-
-          <!-- CODE TEXT -->
-          <div class="code-box">
-            <span class="code-value">{{ currentUser.pairing_code }}</span>
-            <button class="copy-action-btn" @click="copyCode">
-              <ion-icon :icon="copied ? ioniconsCheckmarkOutline : ioniconsCopyOutline" />
-              <span>{{ copied ? 'Skopiowano!' : 'Kopiuj' }}</span>
+            <button
+              type="button"
+              role="tab"
+              :aria-selected="activeMode === 'join'"
+              :class="{ active: activeMode === 'join' }"
+              @click="activeMode = 'join'"
+            >
+              <ion-icon :icon="ioniconsScanOutline" />
+              <span>Dołącz</span>
             </button>
           </div>
 
-          <!-- QR CODE DISPLAY -->
-          <div class="qr-code-wrapper">
-            <div class="qr-frame" v-if="qrCodeDataUrl">
-              <img :src="qrCodeDataUrl" alt="Kod QR parowania" class="qr-image" />
-            </div>
-            <div class="qr-loading" v-else>
-              <ion-spinner name="crescent" color="primary"></ion-spinner>
-            </div>
-            <span class="qr-caption">Nakieruj aparat drugiego telefonu na ten kod QR</span>
-          </div>
-
-          <div class="pairing-live-listener-banner">
-            <span class="pulsing-green-dot"></span>
-            <span>Gdy partner połączy się z Twoim kodem, aplikacja od razu Was połączy.</span>
-          </div>
-        </div>
-
-        <div v-else class="dn-card join-card">
-          <h3>Wpisz lub zeskanuj kod partnera</h3>
-          <p class="section-info">Wprowadź kod lub włącz aparat, aby połączyć Wasze konta:</p>
-
-          <!-- SCAN QR BUTTONS (CAMERA OR GALLERY) -->
-          <div class="scan-buttons-group">
-            <button class="scan-camera-btn" @click="startScanner">
-              <ion-icon :icon="ioniconsCameraOutline" class="cam-icon" />
-              <div class="cam-btn-text">
-                <span class="cam-title">Zeskanuj Kod QR Aparatem</span>
-                <span class="cam-sub">Skieruj aparat na telefon partnera</span>
+          <!-- MODE 1: MÓJ KOD & QR -->
+          <section v-if="activeMode === 'share'" class="pair-panel">
+            <div class="pair-qr">
+              <div class="pair-qr-frame">
+                <img v-if="qrCodeDataUrl" :src="qrCodeDataUrl" alt="Kod QR parowania" class="pair-qr-image" />
+                <div v-else class="pair-qr-loading">
+                  <ion-spinner name="crescent"></ion-spinner>
+                </div>
               </div>
-            </button>
+            </div>
 
-            <label for="direct-gallery-input" class="scan-gallery-btn">
-              <ion-icon :icon="ioniconsImageOutline" class="gallery-icon" />
-              <div class="cam-btn-text">
-                <span class="cam-title">Wczytaj Kod ze Zdjęcia</span>
-                <span class="cam-sub">Wybierz zdjęcie lub zrzut ekranu z galerii</span>
+            <div class="pair-code">
+              <div class="pair-code-texts">
+                <span class="pair-code-label">Twój kod</span>
+                <span class="pair-code-value">{{ currentUser.pairing_code }}</span>
               </div>
-            </label>
-            <input
-              id="direct-gallery-input"
-              type="file"
-              accept="image/*"
-              class="hidden-file-input"
-              @change="handleFileUpload"
-            />
-          </div>
+              <button type="button" class="pair-copy-btn" @click="copyCode">
+                <ion-icon :icon="copied ? ioniconsCheckmarkOutline : ioniconsCopyOutline" />
+                <span>{{ copied ? 'Skopiowano' : 'Kopiuj' }}</span>
+              </button>
+            </div>
 
-          <div class="divider-or">
-            <span>LUB WPISZ KOD RĘCZNIE</span>
-          </div>
+            <div class="pair-live">
+              <span class="pair-live-dot"></span>
+              <span>Gdy partner użyje Twojego kodu, aplikacja od razu Was połączy.</span>
+            </div>
+          </section>
 
-          <!-- MANUAL CODE INPUT -->
-          <div class="manual-input-box">
-            <label class="manual-label">Kod parowania lub e-mail partnera</label>
-            <div class="manual-input-row">
-              <ion-input
-                v-model="partnerCodeInput"
-                placeholder="np. DN-849201 lub e-mail"
-                class="partner-code-input"
-                maxlength="100"
-                :clear-input="true"
-                @keyup.enter="submitPairing(partnerCodeInput)"
+          <!-- MODE 2: DOŁĄCZ DO PARTNERA -->
+          <section v-else class="pair-panel">
+            <p class="pair-panel-desc">Zeskanuj kod QR z telefonu partnera albo wpisz jego kod ręcznie.</p>
+
+            <div class="dn-auth-stack">
+              <button type="button" class="dn-auth-btn" @click="startScanner">
+                <ion-icon :icon="ioniconsCameraOutline" />
+                <span>Skanuj kod QR</span>
+              </button>
+
+              <label for="direct-gallery-input" class="dn-auth-btn dn-auth-btn--outline">
+                <ion-icon :icon="ioniconsImageOutline" />
+                <span>Wczytaj kod ze zdjęcia</span>
+              </label>
+              <input
+                id="direct-gallery-input"
+                type="file"
+                accept="image/*"
+                class="hidden-file-input"
+                @change="handleFileUpload"
               />
+            </div>
+
+            <div class="dn-auth-divider">lub wpisz kod ręcznie</div>
+
+            <form class="dn-auth-form" @submit.prevent="submitPairing(partnerCodeInput)">
+              <DuoAuthField
+                v-model="partnerCodeInput"
+                label="Kod parowania partnera"
+                placeholder="np. DN-8K4P2Q"
+                maxlength="20"
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
+                spellcheck="false"
+              />
+              <p class="dn-auth-help">Partner znajdzie swój kod na tym samym ekranie w swojej aplikacji.</p>
+
+              <div class="dn-auth-alert dn-auth-alert--error" v-if="pairingError" role="alert">
+                <ion-icon :icon="ioniconsAlertCircleOutline" />
+                <span>{{ pairingError }}</span>
+              </div>
+
               <button
-                class="pair-action-btn"
-                @click="submitPairing(partnerCodeInput)"
+                type="submit"
+                class="dn-auth-btn"
                 :disabled="!partnerCodeInput.trim() || isPairingLoading"
               >
                 <ion-spinner v-if="isPairingLoading" name="crescent"></ion-spinner>
                 <span v-else>Połącz</span>
               </button>
-            </div>
-            <p class="input-hint">Wpisz 6-znakowy kod partnera (np. DN-849201) lub jego adres e-mail w aplikacji.</p>
+            </form>
+          </section>
 
-            <span class="error-msg" v-if="pairingError">{{ pairingError }}</span>
-          </div>
+          <!-- FOOTER: SESSION -->
+          <footer class="dn-auth-footer">
+            <span class="session-line" v-if="currentUser.email || authUser?.email">
+              Zalogowano jako <strong>{{ currentUser.email || authUser?.email }}</strong>
+            </span>
+            <button type="button" class="dn-auth-link dn-auth-link--muted" @click="handleSignOut">
+              Wyloguj się
+            </button>
+          </footer>
         </div>
 
-        <!-- WHATSAPP-STYLE QR SCANNER MODAL -->
-        <ion-modal :is-open="isScannerOpen" @didDismiss="stopScanner" class="whatsapp-scanner-modal">
-          <ion-header class="ion-no-border">
-            <ion-toolbar class="scanner-modal-toolbar">
-              <ion-buttons slot="start">
-                <ion-button @click="stopScanner" class="scanner-header-btn">
-                  <ion-icon :icon="ioniconsCloseOutline" slot="icon-only" />
-                </ion-button>
-              </ion-buttons>
-              <ion-title class="scanner-header-title">Skanuj kod QR</ion-title>
-              <ion-buttons slot="end">
-                <ion-button v-if="hasMultipleCameras" @click="switchCamera" class="scanner-header-btn" title="Obróć aparat">
-                  <ion-icon :icon="ioniconsCameraReverseOutline" slot="icon-only" />
-                </ion-button>
-                <ion-button v-if="isTorchSupported" @click="toggleTorch" class="scanner-header-btn" :class="{ 'torch-on': isTorchOn }">
-                  <ion-icon :icon="isTorchOn ? ioniconsFlashOutline : ioniconsFlashOffOutline" slot="icon-only" />
-                </ion-button>
-              </ion-buttons>
-            </ion-toolbar>
-          </ion-header>
+        <!-- QR SCANNER (full-screen camera, Telegram / WhatsApp style) -->
+        <ion-modal :is-open="isScannerOpen" @didDismiss="stopScanner" class="qrs-modal">
+          <ion-content :scroll-y="false" class="qrs-content">
+            <div class="qrs" :class="`qrs--${scanState}`">
+              <!-- CAMERA -->
+              <video
+                ref="videoEl"
+                class="qrs-video"
+                :class="{ 'qrs-video--mirror': isFrontCamera }"
+                playsinline
+                muted
+                autoplay
+                disablepictureinpicture
+              ></video>
 
-          <ion-content class="scanner-modal-content" :scroll-y="false">
-            <div class="whatsapp-scanner-wrapper">
-              <!-- Live Video Viewport -->
-              <div class="camera-viewport">
-                <div id="qr-reader" class="scanner-video-box"></div>
-
-                <!-- Laser scanning viewfinder overlay -->
-                <div class="viewfinder-overlay" v-if="!cameraBlockedMessage">
-                  <div class="viewfinder-box">
-                    <span class="corner tl"></span>
-                    <span class="corner tr"></span>
-                    <span class="corner bl"></span>
-                    <span class="corner br"></span>
-                    <div class="laser-scanner-line"></div>
+              <!-- VIEWFINDER: dimmed scrim with a rounded cut-out -->
+              <div v-if="scanState !== 'blocked'" class="qrs-finder" aria-hidden="true">
+                <div class="qrs-frame" :class="{ 'qrs-frame--hit': scanState === 'detected' || scanState === 'pairing' || scanState === 'success' }">
+                  <span class="qrs-corner tl"></span>
+                  <span class="qrs-corner tr"></span>
+                  <span class="qrs-corner bl"></span>
+                  <span class="qrs-corner br"></span>
+                  <span v-if="scanState === 'scanning'" class="qrs-sweep"></span>
+                  <div v-if="scanState === 'success'" class="qrs-hit-badge">
+                    <ion-icon :icon="ioniconsCheckmark" />
                   </div>
-                </div>
-
-                <!-- Camera Error / Blocked Overlay -->
-                <div class="camera-error-backdrop" v-if="cameraBlockedMessage">
-                  <div class="camera-error-card">
-                    <ion-icon :icon="ioniconsAlertCircleOutline" class="error-badge-icon" />
-                    <h4>Aparat niedostępny</h4>
-                    <p>{{ cameraBlockedMessage }}</p>
-                    <label for="scanner-modal-gallery-input" class="action-gallery-btn">
-                      <ion-icon :icon="ioniconsImageOutline" />
-                      <span>Wczytaj zdjęcie z kodem z galerii</span>
-                    </label>
-                  </div>
+                  <ion-spinner v-else-if="scanState === 'starting' || scanState === 'pairing'" name="crescent" class="qrs-frame-spinner" />
                 </div>
               </div>
 
-              <!-- Bottom instructions and Gallery Button (WhatsApp style) -->
-              <div class="scanner-bottom-sheet">
-                <p class="scanner-status-text">
-                  {{ scannerStatusText || 'Skieruj aparat na kod QR wyświetlony u partnera' }}
-                </p>
+              <!-- TOP BAR -->
+              <div class="qrs-top">
+                <button type="button" class="qrs-round" aria-label="Zamknij skaner" @click="stopScanner">
+                  <ion-icon :icon="ioniconsClose" />
+                </button>
+                <span class="qrs-title">Zeskanuj kod partnera</span>
+                <button
+                  v-if="isTorchSupported && scanState !== 'blocked'"
+                  type="button"
+                  class="qrs-round"
+                  :class="{ 'qrs-round--on': isTorchOn }"
+                  :aria-label="isTorchOn ? 'Wyłącz latarkę' : 'Włącz latarkę'"
+                  @click="toggleTorch"
+                >
+                  <ion-icon :icon="isTorchOn ? ioniconsFlash : ioniconsFlashOutline" />
+                </button>
+                <span v-else class="qrs-round-spacer"></span>
+              </div>
 
-                <div class="scanner-quick-tools">
-                  <label for="scanner-modal-gallery-input" class="gallery-pill-btn">
-                    <ion-icon :icon="ioniconsImageOutline" class="pill-icon" />
-                    <span>Zdjęcie z galerii</span>
+              <!-- BOTTOM: status + actions -->
+              <div v-if="scanState !== 'blocked'" class="qrs-bottom">
+                <transition name="qrs-fade" mode="out-in">
+                  <div v-if="scanState === 'detected' || scanState === 'pairing'" key="pairing" class="qrs-card">
+                    <span class="qrs-card-label">Znaleziono kod</span>
+                    <span class="qrs-card-code">{{ scannedCode }}</span>
+                    <span class="qrs-card-hint">Łączenie z partnerem…</span>
+                  </div>
+                  <div v-else-if="scanState === 'success'" key="success" class="qrs-card">
+                    <span class="qrs-card-label">Gotowe</span>
+                    <span class="qrs-card-code">Połączono w parę</span>
+                  </div>
+                  <div v-else-if="scanState === 'error'" key="error" class="qrs-card qrs-card--error">
+                    <span class="qrs-card-label">Nie udało się połączyć</span>
+                    <span class="qrs-card-hint">{{ scanError }}</span>
+                    <button type="button" class="qrs-card-btn" @click="resumeScanning">Skanuj ponownie</button>
+                  </div>
+                  <p v-else key="hint" class="qrs-hint" :class="{ 'qrs-hint--warn': hintIsWarning }">
+                    {{ scanHint }}
+                  </p>
+                </transition>
+
+                <div class="qrs-actions">
+                  <label for="scanner-modal-gallery-input" class="qrs-action">
+                    <span class="qrs-round qrs-round--lg"><ion-icon :icon="ioniconsImagesOutline" /></span>
+                    <span>Galeria</span>
                   </label>
-                  <input
-                    id="scanner-modal-gallery-input"
-                    type="file"
-                    accept="image/*"
-                    class="hidden-file-input"
-                    @change="handleFileUpload"
-                  />
-
-                  <button v-if="hasMultipleCameras" type="button" class="gallery-pill-btn" @click="switchCamera">
-                    <ion-icon :icon="ioniconsCameraReverseOutline" class="pill-icon" />
-                    <span>Obróć aparat</span>
+                  <button type="button" class="qrs-action" @click="enterCodeManually">
+                    <span class="qrs-round qrs-round--lg"><ion-icon :icon="ioniconsKeypadOutline" /></span>
+                    <span>Wpisz kod</span>
+                  </button>
+                  <button v-if="hasMultipleCameras" type="button" class="qrs-action" @click="switchCamera">
+                    <span class="qrs-round qrs-round--lg"><ion-icon :icon="ioniconsCameraReverseOutline" /></span>
+                    <span>Obróć</span>
                   </button>
                 </div>
               </div>
 
-              <!-- Dedicated sandbox for photo decoding to prevent camera collisions -->
-              <div id="hidden-qr-reader" style="position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none;"></div>
+              <!-- CAMERA BLOCKED: app-styled explanation -->
+              <div v-else class="qrs-blocked">
+                <div class="qrs-blocked-icon"><ion-icon :icon="ioniconsCameraOutline" /></div>
+                <h2 class="qrs-blocked-title">{{ blockedTitle }}</h2>
+                <p class="qrs-blocked-text">{{ cameraBlockedMessage }}</p>
+                <ol v-if="blockedSteps.length" class="qrs-blocked-steps">
+                  <li v-for="step in blockedSteps" :key="step">{{ step }}</li>
+                </ol>
+                <div class="dn-auth-stack qrs-blocked-actions">
+                  <label for="scanner-modal-gallery-input" class="dn-auth-btn">
+                    <ion-icon :icon="ioniconsImagesOutline" />
+                    <span>Wybierz zdjęcie kodu</span>
+                  </label>
+                  <button type="button" class="dn-auth-btn dn-auth-btn--outline" @click="startScanner">
+                    <ion-icon :icon="ioniconsRefreshOutline" />
+                    <span>Spróbuj ponownie</span>
+                  </button>
+                  <button type="button" class="dn-auth-link dn-auth-link--muted" @click="enterCodeManually">
+                    Wpisz kod ręcznie
+                  </button>
+                </div>
+              </div>
+
+              <input
+                id="scanner-modal-gallery-input"
+                type="file"
+                accept="image/*"
+                class="hidden-file-input"
+                @change="handleScannerFileUpload"
+              />
+              <!-- Sandbox for decoding photos without touching the live camera -->
+              <div id="hidden-qr-reader" class="qrs-sandbox"></div>
             </div>
           </ion-content>
         </ion-modal>
-
       </div>
     </ion-content>
   </ion-page>
@@ -239,8 +281,24 @@ import { Html5Qrcode } from 'html5-qrcode'
 import confetti from 'canvas-confetti'
 import { useDuoState } from '~/composables/useDuoState'
 import { usePushNotifications } from '~/composables/usePushNotifications'
+import { translateAppError } from '~/utils/errorTranslator'
+import {
+  heart as ioniconsHeart,
+  qrCode as ioniconsQrCode,
+  people as ioniconsPeople
+} from 'ionicons/icons'
+import type { DuoAuthHeroTile } from '~/components/DuoAuthHero.vue'
+
+const heroTiles: DuoAuthHeroTile[] = [
+  { icon: ioniconsHeart, color: '#e5484d' },
+  { icon: ioniconsQrCode, color: '#1c1b19' },
+  { icon: ioniconsPeople, color: '#7c5cff' }
+]
+
+const confettiColors = ['#1c1b19', '#e5484d', '#e8a33d', '#ece5d3', '#7c5cff']
 
 const {
+  authUser,
   currentUser,
   partnerUser,
   isPaired,
@@ -261,7 +319,14 @@ const handleSignOut = async () => {
     clearInterval(pairingPollInterval)
     pairingPollInterval = null
   }
-  await signOutUser()
+  try {
+    await signOutUser()
+  } catch (err) {
+    console.error('Sign out error:', err)
+  }
+  if (typeof window !== 'undefined') {
+    window.location.href = '/welcome'
+  }
 }
 
 watch(isPaired, (paired) => {
@@ -274,7 +339,7 @@ watch(isPaired, (paired) => {
       particleCount: 120,
       spread: 75,
       origin: { y: 0.6 },
-      colors: ['#0284c7', '#0ea5e9', '#0d9488', '#38bdf8']
+      colors: confettiColors
     })
     askPermissionAfterPairing(partnerUser.value?.name || 'Partner')
     setTimeout(() => {
@@ -308,7 +373,7 @@ const generateMyQrCode = async () => {
       width: 280,
       margin: 2,
       color: {
-        dark: '#0f172a', // Dark Slate dots
+        dark: '#1c1b19', // Warm ink dots (matches auth cream theme)
         light: '#ffffff'
       }
     })
@@ -338,10 +403,10 @@ const copyCode = async () => {
   }
 }
 
-// Pairing execution
-const submitPairing = async (code: string) => {
+// Pairing execution – returns true on success (the scanner shows its own result)
+const submitPairing = async (code: string, opts: { fromScanner?: boolean } = {}): Promise<{ ok: boolean, error?: string }> => {
   pairingError.value = ''
-  if (!code.trim()) return
+  if (!code.trim()) return { ok: false }
 
   if (myNameInput.value.trim()) {
     updateMyName(myNameInput.value.trim())
@@ -356,44 +421,68 @@ const submitPairing = async (code: string) => {
         particleCount: 100,
         spread: 70,
         origin: { y: 0.6 },
-        colors: ['#0284c7', '#0ea5e9', '#0d9488', '#38bdf8']
+        colors: confettiColors,
+        zIndex: 30000
       })
-      if (isScannerOpen.value) {
-        await stopScanner()
-      }
       setTimeout(() => {
+        if (isScannerOpen.value) stopScanner()
         navigateTo('/tabs/nest', { replace: true })
-      }, 800)
-    } else {
-      pairingError.value = res.error || 'Nie udało się połączyć kont.'
+      }, opts.fromScanner ? 1100 : 800)
+      return { ok: true }
     }
+    const message = translateAppError(res.error) || 'Nie udało się połączyć kont.'
+    if (!opts.fromScanner) pairingError.value = message
+    return { ok: false, error: message }
   } catch (err: any) {
-    pairingError.value = err?.message || 'Błąd połączenia.'
+    const message = translateAppError(err) || 'Błąd połączenia.'
+    if (!opts.fromScanner) pairingError.value = message
+    return { ok: false, error: message }
   } finally {
     isPairingLoading.value = false
   }
 }
 
 // Scanner & Camera state
+type ScanState = 'starting' | 'scanning' | 'detected' | 'pairing' | 'success' | 'error' | 'blocked'
+const DEFAULT_HINT = 'Skieruj aparat na kod QR w aplikacji partnera'
+const PAIRING_CODE_RE = /^DN-[A-Z0-9]{4,12}$/
+
 const isScannerOpen = ref(false)
-const scannerStatusText = ref('')
+const scanState = ref<ScanState>('starting')
+const scanHint = ref(DEFAULT_HINT)
+const hintIsWarning = ref(false)
+const scannedCode = ref('')
+const scanError = ref('')
 const cameraBlockedMessage = ref('')
+const blockedTitle = ref('Brak dostępu do aparatu')
+const blockedSteps = ref<string[]>([])
 const isTorchSupported = ref(false)
 const isTorchOn = ref(false)
 const hasMultipleCameras = ref(false)
 let currentCameraIndex = 0
-let availableCameras: any[] = []
-let html5QrCode: Html5Qrcode | null = null
+let availableCameras: Array<{ id: string, label: string }> = []
+let hintTimer: ReturnType<typeof setTimeout> | null = null
+let lastRejected = { text: '', at: 0 }
 
 // Extract pairing code from raw decoded text or URLs
 const extractPairingCode = (rawText: string): string => {
   if (!rawText) return ''
-  const trimmed = rawText.trim()
-  const match = trimmed.match(/DN-[A-Z0-9]{4,10}/i)
-  if (match) {
-    return match[0].toUpperCase()
-  }
-  return trimmed
+  const match = rawText.trim().match(/DN-[A-Z0-9]{4,12}/i)
+  return match ? match[0].toUpperCase() : rawText.trim().toUpperCase()
+}
+
+const haptic = (pattern: number | number[]) => {
+  try { navigator.vibrate?.(pattern) } catch (_) {}
+}
+
+const flashHint = (text: string) => {
+  scanHint.value = text
+  hintIsWarning.value = true
+  if (hintTimer) clearTimeout(hintTimer)
+  hintTimer = setTimeout(() => {
+    scanHint.value = DEFAULT_HINT
+    hintIsWarning.value = false
+  }, 2600)
 }
 
 // Downscale large camera photos to optimal QR resolution (prevents ZXing memory crash)
@@ -495,177 +584,328 @@ const decodeQrFromImage = async (file: File): Promise<string | null> => {
   return null
 }
 
+/** Single entry point for every decoded QR (camera or gallery photo). */
+const handleDecoded = async (decodedText: string) => {
+  if (scanState.value !== 'scanning' && scanState.value !== 'blocked') return
+  const code = extractPairingCode(decodedText)
+
+  if (!PAIRING_CODE_RE.test(code)) {
+    // Throttle so a foreign QR in view doesn't spam the hint / vibration
+    if (lastRejected.text === decodedText && Date.now() - lastRejected.at < 2500) return
+    lastRejected = { text: decodedText, at: Date.now() }
+    haptic([20, 60, 20])
+    flashHint('To nie jest kod DuoNest. Zeskanuj kod z ekranu parowania partnera.')
+    return
+  }
+  if (code === currentUser.value?.pairing_code) {
+    if (lastRejected.text === code && Date.now() - lastRejected.at < 2500) return
+    lastRejected = { text: code, at: Date.now() }
+    haptic([20, 60, 20])
+    flashHint('To Twój własny kod – zeskanuj kod z telefonu partnera.')
+    return
+  }
+
+  // Lock onto the code: freeze the frame, haptic tick, then pair
+  scannedCode.value = code
+  scanState.value = 'detected'
+  haptic(35)
+  pauseScanning()
+
+  await new Promise(r => setTimeout(r, 380))
+  scanState.value = 'pairing'
+  const result = await submitPairing(code, { fromScanner: true })
+  if (!isScannerOpen.value) return
+  if (result.ok) {
+    scanState.value = 'success'
+    haptic([30, 50, 30])
+  } else {
+    scanError.value = result.error || 'Spróbuj ponownie.'
+    scanState.value = 'error'
+    haptic([40, 80, 40])
+  }
+}
+
+const resumeScanning = () => {
+  scanError.value = ''
+  scannedCode.value = ''
+  lastRejected = { text: '', at: 0 }
+  scanHint.value = DEFAULT_HINT
+  hintIsWarning.value = false
+  if (!mediaStream) {
+    startScanner()
+    return
+  }
+  scanState.value = 'scanning'
+  resumeCamera()
+}
+
+/** Gallery photo picked on the main page (outside the scanner). */
 const handleFileUpload = async (e: Event) => {
   const target = e.target as HTMLInputElement
-  if (!target.files || target.files.length === 0) return
-  const file = target.files[0]
-
-  try {
-    scannerStatusText.value = 'Analizowanie zdjęcia...'
-    const decoded = await decodeQrFromImage(file)
-    if (decoded) {
-      const code = extractPairingCode(decoded)
-      scannerStatusText.value = `Zeskanowano kod: ${code}`
-      await stopScanner()
-      submitPairing(code)
-    } else {
-      scannerStatusText.value = 'Nie rozpoznano kodu QR na tym zdjęciu. Upewnij się, że kod jest wyraźny lub wpisz kod ręcznie.'
-      triggerToast('Nie wykryto kodu QR', { type: 'warning' })
-    }
-  } catch (err) {
-    scannerStatusText.value = 'Błąd odczytu zdjęcia. Spróbuj innego pliku lub wpisz kod ręcznie.'
-  } finally {
-    target.value = ''
+  const file = target.files?.[0]
+  target.value = ''
+  if (!file) return
+  const decoded = await decodeQrFromImage(file)
+  const code = decoded ? extractPairingCode(decoded) : ''
+  if (!PAIRING_CODE_RE.test(code)) {
+    triggerToast('Nie znaleziono kodu DuoNest na zdjęciu', { type: 'warning' })
+    return
   }
+  partnerCodeInput.value = code
+  submitPairing(code)
+}
+
+/** Gallery photo picked inside the scanner – same flow as a live scan. */
+const handleScannerFileUpload = async (e: Event) => {
+  const target = e.target as HTMLInputElement
+  const file = target.files?.[0]
+  target.value = ''
+  if (!file) return
+  const previous = scanState.value
+  if (previous === 'blocked') scanState.value = 'scanning'
+  pauseScanning()
+  const decoded = await decodeQrFromImage(file)
+  if (decoded) {
+    await handleDecoded(decoded)
+    if (scanState.value === 'scanning') {
+      // Foreign / own code – keep scanning
+      if (previous === 'blocked') scanState.value = 'blocked'
+      else resumeCamera()
+    }
+    return
+  }
+  haptic([20, 60, 20])
+  if (previous === 'blocked') {
+    scanState.value = 'blocked'
+    triggerToast('Nie znaleziono kodu QR na zdjęciu', { type: 'warning' })
+  } else {
+    flashHint('Nie znaleziono kodu QR na tym zdjęciu. Spróbuj wyraźniejszego.')
+    resumeCamera()
+  }
+}
+
+const enterCodeManually = async () => {
+  await stopScanner()
+  activeMode.value = 'join'
+  await nextTick()
+  const input = document.querySelector<HTMLInputElement>('.dn-auth-form input')
+  input?.focus()
+}
+
+const describeCameraError = (err: any) => {
+  const name = String(err?.name || err || '')
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent)
+  blockedSteps.value = []
+  if (!window.isSecureContext) {
+    blockedTitle.value = 'Aparat wymaga bezpiecznego połączenia'
+    cameraBlockedMessage.value = 'Otwórz DuoNest przez https://, aby skanować kody. Możesz też wybrać zdjęcie kodu albo wpisać go ręcznie.'
+  } else if (/NotFound|Overconstrained|DevicesNotFound/i.test(name)) {
+    blockedTitle.value = 'Nie znaleziono aparatu'
+    cameraBlockedMessage.value = 'To urządzenie nie udostępnia aparatu. Wybierz zdjęcie kodu z galerii albo wpisz kod ręcznie.'
+  } else if (/NotReadable|TrackStart|AbortError/i.test(name)) {
+    blockedTitle.value = 'Aparat jest zajęty'
+    cameraBlockedMessage.value = 'Inna aplikacja używa teraz aparatu. Zamknij ją i spróbuj ponownie.'
+  } else {
+    blockedTitle.value = 'Brak dostępu do aparatu'
+    cameraBlockedMessage.value = 'DuoNest potrzebuje aparatu tylko do zeskanowania kodu partnera.'
+    blockedSteps.value = isIos
+      ? ['Otwórz Ustawienia → Aplikacje → Safari → Aparat', 'Wybierz „Pytaj” lub „Zezwalaj”', 'Wróć tutaj i stuknij „Spróbuj ponownie”']
+      : ['Stuknij ikonę kłódki obok adresu strony', 'Wejdź w Uprawnienia → Aparat → Zezwalaj', 'Wróć tutaj i stuknij „Spróbuj ponownie”']
+  }
+  scanState.value = 'blocked'
+}
+
+// ---- Camera engine: own <video> + scan loop (full-screen, Telegram/WhatsApp style) ----
+// Native BarcodeDetector where available (Android / Chrome), jsQR elsewhere (iOS).
+const videoEl = ref<HTMLVideoElement | null>(null)
+const isFrontCamera = ref(false)
+let mediaStream: MediaStream | null = null
+let scanTimer: ReturnType<typeof setTimeout> | null = null
+let scanPaused = false
+let detector: any = null
+let jsQR: ((data: Uint8ClampedArray, w: number, h: number, opts?: any) => { data: string } | null) | null = null
+const scanCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null
+const SCAN_INTERVAL_MS = 110
+const SCAN_MAX_EDGE = 640
+
+const ensureDecoder = async () => {
+  if (detector || jsQR) return
+  try {
+    const BD = (window as any).BarcodeDetector
+    if (BD && (await BD.getSupportedFormats?.())?.includes('qr_code')) {
+      detector = new BD({ formats: ['qr_code'] })
+      return
+    }
+  } catch (_) {}
+  jsQR = (await import('jsqr')).default as any
+}
+
+const decodeFrame = async (video: HTMLVideoElement): Promise<string | null> => {
+  if (detector) {
+    const found = await detector.detect(video)
+    return found?.[0]?.rawValue || null
+  }
+  if (!jsQR || !scanCanvas) return null
+  // Centre square of the frame (what the user aims at), downscaled for speed
+  const vw = video.videoWidth, vh = video.videoHeight
+  const side = Math.min(vw, vh)
+  const sx = (vw - side) / 2, sy = (vh - side) / 2
+  const out = Math.min(side, SCAN_MAX_EDGE)
+  scanCanvas.width = out
+  scanCanvas.height = out
+  const ctx = scanCanvas.getContext('2d', { willReadFrequently: true })
+  if (!ctx) return null
+  ctx.drawImage(video, sx, sy, side, side, 0, 0, out, out)
+  const img = ctx.getImageData(0, 0, out, out)
+  return jsQR(img.data, out, out, { inversionAttempts: 'attemptBoth' })?.data || null
+}
+
+const scanLoop = async () => {
+  scanTimer = null
+  const video = videoEl.value
+  if (!isScannerOpen.value || !mediaStream || !video) return
+  if (!scanPaused && scanState.value === 'scanning' && video.readyState >= 2 && video.videoWidth) {
+    try {
+      const text = await decodeFrame(video)
+      if (text) await handleDecoded(text)
+    } catch (_) {}
+  }
+  if (isScannerOpen.value && mediaStream) scanTimer = setTimeout(scanLoop, SCAN_INTERVAL_MS)
+}
+
+const pauseScanning = () => {
+  scanPaused = true
+  videoEl.value?.pause()
+}
+
+const resumeCamera = () => {
+  scanPaused = false
+  videoEl.value?.play().catch(() => {})
+}
+
+const currentTrack = () => mediaStream?.getVideoTracks()[0] || null
+
+const detectTorch = () => {
+  try {
+    isTorchSupported.value = Boolean((currentTrack()?.getCapabilities?.() as any)?.torch)
+  } catch (_) {
+    isTorchSupported.value = false
+  }
+}
+
+const teardownCamera = async () => {
+  if (scanTimer) clearTimeout(scanTimer)
+  scanTimer = null
+  mediaStream?.getTracks().forEach(t => t.stop())
+  mediaStream = null
+  if (videoEl.value) videoEl.value.srcObject = null
+}
+
+const openStream = async (deviceId?: string) => {
+  const video: MediaTrackConstraints = deviceId
+    ? { deviceId: { exact: deviceId } }
+    : { facingMode: { ideal: 'environment' } }
+  return navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: { ...video, width: { ideal: 1280 }, height: { ideal: 720 } }
+  })
+}
+
+const attachStream = async (stream: MediaStream) => {
+  mediaStream = stream
+  const settings = stream.getVideoTracks()[0]?.getSettings?.() || {}
+  isFrontCamera.value = settings.facingMode === 'user'
+  const video = videoEl.value
+  if (!video) throw new Error('no video element')
+  video.srcObject = stream
+  await video.play().catch(() => {})
+  detectTorch()
 }
 
 // Camera Scanner logic with robust iOS/Android compatibility
 const startScanner = async () => {
   isScannerOpen.value = true
-  cameraBlockedMessage.value = ''
-  scannerStatusText.value = 'Uruchamianie aparatu...'
+  scanState.value = 'starting'
+  scanHint.value = DEFAULT_HINT
+  hintIsWarning.value = false
+  scannedCode.value = ''
+  scanError.value = ''
+  isTorchOn.value = false
+  scanPaused = false
   await nextTick()
+  // Let the modal mount its DOM before the camera attaches
+  await new Promise(r => setTimeout(r, 160))
+  if (!isScannerOpen.value) return
 
-  // Small delay for Ionic modal DOM rendering
-  await new Promise(r => setTimeout(r, 120))
-
-  const readerEl = document.getElementById('qr-reader')
-  if (readerEl) readerEl.replaceChildren()
-
+  await teardownCamera()
   try {
+    if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error('unsupported'), { name: 'NotFoundError' })
+    const [stream] = await Promise.all([openStream(), ensureDecoder()])
+    if (!isScannerOpen.value) {
+      stream.getTracks().forEach(t => t.stop())
+      return
+    }
+    await attachStream(stream)
+    scanState.value = 'scanning'
+    scanLoop()
+
+    // Permission is granted now, so device labels are available for "Obróć"
     try {
-      availableCameras = await Html5Qrcode.getCameras()
+      availableCameras = (await navigator.mediaDevices.enumerateDevices())
+        .filter(d => d.kind === 'videoinput')
+        .map(d => ({ id: d.deviceId, label: d.label }))
       hasMultipleCameras.value = availableCameras.length > 1
+      const activeId = currentTrack()?.getSettings?.().deviceId
+      const idx = availableCameras.findIndex(c => c.id === activeId)
+      currentCameraIndex = idx >= 0 ? idx : 0
     } catch (_) {
-      availableCameras = []
       hasMultipleCameras.value = false
-    }
-
-    if (html5QrCode) {
-      try { await html5QrCode.stop() } catch (_) {}
-      try { await html5QrCode.clear() } catch (_) {}
-      html5QrCode = null
-    }
-
-    html5QrCode = new Html5Qrcode('qr-reader')
-
-    const config = {
-      fps: 15,
-      qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-        const edge = Math.min(viewfinderWidth, viewfinderHeight)
-        const size = Math.floor(edge * 0.72)
-        return { width: Math.max(size, 180), height: Math.max(size, 180) }
-      },
-      aspectRatio: 1.0
-    }
-
-    const onScanSuccess = (decodedText: string) => {
-      const code = extractPairingCode(decodedText)
-      scannerStatusText.value = `Zeskanowano: ${code}`
-      stopScanner()
-      submitPairing(code)
-    }
-
-    let started = false
-
-    // 1. Try back camera by deviceId
-    if (availableCameras.length > 0) {
-      const backCam = availableCameras.find(c => /back|rear|environment|tył|główny/i.test(c.label)) || availableCameras[availableCameras.length - 1]
-      try {
-        await html5QrCode.start(backCam.id, config, onScanSuccess, () => {})
-        started = true
-      } catch (e) {
-        console.warn('Failed with camera ID, trying facingMode ideal...', e)
-      }
-    }
-
-    // 2. Try facingMode ideal: environment
-    if (!started) {
-      try {
-        await html5QrCode.start({ facingMode: { ideal: 'environment' } }, config, onScanSuccess, () => {})
-        started = true
-      } catch (e) {
-        console.warn('Failed with facingMode ideal, trying generic video...', e)
-      }
-    }
-
-    // 3. Fallback to user camera or basic video
-    if (!started) {
-      await html5QrCode.start({ facingMode: 'user' }, config, onScanSuccess, () => {})
-      started = true
-    }
-
-    scannerStatusText.value = 'Skieruj aparat na kod QR partnera'
-
-    // Check torch support
-    try {
-      const track = (html5QrCode as any).getRunningTrack?.()
-      const caps = track?.getCapabilities?.()
-      isTorchSupported.value = !!caps?.torch
-    } catch (_) {
-      isTorchSupported.value = false
     }
   } catch (err: any) {
     console.warn('Camera start error:', err)
-    cameraBlockedMessage.value = 'Przeglądarka zablokowała dostęp do kamery lub na urządzeniu brak aktywnego aparatu. Kliknij poniżej, aby wybrać zdjęcie z galerii.'
-    scannerStatusText.value = 'Aparat zablokowany. Wybierz zdjęcie z kodem z galerii.'
+    await teardownCamera()
+    if (isScannerOpen.value) describeCameraError(err)
   }
 }
 
 const switchCamera = async () => {
-  if (availableCameras.length < 2 || !html5QrCode) return
+  if (availableCameras.length < 2 || scanState.value !== 'scanning') return
   currentCameraIndex = (currentCameraIndex + 1) % availableCameras.length
   const nextCam = availableCameras[currentCameraIndex]
+  scanState.value = 'starting'
+  isTorchOn.value = false
   try {
-    await html5QrCode.stop()
-    await html5QrCode.clear()
-    const readerEl = document.getElementById('qr-reader')
-    if (readerEl) readerEl.replaceChildren()
-    html5QrCode = new Html5Qrcode('qr-reader')
-
-    const config = {
-      fps: 15,
-      qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-        const edge = Math.min(viewfinderWidth, viewfinderHeight)
-        const size = Math.floor(edge * 0.72)
-        return { width: Math.max(size, 180), height: Math.max(size, 180) }
-      }
-    }
-
-    await html5QrCode.start(nextCam.id, config, (decodedText) => {
-      const code = extractPairingCode(decodedText)
-      stopScanner()
-      submitPairing(code)
-    }, () => {})
+    await teardownCamera()
+    await attachStream(await openStream(nextCam.id))
+    scanState.value = 'scanning'
+    scanLoop()
   } catch (e) {
     console.warn('Switch camera error:', e)
+    startScanner()
   }
 }
 
 const toggleTorch = async () => {
-  if (!html5QrCode || !isTorchSupported.value) return
+  const track = currentTrack()
+  if (!track || !isTorchSupported.value) return
   try {
-    isTorchOn.value = !isTorchOn.value
-    await (html5QrCode as any).applyVideoConstraints({
-      advanced: [{ torch: isTorchOn.value }]
-    })
+    const next = !isTorchOn.value
+    await track.applyConstraints({ advanced: [{ torch: next } as any] })
+    isTorchOn.value = next
+    haptic(10)
   } catch (err) {
     console.warn('Torch toggle error:', err)
   }
 }
 
 const stopScanner = async () => {
-  if (html5QrCode) {
-    try {
-      await html5QrCode.stop()
-      await html5QrCode.clear()
-    } catch (_) {}
-    html5QrCode = null
-  }
   isScannerOpen.value = false
-  scannerStatusText.value = ''
+  if (hintTimer) clearTimeout(hintTimer)
+  await teardownCamera()
   cameraBlockedMessage.value = ''
   isTorchOn.value = false
+  isTorchSupported.value = false
+  hasMultipleCameras.value = false
 }
 
 onMounted(async () => {
@@ -702,7 +942,7 @@ onMounted(async () => {
           particleCount: 120,
           spread: 75,
           origin: { y: 0.6 },
-          colors: ['#0284c7', '#0ea5e9', '#0d9488', '#38bdf8']
+          colors: confettiColors
         })
         askPermissionAfterPairing(partnerUser.value?.name || 'Partner')
         navigateTo('/tabs/nest', { replace: true })
@@ -728,705 +968,138 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.pairing-content {
-  --background: #f8fafc;
+.name-field {
+  margin-bottom: 22px;
 }
 
-.pairing-container {
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 24px 16px 40px 16px;
+/* PANELS */
+.pair-panel {
+  margin-top: 20px;
+  animation: pairPanelIn 0.25s ease;
 }
 
-.pairing-hero {
+@keyframes pairPanelIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.pair-panel-desc {
+  margin: 0 0 18px;
   text-align: center;
-  padding: 16px 0 12px 0;
-}
-
-.pairing-logo {
-  width: 72px;
-  height: 72px;
-  border-radius: 20px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
-  margin-bottom: 12px;
-  object-fit: cover;
-}
-
-.pairing-title {
-  font-size: 28px;
-  font-weight: 900;
-  color: #0f172a;
-  letter-spacing: -0.03em;
-  margin: 0;
-}
-
-.pairing-subtitle {
   font-size: 14px;
-  color: #64748b;
-  margin: 6px auto 0 auto;
-  max-width: 320px;
-  line-height: 1.4;
+  line-height: 1.5;
+  color: var(--dn-auth-muted);
 }
 
-/* IDENTITY CARD */
-.identity-card {
-  margin: 16px 0 12px 0;
-  padding: 14px 16px;
-}
-
-.card-label {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  color: #0f172a;
-  margin-bottom: 6px;
-}
-
-.name-edit-row {
+/* QR */
+.pair-qr {
   display: flex;
-  gap: 8px;
-}
-
-.name-input {
-  flex: 1;
-  --background: #f8fafc;
-  --padding-start: 12px;
-  --border-radius: 12px;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-  font-size: 14px;
-  font-weight: 600;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.name-input:focus-within {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
-}
-
-.save-name-btn {
-  background: #0f172a;
-  border: 1px solid #0f172a;
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 700;
-  border-radius: 12px;
-  padding: 0 16px;
-  cursor: pointer;
-}
-
-/* MODE TABS */
-.mode-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin: 12px 0 16px 0;
-}
-
-.mode-tab-btn {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 12px 8px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #64748b;
-  display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  margin-bottom: 16px;
 }
 
-.mode-tab-btn.active {
-  background: #0f172a;
-  color: #ffffff;
-  border-color: #0f172a;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
-}
-
-.mode-tab-btn ion-icon {
-  font-size: 18px;
-}
-
-/* CARDS */
-.share-card, .join-card {
-  margin: 0;
-  padding: 20px;
-  text-align: center;
-}
-
-.section-badge {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  color: #0f172a;
-  margin-bottom: 4px;
-}
-
-.share-card h3, .join-card h3 {
-  font-size: 18px;
-  font-weight: 800;
-  color: #0f172a;
-  margin: 0;
-}
-
-.section-info {
-  font-size: 13px;
-  color: #64748b;
-  margin: 6px 0 16px 0;
-  line-height: 1.4;
-}
-
-/* CODE BOX */
-.code-box {
-  background: #f8fafc;
-  border: 2px dashed #0f172a;
-  border-radius: 16px;
-  padding: 14px 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-}
-
-.code-value {
-  font-size: 24px;
-  font-weight: 900;
-  letter-spacing: 0.15em;
-  color: #0f172a;
-  font-family: monospace;
-}
-
-.copy-action-btn {
+.pair-qr-frame {
+  padding: 14px;
   background: #ffffff;
-  border: 1px solid #cbd5e1;
-  color: #0f172a;
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
+  border: 1.5px solid var(--dn-auth-line);
+  border-radius: 28px;
+  box-shadow: 0 16px 32px -20px rgba(28, 27, 25, 0.25);
 }
 
-/* QR WRAPPER */
-.qr-code-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-.qr-frame {
-  background: #ffffff;
-  padding: 12px;
-  border-radius: 20px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
-  display: inline-block;
-}
-
-.qr-image {
+.pair-qr-image,
+.pair-qr-loading {
   width: 200px;
   height: 200px;
   display: block;
 }
 
-.qr-loading {
-  height: 200px;
+.pair-qr-loading {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.qr-caption {
-  font-size: 12px;
-  color: #64748b;
-  font-weight: 500;
+.pair-qr-loading ion-spinner {
+  color: var(--dn-auth-ink);
 }
 
-/* SCAN CAMERA BUTTON */
-.scan-camera-btn {
-  width: 100%;
-  background: #0f172a;
-  color: #ffffff;
-  border: none;
-  border-radius: 16px;
-  padding: 16px;
+/* CODE */
+.pair-code {
   display: flex;
   align-items: center;
-  gap: 14px;
-  cursor: pointer;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15);
-  text-align: left;
-  transition: all 0.2s ease;
-}
-
-.scan-camera-btn:active {
-  background: #1e293b;
-  transform: scale(0.98);
-}
-
-.cam-icon {
-  font-size: 30px;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 8px;
-  border-radius: 12px;
-}
-
-.cam-title {
-  font-size: 15px;
-  font-weight: 800;
-  display: block;
-}
-
-.cam-sub {
-  font-size: 12px;
-  opacity: 0.9;
-  display: block;
-  margin-top: 2px;
-}
-
-/* DIVIDER */
-.divider-or {
-  position: relative;
-  text-align: center;
-  margin: 20px 0;
-}
-
-.divider-or::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: #e2e8f0;
-}
-
-.divider-or span {
-  position: relative;
-  background: #ffffff;
-  padding: 0 12px;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  color: #94a3b8;
-}
-
-/* MANUAL INPUT */
-.manual-input-box {
-  text-align: left;
-}
-
-.manual-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: #334155;
-  display: block;
-  margin-bottom: 6px;
-}
-
-.manual-input-row {
-  display: flex;
-  gap: 8px;
-}
-
-.partner-code-input {
-  flex: 1;
-  --background: #f8fafc;
-  --padding-start: 14px;
-  --border-radius: 12px;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.input-hint {
-  font-size: 11px;
-  font-weight: 500;
-  color: #64748b;
-  margin: 6px 0 0 2px;
-  line-height: 1.4;
-}
-
-.partner-code-input:focus-within {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
-}
-
-.pair-action-btn {
-  background: #0f172a;
-  color: #ffffff;
-  border: none;
-  border-radius: 12px;
-  padding: 0 20px;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
-  transition: background 0.15s ease, transform 0.15s ease;
-}
-
-.pair-action-btn:active {
-  background: #1e293b;
-  transform: scale(0.97);
-}
-
-.partner-name-field {
-  margin-top: 12px;
-}
-
-.manual-sublabel {
-  font-size: 11px;
-  font-weight: 600;
-  color: #64748b;
-  display: block;
-  margin-bottom: 4px;
-}
-
-.partner-name-input-styled {
-  --background: #f8fafc;
-  --padding-start: 12px;
-  --border-radius: 10px;
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-  font-size: 14px;
-  font-weight: 600;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.partner-name-input-styled:focus-within {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
-}
-
-.error-msg {
-  display: block;
-  font-size: 12px;
-  color: #ef4444;
-  margin-top: 6px;
-  font-weight: 600;
-}
-
-/* SCANNER BUTTONS & MODAL */
-.scan-buttons-group {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.scan-camera-btn,
-.scan-gallery-btn {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  padding: 14px 16px;
-  border-radius: 16px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.scan-camera-btn {
-  background: #0f172a;
-  border: none;
-  color: #ffffff;
-}
-
-.scan-gallery-btn {
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  color: #0f172a;
-}
-
-.scan-camera-btn:active,
-.scan-gallery-btn:active {
-  transform: scale(0.98);
-}
-
-.cam-icon,
-.gallery-icon {
-  font-size: 26px;
-  flex-shrink: 0;
-}
-
-.cam-btn-text {
-  display: flex;
-  flex-direction: column;
-  text-align: left;
-}
-
-.cam-title {
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.25;
-}
-
-.cam-sub {
-  font-size: 11.5px;
-  opacity: 0.85;
-  margin-top: 2px;
-}
-
-.hidden-file-input {
-  display: none;
-}
-
-/* WHATSAPP-STYLE MODAL STYLING */
-.whatsapp-scanner-modal {
-  --background: #090d16;
-}
-
-.scanner-modal-toolbar {
-  --background: #090d16;
-  --color: #ffffff;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.scanner-header-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #ffffff;
-}
-
-.scanner-header-btn {
-  --color: #ffffff;
-  font-size: 20px;
-}
-
-.scanner-header-btn.torch-on {
-  --color: #fbbf24;
-}
-
-.scanner-modal-content {
-  --background: #090d16;
-}
-
-.whatsapp-scanner-wrapper {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
   justify-content: space-between;
-  padding: 12px 16px 24px;
-  box-sizing: border-box;
+  gap: 12px;
+  padding: 14px 14px 14px 18px;
+  background: var(--dn-auth-field);
+  border: 1px solid var(--dn-auth-field-line);
+  border-radius: 20px;
 }
 
-.camera-viewport {
-  position: relative;
-  width: 100%;
-  max-width: 360px;
-  margin: 0 auto;
-  aspect-ratio: 1;
-  border-radius: 24px;
-  overflow: hidden;
-  background: #000000;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.scanner-video-box {
-  width: 100% !important;
-  height: 100% !important;
-  border: none !important;
-}
-
-.scanner-video-box video {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-  border-radius: 24px;
-}
-
-/* Viewfinder laser animation */
-.viewfinder-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.viewfinder-box {
-  position: relative;
-  width: 220px;
-  height: 220px;
-}
-
-.corner {
-  position: absolute;
-  width: 28px;
-  height: 28px;
-  border-color: #ffffff;
-  border-style: solid;
-}
-
-.corner.tl { top: 0; left: 0; border-width: 4px 0 0 4px; border-top-left-radius: 12px; }
-.corner.tr { top: 0; right: 0; border-width: 4px 4px 0 0; border-top-right-radius: 12px; }
-.corner.bl { bottom: 0; left: 0; border-width: 0 0 4px 4px; border-bottom-left-radius: 12px; }
-.corner.br { bottom: 0; right: 0; border-width: 0 4px 4px 0; border-bottom-right-radius: 12px; }
-
-.laser-scanner-line {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, #ffffff, #cbd5e1, #ffffff, transparent);
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
-  animation: laserSweep 2.2s infinite ease-in-out;
-}
-
-@keyframes laserSweep {
-  0% { top: 8%; opacity: 0.8; }
-  50% { top: 88%; opacity: 1; }
-  100% { top: 8%; opacity: 0.8; }
-}
-
-/* Camera blocked fallback */
-.camera-error-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.95);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  text-align: center;
-}
-
-.camera-error-card {
+.pair-code-texts {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  color: #ffffff;
+  min-width: 0;
 }
 
-.error-badge-icon {
-  font-size: 38px;
-  color: #f59e0b;
-}
-
-.camera-error-card h4 {
-  font-size: 15px;
-  font-weight: 700;
-  margin: 0;
-}
-
-.camera-error-card p {
+.pair-code-label {
   font-size: 12px;
-  color: #cbd5e1;
-  margin: 0;
-  line-height: 1.45;
+  color: var(--dn-auth-muted);
 }
 
-.action-gallery-btn {
-  margin-top: 10px;
-  background: #0f172a;
-  color: #ffffff;
-  padding: 10px 18px;
-  border-radius: 12px;
-  font-size: 12.5px;
-  font-weight: 700;
-  border: none;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
+.pair-code-value {
+  font-family: var(--dn-auth-serif);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--dn-auth-ink);
+  font-variant-numeric: lining-nums;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.pair-copy-btn {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  cursor: pointer;
-}
-
-/* Bottom Sheet */
-.scanner-bottom-sheet {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  padding-top: 14px;
-}
-
-.scanner-status-text {
-  font-size: 13px;
-  color: #94a3b8;
-  text-align: center;
-  margin: 0;
-  font-weight: 500;
-  line-height: 1.4;
-  max-width: 320px;
-}
-
-.scanner-quick-tools {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.gallery-pill-btn {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-  padding: 10px 20px;
+  height: 40px;
+  padding: 0 16px;
+  border: none;
   border-radius: 999px;
+  background: var(--dn-auth-ink);
+  color: #ffffff;
   font-size: 13px;
   font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(8px);
+  transition: transform 0.15s ease;
 }
 
-.gallery-pill-btn:active {
-  background: rgba(255, 255, 255, 0.22);
+.pair-copy-btn:active {
   transform: scale(0.96);
 }
 
-.pill-icon {
-  font-size: 18px;
-  color: #ffffff;
+.pair-copy-btn ion-icon {
+  font-size: 16px;
 }
 
-.pairing-live-listener-banner {
-  margin-top: 14px;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 12px;
-  padding: 10px 12px;
+/* LIVE LISTENER */
+.pair-live {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  font-weight: 700;
-  color: #16a34a;
-  text-align: left;
-  line-height: 1.35;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 0 4px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--dn-auth-muted);
 }
 
-.pulsing-green-dot {
+.pair-live-dot {
   width: 8px;
   height: 8px;
   min-width: 8px;
   border-radius: 50%;
-  background: #16a34a;
+  background: #2f9e44;
   animation: pulseGreenDot 1.8s infinite ease-in-out;
 }
 
@@ -1435,34 +1108,435 @@ onUnmounted(() => {
   50% { transform: scale(1.4); opacity: 0.4; }
 }
 
-.account-session-row {
+.session-line {
+  font-size: 13px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+/* ============ QR SCANNER ============ */
+.qrs-modal {
+  --background: #000;
+  --width: 100%;
+  --height: 100%;
+}
+
+.qrs-content {
+  --background: #000;
+}
+
+.qrs {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+  --qrs-size: min(68vw, 290px);
+}
+
+/* Camera fills the whole screen */
+.qrs-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #000;
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
+
+.qrs-video--mirror {
+  transform: scaleX(-1);
+}
+
+.qrs--starting .qrs-video,
+.qrs--blocked .qrs-video {
+  opacity: 0;
+}
+
+.qrs--detected .qrs-video,
+.qrs--pairing .qrs-video,
+.qrs--success .qrs-video,
+.qrs--error .qrs-video {
+  filter: brightness(0.75);
+}
+
+/* Viewfinder */
+.qrs-finder {
+  position: absolute;
+  inset: 0;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid #f1f5f9;
-  font-size: 12px;
-  color: #64748b;
+  justify-content: center;
+  pointer-events: none;
+  padding-bottom: 8vh;
 }
 
-.account-email-label strong {
-  color: #0f172a;
+.qrs-frame {
+  position: relative;
+  width: var(--qrs-size);
+  height: var(--qrs-size);
+  border-radius: 30px;
+  box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.55);
+  transition: transform 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.25), box-shadow 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.logout-link-btn {
-  background: transparent;
+.qrs--scanning .qrs-frame {
+  animation: qrsBreathe 2.6s ease-in-out infinite;
+}
+
+.qrs-frame--hit {
+  transform: scale(0.9);
+  box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.66);
+}
+
+@keyframes qrsBreathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
+}
+
+.qrs-corner {
+  position: absolute;
+  width: 46px;
+  height: 46px;
+  border: 0 solid #fff;
+  transition: border-color 0.25s ease, width 0.35s ease, height 0.35s ease;
+}
+
+.qrs-corner.tl { top: 0; left: 0; border-top-width: 5px; border-left-width: 5px; border-top-left-radius: 30px; }
+.qrs-corner.tr { top: 0; right: 0; border-top-width: 5px; border-right-width: 5px; border-top-right-radius: 30px; }
+.qrs-corner.bl { bottom: 0; left: 0; border-bottom-width: 5px; border-left-width: 5px; border-bottom-left-radius: 30px; }
+.qrs-corner.br { bottom: 0; right: 0; border-bottom-width: 5px; border-right-width: 5px; border-bottom-right-radius: 30px; }
+
+.qrs-frame--hit .qrs-corner {
+  width: 50%;
+  height: 50%;
+}
+
+.qrs-sweep {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 10%;
+  height: 34%;
+  border-radius: 18px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.16));
+  border-bottom: 2px solid rgba(255, 255, 255, 0.75);
+  animation: qrsSweep 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes qrsSweep {
+  0% { transform: translateY(0); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateY(160%); opacity: 0; }
+}
+
+.qrs-frame-spinner {
+  width: 34px;
+  height: 34px;
+  color: #fff;
+}
+
+.qrs-hit-badge {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #fff;
+  color: #1c1b19;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34px;
+  animation: qrsPop 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.35);
+}
+
+@keyframes qrsPop {
+  from { transform: scale(0.3); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Top bar */
+.qrs-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: calc(env(safe-area-inset-top) + 12px) 16px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  z-index: 2;
+}
+
+.qrs-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
+}
+
+.qrs-round,
+.qrs-round-spacer {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.qrs-round {
+  border-radius: 50%;
   border: none;
-  color: #ef4444;
-  font-size: 12px;
+  background: rgba(255, 255, 255, 0.16);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.qrs-round:active {
+  transform: scale(0.92);
+}
+
+.qrs-round--on {
+  background: #fff;
+  color: #1c1b19;
+}
+
+.qrs-round--lg {
+  width: 56px;
+  height: 56px;
+  font-size: 24px;
+}
+
+/* Bottom */
+.qrs-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0 20px calc(env(safe-area-inset-bottom) + 24px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  z-index: 2;
+}
+
+.qrs-hint {
+  margin: 0;
+  max-width: 300px;
+  padding: 10px 16px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.qrs-hint--warn {
+  background: #fff;
+  color: #1c1b19;
+  animation: qrsShake 0.35s ease;
+}
+
+@keyframes qrsShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+.qrs-card {
+  width: 100%;
+  max-width: 340px;
+  padding: 18px 20px;
+  border-radius: 24px;
+  background: #fff;
+  color: #1c1b19;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  box-shadow: 0 20px 40px -18px rgba(0, 0, 0, 0.6);
+}
+
+.qrs-card-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7a6a48;
+}
+
+.qrs-card-code {
+  font-family: var(--dn-auth-serif);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+}
+
+.qrs-card-hint {
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: #6f6a60;
+}
+
+.qrs-card-btn {
+  margin-top: 10px;
+  padding: 12px 22px;
+  border: none;
+  border-radius: 14px;
+  background: #1c1b19;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.qrs-actions {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+}
+
+.qrs-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  color: #fff;
+  font: inherit;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: background 0.15s ease;
 }
 
-.logout-link-btn:hover {
-  background: #fee2e2;
+.qrs-action:active .qrs-round {
+  transform: scale(0.92);
 }
+
+.qrs-fade-enter-active,
+.qrs-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.25s ease;
+}
+
+.qrs-fade-enter-from,
+.qrs-fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+/* Camera blocked – app look (cream, ink, serif) */
+.qrs--blocked {
+  background: var(--dn-auth-cream);
+  color: var(--dn-auth-ink);
+}
+
+.qrs--blocked .qrs-round {
+  background: rgba(28, 27, 25, 0.07);
+  color: var(--dn-auth-ink);
+}
+
+.qrs--blocked .qrs-title {
+  text-shadow: none;
+}
+
+.qrs-blocked {
+  position: absolute;
+  inset: 0;
+  padding: calc(env(safe-area-inset-top) + 92px) 28px calc(env(safe-area-inset-bottom) + 28px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  overflow-y: auto;
+}
+
+.qrs-blocked-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 14px 30px -18px rgba(28, 27, 25, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  margin-bottom: 22px;
+}
+
+.qrs-blocked-title {
+  margin: 0 0 10px;
+  font-family: var(--dn-auth-serif);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.qrs-blocked-text {
+  margin: 0 0 18px;
+  max-width: 320px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--dn-auth-muted);
+}
+
+.qrs-blocked-steps {
+  margin: 0 0 24px;
+  padding: 16px 18px 16px 38px;
+  width: 100%;
+  max-width: 340px;
+  border-radius: 18px;
+  background: #fff;
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--dn-auth-ink-soft);
+}
+
+.qrs-blocked-steps li + li {
+  margin-top: 6px;
+}
+
+.qrs-blocked-actions {
+  width: 100%;
+  max-width: 340px;
+  margin-top: auto;
+}
+
+.qrs-sandbox {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 </style>

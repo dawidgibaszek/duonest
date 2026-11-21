@@ -1,0 +1,84 @@
+<!--
+  DuoNest boot loading screen.
+  Rendered by Nuxt before the JS bundle loads (ssr: false). pages/index.vue
+  renders the same layout, so the hand-off to the app is seamless.
+-->
+<div class="dn-boot" role="status" aria-label="Ładowanie DuoNest">
+  <div class="dn-boot-brand">
+    <img src="/logo.svg" alt="DuoNest" class="dn-boot-logo" width="96" height="96" />
+    <span class="dn-boot-name">DuoNest</span>
+  </div>
+  <div class="dn-boot-spinner" aria-hidden="true">
+    <span style="--i:0"></span><span style="--i:1"></span><span style="--i:2"></span><span style="--i:3"></span>
+    <span style="--i:4"></span><span style="--i:5"></span><span style="--i:6"></span><span style="--i:7"></span>
+  </div>
+</div>
+
+<style>
+  html, body { background: #f6f2e7; }
+
+  .dn-boot {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    background: #f6f2e7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dn-boot-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .dn-boot-logo {
+    width: 96px;
+    height: 96px;
+    object-fit: contain;
+  }
+
+  .dn-boot-name {
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    color: #1c1b19;
+  }
+
+  .dn-boot-spinner {
+    position: absolute;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom) + 72px);
+    width: 28px;
+    height: 28px;
+    margin-left: -14px;
+  }
+
+  .dn-boot-spinner span {
+    position: absolute;
+    left: 12.5px;
+    top: 0;
+    width: 3px;
+    height: 8px;
+    border-radius: 2px;
+    background: #1c1b19;
+    opacity: 0.15;
+    transform-origin: 1.5px 14px;
+    transform: rotate(calc(var(--i) * 45deg));
+    animation: dn-boot-fade 0.8s linear infinite;
+    animation-delay: calc(var(--i) * 0.1s - 0.8s);
+  }
+
+  @keyframes dn-boot-fade {
+    0% { opacity: 1; }
+    100% { opacity: 0.15; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dn-boot-spinner span { animation-duration: 1.6s; }
+  }
+</style>

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480">
+  <defs>
+    <g id="bird">
+      <g fill="none" stroke="#232c38" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M218 124 C212 106 197 100 183 101 C164 103 150 118 152 138 C154 160 168 175 165 200 C162 224 132 236 90 232"/>
+        <path d="M157 160 C108 160 76 192 78 228 C80 262 115 287 155 287 C190 287 214 255 212 222 C210 197 193 189 194 178 C196 166 208 160 220 154"/>
+        <path d="M44 196 C54 217 67 231 84 240"/>
+      </g>
+      <path d="M215 121 L241 142 L217 158 Z" fill="#232c38" stroke="#232c38" stroke-width="4" stroke-linejoin="round"/>
+    </g>
+  </defs>
+  <use href="#bird"/>
+  <use href="#bird" transform="translate(480 0) scale(-1 1)"/>
+  <g fill="none" stroke="#232c38" stroke-width="11" stroke-linecap="round">
+    <path d="M42 272 C120 300 260 312 340 305 C380 300 410 282 436 254"/>
+    <path d="M438 272 C360 300 220 312 140 305 C100 300 70 282 44 254"/>
+    <path d="M40 312 C62 300 84 306 122 322 C200 344 330 344 440 306"/>
+    <path d="M62 258 C108 296 142 330 168 350"/>
+    <path d="M418 258 C372 296 338 330 312 350"/>
+    <path d="M150 356 C204 330 250 306 296 290"/>
+    <path d="M330 356 C276 330 230 306 184 290"/>
+    <path d="M118 342 C196 370 262 384 330 390"/>
+    <path d="M362 342 C284 370 218 384 150 390"/>
+    <path d="M122 372 C200 376 286 376 362 368"/>
+  </g>
+</svg>

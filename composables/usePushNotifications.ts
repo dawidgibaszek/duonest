@@ -1,5 +1,10 @@
-import { ref, reactive, watch } from 'vue'
-import { useDuoState } from '~/composables/useDuoState'
+import { ref, reactive, watch, computed } from 'vue'
+import { App } from '@capacitor/app'
+import { Capacitor } from '@capacitor/core'
+import { FirebaseMessaging } from '@capacitor-firebase/messaging'
+import { activeToastItem, authSession, currentUser, isAuthLoading, isLoggingOut, isPaired, partnerUser } from './duo/state'
+import { useRealtimeSync } from './duo/useRealtimeSync'
+import { getFirebaseBridge } from '~/composables/useFirebaseBridge'
 
 export interface PushCategorySettings {
   nudges: boolean        // Puknięcia i gesty miłości
@@ -30,7 +35,8 @@ const DEFAULT_PUSH_SETTINGS: PushCategorySettings = {
 }
 
 // Global persistent state across composable instances
-const isSupported = ref(false)
+const isSupported = computed(() => isNativeApp() ||
+  (typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator))
 const permission = ref<NotificationPermission>('default')
 const isPushEnabled = ref(false)
 const isPostPairingPromptOpen = ref(false)
@@ -40,10 +46,82 @@ export const pushSettings = reactive<PushCategorySettings>({ ...DEFAULT_PUSH_SET
 
 let isInitialized = false
 
-// Storage keys
+// --- iOS app (Capacitor): native push via Firebase Cloud Messaging -------------
+// The web build uses Web Push + service worker; inside the app there is no
+// service worker, so the device registers an FCM token with the backend instead
+// and the server delivers through APNs (see server/utils/pushCore.ts).
+export const isNativeApp = () =>
+  Capacitor.getPlatform() === 'ios' || (typeof window !== 'undefined' && window.location.protocol === 'capacitor:')
+
 const STORAGE_KEY_ENABLED = 'duonest_push_enabled'
 const STORAGE_KEY_SETTINGS = 'duonest_push_settings'
 const STORAGE_KEY_PROMPT_SHOWN = 'duonest_push_prompt_shown'
+const STORAGE_KEY_NATIVE_DEVICE = 'duonest_push_native_device'
+
+const nativeRegistered = ref(false)
+const isTestingPush = ref(false)
+let nativeSyncTimer: ReturnType<typeof setTimeout> | undefined
+let registerInFlight: Promise<boolean> | undefined
+let nativeWork: Promise<unknown> = Promise.resolve()
+let nativeDevice: { uid: string; token: string } | null = null
+
+const mapNativePermission = (state: string): NotificationPermission =>
+  state === 'granted' ? 'granted' : state === 'denied' ? 'denied' : 'default'
+
+function rememberNativeDevice(device: typeof nativeDevice) {
+  nativeDevice = device
+  try {
+    if (device) localStorage.setItem(STORAGE_KEY_NATIVE_DEVICE, JSON.stringify(device))
+    else localStorage.removeItem(STORAGE_KEY_NATIVE_DEVICE)
+  } catch {}
+}
+
+function queueNativeWork<T>(work: () => Promise<T>): Promise<T> {
+  const next = nativeWork.then(work)
+  nativeWork = next.catch(() => {})
+  return next
+}
+
+const activeNativeAccount = () => {
+  if (isAuthLoading.value || isLoggingOut.value || !currentUser.value?.id) return null
+  return getFirebaseBridge()?.auth.currentUser ?? null
+}
+
+async function forgetNativeDevice() {
+  const account = getFirebaseBridge()?.auth.currentUser
+  const device = nativeDevice
+  const token = device?.uid === account?.uid ? device?.token : null
+
+  const unregister = async () => {
+    if (!token || !account) return false
+    const authToken = await account.getIdToken()
+    const result = await $fetch<{ success: boolean }>('/api/push/unsubscribe', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authToken}` },
+      body: { fcmToken: token },
+      timeout: 4000
+    })
+    return result.success === true
+  }
+
+  const [removed, invalidated] = await Promise.all([
+    unregister().catch(() => false),
+    FirebaseMessaging.deleteToken().then(() => true, () => false)
+  ])
+  await FirebaseMessaging.removeAllDeliveredNotifications().catch(() => {})
+  if (removed || invalidated) rememberNativeDevice(null)
+  nativeRegistered.value = false
+  return removed || invalidated
+}
+
+export async function detachNativePushOnLogout() {
+  clearTimeout(nativeSyncTimer)
+  try {
+    await queueNativeWork(forgetNativeDevice)
+  } catch {
+    console.warn('[Push] Could not detach the native device')
+  }
+}
 
 // High-fidelity web audio synthesizer for in-app alert chimes (zero latency, zero network)
 export const playNotificationChime = () => {
@@ -196,7 +274,8 @@ export const initBadgeListeners = () => {
 }
 
 export const usePushNotifications = () => {
-  const { currentUser, partnerUser, authSession, triggerToast, activeToastItem } = useDuoState()
+  const { triggerToast } = useRealtimeSync()
+  const router = useRouter()
 
   // Initialize environment detection and stored preferences
   const initPushNotifications = () => {
@@ -209,10 +288,9 @@ export const usePushNotifications = () => {
 
     // Check browser support for Notification & ServiceWorker
     const hasNotification = 'Notification' in window
-    const hasSW = 'serviceWorker' in navigator
-    isSupported.value = hasNotification && hasSW
+    const native = isNativeApp()
 
-    if (hasNotification) {
+    if (hasNotification && !native) {
       permission.value = Notification.permission
     }
 
@@ -220,12 +298,13 @@ export const usePushNotifications = () => {
     try {
       const storedEnabled = localStorage.getItem(STORAGE_KEY_ENABLED)
       if (storedEnabled !== null) {
-        isPushEnabled.value = JSON.parse(storedEnabled) && permission.value === 'granted'
+        const parsed = JSON.parse(storedEnabled)
+        isPushEnabled.value = native ? Boolean(parsed) : (Boolean(parsed) && permission.value === 'granted')
       } else {
-        isPushEnabled.value = permission.value === 'granted'
+        isPushEnabled.value = native ? false : permission.value === 'granted'
       }
     } catch (_) {
-      isPushEnabled.value = permission.value === 'granted'
+      isPushEnabled.value = native ? false : permission.value === 'granted'
     }
 
     // Load category settings
@@ -237,8 +316,13 @@ export const usePushNotifications = () => {
       }
     } catch (_) {}
 
-    // Auto-register/sync subscription when user is authenticated and push is enabled
+    if (native) {
+      initNativePush()
+      return
+    }
+
     if (isPushEnabled.value && permission.value === 'granted') {
+      // Auto-register/sync subscription when user is authenticated and push is enabled
       registerServiceWorkerSubscription()
     }
 
@@ -311,8 +395,12 @@ export const usePushNotifications = () => {
   }
 
   // Persist settings
-  const persistSettings = () => {
+  const persistSettings = (syncNative = true) => {
     if (typeof window === 'undefined') return
+    if (syncNative && isNativeApp() && isPushEnabled.value && permission.value === 'granted') {
+      clearTimeout(nativeSyncTimer)
+      nativeSyncTimer = setTimeout(() => { void syncNativePreferences() }, 600)
+    }
     try {
       localStorage.setItem(STORAGE_KEY_ENABLED, JSON.stringify(isPushEnabled.value))
       localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(pushSettings))
@@ -330,6 +418,7 @@ export const usePushNotifications = () => {
 
   // Request browser permission
   const requestPermission = async (): Promise<boolean> => {
+    if (isNativeApp()) return requestNativePermission()
     if (typeof window === 'undefined' || !('Notification' in window)) {
       triggerToast('Powiadomienia nieobsługiwane', { type: 'warning' })
       return false
@@ -367,7 +456,10 @@ export const usePushNotifications = () => {
   const registerServiceWorkerSubscription = async () => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
     try {
-      const reg = await navigator.serviceWorker.ready
+      const reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<undefined>(resolve => setTimeout(() => resolve(undefined), 5000))
+      ])
       if (!reg || !('pushManager' in reg)) return
 
       const vapidPublicKey = (useRuntimeConfig().public as any)?.vapidPublicKey
@@ -381,27 +473,182 @@ export const usePushNotifications = () => {
           })
         }
 
-        // Sync subscription with Supabase via backend endpoint
+        // Link this browser subscription to the signed-in profile.
         if (sub && currentUser.value?.id) {
-          await $fetch('/api/push/subscribe', {
+          const response = await $fetch<{ success: boolean }>('/api/push/subscribe', {
             method: 'POST',
-            headers: authSession.value?.access_token
-              ? { Authorization: `Bearer ${authSession.value.access_token}` }
-              : undefined,
-            body: {
-              subscription: sub.toJSON(),
-              userAgent: navigator.userAgent
-            }
-          }).catch((err) => {
-            console.warn('[WebPush] Subscription sync note:', err)
+            headers: await getFreshAuthHeaders(),
+            body: { subscription: sub.toJSON(), userAgent: navigator.userAgent },
+            timeout: 8000
           })
+          if (response?.success) return sub
         }
-
-        isSubscribing.value = false
       }
-    } catch (err) {
+    } catch {
+      console.warn('[Push] Browser registration failed')
+    } finally {
       isSubscribing.value = false
-      console.warn('Push manager registration note:', err)
+    }
+  }
+
+  // --- Native (iOS app) -------------------------------------------------------
+  const getFreshAuthHeaders = async () => {
+    try {
+      const bridge = getFirebaseBridge()
+      const { data } = await bridge.auth.getSession()
+      const token = data.session?.access_token || authSession.value?.access_token
+      if (token) return { Authorization: `Bearer ${token}` }
+    } catch (_) {}
+    return authSession.value?.access_token
+      ? { Authorization: `Bearer ${authSession.value.access_token}` }
+      : undefined
+  }
+
+  const saveNativeToken = async (token: string, account: NonNullable<ReturnType<typeof activeNativeAccount>>) => {
+    const authToken = await account.getIdToken()
+    if (!isPushEnabled.value || permission.value !== 'granted' || activeNativeAccount()?.uid !== account.uid) return false
+    const response = await $fetch<{ success: boolean }>('/api/push/subscribe', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authToken}` },
+      body: {
+        fcmToken: token,
+        previousFcmToken: nativeDevice?.uid === account.uid ? nativeDevice.token : undefined,
+        platform: 'ios',
+        enabled: true,
+        settings: { ...pushSettings },
+        userAgent: navigator.userAgent
+      },
+      timeout: 8000
+    })
+    if (!response?.success) return false
+    rememberNativeDevice({ uid: account.uid, token })
+    nativeRegistered.value = true
+    return true
+  }
+
+  const registerNativeDevice = (): Promise<boolean> => {
+    if (registerInFlight) return registerInFlight
+    if (!isPushEnabled.value || permission.value !== 'granted' || !activeNativeAccount()) return Promise.resolve(false)
+
+    isSubscribing.value = true
+    registerInFlight = queueNativeWork(async () => {
+      const account = activeNativeAccount()
+      if (!account || !isPushEnabled.value || permission.value !== 'granted') return false
+
+      // APNs registration is asynchronous on iOS, especially on cold launch.
+      for (const delay of [0, 500, 1000, 2000]) {
+        if (delay) await new Promise(resolve => setTimeout(resolve, delay))
+        if (!isPushEnabled.value || permission.value !== 'granted' || activeNativeAccount()?.uid !== account.uid) return false
+        const result = await FirebaseMessaging.getToken().catch(() => null)
+        if (result?.token) return saveNativeToken(result.token, account)
+      }
+      return false
+    }).catch(() => {
+      console.warn('[Push] Native registration failed')
+      return false
+    }).then((registered) => {
+      nativeRegistered.value = registered
+      return registered
+    }).finally(() => {
+      isSubscribing.value = false
+      registerInFlight = undefined
+    })
+    return registerInFlight
+  }
+
+  const syncNativePreferences = () => queueNativeWork(async () => {
+    const account = activeNativeAccount()
+    if (!account || !nativeDevice || nativeDevice.uid !== account.uid) return
+    await saveNativeToken(nativeDevice.token, account)
+  }).catch(() => {
+    console.warn('[Push] Could not sync notification preferences')
+    triggerToast('Nie udało się zapisać ustawień powiadomień. Spróbujemy ponownie po powrocie do aplikacji.', { type: 'warning' })
+  })
+
+  const requestNativePermission = async (): Promise<boolean> => {
+    try {
+      const current = await FirebaseMessaging.checkPermissions()
+      const { receive } = current.receive === 'granted' ? current : await FirebaseMessaging.requestPermissions()
+      permission.value = mapNativePermission(receive)
+    } catch {
+      triggerToast('Nie udało się sprawdzić uprawnień powiadomień.', { type: 'warning' })
+      return false
+    }
+
+    if (permission.value !== 'granted') {
+      nativeRegistered.value = false
+      if (permission.value === 'denied') triggerToast('Powiadomienia zablokowane w iOS', { type: 'warning' })
+      return false
+    }
+
+    isPushEnabled.value = true
+    persistSettings(false)
+    const registered = await registerNativeDevice()
+    triggerToast(
+      registered ? 'Włączono powiadomienia' : 'Nie udało się zarejestrować tego urządzenia. Spróbuj ponownie.',
+      { type: registered ? 'success' : 'warning' }
+    )
+    return registered
+  }
+
+  const initNativePush = () => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY_NATIVE_DEVICE) || 'null')
+      if (typeof stored?.uid === 'string' && typeof stored?.token === 'string') nativeDevice = stored
+    } catch {}
+
+    try {
+      let pendingRoute: { url: string; recipient?: string } | undefined
+      const openPendingRoute = () => {
+        if (!pendingRoute || isAuthLoading.value || isLoggingOut.value) return
+        if (!isPaired.value || !activeNativeAccount() || !router.currentRoute.value.path.startsWith('/tabs/')) return
+        const { url, recipient } = pendingRoute
+        pendingRoute = undefined
+        if (!recipient || recipient === currentUser.value.id) void router.push(url).catch(() => {})
+      }
+
+      void FirebaseMessaging.addListener('notificationActionPerformed', ({ actionId, notification }) => {
+        if (actionId !== 'tap') return
+        const data = notification.data as { url?: unknown; recipientProfileId?: string } | undefined
+        if (typeof data?.url !== 'string' ||
+            !/^\/tabs\/(nest|calendar|shopping|tasks|meals|movies|wishlist|savings|relationship)$/.test(data.url)) return
+        pendingRoute = { url: data.url, recipient: data.recipientProfileId }
+        openPendingRoute()
+      }).catch(() => console.warn('[Push] Notification tap listener unavailable'))
+
+      void FirebaseMessaging.addListener('tokenReceived', () => {
+        if (!isSubscribing.value) void registerNativeDevice()
+      }).catch(() => console.warn('[Push] Token refresh listener unavailable'))
+
+      void FirebaseMessaging.addListener('notificationReceived', ({ notification }) => {
+        const data = notification.data as { action?: string } | undefined
+        if (data?.action === 'TEST') console.info('[Push] Test notification received')
+      }).catch(() => console.warn('[Push] Notification listener unavailable'))
+
+      const refreshNativePush = async () => {
+        const { receive } = await FirebaseMessaging.checkPermissions()
+        permission.value = mapNativePermission(receive)
+        if (permission.value !== 'granted') nativeRegistered.value = false
+        if (isPushEnabled.value && permission.value === 'granted') {
+          await registerNativeDevice()
+        } else if (nativeDevice?.uid && nativeDevice.uid === activeNativeAccount()?.uid) {
+          await queueNativeWork(forgetNativeDevice)
+        }
+      }
+      const refresh = () => { void refreshNativePush().catch(() => console.warn('[Push] Native refresh failed')) }
+
+      watch([isAuthLoading, () => authSession.value?.user?.id, () => currentUser.value?.id], () => {
+        refresh()
+        openPendingRoute()
+      })
+      watch([isPaired, () => router.currentRoute.value.path], openPendingRoute, { flush: 'post' })
+      watch(isLoggingOut, (loggingOut) => { if (loggingOut) pendingRoute = undefined })
+      void App.addListener('appStateChange', ({ isActive }) => { if (isActive) refresh() })
+        .catch(() => console.warn('[Push] App state listener unavailable'))
+      window.addEventListener('online', refresh)
+      refresh()
+    } catch {
+      console.warn('[Push] Native initialization failed')
     }
   }
 
@@ -420,6 +667,7 @@ export const usePushNotifications = () => {
   // One-time prompt triggered AFTER pairing
   const askPermissionAfterPairing = (partnerName?: string) => {
     if (typeof window === 'undefined') return
+    if (!isSupported.value) return
     const hasAlreadyAsked = localStorage.getItem(STORAGE_KEY_PROMPT_SHOWN) === 'true'
 
     // If already asked or user already granted/denied, do not prompt again
@@ -466,6 +714,22 @@ export const usePushNotifications = () => {
   const toggleMasterPush = async (val?: boolean) => {
     const target = val !== undefined ? val : !isPushEnabled.value
 
+    if (isNativeApp()) {
+      if (target) {
+        await requestNativePermission()
+      } else {
+        isPushEnabled.value = false
+        persistSettings(false)
+        clearTimeout(nativeSyncTimer)
+        const detached = await queueNativeWork(forgetNativeDevice).catch(() => false)
+        triggerToast(
+          detached ? 'Wyłączono powiadomienia' : 'Nie udało się odpiąć urządzenia. Ponowimy próbę po połączeniu.',
+          { type: detached ? 'info' : 'warning' }
+        )
+      }
+      return
+    }
+
     if (target) {
       if (permission.value !== 'granted') {
         const granted = await requestPermission()
@@ -478,6 +742,7 @@ export const usePushNotifications = () => {
         isPushEnabled.value = true
         persistSettings()
         triggerToast('Włączono powiadomienia', { type: 'success' })
+        await registerServiceWorkerSubscription()
       }
     } else {
       isPushEnabled.value = false
@@ -559,6 +824,9 @@ export const usePushNotifications = () => {
       return
     }
 
+    // iOS app: system notifications come only from the server (FCM/APNs)
+    if (isNativeApp()) return
+
     // App is in background/minimized -> increment badge counter for unread push notifications
     await incrementAppBadge()
 
@@ -572,7 +840,7 @@ export const usePushNotifications = () => {
           await reg.showNotification(finalTitle, {
             body: finalBody,
             icon: '/pwa-192x192.png',
-            badge: '/favicon.png',
+            badge: '/badge-96.png',
             vibrate: vibratePattern,
             silent: isSilent,
             data: { url: finalUrl },
@@ -587,7 +855,7 @@ export const usePushNotifications = () => {
       new Notification(finalTitle, {
         body: finalBody,
         icon: '/pwa-192x192.png',
-        badge: '/favicon.png',
+        badge: '/badge-96.png',
         vibrate: vibratePattern,
         silent: isSilent
       } as any)
@@ -610,69 +878,50 @@ export const usePushNotifications = () => {
   }
 
   // Test notification action (sends real backend push to registered device)
-  const sendTestNotification = async (customTitle?: any, customBody?: any, customUrl?: any) => {
-    if (permission.value !== 'granted') {
-      const granted = await requestPermission()
-      if (!granted) return
+  const sendTestNotification = async () => {
+    if (isTestingPush.value) return
+    if (!isPushEnabled.value || permission.value !== 'granted') {
+      triggerToast('Najpierw włącz powiadomienia na tym urządzeniu.', { type: 'warning' })
+      return
     }
 
-    isPushEnabled.value = true
-    persistSettings()
-
-    // Ensure device is subscribed on server
-    await registerServiceWorkerSubscription()
-
-    const partnerName = partnerUser.value?.name || 'Partner'
-    const title = (typeof customTitle === 'string' && customTitle.trim())
-      ? customTitle
-      : 'DuoNest - Test Powiadomień'
-    const body = (typeof customBody === 'string' && customBody.trim())
-      ? customBody
-      : `Wszystko działa idealnie! Gdy ${partnerName} wyśle Ci buziaka, zaplanuje obiad lub doda zadanie, dowiesz się od razu.`
-    const url = (typeof customUrl === 'string' && customUrl.trim())
-      ? customUrl
-      : '/tabs/nest'
-
-    let sentViaServer = false
-    if (currentUser.value?.id) {
-      try {
-        const res = await $fetch<{ success: boolean; sentCount?: number }>('/api/push/test', {
-          method: 'POST',
-          headers: authSession.value?.access_token
-            ? { Authorization: `Bearer ${authSession.value.access_token}` }
-            : undefined,
-          body: {
-            title,
-            body,
-            vibrate: pushSettings.vibrate ? [120, 60, 120, 60, 180] : [],
-            silent: !pushSettings.sound
-          }
-        })
-        if (res?.success && (res.sentCount || 0) > 0) {
-          sentViaServer = true
-        }
-      } catch (err) {
-        console.warn('[WebPush] Server test dispatch note:', err)
+    isTestingPush.value = true
+    try {
+      const native = isNativeApp()
+      const device = native
+        ? await registerNativeDevice() && nativeDevice && { fcmToken: nativeDevice.token }
+        : await registerServiceWorkerSubscription().then(subscription => subscription && { endpoint: subscription.endpoint })
+      const headers = await getFreshAuthHeaders()
+      if (!device || !headers) {
+        triggerToast('Nie udało się zarejestrować tego urządzenia.', { type: 'warning' })
+        return
       }
-    }
 
-    // Fallback to direct client notification if server hasn't received subscription yet or local env
-    if (!sentViaServer) {
-      sendDirectNotification(title, body, url, true)
+      const result = await $fetch<{ success: boolean; sentCount?: number; message?: string }>('/api/push/test', {
+        method: 'POST',
+        headers,
+        body: {
+          ...device,
+          url: '/tabs/relationship',
+          vibrate: pushSettings.vibrate ? [120, 60, 120, 60, 180] : [],
+          silent: !pushSettings.sound
+        },
+        timeout: 12000
+      })
+      if (!result?.success || !result.sentCount) {
+        triggerToast(result?.message || 'Wysyłka powiadomienia testowego nie powiodła się.', { type: 'warning' })
+        return
+      }
+      triggerToast('Wysłano powiadomienie testowe na to urządzenie.', { type: 'success' })
+    } catch {
+      triggerToast('Wysyłka powiadomienia testowego nie powiodła się. Spróbuj ponownie.', { type: 'warning' })
+    } finally {
+      isTestingPush.value = false
     }
-
-    // Play in-app audio/haptic feedback
-    if (pushSettings.sound) {
-      playNotificationChime()
-    }
-    if (pushSettings.vibrate) {
-      playNotificationHaptic([120, 60, 180])
-    }
-
-    triggerToast('Wysłano powiadomienie testowe', { type: 'success' })
   }
 
   return {
+    isNativeApp: computed(() => isNativeApp()),
     isSupported,
     permission,
     isPushEnabled,
@@ -680,6 +929,8 @@ export const usePushNotifications = () => {
     isPostPairingPromptOpen,
     postPairingPartnerName,
     isSubscribing,
+    nativeRegistered,
+    isTestingPush,
     initPushNotifications,
     requestPermission,
     askPermissionAfterPairing,

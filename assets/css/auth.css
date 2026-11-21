@@ -1,0 +1,415 @@
+/*
+ * DuoNest Auth – cream onboarding style
+ * Shared by: splash (index), login / register, pairing, reset-password, verified.
+ * Hero panel lives in components/DuoAuthHero.vue.
+ */
+:root {
+  --dn-auth-cream: #f6f2e7;
+  --dn-auth-plate: #ece5d3;
+  --dn-auth-paper: #ffffff;
+  --dn-auth-ink: #1c1b19;
+  --dn-auth-ink-soft: #2e2c28;
+  --dn-auth-muted: #6f6a60;
+  --dn-auth-faint: #a39d90;
+  --dn-auth-line: #eceef1;
+  --dn-auth-field: #f5f6f8;
+  --dn-auth-field-line: #e3e6eb;
+  --dn-auth-soft: #f2f3f5;
+  --dn-auth-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+}
+
+ion-content.dn-auth-content {
+  --background: var(--dn-auth-paper);
+}
+
+/* Welcome screen: cream above / white below so iOS rubber-band overscroll matches the hero */
+ion-content.dn-auth-content--hero {
+  --background: linear-gradient(to bottom, var(--dn-auth-cream) 0 50%, var(--dn-auth-paper) 50% 100%);
+}
+
+.dn-auth-page {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--dn-auth-paper);
+  color: var(--dn-auth-ink);
+}
+
+.dn-auth-body {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top) + 28px) 24px calc(28px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* Body placed under the cream hero panel (welcome screen) */
+.dn-auth-body--after-hero {
+  padding-top: 32px;
+}
+
+/* Top bar with a round back arrow (login / register / forgot) */
+.dn-auth-topbar {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  margin: -14px 0 2px -10px;
+}
+
+/* ---------- Typography ---------- */
+.dn-auth-heading {
+  text-align: center;
+  margin-bottom: 26px;
+}
+
+.dn-auth-title {
+  font-family: var(--dn-auth-serif);
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+  color: var(--dn-auth-ink);
+  margin: 0;
+}
+
+.dn-auth-subtitle {
+  margin: 10px auto 0;
+  max-width: 330px;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--dn-auth-ink-soft);
+}
+
+.dn-auth-eyebrow {
+  display: block;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dn-auth-faint);
+  margin-bottom: 10px;
+}
+
+/* ---------- Form ---------- */
+.dn-auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dn-auth-help {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--dn-auth-muted);
+  margin: -6px 4px 0;
+}
+
+.dn-auth-field-aux {
+  display: flex;
+  justify-content: flex-end;
+  margin: -8px 2px 0;
+}
+
+.dn-auth-inline-btn {
+  flex-shrink: 0;
+  height: 38px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--dn-auth-ink);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.dn-auth-inline-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.dn-auth-inline-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+/* ---------- Buttons ---------- */
+.dn-auth-btn {
+  width: 100%;
+  min-height: 56px;
+  padding: 0 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--dn-auth-ink);
+  color: #ffffff;
+  font-family: var(--ion-font-family);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
+}
+
+.dn-auth-btn ion-icon {
+  font-size: 19px;
+  flex-shrink: 0;
+}
+
+.dn-auth-btn ion-spinner {
+  width: 20px;
+  height: 20px;
+  color: #ffffff;
+}
+
+.dn-auth-btn:active:not(:disabled) {
+  transform: scale(0.98);
+  background: #000000;
+}
+
+.dn-auth-btn:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+
+.dn-auth-btn--outline {
+  background: var(--dn-auth-soft);
+  color: var(--dn-auth-ink);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.dn-auth-btn--outline ion-spinner {
+  color: var(--dn-auth-ink);
+}
+
+.dn-auth-btn--outline:active:not(:disabled) {
+  background: #e7e9ec;
+}
+
+.dn-auth-btn--outline:disabled {
+  opacity: 0.55;
+}
+
+.dn-auth-link {
+  background: none;
+  border: none;
+  padding: 4px 0;
+  font: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--dn-auth-ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.dn-auth-link--muted {
+  color: var(--dn-auth-muted);
+  font-weight: 500;
+}
+
+.dn-auth-back {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--dn-auth-ink);
+  font-size: 24px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.dn-auth-back:active {
+  background: var(--dn-auth-soft);
+}
+
+/* ---------- Segmented switch ---------- */
+.dn-auth-segment {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.dn-auth-segment button {
+  min-height: 52px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: none;
+  border-radius: 999px;
+  background: var(--dn-auth-soft);
+  color: var(--dn-auth-ink);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+
+.dn-auth-segment button ion-icon {
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.dn-auth-segment button:active {
+  transform: scale(0.98);
+}
+
+.dn-auth-segment button.active {
+  background: var(--dn-auth-ink);
+  color: #ffffff;
+}
+
+/* ---------- Alerts ---------- */
+.dn-auth-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.dn-auth-alert ion-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.dn-auth-alert--error {
+  background: #fcefec;
+  color: #a8382b;
+}
+
+.dn-auth-alert--success {
+  background: #edf5ea;
+  color: #2f6a39;
+}
+
+.dn-auth-alert--info {
+  background: var(--dn-auth-cream);
+  color: var(--dn-auth-ink-soft);
+}
+
+/* ---------- Misc ---------- */
+.dn-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 26px 0 18px;
+  font-size: 13px;
+  color: var(--dn-auth-faint);
+}
+
+.dn-auth-divider::before,
+.dn-auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--dn-auth-line);
+}
+
+.dn-auth-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dn-auth-account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  background: var(--dn-auth-cream);
+  border-radius: 16px;
+  min-width: 0;
+}
+
+.dn-auth-account > ion-icon {
+  font-size: 20px;
+  color: var(--dn-auth-ink);
+  flex-shrink: 0;
+}
+
+.dn-auth-account-texts {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dn-auth-account-label {
+  font-size: 12px;
+  color: var(--dn-auth-muted);
+}
+
+.dn-auth-account-value {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--dn-auth-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dn-auth-footer {
+  margin-top: auto;
+  padding-top: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--dn-auth-muted);
+}
+
+.dn-auth-footer strong {
+  color: var(--dn-auth-ink);
+  font-weight: 600;
+}
+
+.dn-auth-fineprint {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--dn-auth-faint);
+  max-width: 320px;
+}
+
+.dn-auth-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 32px 0;
+  color: var(--dn-auth-muted);
+  font-size: 15px;
+}
+
+.dn-auth-status ion-spinner {
+  width: 30px;
+  height: 30px;
+  color: var(--dn-auth-ink);
+}

@@ -1,0 +1,296 @@
+import { onRequest } from 'firebase-functions/v2/https'
+import * as admin from 'firebase-admin'
+import express from 'express'
+import cors from 'cors'
+import { syncAccount, pairWithCode, disconnectPartnership, resolveCallerProfile } from './duoAccount'
+import { handlePushAction, PUSH_ACTIONS, type PushAction } from './pushCore'
+import { handleMusicAction, isMusicAction } from './musicCore'
+import { handleMoviesTrending, handleMoviesSearch, handleMoviesRandom } from './moviesCore'
+import { handleMealsCategories, handleMealsSearch, handleMealsLookup, handleMealsImport } from './mealsCore'
+
+// Inicjalizacja Firebase Admin
+if (admin.apps.length === 0) {
+  admin.initializeApp()
+}
+
+const db = admin.firestore()
+const auth = admin.auth()
+
+// Realtime Database (null if the project has no default RTDB instance)
+const getRtdb = () => {
+  try {
+    return admin.database()
+  } catch (_) {
+    return null
+  }
+}
+
+const decodedUser = (req: any) => ({
+  uid: req.user.uid,
+  email: req.user.email,
+  email_verified: req.user.email_verified === true
+})
+
+const app = express()
+app.use(cors({ origin: true }))
+app.use(express.json())
+
+// Middleware uwierzytelniania tokenu Firebase
+async function requireAuth(req: any, res: any, next: any) {
+  const authHeader = req.headers.authorization || ''
+  const match = authHeader.match(/^Bearer\s+(.+)$/i)
+  if (!match) {
+    return res.status(401).json({ error: 'Authentication required' })
+  }
+  try {
+    const decoded = await auth.verifyIdToken(match[1])
+    req.user = decoded
+    next()
+  } catch (err: any) {
+    return res.status(401).json({ error: 'Invalid authentication token', message: err.message })
+  }
+}
+
+// -----------------------------------------------------------------------------
+// 1. FILMY (TMDB)
+// -----------------------------------------------------------------------------
+app.get('/api/movies/trending', async (req, res) => {
+  try {
+    const requestKey = req.headers['x-tmdb-api-key'] as string | undefined
+    const result = await handleMoviesTrending(req.query, requestKey)
+    res.json(result)
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message, results: [] })
+  }
+})
+
+app.get('/api/movies/search', async (req, res) => {
+  try {
+    const requestKey = req.headers['x-tmdb-api-key'] as string | undefined
+    const result = await handleMoviesSearch(req.query, requestKey)
+    res.json(result)
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message, results: [] })
+  }
+})
+
+app.get('/api/movies/random', async (req, res) => {
+  try {
+    const requestKey = req.headers['x-tmdb-api-key'] as string | undefined
+    const result = await handleMoviesRandom(req.query, requestKey)
+    res.json(result)
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+// -----------------------------------------------------------------------------
+// 2. PRZEPISY (MEALS)
+// -----------------------------------------------------------------------------
+app.get('/api/meals/categories', async (_req, res) => {
+  try {
+    const result = await handleMealsCategories()
+    res.json(result)
+  } catch (err: any) {
+    res.status(500).json({ categories: [], areas: [], error: err.message })
+  }
+})
+
+app.get('/api/meals/search', async (req, res) => {
+  try {
+    const result = await handleMealsSearch(req.query)
+    res.json(result)
+  } catch (err: any) {
+    res.status(500).json({ success: false, meals: [], error: err.message })
+  }
+})
+
+app.get('/api/meals/lookup', async (req, res) => {
+  try {
+    const result = await handleMealsLookup(req.query)
+    res.json(result)
+  } catch (err: any) {
+    res.status(500).json({ success: false, meal: null, error: err.message })
+  }
+})
+
+app.post('/api/meals/import', async (req, res) => {
+  try {
+    const result = await handleMealsImport(req.body)
+    res.json(result)
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+// -----------------------------------------------------------------------------
+// 3. KALENDARZ (iCal FEED)
+// -----------------------------------------------------------------------------
+app.get('/api/calendar/feed', async (req, res) => {
+  try {
+    const partnershipId = String(req.query.partnership_id || '').trim()
+    if (!partnershipId) return res.status(400).send('Brak partnership_id')
+
+    const eventsSnapshot = await db
+      .collection('events')
+      .where('partnership_id', '==', partnershipId)
+      .limit(500)
+      .get()
+
+    const events = eventsSnapshot.docs.map(doc => doc.data())
+
+    // Prosty format iCalendar
+    let ics = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//DuoNest//Wspolny Kalendarz//PL',
+      'CALSCALE:GREGORIAN',
+      'X-WR-CALNAME:DuoNest Kalendarz'
+    ]
+
+    for (const ev of events) {
+      if (!ev.start_time) continue
+      const dtStart = new Date(ev.start_time).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
+      const dtEnd = ev.end_time ? new Date(ev.end_time).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z' : dtStart
+
+      ics.push(
+        'BEGIN:VEVENT',
+        `UID:${ev.id || Math.random()}@duonestapp.pl`,
+        `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
+        `DTSTART:${dtStart}`,
+        `DTEND:${dtEnd}`,
+        `SUMMARY:${ev.title || 'Wydarzenie'}`,
+        `DESCRIPTION:${ev.description || ''}`,
+        `LOCATION:${ev.location || ''}`,
+        'END:VEVENT'
+      )
+    }
+
+    ics.push('END:VCALENDAR')
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8')
+    res.setHeader('Content-Disposition', 'inline; filename="duonest-calendar.ics"')
+    res.send(ics.join('\r\n'))
+  } catch (err: any) {
+    res.status(500).send(`Błąd generowania kalendarza: ${err.message}`)
+  }
+})
+
+// -----------------------------------------------------------------------------
+// 4. POWIADOMIENIA PUSH – Web Push (PWA) + FCM (aplikacja iOS), see pushCore.ts
+// -----------------------------------------------------------------------------
+const pushLimiter = new Map<string, number[]>()
+const allowPush = (key: string, max: number) => {
+  const now = Date.now()
+  const recent = (pushLimiter.get(key) || []).filter(t => now - t < 60_000)
+  if (recent.length >= max) return false
+  recent.push(now)
+  pushLimiter.set(key, recent)
+  return true
+}
+const PUSH_LIMITS: Record<PushAction, number> = { subscribe: 20, unsubscribe: 20, send: 30, test: 6 }
+
+for (const action of PUSH_ACTIONS) {
+  app.post(`/api/push/${action}`, requireAuth, async (req: any, res: any) => {
+    try {
+      if (!allowPush(`${action}:${req.user.uid}`, PUSH_LIMITS[action])) {
+        return res.status(429).json({ success: false, error: 'Zbyt wiele żądań. Odczekaj chwilę.' })
+      }
+      const profile = await resolveCallerProfile(db, decodedUser(req))
+      if (!profile) return res.status(403).json({ success: false, error: 'No profile is linked to this account' })
+      const result = await handlePushAction(db, admin.messaging(), {
+        uid: req.user.uid,
+        profileId: profile.id,
+        partnershipId: profile.partnership_id || null,
+        name: profile.name || null
+      }, action, req.body || {})
+      res.status(result.status).json(result.body)
+    } catch (err: any) {
+      console.error(`[push/${action}]`, err)
+      res.status(500).json({ success: false, error: err.message })
+    }
+  })
+}
+
+// -----------------------------------------------------------------------------
+// 4b. KONTO, CZŁONKOSTWO I PAROWANIE (wymaga uprawnień administratora)
+// -----------------------------------------------------------------------------
+app.post('/api/account/sync', requireAuth, async (req: any, res) => {
+  try {
+    res.json(await syncAccount(db, getRtdb(), decodedUser(req)))
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Simple per-user limiter against guessing pairing codes (per function instance)
+const pairingAttempts = new Map<string, number[]>()
+const allowPairingAttempt = (uid: string) => {
+  const now = Date.now()
+  const recent = (pairingAttempts.get(uid) || []).filter(t => now - t < 60_000)
+  if (recent.length >= 10) return false
+  recent.push(now)
+  pairingAttempts.set(uid, recent)
+  return true
+}
+
+app.post('/api/pairing/pair', requireAuth, async (req: any, res) => {
+  try {
+    // Only password accounts must confirm the address (Apple may hide the e-mail)
+    if (req.user.firebase?.sign_in_provider === 'password' && req.user.email_verified !== true) {
+      return res.status(403).json({ error: 'email_not_verified' })
+    }
+    if (!allowPairingAttempt(req.user.uid)) {
+      return res.status(429).json({ error: 'Zbyt wiele prób parowania. Odczekaj chwilę.' })
+    }
+    const { pairing_input, display_name } = req.body || {}
+    res.json(await pairWithCode(db, getRtdb(), decodedUser(req), String(pairing_input || ''), typeof display_name === 'string' ? display_name : null))
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/pairing/disconnect', requireAuth, async (req: any, res) => {
+  try {
+    res.json(await disconnectPartnership(db, getRtdb(), decodedUser(req)))
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// -----------------------------------------------------------------------------
+// MUZYKA (Last.fm) – /api/lastfm/*, /api/music/*, /api/spotify/* (legacy alias)
+// -----------------------------------------------------------------------------
+app.all('/api/:group(lastfm|music|spotify)/:action', async (req: any, res: any, next: any) => {
+  const { group, action } = req.params
+  if (!isMusicAction(group, action)) return res.status(404).json({ success: false, error: 'Music endpoint not found' })
+  return requireAuth(req, res, next)
+}, async (req: any, res: any) => {
+  try {
+    res.set('Cache-Control', 'no-store')
+    const profile = await resolveCallerProfile(db, decodedUser(req))
+    if (!profile) return res.status(403).json({ success: false, error: 'No profile linked to account' })
+    const result = await handleMusicAction(
+      db,
+      { id: profile.id, partnership_id: profile.partnership_id || null },
+      req.params.group,
+      req.params.action,
+      req.method,
+      req.body,
+      typeof req.headers.origin === 'string' ? req.headers.origin : undefined
+    )
+    res.status(result.status).json(result.body)
+  } catch (err: any) {
+    console.error('[music]', err)
+    res.status(500).json({ success: false, error: err.message || 'Music error' })
+  }
+})
+
+// Eksport Cloud Function v2
+export const api = onRequest(
+  {
+    region: 'europe-west1',
+    cors: true,
+    invoker: 'public'
+  },
+  app
+)

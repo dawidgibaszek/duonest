@@ -308,8 +308,8 @@ onUnmounted(() => {
 .music-activity-card {
   background: #ffffff;
   border-radius: 18px;
-  border: 1px solid rgba(226, 232, 240, 0.85);
-  box-shadow: var(--dn-card-shadow);
+  border: 1px solid var(--dn-line);
+  box-shadow: none;
   padding: 16px;
   margin: 10px 16px;
   min-width: 0;
@@ -338,9 +338,9 @@ onUnmounted(() => {
 
 .section-badge {
   font-size: 10.5px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.07em;
-  color: #0f172a;
+  color: #1c1b19;
   text-transform: uppercase;
   display: inline-flex;
   align-items: center;
@@ -351,8 +351,8 @@ onUnmounted(() => {
 .card-title {
   margin: 0;
   font-size: 16px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   line-height: 1.3;
 }
 
@@ -371,15 +371,15 @@ onUnmounted(() => {
 }
 
 .music-status-tag.is-live {
-  background: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
+  background: #f8f9fb;
+  color: #8e8e8e;
+  border: 1px solid #e7e8ea;
 }
 
 .music-status-tag.is-idle {
-  background: #f1f5f9;
-  color: #64748b;
-  border: 1px solid #e2e8f0;
+  background: #f2f3f5;
+  color: #737373;
+  border: 1px solid #e5e6e8;
 }
 
 /* Animated Equalizer */
@@ -393,7 +393,7 @@ onUnmounted(() => {
 
 .eq-col {
   width: 2.5px;
-  background: #16a34a;
+  background: #8e8e8e;
   border-radius: 1px;
   animation: eqAnim 1s ease-in-out infinite alternate;
 }
@@ -424,15 +424,15 @@ onUnmounted(() => {
 
 .idle-icon {
   font-size: 13px;
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 /* Inner Player Surface (Matching DuoNest Widget Design) */
 .music-player-surface {
-  background: #f8fafc;
+  background: #f8f9fb;
   border-radius: 16px;
   padding: 14px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -453,9 +453,9 @@ onUnmounted(() => {
   flex: 0 0 68px;
   border-radius: 14px;
   overflow: hidden;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  background: #f1f5f9;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(229, 230, 232, 0.9);
+  background: #f2f3f5;
+  box-shadow: none;
   position: relative;
 }
 
@@ -472,7 +472,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(135deg, #1c1b19 0%, #1c1b19 100%);
   color: #ffffff;
 }
 
@@ -495,9 +495,9 @@ onUnmounted(() => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #16a34a;
+  background: #8e8e8e;
   border: 1.5px solid #ffffff;
-  box-shadow: 0 0 6px rgba(22, 163, 74, 0.6);
+  box-shadow: none;
   animation: pulseDot 2s ease-in-out infinite;
 }
 
@@ -521,9 +521,9 @@ onUnmounted(() => {
 }
 
 .track-name {
-  color: #0f172a;
+  color: #1c1b19;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -532,7 +532,7 @@ onUnmounted(() => {
 }
 
 .artist-name {
-  color: #475569;
+  color: #545454;
   font-size: 13px;
   font-weight: 600;
   line-height: 1.35;
@@ -544,7 +544,7 @@ onUnmounted(() => {
 }
 
 .album-name {
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 11.5px;
   font-weight: 500;
   line-height: 1.35;
@@ -561,7 +561,7 @@ onUnmounted(() => {
   gap: 5px;
   font-size: 11px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
   line-height: 1.35;
   margin-top: 5px;
 }
@@ -577,7 +577,7 @@ onUnmounted(() => {
   width: 100%;
   height: 4.5px;
   border-radius: 9999px;
-  background: #e2e8f0;
+  background: #e5e6e8;
   overflow: hidden;
   position: relative;
 }
@@ -595,7 +595,7 @@ onUnmounted(() => {
 .music-progress-times {
   display: flex;
   justify-content: space-between;
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 10.5px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -616,21 +616,21 @@ onUnmounted(() => {
   width: 100%;
   padding: 8px 16px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  background: linear-gradient(135deg, #1c1b19 0%, #1c1b19 100%);
   color: #ffffff;
   font-size: 12px;
   font-weight: 700;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.1);
+  box-shadow: none;
   transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
   touch-action: manipulation;
 }
 
 .music-open-btn:active {
   transform: scale(0.98);
-  background: #1e293b;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  background: #1c1b19;
+  box-shadow: none;
 }
 
 .open-icon {
@@ -646,8 +646,8 @@ onUnmounted(() => {
   padding: 6px 12px;
   border-radius: 10px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  color: #64748b;
+  border: 1px solid #e5e6e8;
+  color: #737373;
   font-size: 11.5px;
   font-weight: 600;
 }

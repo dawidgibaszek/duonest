@@ -43,7 +43,7 @@
       </div>
     </div>
 
-    <!-- Native DuoNest Bottom Navigation Bar with filled active icons -->
+    <!-- DuoNest bottom navigation: outline icons, active item in ink (inspiration/menu style.png) -->
     <div class="duo-tab-bar-wrapper">
       <nav class="duo-native-tab-bar">
         <button
@@ -54,8 +54,7 @@
           @click="goToTab(0)"
         >
           <div class="tab-icon-wrap">
-            <div class="tab-icon-pill"></div>
-            <ion-icon :icon="activeTabIndex === 0 ? ioniconsHeart : ioniconsHeartOutline" />
+            <ion-icon :icon="ioniconsHomeOutline" />
           </div>
           <span class="tab-title">Gniazdko</span>
         </button>
@@ -68,8 +67,7 @@
           @click="handleDailyTabClick"
         >
           <div class="tab-icon-wrap">
-            <div class="tab-icon-pill"></div>
-            <ion-icon :icon="activeTabIndex === 1 ? ioniconsCheckbox : ioniconsCheckboxOutline" />
+            <ion-icon :icon="ioniconsCheckboxOutline" />
             <span v-if="(pendingShoppingCount + pendingTasksCount) > 0" class="tab-badge primary-badge">
               {{ pendingShoppingCount + pendingTasksCount }}
             </span>
@@ -85,8 +83,7 @@
           @click="goToTab(2)"
         >
           <div class="tab-icon-wrap">
-            <div class="tab-icon-pill"></div>
-            <ion-icon :icon="activeTabIndex === 2 ? ioniconsCalendar : ioniconsCalendarOutline" />
+            <ion-icon :icon="ioniconsCalendarClearOutline" />
             <span v-if="todayEventsCount > 0" class="tab-badge primary-badge">
               {{ todayEventsCount }}
             </span>
@@ -102,8 +99,7 @@
           @click="handleLeisureTabClick"
         >
           <div class="tab-icon-wrap">
-            <div class="tab-icon-pill"></div>
-            <ion-icon :icon="activeTabIndex === 3 ? ioniconsFilm : ioniconsFilmOutline" />
+            <ion-icon :icon="ioniconsFilmOutline" />
             <span v-if="(pendingMoviesCount + pendingWishlistCount) > 0" class="tab-badge primary-badge">
               {{ pendingMoviesCount + pendingWishlistCount }}
             </span>
@@ -119,8 +115,7 @@
           @click="goToTab(4)"
         >
           <div class="tab-icon-wrap">
-            <div class="tab-icon-pill"></div>
-            <ion-icon :icon="activeTabIndex === 4 ? ioniconsSparkles : ioniconsSparklesOutline" />
+            <ion-icon :icon="ioniconsHeartOutline" />
           </div>
           <span class="tab-title">Relacja</span>
         </button>
@@ -674,7 +669,7 @@ watch(activeLeisureSubTab, (newVal) => {
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  background-color: #f8fafc;
+  background-color: #f8f9fb;
 }
 
 .tabs-touch-container {
@@ -742,7 +737,7 @@ watch(activeLeisureSubTab, (newVal) => {
   --padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
 }
 
-/* ── TELEGRAM-STYLE FLOATING BOTTOM TAB BAR ── */
+/* ── DOCKED BOTTOM TAB BAR (inspiration/menu style.png) ── */
 
 .duo-tab-bar-wrapper {
   position: absolute;
@@ -751,9 +746,6 @@ watch(activeLeisureSubTab, (newVal) => {
   right: 0;
   width: 100%;
   z-index: 1000;
-  padding: 0 14px;
-  /* Lowered on iOS so it sits sleek and low right over the home indicator */
-  padding-bottom: max(8px, env(safe-area-inset-bottom, 0px) - 12px);
   display: flex;
   justify-content: center;
   pointer-events: none;
@@ -762,118 +754,91 @@ watch(activeLeisureSubTab, (newVal) => {
 .duo-native-tab-bar {
   pointer-events: auto;
   width: 100%;
-  max-width: 520px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-around;
-  height: 60px;
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(24px) saturate(190%);
-  -webkit-backdrop-filter: blur(24px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  border-radius: 30px;
-  box-shadow:
-    0 10px 32px rgba(15, 23, 42, 0.12),
-    0 2px 8px rgba(0, 0, 0, 0.04);
-  overflow: hidden;
-  padding: 0 4px;
+  padding: 10px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  background: #ffffff;
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -1px 0 var(--dn-line), 0 -8px 24px rgba(28, 27, 25, 0.04);
 }
 
 .duo-tab-btn {
   flex: 1;
+  max-width: 96px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1.5px;
+  gap: 4px;
   background: none;
   border: none;
-  padding: 5px 0 3px 0;
+  padding: 2px 0;
   cursor: pointer;
-  color: #64748b;
-  transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s ease;
+  color: #b4b8c0;
+  transition: color 0.2s ease, transform 0.15s ease;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   position: relative;
 }
 
 .duo-tab-btn:active {
-  transform: scale(0.90);
+  transform: scale(0.94);
 }
 
 .duo-tab-btn.is-active {
-  color: #0f172a;
-}
-
-/* Animated pill indicator that appears under active icon */
-.tab-icon-pill {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 0;
-  height: 30px;
-  background: rgba(15, 23, 42, 0.07);
-  border-radius: 999px;
-  transition: width 0.32s cubic-bezier(0.25, 0.9, 0.3, 1);
-  z-index: 0;
-}
-
-.duo-tab-btn.is-active .tab-icon-pill {
-  width: 44px;
-}
-
-.duo-tab-btn.is-active .tab-icon-wrap ion-icon {
-  animation: tabIconPop 0.32s cubic-bezier(0.25, 0.9, 0.3, 1);
-}
-
-@keyframes tabIconPop {
-  0% { transform: scale(0.90); }
-  60% { transform: scale(1.08); }
-  100% { transform: scale(1); }
+  color: var(--dn-ink);
 }
 
 .tab-icon-wrap {
   position: relative;
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 28px;
+  width: 56px;
+  height: 32px;
+  border-radius: 999px;
+  transition: background 0.2s ease;
+}
+
+/* Beige accent pill behind the active tab icon */
+.duo-tab-btn.is-active .tab-icon-wrap {
+  background: var(--dn-cream);
 }
 
 .tab-icon-wrap ion-icon {
-  position: relative;
-  z-index: 1;
+  --ionicon-stroke-width: 28px;
 }
 
 .tab-title {
-  font-size: 9.5px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.3;
+}
+
+.duo-tab-btn.is-active .tab-title {
   font-weight: 600;
-  letter-spacing: -0.3px;
-  line-height: 1.35;
-  padding-bottom: 2px;
 }
 
 .tab-badge {
   position: absolute;
-  top: -4px;
-  right: -6px;
-  font-size: 10px;
-  font-weight: 700;
+  top: -3px;
+  right: 8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  font-weight: 600;
   border-radius: 999px;
-  padding: 1.5px 5px;
   color: #ffffff;
-  line-height: 1.3;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-  z-index: 2;
+  background: var(--dn-ink);
+  box-shadow: 0 0 0 2px #ffffff;
+  line-height: 1;
 }
-
-.primary-badge { background: #0f172a; }
-.secondary-badge { background: #1e293b; }
-.tertiary-badge { background: #18181b; }
-.pink-badge { background: #0f172a; }
-.purple-badge { background: #1e293b; }
 </style>

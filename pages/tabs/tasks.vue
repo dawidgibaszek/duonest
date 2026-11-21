@@ -6,21 +6,26 @@
           <div class="header-action-row">
             <div>
               <div class="dn-header-title">
-                <span>{{ activeMainTab === 'tasks' ? 'Zadania Domowe' : (hasPet ? 'Wspólny Pupil' : 'Przygarnij Zwierzaka') }}</span>
-                <span class="count-chip" v-if="activeMainTab === 'tasks'">{{ uncompletedTasksCount }}</span>
+                <span>{{ activeMainTab === 'tasks' ? 'Zadania' : (hasPet ? 'Pupil' : 'Zwierzak') }}</span>
+                <span class="count-chip" v-if="activeMainTab === 'tasks' && uncompletedTasksCount > 0">{{ uncompletedTasksCount }}</span>
                 <span class="count-chip pet-header-lvl" v-else-if="hasPet">lvl {{ petLevel }}</span>
               </div>
               <p class="dn-header-subtitle">
                 {{ activeMainTab === 'tasks' ? 'Wspólne dbanie o czysty i ciepły dom' : (hasPet ? 'Twój wirtualny towarzysz domowych obowiązków' : 'Wybierzcie pupila do Waszego Gniazdka') }}
               </p>
             </div>
-            <button v-if="activeMainTab === 'tasks'" class="new-chore-btn" @click="showAddModal = true">
+            <button
+              v-if="activeMainTab === 'tasks'"
+              type="button"
+              class="dn-header-btn dn-header-btn--icon"
+              aria-label="Nowe zadanie"
+              @click="showAddModal = true"
+            >
               <ion-icon :icon="ioniconsAddOutline" />
-              <span>Nowe</span>
             </button>
             <button
               v-else-if="hasPet"
-              class="pet-header-gear-btn"
+              class="dn-header-btn dn-header-btn--icon dn-header-btn--soft"
               @click="openPetSettingsModal"
               aria-label="Ustawienia zwierzaka"
             >
@@ -86,31 +91,19 @@
       </ion-toolbar>
 
       <!-- SEGMENTS: Podział obowiązków (Wszystkie, Moje, Partnera, Wspólne) - tylko w widoku Zadań -->
-      <ion-toolbar class="segment-toolbar" v-if="activeMainTab === 'tasks'">
-        <ion-segment v-model="selectedSegment" :scrollable="true" mode="ios">
-          <ion-segment-button value="all">
-            <ion-label>Wszystkie</ion-label>
-          </ion-segment-button>
-          <ion-segment-button
-            value="mine"
-            :style="selectedSegment === 'mine' ? { '--color-checked': currentUserAccentColor, '--indicator-color': hexToRgba(currentUserAccentColor, 0.18) } : {}"
+      <ion-toolbar class="dn-subtabs-toolbar" v-if="activeMainTab === 'tasks'">
+        <div class="dn-subtabs">
+          <button
+            v-for="seg in taskSegments"
+            :key="seg.value"
+            type="button"
+            class="dn-subtab"
+            :class="{ active: selectedSegment === seg.value }"
+            @click="selectedSegment = seg.value"
           >
-            <ion-label :style="selectedSegment === 'mine' ? { color: currentUserAccentColor, fontWeight: '700' } : {}">
-              Moje
-            </ion-label>
-          </ion-segment-button>
-          <ion-segment-button
-            value="partner"
-            :style="selectedSegment === 'partner' ? { '--color-checked': partnerUserAccentColor, '--indicator-color': hexToRgba(partnerUserAccentColor, 0.18) } : {}"
-          >
-            <ion-label :style="selectedSegment === 'partner' ? { color: partnerUserAccentColor, fontWeight: '700' } : {}">
-              {{ partnerUser?.name || 'Partnera' }}
-            </ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="shared">
-            <ion-label>Wspólne</ion-label>
-          </ion-segment-button>
-        </ion-segment>
+            <span>{{ seg.label }}</span>
+          </button>
+        </div>
       </ion-toolbar>
     </ion-header>
 
@@ -124,33 +117,22 @@
       <!-- TAB 1: LISTA ZADAŃ DOMOWYCH                    -->
       <!-- ============================================== -->
       <div v-if="activeMainTab === 'tasks'" class="tasks-tab-content">
-        <!-- Companion Pet Mini-Bar in Tasks -->
-        <div class="tasks-pet-status-bar" @click="handleSwitchToPet">
-          <div class="pet-status-left" v-if="hasPet">
-            <PetSprite
-              :pet="petId"
-              :animation="currentAnimation"
-              :scale="1.6"
-              :interactive="false"
-            />
-            <div class="pet-status-texts">
-              <span class="pet-status-name">{{ petName }} • Poziom {{ petLevel }}</span>
-              <span class="pet-status-sub">
-                {{ uncompletedTasksCount === 0 ? 'Wszystko zrobione! Śpi smacznie 💤' : `${uncompletedTasksCount} zadań do zrobienia • ${happinessLabel}` }}
-              </span>
-            </div>
-          </div>
-          <div class="pet-status-left" v-else>
-            <div class="pet-status-adopt-icon">🐾</div>
-            <div class="pet-status-texts">
-              <span class="pet-status-name">Przygarnijcie pupila!</span>
-              <span class="pet-status-sub">Wybierzcie zwierzaka, który zamieszka w Waszym Gniazdku ✨</span>
-            </div>
-          </div>
-          <div class="pet-status-right">
-            <span class="pet-open-pill">{{ hasPet ? 'Odwiedź pupila →' : 'Wybierz zwierzaka →' }}</span>
-          </div>
-        </div>
+        <!-- Companion pet mini-bar -->
+        <button type="button" class="pt-mini" @click="handleSwitchToPet">
+          <span class="pt-mini-sprite">
+            <PetSprite v-if="hasPet" :pet="petId" :animation="currentAnimation" :scale="1.3" :interactive="false" />
+            <ion-icon v-else :icon="ioniconsPawOutline" />
+          </span>
+          <span class="pt-mini-text">
+            <span class="pt-mini-title">{{ hasPet ? petName : 'Przygarnijcie pupila' }}</span>
+            <span class="pt-mini-sub">
+              <template v-if="hasPet">Poziom {{ petLevel }} · {{ uncompletedTasksCount === 0 ? 'wszystko zrobione' : `${uncompletedTasksCount} do zrobienia` }}</template>
+              <template v-else>Rośnie razem z Waszymi zadaniami</template>
+            </span>
+          </span>
+          <span v-if="hasPet" class="pt-mini-bar"><span :style="{ width: Math.max(petLevelProgressPct, 4) + '%' }" /></span>
+          <ion-icon :icon="ioniconsChevronForwardOutline" class="pt-mini-arrow" />
+        </button>
 
         <!-- ACTIVE TASKS LIST -->
         <div class="tasks-section-header" v-if="filteredActiveTasks.length > 0">
@@ -175,21 +157,13 @@
 
               <ion-item
                 class="task-item"
-                :style="{
-                  borderLeft: `4.5px solid ${getUserAccentColor(task.assigned_to)}`,
-                  backgroundColor: task.assigned_to ? hexToRgba(getUserAccentColor(task.assigned_to), 0.03) : '#ffffff'
-                }"
                 lines="full"
               >
-                <ion-checkbox
+                <ion-checkbox :aria-label="`Oznacz jako zrobione: ${task.title}`"
                   slot="start"
                   :checked="task.is_completed || completingTaskIds.has(task.id)"
                   :class="{ 'dn-check-pop': completingTaskIds.has(task.id) }"
                   @ionChange="handleToggleTask(task)"
-                  :style="{
-                    '--checkbox-background-checked': getUserAccentColor(task.assigned_to),
-                    '--border-color-checked': getUserAccentColor(task.assigned_to)
-                  }"
                 />
                 <ion-label>
                   <div class="task-title-row">
@@ -208,11 +182,6 @@
                     <!-- Assignee badge with dynamic accent color styling -->
                     <span
                       class="tag-pill"
-                      :style="{
-                        backgroundColor: hexToRgba(getUserAccentColor(task.assigned_to), 0.13),
-                        color: getUserAccentColor(task.assigned_to),
-                        border: `1px solid ${hexToRgba(getUserAccentColor(task.assigned_to), 0.28)}`
-                      }"
                     >
                       <ion-icon :icon="getAssigneeIonicon(task.assigned_to)" />
                       <span>{{ getAssigneeLabel(task.assigned_to) }}</span>
@@ -266,12 +235,9 @@
 
                 <ion-item
                   class="task-item completed"
-                  :style="{
-                    borderLeft: `4.5px solid ${hexToRgba(getUserAccentColor(task.assigned_to), 0.35)}`
-                  }"
                   lines="full"
                 >
-                  <ion-checkbox
+                  <ion-checkbox :aria-label="`Przywróć zadanie: ${task.title}`"
                     slot="start"
                     :checked="true"
                     @ionChange="handleToggleTask(task)"
@@ -300,296 +266,143 @@
       <!-- ============================================== -->
       <!-- TAB 2: WIDOK ZWIERZAKA (PET COMPANION VIEW)    -->
       <!-- ============================================== -->
-      <div v-else-if="activeMainTab === 'pet'" class="pet-tab-content">
-        <!-- 1. KREATOR ZWIERZAKA (Gdy para jeszcze nie wybrała pupila) -->
-        <div v-if="!hasPet" class="pet-creator-container">
-          <!-- Hero Stage Showcase -->
-          <div class="dn-card pet-creator-showcase">
-            <div class="creator-sparkle-pill">
-              <ion-icon :icon="ioniconsSparkles" />
-              <span>NOWY TOWARZYSZ GNIAZDKA</span>
+      <div v-else-if="activeMainTab === 'pet'" class="pt-page">
+        <!-- 1. CREATOR (no pet yet) -->
+        <template v-if="!hasPet">
+          <div class="pt-stage">
+            <div class="pt-bubble"><span class="pt-bubble-name">{{ creatorSelectedDef.polishName }}</span><span class="pt-bubble-text">{{ creatorSpeechText }}</span></div>
+            <div class="pt-sprite">
+              <PetSprite :pet="creatorSelectedPetId" animation="happy" :scale="3.4" :interactive="true" />
             </div>
-
-            <h3 class="creator-title">Przygarnijcie Pupila</h3>
-            <p class="creator-subtitle">
-              Wybierzcie swojego towarzysza do wspólnego dbania o Gniazdko!
-            </p>
-
-            <!-- Dynamic dialogue bubble -->
-            <div class="creator-speech-bubble">
-              <span class="dialogue-tail" />
-              <span class="dialogue-text">{{ creatorSpeechText }}</span>
-            </div>
-
-            <!-- Pet Stage -->
-            <div class="creator-stage-center">
-              <div class="stage-pedestal" />
-              <PetSprite
-                :pet="creatorSelectedPetId"
-                animation="happy"
-                :scale="3.8"
-                :interactive="true"
-              />
-            </div>
-
-            <div class="creator-species-badge">
-              <span class="creator-species-name">{{ creatorSelectedDef.polishName }}</span>
-              <span class="creator-species-dot">•</span>
-              <span class="creator-species-theme">{{ creatorSelectedDef.theme }}</span>
+            <div class="pt-stage-foot">
+              <span class="pt-name">{{ creatorSelectedDef.polishName }}</span>
+              <span class="pt-species">{{ creatorSelectedDef.theme }}</span>
             </div>
           </div>
 
-          <!-- Section: Wybór gatunku (3-kolumnowa symetryczna siatka kafelków) -->
-          <div class="dn-card creator-selection-card">
-            <div class="section-label-row">
-              <ion-icon :icon="ioniconsPawOutline" class="section-badge-icon" />
-              <span class="section-title-text">WYBIERZCIE GATUNEK (12 ZWIERZAKÓW)</span>
+          <section class="pt-section">
+            <div class="pt-section-head">
+              <h2 class="pt-section-title">Gatunek</h2>
+              <span class="pt-section-meta">{{ PET_CATALOG.length }} do wyboru</span>
             </div>
-
-            <div class="creator-tiles-grid">
+            <div class="pt-grid">
               <button
-                type="button"
                 v-for="p in PET_CATALOG"
                 :key="p.id"
-                class="creator-pet-tile"
-                :class="{ 'is-selected': creatorSelectedPetId.toLowerCase() === p.id.toLowerCase() }"
+                type="button"
+                class="pt-tile"
+                :class="{ active: creatorSelectedPetId.toLowerCase() === p.id.toLowerCase() }"
                 @click="creatorSelectedPetId = p.id"
               >
-                <div class="tile-sprite-wrap">
-                  <PetSprite :pet="p.id" animation="idle" :scale="1.5" :interactive="false" />
-                </div>
-                <span class="tile-name">{{ p.polishName }}</span>
-                <div class="tile-check-badge" v-if="creatorSelectedPetId.toLowerCase() === p.id.toLowerCase()">
-                  <ion-icon :icon="ioniconsCheckmarkCircle" />
-                </div>
+                <span class="pt-tile-sprite">
+                  <PetSprite :pet="p.id" animation="idle" :scale="1.4" :interactive="false" />
+                </span>
+                <span class="pt-tile-name">{{ p.polishName }}</span>
               </button>
+            </div>
+          </section>
+
+          <section class="pt-section">
+            <div class="pt-section-head">
+              <h2 class="pt-section-title">Imię</h2>
+            </div>
+            <ion-input aria-label="Imię pupila" v-model="creatorPetName" placeholder="Jak ma się wabić?" class="pt-input" :clear-input="true" />
+            <div class="pt-chips">
+              <button
+                v-for="sug in suggestedNames"
+                :key="sug"
+                type="button"
+                class="pt-chip"
+                :class="{ active: creatorPetName === sug }"
+                @click="creatorPetName = sug"
+              >
+                {{ sug }}
+              </button>
+            </div>
+          </section>
+
+          <button type="button" class="dn-button-primary pt-full-btn" :disabled="!creatorPetName.trim()" @click="handleAdoptPet">
+            <ion-icon :icon="ioniconsHeart" />
+            <span>Przygarnij{{ creatorPetName.trim() ? ` ${creatorPetName.trim()}` : '' }}</span>
+          </button>
+        </template>
+
+        <!-- 2. ACTIVE PET -->
+        <template v-else>
+          <div class="pt-stage">
+            <div class="pt-bubble" aria-live="polite"><span class="pt-bubble-name">{{ petName }}</span><span class="pt-bubble-text">{{ petSpeechText }}</span></div>
+            <div class="pt-sprite" @click="handlePetClick">
+              <PetSprite :pet="petId" :animation="currentAnimation" :scale="3.4" />
+            </div>
+            <div class="pt-stage-foot">
+              <span class="pt-name">{{ petName }}</span>
+              <span class="pt-species">{{ currentPetDef.polishName }} · {{ currentPetDef.theme }}</span>
+            </div>
+
+            <div class="pt-panel">
+              <div class="pt-panel-row">
+                <span class="pt-level">Poziom {{ petLevel }}</span>
+                <span class="pt-panel-value">{{ petXp }} XP</span>
+              </div>
+              <div class="pt-bar"><span :style="{ width: Math.max(petLevelProgressPct, 2) + '%' }" /></div>
+              <div class="pt-panel-meta">
+                <span>{{ petXpInCurrentLevel }} / 50 XP</span>
+                <span>jeszcze {{ petXpToNextLevel }} XP do poziomu {{ petLevel + 1 }}</span>
+              </div>
+
+              <div class="pt-panel-divider" />
+
+              <div class="pt-panel-row">
+                <span class="pt-panel-label">
+                  <ion-icon :icon="ioniconsHeart" />
+                  Zadowolenie
+                </span>
+                <span class="pt-panel-value">{{ petHappiness }}%</span>
+              </div>
+              <div class="pt-bar is-cream"><span :style="{ width: Math.max(petHappiness, 2) + '%' }" /></div>
+              <div class="pt-panel-meta">
+                <span>{{ cleanHappinessLabel }}</span>
+                <span>rośnie z każdym zadaniem</span>
+              </div>
             </div>
           </div>
 
-          <!-- Section: Imię Pupila -->
-          <div class="dn-card creator-name-card">
-            <div class="section-label-row">
-              <ion-icon :icon="ioniconsPricetagOutline" class="section-badge-icon" />
-              <span class="section-title-text">JAK MA SIĘ WABIĆ?</span>
+          <section class="pt-section">
+            <div class="pt-section-head">
+              <h2 class="pt-section-title">Misje domowe</h2>
+              <button type="button" class="pt-link" @click="handleSwitchToTasks">Wszystkie</button>
             </div>
+            <p class="pt-hint">Każde zrobione zadanie to +15 XP dla {{ petName }}.</p>
 
-            <div class="creator-input-wrapper">
-              <ion-input
-                v-model="creatorPetName"
-                placeholder="Wpisz imię pupila..."
-                class="creator-pretty-input"
-                :clear-input="true"
-              />
-            </div>
-
-            <!-- Suggested names tags -->
-            <div class="cute-names-shelf">
-              <span class="shelf-hint">Szybkie propozycje:</span>
-              <div class="shelf-pills">
+            <div v-if="petPriorityTasks.length > 0" class="pt-quests">
+              <div v-for="task in petPriorityTasks" :key="task.id" class="pt-quest">
                 <button
                   type="button"
-                  v-for="sug in suggestedNames"
-                  :key="sug"
-                  class="cute-sug-pill"
-                  :class="{ active: creatorPetName === sug }"
-                  @click="creatorPetName = sug"
+                  class="pt-check"
+                  :aria-label="`Oznacz ${task.title} jako zrobione`"
+                  @click="handleQuickCompletePetTask(task)"
                 >
-                  {{ sug }}
+                  <ion-icon :icon="ioniconsCheckmark" />
                 </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- CTA Button -->
-          <div class="creator-cta-wrap">
-            <button
-              type="button"
-              class="creator-adopt-action-btn"
-              :disabled="!creatorPetName.trim()"
-              @click="handleAdoptPet"
-            >
-              <ion-icon :icon="ioniconsHeart" />
-              <span>Przygarnij {{ creatorSelectedDef.polishName }} ({{ creatorPetName.trim() || 'Wpisz imię' }})</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- 2. AKTYWNY PUPIL (Gdy zwierzak został już przygarnięty) -->
-        <div v-else class="pet-active-container">
-          <!-- Hero Stage Card -->
-          <div class="dn-card pet-stage-card">
-            <!-- Floating Dialogue Bubble -->
-            <div class="pet-dialogue-bubble" aria-live="polite">
-              <span class="dialogue-tail" />
-              <span class="dialogue-text">{{ petSpeechText }}</span>
-            </div>
-
-            <!-- Pet Stage Canvas Area -->
-            <div class="stage-sprite-wrap" @click="handlePetClick">
-              <div class="stage-ambient-light" />
-              <div class="stage-pedestal" />
-              <PetSprite
-                :pet="petId"
-                :animation="currentAnimation"
-                :scale="3.8"
-              />
-            </div>
-
-            <!-- Pet Info & Settings Gear Action Row -->
-            <div class="pet-name-badge-row">
-              <div class="pet-title-box">
-                <span class="pet-display-name">{{ petName }}</span>
-                <span class="pet-species-pill">
-                  {{ currentPetDef.emoji }} {{ currentPetDef.polishName }} • {{ currentPetDef.theme }}
+                <span class="pt-quest-text">
+                  <span class="pt-quest-title">{{ task.title }}</span>
+                  <span class="pt-quest-meta">{{ getAssigneeLabel(task.assigned_to) }}</span>
                 </span>
+                <span class="pt-xp">+15 XP</span>
               </div>
+            </div>
 
-              <!-- Przycisk z ikonką zębatki do otwierania modalu ustawień i kreacji -->
-              <button
-                type="button"
-                class="pet-gear-action-btn"
-                @click="openPetSettingsModal"
-                aria-label="Ustawienia zwierzaka"
-              >
-                <ion-icon :icon="ioniconsSettingsOutline" />
-                <span>Ustawienia</span>
+            <div v-else class="pt-empty">
+              <span class="pt-empty-icon"><ion-icon :icon="ioniconsCheckmarkDoneOutline" /></span>
+              <span class="pt-empty-title">Wszystko zrobione</span>
+              <span class="pt-empty-sub">Gniazdko lśni, a {{ petName }} odpoczywa.</span>
+              <button type="button" class="pt-soft-btn" @click="showAddModal = true">
+                <ion-icon :icon="ioniconsAddOutline" />
+                <span>Dodaj zadanie</span>
               </button>
             </div>
-          </div>
-
-          <!-- Stats & Mood Column (Full-Width, Vertical Column, SVG Icons, Flat Clean No Glow) -->
-          <div class="pet-stats-column">
-            <!-- 1. DOŚWIADCZENIE I POZIOM -->
-            <div class="dn-card pet-stat-card stat-card-xp">
-              <!-- Header Row -->
-              <div class="stat-card-header-row">
-                <div class="stat-header-left">
-                  <div class="stat-svg-badge badge-green">
-                    <ion-icon :icon="ioniconsStar" />
-                  </div>
-                  <div class="stat-title-wrap">
-                    <span class="stat-title">Doświadczenie i Poziom</span>
-                    <span class="stat-subtitle">Wspólny rozwój Waszego pupila</span>
-                  </div>
-                </div>
-                <div class="stat-pill-tag tag-green">
-                  <ion-icon :icon="ioniconsSparkles" />
-                  <span>Poziom {{ petLevel }}</span>
-                </div>
-              </div>
-
-              <!-- Metrics Row -->
-              <div class="stat-metrics-row">
-                <div class="stat-main-figure">
-                  <span class="figure-num">{{ petXp }}</span>
-                  <span class="figure-unit">XP</span>
-                </div>
-                <div class="stat-progress-sub">
-                  <span>{{ petXpInCurrentLevel }} z 50 XP na tym poziomie</span>
-                  <span class="progress-pct-chip chip-green">{{ petLevelProgressPct }}%</span>
-                </div>
-              </div>
-
-              <!-- Clean Track (No Glow) -->
-              <div class="stat-clean-track track-green">
-                <div class="stat-clean-fill fill-green" :style="{ width: `${petLevelProgressPct}%` }" />
-              </div>
-
-              <!-- Meta Footer Row -->
-              <div class="stat-card-meta-row">
-                <span class="meta-desc">Do Poziomu {{ petLevel + 1 }} brakuje: <strong>{{ petXpToNextLevel }} XP</strong></span>
-                <span class="meta-action-hint">+15 XP za każde zadanie</span>
-              </div>
-            </div>
-
-            <!-- 2. ZADOWOLENIE I NASTRÓJ -->
-            <div class="dn-card pet-stat-card stat-card-mood">
-              <!-- Header Row -->
-              <div class="stat-card-header-row">
-                <div class="stat-header-left">
-                  <div class="stat-svg-badge badge-rose">
-                    <ion-icon :icon="ioniconsHeart" />
-                  </div>
-                  <div class="stat-title-wrap">
-                    <span class="stat-title">Zadowolenie pupila</span>
-                    <span class="stat-subtitle">Wskaźnik dbania o czyste Gniazdko</span>
-                  </div>
-                </div>
-                <div class="stat-pill-tag tag-rose">
-                  <ion-icon :icon="ioniconsHeart" />
-                  <span>{{ petHappiness }}%</span>
-                </div>
-              </div>
-
-              <!-- Metrics Row -->
-              <div class="stat-metrics-row">
-                <div class="stat-main-figure">
-                  <span class="figure-status-text">{{ cleanHappinessLabel }}</span>
-                </div>
-              </div>
-
-              <!-- Clean Track (No Glow) -->
-              <div class="stat-clean-track track-rose">
-                <div class="stat-clean-fill fill-rose" :style="{ width: `${petHappiness}%` }" />
-              </div>
-
-              <!-- Meta Footer Row -->
-              <div class="stat-card-meta-row">
-                <span class="meta-desc">Aktualny nastrój: <strong>{{ cleanHappinessLabel }}</strong></span>
-                <span class="meta-action-hint">Rośnie z każdym ukończonym zadaniem</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Pet Daily Chores Quest Card (Housework Integration) -->
-          <div class="dn-card pet-quests-card">
-            <div class="quests-header-row">
-              <div class="quests-title-box">
-                <div class="quests-badge-row">
-                  <span class="quests-badge">MISJE DOMOWE</span>
-                  <span class="quests-xp-tag">+15 XP KAŻDE</span>
-                </div>
-                <h4 class="quests-heading">Zrób zadanie, nakarm pupila XP!</h4>
-              </div>
-              <button type="button" class="quests-see-all-btn" @click="handleSwitchToTasks">
-                Wszystkie zadania →
-              </button>
-            </div>
-
-            <!-- Quest Items List -->
-            <div v-if="petPriorityTasks.length > 0" class="pet-quests-list">
-              <div
-                v-for="task in petPriorityTasks"
-                :key="task.id"
-                class="pet-quest-item"
-                @click="handleQuickCompletePetTask(task)"
-              >
-                <div class="quest-checkbox-mock">
-                  <ion-icon :icon="ioniconsCheckmark" class="quest-check-icon" />
-                </div>
-                <div class="quest-info-box">
-                  <span class="quest-item-title">{{ task.title }}</span>
-                  <span class="quest-item-meta">{{ getAssigneeLabel(task.assigned_to) }}</span>
-                </div>
-                <span class="quest-xp-chip">+15 XP</span>
-              </div>
-            </div>
-
-            <!-- All Completed State -->
-            <div v-else class="pet-quests-empty">
-              <div class="empty-quest-icon-wrap">
-                <ion-icon :icon="ioniconsCheckmarkDoneCircleOutline" />
-              </div>
-              <div class="empty-quest-texts">
-                <span class="empty-quest-title">Wszystkie zadania zrobione!</span>
-                <span class="empty-quest-sub">Wasze Gniazdko lśni, a {{ petName }} odpoczywa zadowolony.</span>
-              </div>
-              <button type="button" class="add-chore-mini-btn" @click="showAddModal = true">
-                + Dodaj zadanie
-              </button>
-            </div>
-          </div>
-        </div>
+          </section>
+        </template>
       </div>
 
       <!-- MODAL DLA NOWEGO ZADANIA -->
@@ -626,7 +439,7 @@
           <form @submit.prevent="handleCreateTask" class="modal-form">
             <div class="form-group">
               <label class="form-label">Nazwa zadania *</label>
-              <ion-input
+              <ion-input aria-label="Nazwa zadania"
                 v-model="newTaskTitle"
                 maxlength="100"
                 placeholder="np. Podlanie kwiatów, Mycie okien..."
@@ -636,7 +449,7 @@
 
             <div class="form-group">
               <label class="form-label">Opis lub dodatkowe uwagi</label>
-              <ion-textarea
+              <ion-textarea aria-label="Opis zadania"
                 v-model="newTaskDesc"
                 maxlength="500"
                 placeholder="np. Płyn do szyb jest pod zlewem w kuchni"
@@ -652,12 +465,6 @@
                   type="button"
                   class="assignee-btn"
                   :class="{ active: newTaskAssignee === currentUser?.id }"
-                  :style="newTaskAssignee === currentUser?.id ? {
-                    backgroundColor: hexToRgba(currentUserAccentColor, 0.15),
-                    borderColor: currentUserAccentColor,
-                    color: currentUserAccentColor,
-                    boxShadow: `0 0 0 1px ${currentUserAccentColor}`
-                  } : {}"
                   @click="newTaskAssignee = currentUser?.id || ''"
                 >
                   <ion-icon :icon="ioniconsPersonOutline" />
@@ -667,12 +474,6 @@
                   type="button"
                   class="assignee-btn"
                   :class="{ active: newTaskAssignee === (partnerUser?.id || 'partner') }"
-                  :style="newTaskAssignee === (partnerUser?.id || 'partner') ? {
-                    backgroundColor: hexToRgba(partnerUserAccentColor, 0.15),
-                    borderColor: partnerUserAccentColor,
-                    color: partnerUserAccentColor,
-                    boxShadow: `0 0 0 1px ${partnerUserAccentColor}`
-                  } : {}"
                   @click="newTaskAssignee = partnerUser?.id || 'partner'"
                 >
                   <ion-icon :icon="ioniconsHeartOutline" />
@@ -696,7 +497,7 @@
                   <label class="form-label">Zadanie cykliczne?</label>
                   <span class="sub-label">Automatyczne odnawianie w harmonogramie</span>
                 </div>
-                <ion-toggle v-model="newTaskIsRecurring" color="primary" />
+                <ion-toggle aria-label="Automatyczne odnawianie" v-model="newTaskIsRecurring" color="primary" />
               </div>
 
               <div class="recurrence-options" v-if="newTaskIsRecurring">
@@ -715,15 +516,15 @@
               <div v-if="newTaskIsRecurring && newTaskInterval === 'custom'" class="custom-interval-fields">
                 <label class="custom-interval-field">
                   <span>Dni</span>
-                  <ion-input v-model.number="customIntervalDays" type="number" min="0" max="3650" inputmode="numeric" class="modal-input" />
+                  <ion-input aria-label="Dni" v-model.number="customIntervalDays" type="number" min="0" max="3650" inputmode="numeric" class="modal-input" />
                 </label>
                 <label class="custom-interval-field">
                   <span>Godziny</span>
-                  <ion-input v-model.number="customIntervalHours" type="number" min="0" max="23" inputmode="numeric" class="modal-input" />
+                  <ion-input aria-label="Godziny" v-model.number="customIntervalHours" type="number" min="0" max="23" inputmode="numeric" class="modal-input" />
                 </label>
                 <label class="custom-interval-field">
                   <span>Minuty</span>
-                  <ion-input v-model.number="customIntervalMinutes" type="number" min="0" max="59" inputmode="numeric" class="modal-input" />
+                  <ion-input aria-label="Minuty" v-model.number="customIntervalMinutes" type="number" min="0" max="59" inputmode="numeric" class="modal-input" />
                 </label>
                 <span class="sub-label" :class="{ 'interval-error': !isCustomIntervalValid }">
                   {{ isCustomIntervalValid ? `Powtarzaj co ${formatCustomInterval(customIntervalTotalMinutes)}` : 'Ustaw przedział większy niż 0 minut.' }}
@@ -756,135 +557,92 @@
         </ion-content>
       </ion-modal>
 
-      <!-- PET SETTINGS & CREATOR MODAL (BOTTOM SHEET) -->
+      <!-- PET SETTINGS SHEET -->
       <ion-modal
         :is-open="showPetSettingsModal"
         @didDismiss="showPetSettingsModal = false"
-        class="dn-pet-settings-modal"
-        :breakpoints="[0, 0.94, 1]"
-        :initial-breakpoint="0.94"
+        class="dn-form-sheet-modal"
+        :breakpoints="[0, 0.92, 1]"
+        :initial-breakpoint="0.92"
         :handle="true"
       >
-        <ion-header class="modal-custom-header">
+        <ion-header class="dn-form-sheet-header ion-no-border">
           <div class="dn-form-sheet-handle-spacer" aria-hidden="true"></div>
           <ion-toolbar>
-            <div class="modal-header-inner">
-              <div class="modal-title-wrap">
-                <ion-icon :icon="ioniconsSettingsOutline" class="modal-title-icon" />
-                <ion-title>Ustawienia i Kreacja Pupila</ion-title>
+            <div class="dn-form-sheet-heading">
+              <div class="dn-form-sheet-title-row">
+                <div class="dn-form-sheet-title-text">
+                  <h3 class="dn-form-sheet-title">Twój pupil</h3>
+                </div>
               </div>
-              <ion-buttons slot="end">
-                <button
-                  type="button"
-                  class="modal-close-icon-btn"
-                  @click="showPetSettingsModal = false"
-                  aria-label="Zamknij"
-                >
-                  <ion-icon :icon="ioniconsCloseCircle" />
-                </button>
-              </ion-buttons>
+              <button type="button" class="dn-form-sheet-close" @click="showPetSettingsModal = false" aria-label="Zamknij">
+                <ion-icon :icon="ioniconsCloseOutline" />
+              </button>
             </div>
           </ion-toolbar>
         </ion-header>
 
-        <ion-content class="ion-padding pet-settings-modal-content">
-          <div class="pet-settings-body">
-            <!-- Centered Pet Hero Showcase Stage -->
-            <div class="settings-showcase-card">
-              <div class="settings-stage-ambient" />
-              <div class="settings-stage-pedestal" />
-              <div class="settings-stage-sprite" @click="handleSettingsPetClick">
-                <PetSprite
-                  :pet="settingsPetId"
-                  :animation="settingsAnimation"
-                  :scale="3.3"
-                  :interactive="true"
-                />
-              </div>
-              <div class="settings-stage-badge">
-                <span class="settings-stage-name">{{ settingsPetDef.emoji }} {{ settingsPetDef.polishName }}</span>
-                <span class="settings-stage-dot">•</span>
-                <span class="settings-stage-theme">{{ settingsPetDef.theme }}</span>
-              </div>
-              <p class="settings-stage-desc">{{ settingsPetDef.description }}</p>
+        <ion-content class="ion-padding">
+          <div class="pt-stage is-compact">
+            <div class="pt-sprite" @click="handleSettingsPetClick">
+              <PetSprite :pet="settingsPetId" :animation="settingsAnimation" :scale="2.8" :interactive="true" />
             </div>
-
-            <!-- Section 1: Gatunek zwierzaka (Siatka 3 kolumny) -->
-            <div class="settings-group-card">
-              <div class="section-label-row">
-                <ion-icon :icon="ioniconsPawOutline" class="section-badge-icon" />
-                <span class="section-title-text">GATUNEK PUPILA (12 DO WYBORU)</span>
-              </div>
-
-              <div class="creator-tiles-grid">
-                <button
-                  type="button"
-                  v-for="p in PET_CATALOG"
-                  :key="p.id"
-                  class="creator-pet-tile"
-                  :class="{ 'is-selected': settingsPetId.toLowerCase() === p.id.toLowerCase() }"
-                  @click="selectSettingsSpecies(p.id)"
-                >
-                  <div class="tile-sprite-wrap">
-                    <PetSprite :pet="p.id" animation="idle" :scale="1.4" :interactive="false" />
-                  </div>
-                  <span class="tile-name">{{ p.polishName }}</span>
-                  <div class="tile-check-badge" v-if="settingsPetId.toLowerCase() === p.id.toLowerCase()">
-                    <ion-icon :icon="ioniconsCheckmarkCircle" />
-                  </div>
-                </button>
-              </div>
+            <div class="pt-stage-foot">
+              <span class="pt-name">{{ settingsPetDef.polishName }}</span>
+              <span class="pt-species">{{ settingsPetDef.theme }}</span>
             </div>
+            <p v-if="settingsPetDef.description" class="pt-desc">{{ settingsPetDef.description }}</p>
+          </div>
 
-            <!-- Section 2: Imię zwierzaka -->
-            <div class="settings-group-card">
-              <div class="section-label-row">
-                <ion-icon :icon="ioniconsPricetagOutline" class="section-badge-icon" />
-                <span class="section-title-text">IMIĘ WASZEGO PUPILA</span>
-              </div>
-
-              <div class="creator-input-wrapper">
-                <ion-input
-                  v-model="settingsPetName"
-                  placeholder="Wpisz nowe imię..."
-                  class="creator-pretty-input"
-                  :clear-input="true"
-                />
-              </div>
-
-              <!-- Szybkie propozycje imion dla wybranego gatunku -->
-              <div class="cute-names-shelf">
-                <span class="shelf-hint">Propozycje dla {{ settingsPetDef.polishName }}:</span>
-                <div class="shelf-pills">
-                  <button
-                    type="button"
-                    v-for="sug in settingsSuggestedNames"
-                    :key="sug"
-                    class="cute-sug-pill"
-                    :class="{ active: settingsPetName === sug }"
-                    @click="settingsPetName = sug"
-                  >
-                    {{ sug }}
-                  </button>
-                </div>
-              </div>
+          <section class="pt-section is-flush">
+            <div class="pt-section-head">
+              <h2 class="pt-section-title">Gatunek</h2>
             </div>
-
-            <!-- Save CTA -->
-            <div class="settings-save-wrap">
+            <div class="pt-grid">
               <button
+                v-for="p in PET_CATALOG"
+                :key="p.id"
                 type="button"
-                class="save-pet-settings-btn"
-                :disabled="!settingsPetName.trim()"
-                @click="handleSavePetSettings"
+                class="pt-tile"
+                :class="{ active: settingsPetId.toLowerCase() === p.id.toLowerCase() }"
+                @click="selectSettingsSpecies(p.id)"
               >
-                <ion-icon :icon="ioniconsCheckmarkOutline" />
-                <span>Zapisz zmiany</span>
+                <span class="pt-tile-sprite">
+                  <PetSprite :pet="p.id" animation="idle" :scale="1.4" :interactive="false" />
+                </span>
+                <span class="pt-tile-name">{{ p.polishName }}</span>
               </button>
             </div>
+          </section>
 
-            <div style="height: 36px;"></div>
-          </div>
+          <section class="pt-section is-flush">
+            <div class="pt-section-head">
+              <h2 class="pt-section-title">Imię</h2>
+            </div>
+            <ion-input aria-label="Imię pupila" v-model="settingsPetName" placeholder="Wpisz imię…" class="pt-input" :clear-input="true" />
+            <div class="pt-chips">
+              <button
+                v-for="sug in settingsSuggestedNames"
+                :key="sug"
+                type="button"
+                class="pt-chip"
+                :class="{ active: settingsPetName === sug }"
+                @click="settingsPetName = sug"
+              >
+                {{ sug }}
+              </button>
+            </div>
+          </section>
+
+          <button
+            type="button"
+            class="dn-button-primary pt-full-btn is-flush"
+            :disabled="!settingsPetName.trim()"
+            @click="handleSavePetSettings"
+          >
+            Zapisz
+          </button>
+          <div style="height: 32px;"></div>
         </ion-content>
       </ion-modal>
 
@@ -995,25 +753,31 @@ const setCustomSpeech = (text: string, durationMs = 3500) => {
 }
 
 // Pet Speech Bubble Dynamic Text
+const tasksWord = (n: number) => {
+  if (n === 1) return 'zadanie'
+  const d = n % 10
+  const dd = n % 100
+  return d >= 2 && d <= 4 && (dd < 12 || dd > 14) ? 'zadania' : 'zadań'
+}
+
 const petSpeechText = computed(() => {
   if (customPetSpeech.value) return customPetSpeech.value
+  const left = uncompletedTasksCount.value
   if (currentAnimation.value === 'sleep') {
-    if (uncompletedTasksCount.value === 0) {
-      return `Chrrr... Zzz... Wszystkie zadania wykonane! Czas na słodką drzemkę... 💤`
-    }
-    return `Brak zadań w domu, relaksuję się i ucinam drzemkę... Zzz... 💤`
+    return left === 0
+      ? 'Wszystko zrobione, więc ucinam sobie drzemkę.'
+      : 'Drzemię. Obudźcie mnie zrobionym zadaniem.'
   }
   if (currentAnimation.value === 'jump') {
-    return `Jupi!`
+    return 'Jeszcze raz!'
   }
   if (currentAnimation.value === 'happy') {
-    return `Cześć! Super Cię widzieć! Zróbmy dzisiaj porządek! 🐾`
+    return 'Dobrze Was widzieć. Ogarniemy dziś dom?'
   }
-  // idle
-  if (uncompletedTasksCount.value > 0) {
-    return `Mamy dzisiaj ${uncompletedTasksCount.value} ${uncompletedTasksCount.value === 1 ? 'zadanie' : 'zadań'} do zrobienia. Damy radę! 💖`
+  if (left > 0) {
+    return `Zostało ${left} ${tasksWord(left)}. Razem pójdzie szybko.`
   }
-  return `Wszystko lśni czystością! Pogłaszcz mnie lub odpocznijcie! 💕`
+  return 'Wszystko zrobione. Gniazdko lśni.'
 })
 
 // Pet Interactions
@@ -1050,7 +814,7 @@ const handleQuickCompletePetTask = async (task: TaskItem) => {
     origin: { y: 0.45 },
     colors: ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b']
   })
-  setCustomSpeech(`Brawo! Kolejne zadanie zrobione! +15 XP dla mnie! ⭐🎉`)
+  setCustomSpeech('Zrobione. +15 XP dla mnie, dziękuję!')
 }
 
 // Pet Creator State (when !hasPet)
@@ -1061,20 +825,20 @@ const creatorSelectedDef = computed(() => getPetDefinition(creatorSelectedPetId.
 // Speech text inside the creator adoption showcase
 const creatorSpeechText = computed(() => {
   const map: Record<string, string> = {
-    Cat: 'Miau! Będę pilnować porządku i mruczeć przy każdym zrobionym zadaniu! 🐱',
-    Dog: 'Hau hau! Pomogę Wam w każdym zadaniu, byle szybko i razem! 🐶',
-    Bunny: 'Kic kic! Posprzątamy całe Gniazdko w mgnieniu oka! 🐰',
-    Fox: 'Chytry plan na czysty dom? Zostawcie to mnie! 🦊',
-    Panda: 'Spokojnie i bez pośpiechu, wspólnie ogarniemy każde zadanie! 🐼',
-    Bear: 'Mocny i pracowity! Żaden domowy obowiązek mi niestraszny! 🐻',
-    Chick: 'Ćwir ćwir! Każdy mały krok przybliża Was do lśniącego gniazdka! 🐥',
-    Dragon: 'Spalę wszystkie zaległe obowiązki! Gotowi na wyzwania? 🐲',
-    Frog: 'Kum kum! Skaczemy do zadań z wielkim uśmiechem! 🐸',
-    Ghost: 'Booo! Sprawię, że bałagan zniknie jak za dotknięciem czarów! 👻',
-    Penguin: 'Elegancko i z klasą! Wasze gniazdko będzie lśnić jak lód! 🐧',
-    Slime: 'Bulgotek! Wchłonę każdy problem i przyniosę masę radości! 🫧'
+    Cat: 'Miau. Będę mruczeć przy każdym zrobionym zadaniu.',
+    Dog: 'Hau! Pomogę we wszystkim, byle razem.',
+    Bunny: 'Kic, kic. Posprzątamy w mgnieniu oka.',
+    Fox: 'Plan na czysty dom? Zostawcie to mnie.',
+    Panda: 'Bez pośpiechu, krok po kroku.',
+    Bear: 'Żaden obowiązek mi niestraszny.',
+    Chick: 'Ćwir. Każdy mały krok się liczy.',
+    Dragon: 'Spalę wszystkie zaległości.',
+    Frog: 'Kum, kum. Skaczemy do zadań.',
+    Ghost: 'Bu. Bałagan zniknie jak duch.',
+    Penguin: 'Elegancko i z klasą. Dom będzie lśnić.',
+    Slime: 'Bul, bul. Wchłonę każdy bałagan.'
   }
-  return map[creatorSelectedPetId.value] || 'Cześć! Wybierz mnie, a będziemy razem dbać o Wasze Gniazdko! ✨'
+  return map[creatorSelectedPetId.value] || 'Wybierzcie mnie, a zadbamy razem o Gniazdko.'
 })
 
 watch(creatorSelectedPetId, (newId) => {
@@ -1177,6 +941,12 @@ const handleSavePetSettings = async () => {
 }
 
 const selectedSegment = ref('all')
+const taskSegments = computed(() => [
+  { value: 'all', label: 'Wszystkie' },
+  { value: 'mine', label: 'Moje' },
+  { value: 'partner', label: partnerUser.value?.name || 'Partnera' },
+  { value: 'shared', label: 'Wspólne' }
+])
 const showAddModal = ref(false)
 
 const newTaskTitle = ref('')
@@ -1426,9 +1196,9 @@ const handleRefresh = async (event: any) => {
   gap: 6px;
   font-size: 11px;
   font-weight: 700;
-  color: #0f172a;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
+  color: #1c1b19;
+  background: #f8f9fb;
+  border: 1px dashed #d4d4d4;
   border-radius: 8px;
   padding: 6px 12px;
   margin: 6px 16px 10px 16px;
@@ -1440,22 +1210,11 @@ const handleRefresh = async (event: any) => {
   align-items: center;
 }
 
-.count-chip {
-  font-size: 11px;
-  font-weight: 700;
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #e2e8f0;
-  padding: 2px 8px;
-  border-radius: 9999px;
-  flex-shrink: 0;
-}
-
 .new-chore-btn {
   height: 34px;
   padding: 0 14px;
   border-radius: 10px;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   font-size: 12.5px;
   font-weight: 700;
@@ -1466,26 +1225,21 @@ const handleRefresh = async (event: any) => {
   cursor: pointer;
   flex-shrink: 0;
   touch-action: manipulation;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+  box-shadow: none;
   transition: transform 0.15s ease, background 0.15s ease;
 }
 
 .new-chore-btn:active {
   transform: scale(0.96);
-  background: #1e293b;
-}
-
-.segment-toolbar {
-  --background: #f8fafc;
-  padding: 4px 16px 8px 16px;
+  background: #1c1b19;
 }
 
 /* TASKS LIST */
 .tasks-section-header {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
-  color: #64748b;
+  color: #737373;
   padding: 8px 20px 4px 20px;
 }
 
@@ -1493,9 +1247,9 @@ const handleRefresh = async (event: any) => {
   background: transparent;
   margin: 4px 16px 16px 16px;
   border-radius: 18px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 4px 12px rgba(15, 23, 42, 0.04);
+  box-shadow: none;
 }
 
 .task-item {
@@ -1525,7 +1279,7 @@ const handleRefresh = async (event: any) => {
 .task-title {
   font-size: 15px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   flex: 1;
   min-width: 0;
   line-height: 1.35;
@@ -1535,15 +1289,15 @@ const handleRefresh = async (event: any) => {
 
 .task-title.strike {
   text-decoration: line-through;
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 .points-badge {
   font-size: 11px;
-  font-weight: 800;
-  background: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
+  font-weight: 500;
+  background: var(--dn-soft);
+  color: var(--dn-ink);
+  border: none;
   padding: 2px 7px;
   border-radius: 999px;
   flex-shrink: 0;
@@ -1551,14 +1305,14 @@ const handleRefresh = async (event: any) => {
 }
 
 .points-badge.completed-badge {
-  background: #f1f5f9;
-  color: #64748b;
-  border-color: #e2e8f0;
+  background: #f2f3f5;
+  color: #737373;
+  border-color: #e5e6e8;
 }
 
 .task-desc {
   font-size: 12.5px;
-  color: #64748b;
+  color: #737373;
   margin: 4px 0 6px 0;
   line-height: 1.35;
   word-break: break-word;
@@ -1574,34 +1328,36 @@ const handleRefresh = async (event: any) => {
 }
 
 .tag-pill {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--dn-soft);
+  color: var(--dn-ink-soft);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .tag-shared {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f2f3f5;
+  color: #1c1b19;
 }
 
 .tag-mine {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f2f3f5;
+  color: #1c1b19;
 }
 
 .tag-partner {
-  background: #f8fafc;
-  color: #1e293b;
+  background: #f8f9fb;
+  color: #1c1b19;
 }
 
 .recurring-pill {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #64748b;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
+  color: #737373;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1614,38 +1370,27 @@ const handleRefresh = async (event: any) => {
   gap: 16px;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.form-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
 .sub-label {
   font-size: 11px;
-  color: #64748b;
+  color: #737373;
   display: block;
 }
 
 .modal-input {
-  --background: #f8fafc;
+  --background: var(--dn-field);
   --padding-start: 14px;
-  --border-radius: 12px;
-  border-radius: 12px;
+  --border-radius: 14px;
+  border-radius: 14px;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
-  font-size: 14px;
+  border: 1px solid var(--dn-field-line);
+  font-size: 16px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  min-height: 52px;
 }
 
 .modal-input:focus-within {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+  border-color: var(--dn-ink);
+  box-shadow: 0 0 0 3px rgba(28, 27, 25, 0.06);
 }
 
 .modal-textarea {
@@ -1659,13 +1404,13 @@ const handleRefresh = async (event: any) => {
 }
 
 .assignee-btn {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 10px;
   padding: 10px 4px;
   font-size: 12px;
   font-weight: 600;
-  color: #475569;
+  color: #545454;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1675,9 +1420,9 @@ const handleRefresh = async (event: any) => {
 }
 
 .assignee-btn.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
+  border-color: #1c1b19;
 }
 
 .toggle-row {
@@ -1697,18 +1442,18 @@ const handleRefresh = async (event: any) => {
   padding: 6px 12px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 600;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  color: #475569;
+  font-weight: 500;
+  background: var(--dn-soft);
+  border: none;
+  color: #545454;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .rec-pill.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
+  border-color: #1c1b19;
 }
 
 .custom-interval-fields {
@@ -1723,7 +1468,7 @@ const handleRefresh = async (event: any) => {
   flex-direction: column;
   gap: 6px;
   min-width: 0;
-  color: #475569;
+  color: #545454;
   font-size: 12px;
   font-weight: 600;
 }
@@ -1737,7 +1482,7 @@ const handleRefresh = async (event: any) => {
 
 .interval-error {
   grid-column: 1 / -1;
-  color: #b91c1c;
+  color: #c2412d;
 }
 
 .points-selector-row {
@@ -1747,20 +1492,20 @@ const handleRefresh = async (event: any) => {
 }
 
 .pts-choice-btn {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 10px;
   padding: 8px;
   font-size: 12px;
   font-weight: 700;
-  color: #16a34a;
+  color: #8e8e8e;
   cursor: pointer;
 }
 
 .pts-choice-btn.active {
-  background: #16a34a;
+  background: #8e8e8e;
   color: #ffffff;
-  border-color: #16a34a;
+  border-color: #8e8e8e;
 }
 
 .submit-task-btn {
@@ -1777,8 +1522,8 @@ const handleRefresh = async (event: any) => {
   width: 64px;
   height: 64px;
   border-radius: 20px;
-  background: #f0fdf4;
-  color: #16a34a;
+  background: #f8f9fb;
+  color: #8e8e8e;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1788,12 +1533,12 @@ const handleRefresh = async (event: any) => {
 .empty-state h3 {
   font-size: 17px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .empty-state p {
   font-size: 13px;
-  color: #64748b;
+  color: #737373;
   margin-top: 4px;
 }
 
@@ -1803,19 +1548,19 @@ const handleRefresh = async (event: any) => {
 
 /* PET HEADER CONTROLS */
 .pet-header-lvl {
-  background: #fdf2f8;
-  color: #db2777;
+  background: #f3f4f6;
+  color: #757575;
 }
 
 .pet-header-new {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f2f3f5;
+  color: #1c1b19;
 }
 
 .pet-header-gear-btn {
-  background: #f8fafc;
-  color: #475569;
-  border: 1px solid #e2e8f0;
+  background: var(--dn-soft);
+  color: #545454;
+  border: none;
   width: 38px;
   height: 38px;
   border-radius: 50%;
@@ -1825,107 +1570,38 @@ const handleRefresh = async (event: any) => {
   font-size: 20px;
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: none;
 }
 
 .pet-header-gear-btn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f2f3f5;
+  color: #1c1b19;
 }
 
 .pet-header-gear-btn:active {
   transform: scale(0.92);
-  background: #e2e8f0;
+  background: #e5e6e8;
 }
 
 /* MAIN TABS SWITCHER (Zadania vs Zwierzak) */
-.main-tabs-toolbar {
-  --background: #ffffff;
-  padding: 4px 16px 8px 16px;
-}
-
-.main-tabs-pill-row {
-  display: flex;
-  background: #f1f5f9;
-  padding: 4px;
-  border-radius: 14px;
-  gap: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.main-tabs-pill-row::-webkit-scrollbar {
-  display: none;
-}
-
-.main-tab-pill {
-  flex: 1 0 auto;
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 7px 10px;
-  border-radius: 10px;
-  border: none;
-  background: transparent;
-  color: #64748b;
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.main-tab-pill.active {
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.main-tab-pill.pet-tab-pill.active {
-  color: #db2777;
-}
-
-.pill-count-chip {
-  background: #0f172a;
-  color: #ffffff;
-  font-size: 10.5px;
-  font-weight: 800;
-  padding: 1px 6px;
-  border-radius: 999px;
-}
-
-.tab-pet-emoji {
-  font-size: 15px;
-}
-
-.tab-pet-lvl {
-  font-size: 10.5px;
-  font-weight: 800;
-  background: #fdf2f8;
-  color: #db2777;
-  padding: 1px 6px;
-  border-radius: 999px;
-}
 
 /* TASKS VIEW: PET COMPANION STATUS BAR */
 .tasks-pet-status-bar {
   margin: 10px 16px 14px;
   padding: 10px 14px;
   background: #ffffff;
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  border: 1px solid var(--dn-line);
   border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.03);
+  box-shadow: none;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .tasks-pet-status-bar:hover {
-  border-color: #cbd5e1;
+  border-color: #d4d4d4;
 }
 
 .tasks-pet-status-bar:active {
@@ -1947,13 +1623,13 @@ const handleRefresh = async (event: any) => {
 
 .pet-status-name {
   font-size: 13.5px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .pet-status-sub {
   font-size: 11.5px;
-  color: #64748b;
+  color: #737373;
   margin-top: 1px;
   white-space: nowrap;
   overflow: hidden;
@@ -1969,20 +1645,15 @@ const handleRefresh = async (event: any) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fdf2f8;
+  background: var(--dn-soft);
   border-radius: 50%;
-}
-
-.tab-pet-lvl.new-pill {
-  background: #f1f5f9;
-  color: #0f172a;
 }
 
 .pet-open-pill {
   font-size: 11.5px;
-  font-weight: 700;
-  color: #0f172a;
-  background: #f1f5f9;
+  font-weight: 500;
+  color: #1c1b19;
+  background: var(--dn-soft);
   padding: 4px 10px;
   border-radius: 999px;
   white-space: nowrap;
@@ -1999,13 +1670,13 @@ const handleRefresh = async (event: any) => {
 .pet-stage-card {
   margin: 12px 16px 16px;
   padding: 20px 18px 18px;
-  background: linear-gradient(155deg, #fff8fb 0%, #ffffff 58%, #f5fbfa 100%);
-  border: 1px solid #f1dce7;
+  background: linear-gradient(155deg, #f8f9fb 0%, #ffffff 58%, #f8f9fb 100%);
+  border: 1px solid #dfe0e2;
   border-radius: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.06);
+  box-shadow: none;
   position: relative;
   overflow: hidden;
 }
@@ -2018,7 +1689,7 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   justify-content: center;
   background: #ffffff;
-  border: 1px solid #fbcfe8;
+  border: 1px solid var(--dn-line);
   border-radius: 16px;
   width: min(100%, 310px);
   height: 88px;
@@ -2026,7 +1697,7 @@ const handleRefresh = async (event: any) => {
   padding: 10px 16px;
   text-align: center;
   margin-bottom: 16px;
-  box-shadow: 0 4px 14px rgba(219, 39, 119, 0.08);
+  box-shadow: none;
   animation: float-bubble 3.2s ease-in-out infinite;
 }
 
@@ -2043,8 +1714,8 @@ const handleRefresh = async (event: any) => {
   width: 12px;
   height: 12px;
   background: #ffffff;
-  border-right: 1px solid #fbcfe8;
-  border-bottom: 1px solid #fbcfe8;
+  border-right: 1px solid #dbdbdb;
+  border-bottom: 1px solid #dbdbdb;
 }
 
 .dialogue-text {
@@ -2054,7 +1725,7 @@ const handleRefresh = async (event: any) => {
   -webkit-line-clamp: 3;
   font-size: 13px;
   font-weight: 700;
-  color: #475569;
+  color: #545454;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
@@ -2068,9 +1739,9 @@ const handleRefresh = async (event: any) => {
   width: 100%;
   min-height: 196px;
   padding: 16px 0 10px;
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  border: 1px solid rgba(229, 230, 232, 0.8);
   border-radius: 18px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(253, 242, 248, 0.72));
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(243, 244, 246, 0.72));
   cursor: pointer;
   user-select: none;
 }
@@ -2080,7 +1751,7 @@ const handleRefresh = async (event: any) => {
   width: 160px;
   height: 160px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(244, 114, 182, 0.22) 0%, rgba(255, 255, 255, 0) 70%);
+  background: radial-gradient(circle, rgba(159, 159, 159, 0.22) 0%, rgba(255, 255, 255, 0) 70%);
   pointer-events: none;
 }
 
@@ -2090,7 +1761,7 @@ const handleRefresh = async (event: any) => {
   width: 130px;
   height: 24px;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(236, 72, 153, 0.16) 0%, rgba(236, 72, 153, 0.02) 80%);
+  background: radial-gradient(ellipse at center, rgba(136, 136, 136, 0.16) 0%, rgba(136, 136, 136, 0.02) 80%);
   pointer-events: none;
 }
 
@@ -2104,7 +1775,7 @@ const handleRefresh = async (event: any) => {
   justify-content: space-between;
   gap: 10px;
   padding-top: 12px;
-  border-top: 1px dashed rgba(244, 114, 182, 0.25);
+  border-top: 1px dashed rgba(159, 159, 159, 0.25);
 }
 
 .pet-title-box {
@@ -2114,8 +1785,8 @@ const handleRefresh = async (event: any) => {
 
 .pet-display-name {
   font-size: 20px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   letter-spacing: 0;
   overflow-wrap: break-word;
   word-break: break-word;
@@ -2123,19 +1794,19 @@ const handleRefresh = async (event: any) => {
 
 .pet-species-pill {
   font-size: 11.5px;
-  color: #db2777;
+  color: #757575;
   font-weight: 700;
   margin-top: 2px;
 }
 
 .pet-gear-action-btn {
-  background: #f8fafc;
-  color: #334155;
-  border: 1px solid #e2e8f0;
+  background: var(--dn-soft);
+  color: #404040;
+  border: none;
   border-radius: 999px;
   padding: 6px 14px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -2145,12 +1816,12 @@ const handleRefresh = async (event: any) => {
 
 .pet-gear-action-btn ion-icon {
   font-size: 16px;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .pet-gear-action-btn:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: #f2f3f5;
+  border-color: #d4d4d4;
 }
 
 .pet-gear-action-btn:active {
@@ -2174,8 +1845,8 @@ const handleRefresh = async (event: any) => {
   padding: 18px 20px;
   border-radius: 22px;
   background: #ffffff;
-  border: 1.5px solid #e2e8f0;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--dn-line);
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -2183,15 +1854,15 @@ const handleRefresh = async (event: any) => {
 }
 
 .stat-card-xp {
-  border-color: #bbf7d0;
+  border-color: #e7e8ea;
   border-left-width: 5px;
-  border-left-color: #10b981;
+  border-left-color: #a3a3a3;
 }
 
 .stat-card-mood {
-  border-color: #fecdd3;
+  border-color: #fcefec;
   border-left-width: 5px;
-  border-left-color: #f43f5e;
+  border-left-color: #d96856;
 }
 
 /* Card Header: SVG Icon + Title + Pill Tag */
@@ -2219,15 +1890,15 @@ const handleRefresh = async (event: any) => {
 }
 
 .badge-green {
-  background: #ecfdf5;
-  color: #059669;
-  border: 1px solid #a7f3d0;
+  background: #f7f8fa;
+  color: #838383;
+  border: 1px solid #e1e2e4;
 }
 
 .badge-rose {
-  background: #fff1f2;
-  color: #e11d48;
-  border: 1px solid #fecdd3;
+  background: #f2f3f5;
+  color: #c2412d;
+  border: 1px solid #fcefec;
 }
 
 .stat-title-wrap {
@@ -2237,14 +1908,14 @@ const handleRefresh = async (event: any) => {
 
 .stat-title {
   font-size: 14px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   letter-spacing: -0.2px;
 }
 
 .stat-subtitle {
   font-size: 11.5px;
-  color: #64748b;
+  color: #737373;
   font-weight: 600;
 }
 
@@ -2256,20 +1927,20 @@ const handleRefresh = async (event: any) => {
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 11.5px;
-  font-weight: 800;
+  font-weight: 700;
   text-wrap: nowrap;
 }
 
 .tag-green {
-  background: #dcfce7;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
+  background: #f2f3f5;
+  color: #6f6f6f;
+  border: 1px solid #e7e8ea;
 }
 
 .tag-rose {
-  background: #ffe4e6;
-  color: #be123c;
-  border: 1px solid #fecdd3;
+  background: #e8e9eb;
+  color: #c2412d;
+  border: 1px solid #fcefec;
 }
 
 .tag-rose ion-icon,
@@ -2292,22 +1963,22 @@ const handleRefresh = async (event: any) => {
 
 .figure-num {
   font-size: 28px;
-  font-weight: 900;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   line-height: 1;
   letter-spacing: -0.5px;
 }
 
 .figure-unit {
   font-size: 13px;
-  font-weight: 800;
-  color: #64748b;
+  font-weight: 700;
+  color: #737373;
 }
 
 .figure-status-text {
   font-size: 20px;
-  font-weight: 900;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   letter-spacing: -0.3px;
 }
 
@@ -2317,20 +1988,20 @@ const handleRefresh = async (event: any) => {
   gap: 8px;
   font-size: 12px;
   font-weight: 700;
-  color: #475569;
+  color: #545454;
 }
 
 .progress-pct-chip {
   padding: 2px 8px;
   border-radius: 6px;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .chip-green {
-  background: #ecfdf5;
-  color: #059669;
-  border: 1px solid #a7f3d0;
+  background: #f7f8fa;
+  color: #838383;
+  border: 1px solid #e1e2e4;
 }
 
 /* Progress Track: Clean, Crisp, Flat, No Glow */
@@ -2338,7 +2009,7 @@ const handleRefresh = async (event: any) => {
   width: 100%;
   height: 9px;
   border-radius: 999px;
-  background: #f1f5f9;
+  background: var(--dn-soft);
   overflow: hidden;
 }
 
@@ -2349,11 +2020,11 @@ const handleRefresh = async (event: any) => {
 }
 
 .fill-green {
-  background: #10b981;
+  background: #a3a3a3;
 }
 
 .fill-rose {
-  background: #f43f5e;
+  background: #d96856;
 }
 
 /* Card Meta Footer */
@@ -2366,17 +2037,17 @@ const handleRefresh = async (event: any) => {
 }
 
 .meta-desc {
-  color: #475569;
+  color: #545454;
   font-weight: 600;
 }
 
 .meta-desc strong {
-  color: #0f172a;
-  font-weight: 800;
+  color: #1c1b19;
+  font-weight: 700;
 }
 
 .meta-action-hint {
-  color: #64748b;
+  color: #737373;
   font-weight: 700;
 }
 
@@ -2391,8 +2062,8 @@ const handleRefresh = async (event: any) => {
   padding: 18px 20px;
   border-radius: 22px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--dn-line);
+  box-shadow: none;
 }
 
 .quests-header-row {
@@ -2418,27 +2089,27 @@ const handleRefresh = async (event: any) => {
 
 .quests-badge {
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: 0.08em;
-  color: #0f172a;
-  background: #f1f5f9;
+  color: #1c1b19;
+  background: var(--dn-soft);
   padding: 2px 8px;
   border-radius: 999px;
 }
 
 .quests-xp-tag {
   font-size: 10px;
-  font-weight: 800;
-  color: #16a34a;
-  background: #dcfce7;
+  font-weight: 500;
+  color: var(--dn-ink);
+  background: var(--dn-soft);
   padding: 2px 7px;
   border-radius: 999px;
 }
 
 .quests-heading {
   font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   margin: 0;
   margin-top: 0.5rem;
   letter-spacing: -0.2px;
@@ -2448,8 +2119,8 @@ const handleRefresh = async (event: any) => {
   background: transparent;
   border: none;
   font-size: 12px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   cursor: pointer;
   padding: 4px 6px;
   white-space: nowrap;
@@ -2469,8 +2140,8 @@ const handleRefresh = async (event: any) => {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 16px;
   padding: 11px 14px;
   cursor: pointer;
@@ -2479,8 +2150,8 @@ const handleRefresh = async (event: any) => {
 }
 
 .pet-quest-item:hover {
-  background: #f0fdf4;
-  border-color: #86efac;
+  background: #f8f9fb;
+  border-color: #dadada;
   transform: translateX(2px);
 }
 
@@ -2488,7 +2159,7 @@ const handleRefresh = async (event: any) => {
   width: 22px;
   height: 22px;
   border-radius: 7px;
-  border: 2px solid #cbd5e1;
+  border: 2px solid #d4d4d4;
   background: #ffffff;
   display: flex;
   align-items: center;
@@ -2505,8 +2176,8 @@ const handleRefresh = async (event: any) => {
 }
 
 .pet-quest-item:hover .quest-checkbox-mock {
-  border-color: #10b981;
-  background: #10b981;
+  border-color: #a3a3a3;
+  background: #a3a3a3;
 }
 
 .pet-quest-item:hover .quest-check-icon {
@@ -2522,8 +2193,8 @@ const handleRefresh = async (event: any) => {
 
 .quest-item-title {
   font-size: 13.5px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2533,15 +2204,15 @@ const handleRefresh = async (event: any) => {
 
 .quest-item-meta {
   font-size: 11px;
-  color: #64748b;
+  color: #737373;
   font-weight: 600;
 }
 
 .quest-xp-chip {
   font-size: 11.5px;
-  font-weight: 800;
-  color: #059669;
-  background: #dcfce7;
+  font-weight: 500;
+  color: var(--dn-ink);
+  background: var(--dn-soft);
   padding: 3px 9px;
   border-radius: 999px;
   white-space: nowrap;
@@ -2553,14 +2224,14 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   text-align: center;
   padding: 16px 12px;
-  background: #f8fafc;
+  background: #f8f9fb;
   border-radius: 18px;
   gap: 8px;
 }
 
 .empty-quest-icon-wrap {
   font-size: 32px;
-  color: #10b981;
+  color: #a3a3a3;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2574,31 +2245,31 @@ const handleRefresh = async (event: any) => {
 
 .empty-quest-title {
   font-size: 14px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .empty-quest-sub {
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
   max-width: 280px;
 }
 
 .add-chore-mini-btn {
   margin-top: 6px;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
   padding: 7px 16px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .add-chore-mini-btn:hover {
-  background: #1e293b;
+  background: #1c1b19;
 }
 
 /* ============================================= */
@@ -2614,13 +2285,13 @@ const handleRefresh = async (event: any) => {
 .pet-creator-showcase {
   padding: 24px 18px 20px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   border-radius: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+  box-shadow: none;
   position: relative;
 }
 
@@ -2629,11 +2300,11 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 500;
   letter-spacing: 0.06em;
-  color: #0f172a;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  color: #1c1b19;
+  background: var(--dn-soft);
+  border: none;
   padding: 4px 14px;
   border-radius: 999px;
   margin-bottom: 10px;
@@ -2645,15 +2316,15 @@ const handleRefresh = async (event: any) => {
 
 .creator-title {
   font-size: 21px;
-  font-weight: 900;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   margin: 0 0 4px;
   letter-spacing: -0.3px;
 }
 
 .creator-subtitle {
   font-size: 13px;
-  color: #64748b;
+  color: #737373;
   margin: 0 0 16px;
   max-width: 300px;
   line-height: 1.45;
@@ -2661,21 +2332,21 @@ const handleRefresh = async (event: any) => {
 
 .creator-speech-bubble {
   position: relative;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 16px;
   padding: 10px 16px;
   max-width: 300px;
   text-align: center;
   margin-bottom: 14px;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  box-shadow: none;
   animation: float-bubble 3.2s ease-in-out infinite;
 }
 
 .creator-speech-bubble .dialogue-tail {
-  border-right: 1px solid #e2e8f0;
-  border-bottom: 1px solid #e2e8f0;
-  background: #f8fafc;
+  border-right: 1px solid #e5e6e8;
+  border-bottom: 1px solid #e5e6e8;
+  background: #f8f9fb;
 }
 
 .creator-stage-center {
@@ -2693,7 +2364,7 @@ const handleRefresh = async (event: any) => {
   width: 120px;
   height: 20px;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(15, 23, 42, 0.09) 0%, rgba(15, 23, 42, 0) 75%);
+  background: radial-gradient(ellipse at center, rgba(28, 27, 25, 0.09) 0%, rgba(28, 27, 25, 0) 75%);
   pointer-events: none;
 }
 
@@ -2702,27 +2373,27 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   gap: 6px;
   margin-top: 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--dn-soft);
+  border: none;
   padding: 5px 14px;
   border-radius: 999px;
 }
 
 .creator-species-name {
   font-size: 13px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .creator-species-dot {
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 12px;
 }
 
 .creator-species-theme {
   font-size: 11.5px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
 }
 
 /* Reusable Section Cards in Creator & Settings */
@@ -2732,8 +2403,8 @@ const handleRefresh = async (event: any) => {
   padding: 18px 16px;
   background: #ffffff;
   border-radius: 22px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+  border: 1px solid var(--dn-line);
+  box-shadow: none;
 }
 
 .section-label-row {
@@ -2745,14 +2416,14 @@ const handleRefresh = async (event: any) => {
 
 .section-badge-icon {
   font-size: 16px;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .section-title-text {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.06em;
-  color: #64748b;
+  color: #737373;
 }
 
 /* 3-COLUMN BEAUTIFUL MOBILE SPECIES TILES GRID */
@@ -2764,8 +2435,8 @@ const handleRefresh = async (event: any) => {
 
 .creator-pet-tile {
   position: relative;
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1.5px solid #e5e6e8;
   border-radius: 18px;
   padding: 12px 6px 10px;
   display: flex;
@@ -2777,18 +2448,18 @@ const handleRefresh = async (event: any) => {
 }
 
 .creator-pet-tile:hover {
-  border-color: #cbd5e1;
+  border-color: #d4d4d4;
   background: #ffffff;
 }
 
 .creator-pet-tile.is-selected {
-  background: #f8fafc;
-  border-color: #0f172a;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
+  background: #f8f9fb;
+  border-color: #1c1b19;
+  box-shadow: none;
 }
 
 .creator-pet-tile.is-selected .tile-name {
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .tile-sprite-wrap {
@@ -2802,8 +2473,8 @@ const handleRefresh = async (event: any) => {
 
 .tile-name {
   font-size: 12px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -2815,7 +2486,7 @@ const handleRefresh = async (event: any) => {
   position: absolute;
   top: 6px;
   right: 6px;
-  color: #0f172a;
+  color: #1c1b19;
   font-size: 16px;
   display: flex;
   align-items: center;
@@ -2828,21 +2499,21 @@ const handleRefresh = async (event: any) => {
 }
 
 .creator-pretty-input {
-  --background: #f8fafc;
-  --color: #0f172a;
-  --placeholder-color: #94a3b8;
+  --background: var(--dn-field);
+  --color: #1c1b19;
+  --placeholder-color: #a2a2a2;
   --padding-start: 16px;
   --padding-end: 16px;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 16px;
-  font-size: 15px;
+  border: 1px solid var(--dn-field-line);
+  border-radius: 14px;
+  font-size: 16px;
   font-weight: 700;
   height: 50px;
   transition: all 0.15s ease;
 }
 
 .creator-pretty-input:focus-within {
-  border-color: #0f172a;
+  border-color: #1c1b19;
   --background: #ffffff;
 }
 
@@ -2853,7 +2524,7 @@ const handleRefresh = async (event: any) => {
 .shelf-hint {
   font-size: 11.5px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
   margin-bottom: 8px;
   display: block;
 }
@@ -2865,28 +2536,28 @@ const handleRefresh = async (event: any) => {
 }
 
 .cute-sug-pill {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--dn-soft);
+  border: none;
   border-radius: 999px;
   padding: 6px 14px;
   font-size: 12.5px;
-  font-weight: 700;
-  color: #334155;
+  font-weight: 500;
+  color: #404040;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .cute-sug-pill:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: #f2f3f5;
+  border-color: #d4d4d4;
 }
 
 .cute-sug-pill.active {
-  background: #0f172a;
-  border-color: #0f172a;
+  background: #1c1b19;
+  border-color: #1c1b19;
   color: #ffffff;
-  font-weight: 800;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
+  font-weight: 700;
+  box-shadow: none;
 }
 
 /* Action CTA Buttons */
@@ -2901,23 +2572,23 @@ const handleRefresh = async (event: any) => {
   height: 52px;
   padding: 0 20px;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   border-radius: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
   cursor: pointer;
   transition: all 0.16s ease;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15);
+  box-shadow: none;
 }
 
 .creator-adopt-action-btn:hover:not(:disabled),
 .save-pet-settings-btn:hover:not(:disabled) {
-  background: #1e293b;
+  background: #1c1b19;
   transform: translateY(-1px);
 }
 
@@ -2928,8 +2599,8 @@ const handleRefresh = async (event: any) => {
 
 .creator-adopt-action-btn:disabled,
 .save-pet-settings-btn:disabled {
-  background: #cbd5e1;
-  color: #94a3b8;
+  background: #d4d4d4;
+  color: #a2a2a2;
   opacity: 0.8;
   cursor: not-allowed;
   box-shadow: none;
@@ -2941,7 +2612,7 @@ const handleRefresh = async (event: any) => {
 ion-modal.dn-pet-settings-modal {
   --border-radius: 28px 28px 0 0;
   --background: #ffffff;
-  --box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
+  --box-shadow: 0 -10px 40px rgba(28, 27, 25, 0.15);
 }
 
 .dn-pet-settings-modal .modal-custom-header ion-toolbar {
@@ -2966,18 +2637,18 @@ ion-modal.dn-pet-settings-modal {
 
 .dn-pet-settings-modal .modal-title-icon {
   font-size: 20px;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .dn-pet-settings-modal .modal-title-wrap ion-title {
   font-size: 17px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   padding: 0;
 }
 
 .dn-pet-settings-modal .modal-close-icon-btn {
-  background: #f1f5f9;
+  background: var(--dn-soft);
   border: none;
   width: 36px;
   height: 36px;
@@ -2986,7 +2657,7 @@ ion-modal.dn-pet-settings-modal {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: var(--dn-ink);
   cursor: pointer;
   font-size: 26px;
   transition: all 0.15s ease;
@@ -2995,8 +2666,8 @@ ion-modal.dn-pet-settings-modal {
 }
 
 .dn-pet-settings-modal .modal-close-icon-btn:hover {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: #e5e6e8;
+  color: #1c1b19;
 }
 
 .dn-pet-settings-modal .modal-close-icon-btn:active {
@@ -3017,13 +2688,13 @@ ion-modal.dn-pet-settings-modal {
 .settings-showcase-card {
   padding: 22px 16px 18px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   border-radius: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+  box-shadow: none;
   position: relative;
 }
 
@@ -3037,7 +2708,7 @@ ion-modal.dn-pet-settings-modal {
   width: 120px;
   height: 20px;
   border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(15, 23, 42, 0.09) 0%, rgba(15, 23, 42, 0) 75%);
+  background: radial-gradient(ellipse at center, rgba(28, 27, 25, 0.09) 0%, rgba(28, 27, 25, 0) 75%);
   pointer-events: none;
 }
 
@@ -3056,34 +2727,596 @@ ion-modal.dn-pet-settings-modal {
   align-items: center;
   gap: 6px;
   margin-top: 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--dn-soft);
+  border: none;
   padding: 5px 14px;
   border-radius: 999px;
 }
 
 .settings-stage-name {
   font-size: 13px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .settings-stage-dot {
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 12px;
 }
 
 .settings-stage-theme {
   font-size: 11.5px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
 }
 
 .settings-stage-desc {
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
   margin: 8px 0 0;
   line-height: 1.4;
   max-width: 280px;
+}
+
+/* ===== Beige accent: pet companion bar ===== */
+.tasks-pet-status-bar {
+  background: var(--dn-cream) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.tasks-pet-status-bar .pet-status-adopt-icon {
+  background: #ffffff !important;
+}
+
+.tasks-pet-status-bar .pet-open-pill {
+  background: #ffffff !important;
+  border: none !important;
+  color: var(--dn-ink) !important;
+}
+
+.tasks-pet-status-bar .pet-status-sub {
+  color: var(--dn-cream-ink) !important;
+}
+
+.empty-icon-circle {
+  background: var(--dn-cream) !important;
+  color: var(--dn-cream-ink) !important;
+}
+
+/* =========================================================
+   PET – mini bar in tasks + pet tab + settings sheet (pt-*)
+   ========================================================= */
+.tasks-pet-status-bar { display: none !important; }
+
+.pt-mini {
+  width: calc(100% - 40px);
+  margin: 8px 20px 4px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px 10px 10px;
+  border: none;
+  border-radius: 20px;
+  background: var(--dn-cream);
+  font-family: inherit;
+  text-align: left;
+  color: var(--dn-ink);
+  cursor: pointer;
+}
+
+.pt-mini-sprite {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--dn-cream-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.pt-mini-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pt-mini-title {
+  font-size: 15px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pt-mini-sub {
+  font-size: 12.5px;
+  color: var(--dn-cream-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pt-mini-bar {
+  width: 44px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--dn-cream-deep);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.pt-mini-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--dn-ink);
+}
+
+.pt-mini-arrow {
+  font-size: 16px;
+  color: var(--dn-cream-ink);
+  flex-shrink: 0;
+}
+
+/* ---- Pet page ---- */
+.pt-page {
+  padding: 8px 20px 0;
+}
+
+.pt-stage {
+  position: relative;
+  padding: 20px 16px 16px;
+  border-radius: 28px;
+  background: var(--dn-cream);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pt-stage.is-compact {
+  padding: 16px 16px 18px;
+}
+
+.pt-bubble {
+  position: relative;
+  max-width: 86%;
+  padding: 12px 18px 13px;
+  border-radius: 20px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  text-align: center;
+}
+
+.pt-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: #ffffff;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.pt-bubble-name {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dn-cream-ink);
+}
+
+.pt-bubble-text {
+  position: relative;
+  z-index: 1;
+  font-family: var(--dn-serif);
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--dn-ink);
+}
+
+.pt-sprite {
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 6px 0 2px;
+  cursor: pointer;
+}
+
+.pt-stage.is-compact .pt-sprite {
+  min-height: 120px;
+}
+
+.pt-stage-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.pt-name {
+  font-family: var(--dn-serif);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--dn-ink);
+}
+
+.pt-species {
+  font-size: 13.5px;
+  color: var(--dn-cream-ink);
+}
+
+.pt-desc {
+  margin: 10px 0 0;
+  max-width: 90%;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--dn-cream-ink);
+  text-align: center;
+}
+
+.pt-panel {
+  width: 100%;
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 20px;
+  background: #ffffff;
+}
+
+.pt-panel-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pt-level {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--dn-ink);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pt-panel-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--dn-ink);
+}
+
+.pt-panel-label ion-icon {
+  color: var(--dn-danger);
+  font-size: 15px;
+}
+
+.pt-panel-value {
+  font-family: var(--dn-serif);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--dn-ink);
+}
+
+.pt-bar {
+  height: 8px;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: var(--dn-soft);
+  overflow: hidden;
+}
+
+.pt-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--dn-ink);
+  transition: width 0.4s ease;
+}
+
+.pt-bar.is-cream {
+  background: var(--dn-cream);
+}
+
+.pt-bar.is-cream span {
+  background: var(--dn-cream-ink);
+}
+
+.pt-panel-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--dn-muted);
+}
+
+.pt-panel-divider {
+  height: 1px;
+  margin: 16px 0;
+  background: var(--dn-line);
+}
+
+.pt-section {
+  margin-top: 28px;
+}
+
+.pt-section.is-flush {
+  margin-top: 24px;
+}
+
+.pt-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.pt-section-title {
+  margin: 0;
+  font-family: var(--dn-serif);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--dn-ink);
+}
+
+.pt-section-meta {
+  font-size: 13px;
+  color: var(--dn-muted);
+}
+
+.pt-link {
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--dn-muted);
+  cursor: pointer;
+}
+
+.pt-hint {
+  margin: -6px 0 8px;
+  font-size: 13.5px;
+  color: var(--dn-muted);
+}
+
+.pt-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pt-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 6px 10px;
+  border: none;
+  border-radius: 18px;
+  background: var(--dn-soft);
+  box-shadow: inset 0 0 0 1.5px transparent;
+  font-family: inherit;
+  color: var(--dn-ink);
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pt-tile.active {
+  background: var(--dn-cream);
+  box-shadow: inset 0 0 0 1.5px var(--dn-ink);
+}
+
+.pt-tile-sprite {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.pt-tile-name {
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.pt-input {
+  --background: var(--dn-field);
+  --padding-start: 16px;
+  --padding-end: 12px;
+  --placeholder-color: var(--dn-faint);
+  --placeholder-opacity: 1;
+  --color: var(--dn-ink);
+  min-height: 52px;
+  border: 1px solid var(--dn-field-line);
+  border-radius: 16px;
+  font-size: 15.5px;
+}
+
+.pt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.pt-chip {
+  height: 34px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--dn-soft);
+  color: var(--dn-ink);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.pt-chip.active {
+  background: var(--dn-ink);
+  color: #ffffff;
+}
+
+.pt-full-btn {
+  width: 100%;
+  margin-top: 28px;
+}
+
+.pt-full-btn.is-flush {
+  margin-top: 24px;
+}
+
+.pt-full-btn:disabled {
+  opacity: 0.4;
+}
+
+.pt-quests {
+  display: flex;
+  flex-direction: column;
+}
+
+.pt-quest {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--dn-line);
+}
+
+.pt-quest:last-child {
+  border-bottom: none;
+}
+
+.pt-check {
+  width: 26px;
+  height: 26px;
+  border: 1.5px solid #c9ccd2;
+  border-radius: 50%;
+  background: transparent;
+  color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.pt-check:active {
+  background: var(--dn-ink);
+  border-color: var(--dn-ink);
+  color: #ffffff;
+}
+
+.pt-quest-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pt-quest-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--dn-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pt-quest-meta {
+  font-size: 12.5px;
+  color: var(--dn-muted);
+}
+
+.pt-xp {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--dn-cream);
+  color: var(--dn-cream-ink);
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.pt-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 24px 16px;
+  text-align: center;
+}
+
+.pt-empty-icon {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 8px;
+  border-radius: 18px;
+  background: var(--dn-cream);
+  color: var(--dn-cream-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+}
+
+.pt-empty-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--dn-ink);
+}
+
+.pt-empty-sub {
+  font-size: 13.5px;
+  color: var(--dn-muted);
+}
+
+.pt-soft-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  margin-top: 12px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 999px;
+  background: var(--dn-soft);
+  color: var(--dn-ink);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
 }
 </style>

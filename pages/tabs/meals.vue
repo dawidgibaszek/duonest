@@ -6,7 +6,7 @@
           <div class="header-action-row">
             <div>
               <div class="dn-header-title">
-                <span>Planer Obiadów</span>
+                <span>Obiady</span>
                 <span class="count-chip" v-if="weekMealsCount > 0">{{ weekMealsCount }} / 7</span>
               </div>
               <p class="dn-header-subtitle">Wspólny jadłospis na ten tydzień i inspiracje</p>
@@ -14,12 +14,11 @@
             <div class="header-buttons">
               <button
                 type="button"
-                class="header-action-btn"
+                class="dn-header-btn dn-header-btn--icon"
                 @click="activeSubView === 'my-recipes' ? openAddCookbookRecipeModal() : openAddCustomModal()"
                 :aria-label="activeSubView === 'my-recipes' ? 'Dodaj przepis do książki' : 'Dodaj własny obiad'"
               >
                 <ion-icon :icon="ioniconsAddOutline" />
-                <span style="text-wrap: nowrap;">{{ activeSubView === 'my-recipes' ? 'Nowy przepis' : 'Własne' }}</span>
               </button>
             </div>
           </div>
@@ -79,11 +78,11 @@
       </ion-toolbar>
 
       <!-- SUB-VIEW SEGMENT: Plan Tygodnia vs Twoje Przepisy vs Inspiracje -->
-      <ion-toolbar class="subview-toolbar" data-no-swipe>
-        <div class="subview-segmented-wrap">
+      <ion-toolbar class="dn-subtabs-toolbar" data-no-swipe>
+        <div class="dn-subtabs">
           <button
             type="button"
-            class="subview-pill"
+            class="dn-subtab"
             :class="{ active: activeSubView === 'calendar' }"
             @click="activeSubView = 'calendar'"
           >
@@ -93,18 +92,18 @@
 
           <button
             type="button"
-            class="subview-pill"
+            class="dn-subtab"
             :class="{ active: activeSubView === 'my-recipes' }"
             @click="activeSubView = 'my-recipes'"
           >
             <ion-icon :icon="ioniconsBookOutline" />
             <span>Twoje Przepisy</span>
-            <span class="subview-count-badge" v-if="savedRecipes.length > 0">{{ savedRecipes.length }}</span>
+            <span class="dn-subtab-count" v-if="savedRecipes.length > 0">{{ savedRecipes.length }}</span>
           </button>
 
           <button
             type="button"
-            class="subview-pill"
+            class="dn-subtab"
             :class="{ active: activeSubView === 'explore' }"
             @click="activeSubView = 'explore'"
           >
@@ -125,179 +124,72 @@
       <!-- WIDOK 1: KALENDARZ TYGODNIA                    -->
       <!-- ============================================== -->
       <div v-if="activeSubView === 'calendar'" class="meals-calendar-wrapper">
-        <!-- Week navigation bar -->
-        <div class="week-nav-bar dn-card">
-          <button
-            type="button"
-            class="week-nav-arrow"
-            @click="changeWeek(-1)"
-            aria-label="Poprzedni tydzień"
-          >
+        <!-- Week navigation -->
+        <div class="ml-weeknav">
+          <button type="button" class="ml-weeknav-btn" @click="changeWeek(-1)" aria-label="Poprzedni tydzień">
             <ion-icon :icon="ioniconsChevronBackOutline" />
           </button>
-
-          <div class="week-range-text">
-            <span class="week-title">{{ weekRangeLabel }}</span>
-            <button
-              v-if="weekOffset !== 0"
-              type="button"
-              class="today-return-btn"
-              @click="weekOffset = 0"
-            >
-              Wróć do dzisiaj
-            </button>
+          <div class="ml-weeknav-center">
+            <span class="ml-weeknav-title">{{ weekRangeLabel }}</span>
+            <button v-if="weekOffset !== 0" type="button" class="ml-weeknav-today" @click="weekOffset = 0">Wróć do dzisiaj</button>
           </div>
-
-          <button
-            type="button"
-            class="week-nav-arrow"
-            @click="changeWeek(1)"
-            aria-label="Następny tydzień"
-          >
+          <button type="button" class="ml-weeknav-btn" @click="changeWeek(1)" aria-label="Następny tydzień">
             <ion-icon :icon="ioniconsChevronForwardOutline" />
           </button>
         </div>
 
-        <!-- 7 Days List -->
-        <div class="days-list">
+        <!-- 7 days -->
+        <div class="ml-days">
           <div
             v-for="day in weekDays"
             :key="day.dateStr"
-            class="dn-card day-meal-card"
-            :class="{ 'is-today': day.isToday, 'has-meal': !!day.meal, 'is-completed': day.meal?.is_completed }"
+            class="ml-day"
+            :class="{ 'is-today': day.isToday, 'has-meal': !!day.meal, 'is-done': day.meal?.is_completed }"
           >
-            <!-- Day header row -->
-            <div class="day-card-header">
-              <div class="day-date-info">
-                <span class="day-name">{{ day.dayName }}</span>
-                <span class="day-date">{{ day.displayDate }}</span>
-                <span v-if="day.isToday" class="today-pill">DZISIAJ</span>
-              </div>
-
-              <!-- Cook indicator badge -->
-              <div v-if="day.meal" class="cook-badge" :style="getCookBadgeStyle(day.meal.cook_id)">
-                <ion-icon :icon="getCookIcon(day.meal.cook_id)" />
-                <span>{{ getCookLabel(day.meal.cook_id) }}</span>
-              </div>
+            <div class="ml-date">
+              <span class="ml-date-dow">{{ day.dayName.slice(0, 3) }}</span>
+              <span class="ml-date-num">{{ day.displayDate.split(' ')[0] }}</span>
             </div>
 
-            <!-- When a meal is planned for this day -->
-            <div v-if="day.meal" class="meal-content-row">
-              <div
-                class="meal-thumb-box"
-                :style="day.meal.image_url ? { backgroundImage: `url(${day.meal.image_url})` } : {}"
-                @click="openMealDetailsModal(day.meal)"
+            <template v-if="day.meal">
+              <button type="button" class="ml-meal" @click="openMealDetailsModal(day.meal)">
+                <span
+                  class="ml-thumb"
+                  :style="day.meal.image_url ? { backgroundImage: `url(${day.meal.image_url})` } : {}"
+                >
+                  <ion-icon v-if="!day.meal.image_url" :icon="ioniconsRestaurantOutline" />
+                </span>
+                <span class="ml-meal-text">
+                  <span class="ml-meal-title">{{ formatMealTitlePl(day.meal.titlePl || day.meal.title) }}</span>
+                  <span class="ml-meal-meta">
+                    {{ getCookLabel(day.meal.cook_id) }}<template v-if="day.meal.ingredients?.length"> · {{ day.meal.ingredients.length }} składn.</template>
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                class="ml-check"
+                :class="{ done: day.meal.is_completed }"
+                :aria-label="day.meal.is_completed ? 'Oznacz jako niezjedzone' : 'Oznacz jako zjedzone'"
+                @click="handleToggleCompleted(day.meal)"
               >
-                <div v-if="!day.meal.image_url" class="meal-thumb-fallback">
-                  <ion-icon :icon="ioniconsRestaurantOutline" />
-                </div>
-              </div>
+                <ion-icon :icon="ioniconsCheckmarkOutline" />
+              </button>
+              <button type="button" class="ml-more" aria-label="Więcej" @click="openMealActions(day.meal)">
+                <ion-icon :icon="ioniconsEllipsisHorizontal" />
+              </button>
+            </template>
 
-              <div class="meal-details-box">
-                <div class="meal-title-row">
-                  <h4
-                    class="meal-title"
-                    :class="{ 'strike': day.meal.is_completed }"
-                    @click="openMealDetailsModal(day.meal)"
-                  >
-                    {{ formatMealTitlePl(day.meal.titlePl || day.meal.title) }}
-                  </h4>
-                </div>
-
-                <div class="meal-tags-row">
-                  <span v-if="day.meal.categoryPl || day.meal.category" class="tag-pill category-pill">
-                    {{ day.meal.categoryPl || day.meal.category }}
-                  </span>
-                  <span v-if="day.meal.areaPl || day.meal.area" class="tag-pill area-pill">
-                    {{ day.meal.areaPl || day.meal.area }}
-                  </span>
-                  <span v-if="day.meal.ingredients?.length" class="tag-pill ingredients-pill">
-                    <ion-icon :icon="ioniconsListOutline" />
-                    {{ day.meal.ingredients.length }} składników
-                  </span>
-                </div>
-
-                <!-- Action buttons -->
-                <div class="meal-card-actions">
-                  <button
-                    type="button"
-                    class="meal-action-btn done-toggle-btn"
-                    :class="{ 'done': day.meal.is_completed }"
-                    @click="handleToggleCompleted(day.meal)"
-                  >
-                    <ion-icon :icon="day.meal.is_completed ? ioniconsCheckmarkCircle : ioniconsCheckmarkCircleOutline" />
-                    <span>{{ day.meal.is_completed ? 'Zjedzone' : 'Oznacz zjedzone' }}</span>
-                  </button>
-
-                  <button
-                    v-if="day.meal.ingredients?.length"
-                    type="button"
-                    class="meal-action-btn shopping-add-btn"
-                    @click="handleAddMealIngredientsToShopping(day.meal)"
-                    title="Dodaj składniki do Listy Zakupów"
-                  >
-                    <ion-icon :icon="ioniconsCartOutline" />
-                    <span>Do zakupów</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    class="meal-action-btn recipe-btn"
-                    @click="openMealDetailsModal(day.meal)"
-                    title="Przepis i szczegóły"
-                  >
-                    <ion-icon :icon="ioniconsInformationCircleOutline" />
-                  </button>
-
-                  <button
-                    type="button"
-                    class="meal-action-btn delete-btn"
-                    @click.stop="handleDeleteMeal(day.meal.id, day.meal.title)"
-                    title="Usuń z planu"
-                  >
-                    <ion-icon :icon="ioniconsTrashOutline" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- When NO meal is planned for this day -->
-            <div v-else class="day-empty-slot">
-              <div class="empty-slot-text">
-                <ion-icon :icon="ioniconsRestaurantOutline" class="empty-fork-icon" />
-                <span>Brak zaplanowanego dania</span>
-              </div>
-              <div class="empty-slot-buttons">
-                <button
-                  type="button"
-                  class="slot-btn slot-saved-btn"
-                  @click="openPickSavedModal(day.dateStr)"
-                >
-                  <ion-icon :icon="ioniconsBookOutline" />
-                  <span>Z Twoich przepisów</span>
-                  <span class="slot-count-badge" v-if="savedRecipes.length > 0">{{ savedRecipes.length }}</span>
-                </button>
-                <button
-                  type="button"
-                  class="slot-btn slot-primary-btn"
-                  @click="openExploreForDate(day.dateStr)"
-                >
-                  <ion-icon :icon="ioniconsSparklesOutline" />
-                  <span>Z inspiracji</span>
-                </button>
-                <button
-                  type="button"
-                  class="slot-btn slot-secondary-btn"
-                  @click="openAddCustomModal(day.dateStr)"
-                >
-                  <ion-icon :icon="ioniconsAddOutline" />
-                  <span>Własne</span>
-                </button>
-              </div>
-            </div>
+            <template v-else>
+              <span class="ml-empty">{{ day.isToday ? 'Co dziś jemy?' : 'Brak planu' }}</span>
+              <button type="button" class="ml-plan-btn" @click="openPlanDayActions(day.dateStr)">
+                <ion-icon :icon="ioniconsAddOutline" />
+                <span>Zaplanuj</span>
+              </button>
+            </template>
           </div>
         </div>
-      </div>
+</div>
 
       <!-- ============================================== -->
       <!-- WIDOK 2: TWOJE PRZEPISY (KSIĄŻKA KUCHARSKA)    -->
@@ -947,6 +839,14 @@
       </div>
 
       <!-- Spacer for bottom bar -->
+      <DuoActionSheet
+        :is-open="mealSheet.open"
+        :title="mealSheet.title"
+        :subtitle="mealSheet.subtitle"
+        :buttons="mealSheet.buttons"
+        @dismiss="mealSheet.open = false"
+      />
+
       <div class="tab-bottom-spacer" style="height: 105px;" aria-hidden="true"></div>
     </ion-content>
 
@@ -963,253 +863,140 @@
       :handle="true"
       data-no-swipe="true"
     >
-      <ion-header class="modal-custom-header ion-no-border">
-        <div class="modal-sheet-handle-spacer" aria-hidden="true"></div>
-        <div class="modal-sheet-header">
-          <div class="modal-title-wrap">
-            <div class="modal-title-icon-badge">
-              <ion-icon :icon="ioniconsRestaurantOutline" class="modal-title-icon" />
-            </div>
-            <div class="modal-title-text-group">
-              <h3 class="modal-main-title">Przepis i Składniki</h3>
-              <span class="modal-sub-title">Inspiracja kulinarna dla Was</span>
-            </div>
-          </div>
-          <div class="modal-header-actions-group">
+      <ion-header class="dn-form-sheet-header ion-no-border rp-header">
+        <div class="dn-form-sheet-handle-spacer" aria-hidden="true"></div>
+        <div class="rp-header-row">
+          <span class="rp-header-label">Przepis</span>
+          <div class="rp-header-actions">
             <button
-              v-if="isRecipeInSaved(activeSelectedMeal)"
+              v-if="activeSelectedMeal && isRecipeInSaved(activeSelectedMeal)"
               type="button"
-              class="modal-delete-icon-btn"
+              class="rp-icon-btn is-saved"
               @click="confirmDeleteSavedRecipe(activeSelectedMeal)"
-              aria-label="Usuń przepis z Twoich przepisów"
-              title="Usuń z Twoich przepisów"
+              aria-label="Usuń z Twoich przepisów"
             >
-              <ion-icon :icon="ioniconsTrashOutline" />
+              <ion-icon :icon="ioniconsBookmark" />
             </button>
             <button
-              v-else
+              v-else-if="activeSelectedMeal"
               type="button"
-              class="modal-save-icon-btn"
+              class="rp-icon-btn"
               @click="handleToggleSaveRecipe(activeSelectedMeal)"
               aria-label="Zapisz w Twoich przepisach"
-              title="Zapisz w Twoich przepisach"
             >
               <ion-icon :icon="ioniconsBookmarkOutline" />
             </button>
-            <button
-              type="button"
-              class="modal-close-icon-btn"
-              @click="showDetailsModal = false"
-              aria-label="Zamknij"
-            >
+            <button type="button" class="rp-icon-btn" @click="showDetailsModal = false" aria-label="Zamknij">
               <ion-icon :icon="ioniconsCloseOutline" />
             </button>
           </div>
         </div>
       </ion-header>
 
-      <ion-content class="ion-padding recipe-modal-content" :scroll-y="true" v-if="activeSelectedMeal">
-        <div class="modal-recipe-body">
-          <!-- Hero Image Banner with Glass Badges -->
-          <div
-            class="recipe-hero-card"
-            :class="{ 'recipe-hero-card-fallback': !getRecipePreviewImage(activeSelectedMeal) }"
-          >
+      <ion-content class="rp-content" :scroll-y="true" v-if="activeSelectedMeal">
+        <div class="rp-body">
+          <!-- Photo -->
+          <div class="rp-hero" :class="{ 'is-empty': !getRecipePreviewImage(activeSelectedMeal) }">
             <img
               v-if="getRecipePreviewImage(activeSelectedMeal)"
               :src="getRecipePreviewImage(activeSelectedMeal)"
               :alt="activeSelectedMeal.title"
-              class="recipe-hero-img"
               @error="markRecipePreviewImageFailed(activeSelectedMeal)"
             />
-            <div v-else class="recipe-hero-placeholder">
+            <span v-else class="rp-hero-icon">
               <ion-icon :icon="ioniconsRestaurantOutline" />
-              <span>{{ activeSelectedMeal.categoryPl || activeSelectedMeal.category || 'Domowy obiad' }}</span>
+            </span>
+          </div>
+
+          <!-- Title -->
+          <h2 class="rp-title">{{ formatMealTitlePl(activeSelectedMeal.titlePl || activeSelectedMeal.title) }}</h2>
+          <p
+            v-if="(activeSelectedMeal.originalTitle || activeSelectedMeal.title) && formatMealTitlePl(activeSelectedMeal.titlePl || activeSelectedMeal.title) !== (activeSelectedMeal.originalTitle || activeSelectedMeal.title)"
+            class="rp-original"
+          >
+            {{ activeSelectedMeal.originalTitle || activeSelectedMeal.title }}
+          </p>
+
+          <div class="rp-chips">
+            <span v-if="activeSelectedMeal.categoryPl || activeSelectedMeal.category" class="rp-chip is-cream">
+              {{ activeSelectedMeal.categoryPl || activeSelectedMeal.category }}
+            </span>
+            <span v-if="activeSelectedMeal.areaPl || activeSelectedMeal.area" class="rp-chip">
+              Kuchnia {{ (activeSelectedMeal.areaPl || activeSelectedMeal.area).toLowerCase() }}
+            </span>
+            <span v-if="activeSelectedMeal.ingredients?.length" class="rp-chip">
+              {{ activeSelectedMeal.ingredients.length }} składników
+            </span>
+            <span v-if="activeSelectedMeal.instructionsSteps?.length > 1" class="rp-chip">
+              {{ activeSelectedMeal.instructionsSteps.length }} kroków
+            </span>
+          </div>
+
+          <!-- Ingredients -->
+          <section v-if="activeSelectedMeal.ingredients?.length" class="rp-section">
+            <div class="rp-section-head">
+              <h3 class="rp-section-title">Składniki</h3>
+              <button type="button" class="rp-link-btn" @click="handleAddIngredientsFromDetails">
+                <ion-icon :icon="ioniconsCartOutline" />
+                <span>Do zakupów</span>
+              </button>
             </div>
-            <div class="recipe-hero-overlay"></div>
-            <div class="recipe-hero-badges-row">
-              <span v-if="activeSelectedMeal.areaPl || activeSelectedMeal.area" class="hero-glass-pill cuisine-pill">
-                {{ activeSelectedMeal.areaPl || activeSelectedMeal.area }}
+            <ul class="rp-ingredients">
+              <li v-for="(ing, idx) in activeSelectedMeal.ingredients" :key="idx" class="rp-ing">
+                <span class="rp-ing-name">{{ translateIngredientName(ing.name) }}</span>
+                <span v-if="ing.measure || ing.amount" class="rp-ing-qty">
+                  {{ ing.measure ? formatMeasurePl(ing.measure) : [ing.amount, ing.unit].filter(Boolean).join(' ') }}
+                </span>
+              </li>
+            </ul>
+          </section>
+
+          <!-- Steps -->
+          <section v-if="activeSelectedMeal.instructions" class="rp-section">
+            <div class="rp-section-head">
+              <h3 class="rp-section-title">Przygotowanie</h3>
+              <span v-if="isTranslatingRecipe" class="rp-translating">
+                <ion-spinner name="dots" />
+                Tłumaczenie…
               </span>
-              <span v-if="activeSelectedMeal.categoryPl || activeSelectedMeal.category" class="hero-glass-pill category-pill">
-                {{ activeSelectedMeal.categoryPl || activeSelectedMeal.category }}
-              </span>
             </div>
-          </div>
-
-          <!-- Recipe Title & Quick Meta -->
-          <div class="recipe-title-section">
-            <h2 class="recipe-display-title">{{ formatMealTitlePl(activeSelectedMeal.titlePl || activeSelectedMeal.title) }}</h2>
-            <p v-if="(activeSelectedMeal.originalTitle || activeSelectedMeal.title) && formatMealTitlePl(activeSelectedMeal.titlePl || activeSelectedMeal.title) !== (activeSelectedMeal.originalTitle || activeSelectedMeal.title)" class="recipe-original-name">
-              {{ activeSelectedMeal.originalTitle || activeSelectedMeal.title }}
-            </p>
-
-            <div class="recipe-quick-chips">
-              <div class="quick-chip" v-if="activeSelectedMeal.ingredients?.length">
-                <ion-icon :icon="ioniconsListOutline" />
-                <span>{{ activeSelectedMeal.ingredients.length }} składników</span>
-              </div>
-              <div class="quick-chip" v-if="activeSelectedMeal.instructionsSteps?.length">
-                <ion-icon :icon="ioniconsCheckmarkCircleOutline" />
-                <span>{{ activeSelectedMeal.instructionsSteps.length }} kroków</span>
-              </div>
-              <div class="quick-chip" v-if="activeSelectedMeal.areaPl">
-                <ion-icon :icon="ioniconsGlobeOutline" />
-                <span>Kuchnia {{ activeSelectedMeal.areaPl.toLowerCase() }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Primary CTA Button: Plan this meal or save to cookbook -->
-          <div class="recipe-plan-cta-box recipe-plan-cta-row">
-            <button
-              v-if="!isRecipeInSaved(activeSelectedMeal)"
-              type="button"
-              class="dn-button-secondary recipe-save-btn"
-              @click="handleToggleSaveRecipe(activeSelectedMeal)"
-            >
-              <ion-icon :icon="ioniconsBookmarkOutline" />
-              <span>Zapisz w przepisach</span>
-            </button>
-            <button
-              type="button"
-              class="dn-button-primary recipe-plan-btn"
-              @click="openAssignFromDetails(activeSelectedMeal)"
-            >
-              <ion-icon :icon="ioniconsCalendarOutline" />
-              <span>Zaplanuj na ten tydzień</span>
-            </button>
-          </div>
-
-          <!-- Ingredients Section -->
-          <div class="recipe-detail-section" v-if="activeSelectedMeal.ingredients?.length">
-            <div class="section-heading-row">
-              <div class="section-title-group">
-                <div class="heading-icon-orb">
-                  <ion-icon :icon="ioniconsCartOutline" />
-                </div>
-                <h3>Potrzebne składniki</h3>
-              </div>
-              <span class="count-tag">{{ activeSelectedMeal.ingredients.length }}</span>
-            </div>
-
-            <div class="ingredients-modern-grid">
-              <div
-                v-for="(ing, idx) in activeSelectedMeal.ingredients"
-                :key="idx"
-                class="ingredient-pill-card"
-              >
-                <div class="ing-bullet-orb">
-                  <ion-icon :icon="ioniconsCheckmarkOutline" />
-                </div>
-                <div class="ing-info-col">
-                  <span class="ing-title">{{ translateIngredientName(ing.name) }}</span>
-                  <span v-if="ing.measure" class="ing-quantity">{{ formatMeasurePl(ing.measure) }}</span>
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              class="dn-button-primary add-shopping-action-btn"
-              @click="handleAddIngredientsFromDetails"
-            >
-              <ion-icon :icon="ioniconsCartOutline" />
-              <span>Dodaj wszystkie składniki do Listy Zakupów</span>
-            </button>
-          </div>
-
-          <!-- Step-by-Step Preparation Instructions Section -->
-          <div class="recipe-detail-section" v-if="activeSelectedMeal.instructions">
-            <div class="section-heading-row">
-              <div class="section-title-group">
-                <div class="heading-icon-orb">
-                  <ion-icon :icon="ioniconsBookOutline" />
-                </div>
-                <h3>Sposób przygotowania</h3>
-              </div>
-              <div v-if="isTranslatingRecipe" class="translating-indicator">
-                <ion-spinner name="dots" class="mini-spinner" />
-                <span>Tłumaczenie...</span>
-              </div>
-            </div>
-
-            <!-- Numbered Steps -->
-            <div
+            <ol
               v-if="activeSelectedMeal.instructionsSteps && activeSelectedMeal.instructionsSteps.length > 1"
-              class="recipe-steps-list"
+              class="rp-steps"
             >
-              <div
-                v-for="(step, sIdx) in activeSelectedMeal.instructionsSteps"
-                :key="sIdx"
-                class="recipe-step-card"
-              >
-                <div class="step-badge-number">{{ sIdx + 1 }}</div>
-                <div class="step-card-body">
-                  <span class="step-counter-label">Krok {{ sIdx + 1 }}</span>
-                  <p class="step-instruction-text">{{ cleanStepDisplay(step) }}</p>
-                </div>
-              </div>
-            </div>
+              <li v-for="(step, sIdx) in activeSelectedMeal.instructionsSteps" :key="sIdx" class="rp-step">
+                <span class="rp-step-num">{{ sIdx + 1 }}</span>
+                <p class="rp-step-text">{{ cleanStepDisplay(step) }}</p>
+              </li>
+            </ol>
+            <p v-else class="rp-paragraph">{{ activeSelectedMeal.instructions }}</p>
+          </section>
 
-            <!-- Single paragraph fallback -->
-            <div v-else class="single-instruction-box">
-              <p class="recipe-instructions-text">{{ activeSelectedMeal.instructions }}</p>
-            </div>
-          </div>
+          <!-- Source -->
+          <a
+            v-if="activeSelectedMeal.youtube_url || activeSelectedMeal.youtubeUrl || activeSelectedMeal.recipe_url"
+            :href="activeSelectedMeal.youtube_url || activeSelectedMeal.youtubeUrl || activeSelectedMeal.recipe_url"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="rp-source"
+          >
+            <span class="rp-source-icon">
+              <ion-icon :icon="(activeSelectedMeal.youtube_url || activeSelectedMeal.recipe_url?.includes('tiktok.com') || activeSelectedMeal.recipe_url?.includes('youtu')) ? ioniconsPlayCircleOutline : ioniconsOpenOutline" />
+            </span>
+            <span class="rp-source-text">
+              <span class="rp-source-title">{{ activeSelectedMeal.recipe_url?.includes('/shorts/') ? 'Wideo na YouTube Shorts' : (activeSelectedMeal.recipe_url?.includes('tiktok.com') ? 'Wideo na TikToku' : (activeSelectedMeal.recipe_url?.includes('youtu') ? 'Wideo na YouTube' : (activeSelectedMeal.youtube_url ? 'Wideo z przygotowania' : 'Oryginalny przepis'))) }}</span>
+              <span class="rp-source-sub">Otwórz źródło</span>
+            </span>
+            <ion-icon :icon="ioniconsChevronForwardOutline" class="rp-source-arrow" />
+          </a>
+        </div>
 
-          <!-- Video / External Recipe Link -->
-          <div class="recipe-detail-section" v-if="activeSelectedMeal.youtube_url || activeSelectedMeal.youtubeUrl || activeSelectedMeal.recipe_url">
-            <a
-              :href="activeSelectedMeal.youtube_url || activeSelectedMeal.youtubeUrl || activeSelectedMeal.recipe_url"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="video-recipe-card"
-            >
-              <div class="video-icon-circle">
-                <ion-icon :icon="(activeSelectedMeal.youtube_url || activeSelectedMeal.recipe_url?.includes('tiktok.com') || activeSelectedMeal.recipe_url?.includes('youtu')) ? ioniconsPlayCircleOutline : ioniconsOpenOutline" />
-              </div>
-              <div class="video-meta">
-                <span class="video-title">{{ activeSelectedMeal.recipe_url?.includes('/shorts/') ? 'Wideo na YouTube Shorts' : (activeSelectedMeal.recipe_url?.includes('tiktok.com') ? 'Wideo na TikToku' : (activeSelectedMeal.recipe_url?.includes('youtu') ? 'Wideo na YouTube' : (activeSelectedMeal.youtube_url ? 'Wideo z przygotowania' : 'Oryginalny przepis ze strony'))) }}</span>
-                <span class="video-sub">Otwórz źródło w nowej karcie</span>
-              </div>
-              <ion-icon :icon="ioniconsChevronForwardOutline" class="video-arrow" />
-            </a>
-          </div>
-
-          <!-- Bottom Floating Action Bar -->
-          <div class="recipe-bottom-floating-bar">
-            <button
-              v-if="isRecipeInSaved(activeSelectedMeal)"
-              type="button"
-              class="recipe-modal-delete-btn"
-              @click="confirmDeleteSavedRecipe(activeSelectedMeal)"
-              aria-label="Usuń z Twoich przepisów"
-              title="Usuń z Twoich przepisów"
-            >
-              <ion-icon :icon="ioniconsTrashOutline" />
-              <span>Usuń</span>
-            </button>
-            <button
-              v-else
-              type="button"
-              class="recipe-modal-save-btn"
-              @click="handleToggleSaveRecipe(activeSelectedMeal)"
-              aria-label="Zapisz w Twoich przepisach"
-              title="Zapisz w Twoich przepisach"
-            >
-              <ion-icon :icon="ioniconsBookmarkOutline" />
-              <span>Zapisz</span>
-            </button>
-            <button
-              type="button"
-              class="dn-button-primary bottom-plan-btn"
-              @click="openAssignFromDetails(activeSelectedMeal)"
-            >
-              <ion-icon :icon="ioniconsCalendarOutline" />
-              <span>Wybierz na obiad</span>
-            </button>
-          </div>
+        <!-- Sticky footer -->
+        <div class="rp-footer">
+          <button type="button" class="dn-button-primary rp-plan-btn" @click="openAssignFromDetails(activeSelectedMeal)">
+            <ion-icon :icon="ioniconsCalendarOutline" />
+            <span>Zaplanuj obiad</span>
+          </button>
         </div>
       </ion-content>
     </ion-modal>
@@ -1423,7 +1210,7 @@
               <span>Nazwa obiadu lub przepisu *</span>
             </label>
             <div class="input-container-box">
-              <ion-input
+              <ion-input aria-label="Nazwa obiadu lub przepisu"
                 v-model="customTitle"
                 maxlength="100"
                 placeholder="np. Kotlety schabowe z ziemniaczkami, Domowa lasagne..."
@@ -1506,7 +1293,7 @@
               <span class="label-badge-optional">opcjonalnie</span>
             </div>
             <div class="input-container-box">
-              <ion-input
+              <ion-input aria-label="Link do zdjęcia potrawy"
                 v-model="customImageUrl"
                 type="url"
                 placeholder="https://... (link do zdjęcia dania)"
@@ -1581,7 +1368,7 @@
               <span class="label-badge-optional">opcjonalnie</span>
             </div>
             <div class="textarea-container-box">
-              <ion-textarea
+              <ion-textarea aria-label="Składniki"
                 v-model="customIngredientsText"
                 maxlength="1000"
                 placeholder="Wpisz składniki po przecinku lub od nowej linii, np.:&#10;schab, bułka tarta, jajka, ziemniaki..."
@@ -1606,7 +1393,7 @@
               <span class="label-badge-optional">opcjonalnie</span>
             </div>
             <div class="textarea-container-box">
-              <ion-textarea
+              <ion-textarea aria-label="Notatka lub przepis"
                 v-model="customInstructions"
                 maxlength="2000"
                 placeholder="np. Smażyć na maśle klarowanym, dodać świeży koperek..."
@@ -1897,7 +1684,7 @@
               <span>Link do przepisu, TikToka lub YouTube Shorts</span>
             </label>
             <div class="input-container-box import-link-input-box">
-              <ion-input
+              <ion-input aria-label="Link do przepisu"
                 v-model="importUrlInput"
                 type="url"
                 placeholder="https://www.tiktok.com/... lub https://youtube.com/shorts/... lub strona z przepisem"
@@ -1959,7 +1746,7 @@
               <span>Nazwa dania</span>
             </label>
             <div class="input-container-box">
-              <ion-input
+              <ion-input aria-label="Nazwa dania"
                 v-model="importedRecipePreview.title"
                 maxlength="100"
                 class="modal-input"
@@ -2058,7 +1845,7 @@
               </label>
             </div>
             <div class="textarea-container-box">
-              <ion-textarea
+              <ion-textarea aria-label="Przygotowanie"
                 v-model="importedRecipePreview.instructions"
                 maxlength="3000"
                 class="modal-textarea"
@@ -2095,7 +1882,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
+import {
+  bicycleOutline as ioniconsBicycleOutline,
+  bookOutline as ioniconsBookOutline,
+  cartOutline as ioniconsCartOutline,
+  createOutline as ioniconsCreateOutline,
+  heartOutline as ioniconsHeartOutline,
+  peopleOutline as ioniconsPeopleOutline,
+  personOutline as ioniconsPersonOutline,
+  sparklesOutline as ioniconsSparklesOutline,
+  storefrontOutline as ioniconsStorefrontOutline,
+  trashOutline as ioniconsTrashOutline
+} from 'ionicons/icons'
+import DuoActionSheet, { type DuoActionSheetButton } from '~/components/DuoActionSheet.vue'
 import { useDuoState, type MealItem, type MealIngredient } from '~/composables/useDuoState'
 import { usePetState } from '~/composables/usePetState'
 import { useConfirm } from '~/composables/useConfirm'
@@ -2454,6 +2254,69 @@ interface DaySlot {
   meal?: MealItem
 }
 
+// ---- Bottom action sheets for the week plan (keeps day rows clean) ----
+const mealSheet = reactive<{ open: boolean; title: string; subtitle: string; buttons: DuoActionSheetButton[] }>({
+  open: false,
+  title: '',
+  subtitle: '',
+  buttons: []
+})
+
+const openPlanDayActions = (dateStr: string) => {
+  const d = new Date(dateStr + 'T12:00:00')
+  mealSheet.title = 'Zaplanuj obiad'
+  mealSheet.subtitle = d.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })
+  mealSheet.buttons = [
+    {
+      text: 'Z Twoich przepisów',
+      description: savedRecipes.value.length ? `${savedRecipes.value.length} zapisanych` : 'Wybierz z książki kucharskiej',
+      icon: ioniconsBookOutline,
+      handler: () => { openPickSavedModal(dateStr) }
+    },
+    {
+      text: 'Z inspiracji',
+      description: 'Przeglądaj propozycje dań',
+      icon: ioniconsSparklesOutline,
+      handler: () => { openExploreForDate(dateStr) }
+    },
+    {
+      text: 'Własne danie',
+      description: 'Wpisz nazwę i składniki',
+      icon: ioniconsCreateOutline,
+      handler: () => { openAddCustomModal(dateStr) }
+    }
+  ]
+  mealSheet.open = true
+}
+
+const openMealActions = (meal: any) => {
+  mealSheet.title = formatMealTitlePl(meal.titlePl || meal.title)
+  mealSheet.subtitle = getCookLabel(meal.cook_id)
+  const buttons: DuoActionSheetButton[] = [
+    {
+      text: 'Przepis i szczegóły',
+      icon: ioniconsBookOutline,
+      handler: () => { openMealDetailsModal(meal) }
+    }
+  ]
+  if (meal.ingredients?.length) {
+    buttons.push({
+      text: 'Dodaj składniki do zakupów',
+      description: `${meal.ingredients.length} pozycji`,
+      icon: ioniconsCartOutline,
+      handler: () => { handleAddMealIngredientsToShopping(meal) }
+    })
+  }
+  buttons.push({
+    text: 'Usuń z planu',
+    role: 'destructive',
+    icon: ioniconsTrashOutline,
+    handler: () => { handleDeleteMeal(meal.id, meal.title) }
+  })
+  mealSheet.buttons = buttons
+  mealSheet.open = true
+}
+
 const weekDays = computed<DaySlot[]>(() => {
   const now = new Date()
   const currentDayOfWeek = now.getDay()
@@ -2644,22 +2507,13 @@ const visiblePageNumbers = computed<(number | string)[]>(() => {
 })
 
 const fetchMealApi = async <T = any>(endpoint: string): Promise<T | null> => {
-  // 1. Primary path: Nuxt server route (and Netlify redirect)
+  // 1. Primary path: API (Firebase Cloud Function / Nuxt dev server)
   try {
     const res = await $fetch<T>(endpoint)
     if (res && typeof res === 'object') return res
   } catch (_) {}
 
-  // 2. Secondary path: direct Netlify serverless function invocation
-  if (endpoint.startsWith('/api/meals/')) {
-    const netlifyEndpoint = endpoint.replace('/api/meals/', '/.netlify/functions/meals-')
-    try {
-      const res = await $fetch<T>(netlifyEndpoint)
-      if (res && typeof res === 'object') return res
-    } catch (_) {}
-  }
-
-  // 3. Tertiary fallback: direct TheMealDB API
+  // 2. Fallback: direct TheMealDB API
   try {
     if (endpoint.includes('/api/meals/search')) {
       const urlObj = new URL(endpoint, 'http://localhost')
@@ -3409,121 +3263,8 @@ onMounted(() => {
 
 <style scoped>
 /* MAIN TABS TOOLBAR & PILLS (Organizacja: Zakupy | Zadania | Obiady | Zwierzak) */
-.main-tabs-toolbar {
-  --background: #ffffff;
-  padding: 4px 16px 8px 16px;
-}
-
-.main-tabs-pill-row {
-  display: flex;
-  background: #f1f5f9;
-  padding: 4px;
-  border-radius: 14px;
-  gap: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.main-tabs-pill-row::-webkit-scrollbar {
-  display: none;
-}
-
-.main-tab-pill {
-  flex: 1 0 auto;
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 7px 10px;
-  border-radius: 10px;
-  border: none;
-  background: transparent;
-  color: #64748b;
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.main-tab-pill.active {
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.main-tab-pill.pet-tab-pill.active {
-  color: #db2777;
-}
-
-.pill-count-chip {
-  background: #0f172a;
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: 800;
-  padding: 1px 5px;
-  border-radius: 999px;
-}
-
-.tab-pet-lvl {
-  font-size: 10px;
-  font-weight: 800;
-  background: #fdf2f8;
-  color: #db2777;
-  padding: 1px 5px;
-  border-radius: 999px;
-}
 
 /* SUB-VIEW SEGMENT TOOLBAR */
-.subview-toolbar {
-  --background: #ffffff;
-  padding: 0 16px 8px;
-}
-
-.subview-segmented-wrap {
-  display: flex;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 3px;
-  border-radius: 12px;
-  gap: 3px;
-}
-
-.subview-pill {
-  flex: 1;
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 7px 6px;
-  border-radius: 9px;
-  border: none;
-  background: transparent;
-  color: #64748b;
-  font-size: 11.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.18s ease;
-  white-space: nowrap;
-}
-
-.subview-pill.active {
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
-}
-
-.subview-count-badge {
-  background: #0f172a;
-  color: #ffffff;
-  font-size: 9.5px;
-  font-weight: 800;
-  padding: 1px 5px;
-  border-radius: 999px;
-  margin-left: 2px;
-}
 
 /* HEADER ACTION BUTTONS */
 .header-action-row {
@@ -3536,7 +3277,7 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
   border-radius: 10px;
@@ -3548,10 +3289,10 @@ onMounted(() => {
 
 /* WIDOK 1: KALENDARZ TYGODNIA */
 .meals-calendar-wrapper {
-  padding: 12px 14px 40px;
+  padding: 8px 0 40px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 2px;
 }
 
 .week-nav-bar {
@@ -3567,8 +3308,8 @@ onMounted(() => {
   height: 34px;
   border-radius: 10px;
   border: none;
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f2f3f5;
+  color: #1c1b19;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3584,14 +3325,14 @@ onMounted(() => {
 
 .week-title {
   font-size: 14px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .today-return-btn {
   background: none;
   border: none;
-  color: #0f172a;
+  color: #1c1b19;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
@@ -3608,17 +3349,17 @@ onMounted(() => {
   padding: 12px 14px;
   border-radius: 16px;
   transition: all 0.2s ease;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
 }
 
 .day-meal-card.is-today {
-  border-color: #0f172a;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+  border-color: #1c1b19;
+  box-shadow: none;
 }
 
 .day-meal-card.is-completed {
   opacity: 0.85;
-  background: #f8fafc;
+  background: #f8f9fb;
 }
 
 .day-card-header {
@@ -3636,20 +3377,20 @@ onMounted(() => {
 
 .day-name {
   font-size: 14px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .day-date {
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
   font-weight: 600;
 }
 
 .today-pill {
   font-size: 9px;
-  font-weight: 800;
-  background: #0f172a;
+  font-weight: 700;
+  background: #1c1b19;
   color: #ffffff;
   padding: 1px 6px;
   border-radius: 999px;
@@ -3679,7 +3420,7 @@ onMounted(() => {
   border-radius: 12px;
   background-size: cover;
   background-position: center;
-  background-color: #f1f5f9;
+  background-color: #f2f3f5;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -3688,7 +3429,7 @@ onMounted(() => {
 }
 
 .meal-thumb-fallback {
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 26px;
 }
 
@@ -3703,7 +3444,7 @@ onMounted(() => {
 .meal-title {
   font-size: 14.5px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   margin: 0 0 4px;
   cursor: pointer;
   line-height: 1.3;
@@ -3713,7 +3454,7 @@ onMounted(() => {
 
 .meal-title.strike {
   text-decoration: line-through;
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 .meal-tags-row {
@@ -3734,18 +3475,18 @@ onMounted(() => {
 }
 
 .category-pill {
-  background: #f1f5f9;
-  color: #334155;
+  background: #f2f3f5;
+  color: #404040;
 }
 
 .area-pill {
-  background: #ecfdf5;
-  color: #059669;
+  background: #f7f8fa;
+  color: #838383;
 }
 
 .ingredients-pill {
-  background: #eff6ff;
-  color: #2563eb;
+  background: #f3f4f6;
+  color: #6d6d6d;
 }
 
 .meal-card-actions {
@@ -3763,28 +3504,28 @@ onMounted(() => {
   font-weight: 700;
   padding: 4px 8px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   background: #ffffff;
-  color: #475569;
+  color: #545454;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .done-toggle-btn.done {
-  background: #dcfce7;
-  color: #166534;
-  border-color: #bbf7d0;
+  background: #f2f3f5;
+  color: #585858;
+  border-color: #e7e8ea;
 }
 
 .shopping-add-btn {
-  background: #f0fdf4;
-  color: #16a34a;
-  border-color: #bbf7d0;
+  background: #f8f9fb;
+  color: #8e8e8e;
+  border-color: #e7e8ea;
 }
 
 .delete-btn {
-  color: #ef4444;
-  border-color: #fee2e2;
+  color: #d96856;
+  border-color: #e6e7e9;
   margin-left: auto;
 }
 
@@ -3802,7 +3543,7 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 12px;
   font-weight: 600;
 }
@@ -3831,26 +3572,26 @@ onMounted(() => {
 }
 
 .slot-saved-btn {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
 }
 
 .slot-primary-btn {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
 }
 
 .slot-secondary-btn {
-  background: #f1f5f9;
-  color: #334155;
-  border: 1px solid #e2e8f0;
+  background: #f2f3f5;
+  color: #404040;
+  border: 1px solid #e5e6e8;
 }
 
 .slot-count-badge {
   background: rgba(255, 255, 255, 0.28);
   color: #ffffff;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   padding: 1px 6px;
   border-radius: 999px;
   margin-left: 2px;
@@ -3871,9 +3612,9 @@ onMounted(() => {
   justify-content: space-between;
   padding: 10px 14px;
   border-radius: 14px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fb 100%);
+  border: 1px solid #e5e6e8;
+  box-shadow: none;
   cursor: pointer;
   transition: all 0.25s ease;
   position: relative;
@@ -3881,8 +3622,8 @@ onMounted(() => {
 }
 
 .surprise-hero-bar:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  border-color: #d4d4d4;
+  box-shadow: none;
 }
 
 .surprise-hero-bar:active {
@@ -3890,7 +3631,7 @@ onMounted(() => {
 }
 
 .surprise-hero-bar.is-rolling {
-  border-color: #cbd5e1;
+  border-color: #d4d4d4;
   background: #ffffff;
 }
 
@@ -3905,7 +3646,7 @@ onMounted(() => {
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -3927,16 +3668,16 @@ onMounted(() => {
 
 .surprise-badge-label {
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
-  color: #0f172a;
+  color: #1c1b19;
   letter-spacing: 0.5px;
 }
 
 .surprise-heading {
   font-size: 13px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   margin: 1px 0 0;
   white-space: nowrap;
   overflow: hidden;
@@ -3948,7 +3689,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
   min-width: 88px;
@@ -3966,9 +3707,9 @@ onMounted(() => {
 }
 
 .surprise-pill-btn:hover:not(:disabled) {
-  background: #1e293b;
+  background: #1c1b19;
   transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+  box-shadow: none;
 }
 
 .surprise-pill-btn:active:not(:disabled) {
@@ -3986,10 +3727,10 @@ onMounted(() => {
 
 /* Minimalist Loading State */
 .surprise-pill-btn.is-loading {
-  background: #0f172a;
+  background: #1c1b19;
   opacity: 0.88;
   cursor: wait;
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.1);
+  box-shadow: none;
   gap: 7px;
 }
 
@@ -4026,7 +3767,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   background: #ffffff;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--dn-line);
   border-radius: 12px;
   padding: 8px 12px;
   gap: 8px;
@@ -4034,13 +3775,13 @@ onMounted(() => {
 }
 
 .explore-search-field:focus-within {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.08);
+  border-color: var(--dn-ink);
+  box-shadow: 0 0 0 3px rgba(28, 27, 25, 0.06);
 }
 
 .search-ico {
   font-size: 17px;
-  color: #94a3b8;
+  color: #a2a2a2;
   flex-shrink: 0;
 }
 
@@ -4049,20 +3790,20 @@ onMounted(() => {
   border: none;
   background: transparent;
   font-size: 13px;
-  color: #0f172a;
+  color: #1c1b19;
   outline: none;
   min-width: 0;
 }
 
 .search-input-el::placeholder {
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 12.5px;
 }
 
 .search-clear-ico {
   border: none;
   background: transparent;
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 17px;
   cursor: pointer;
   display: flex;
@@ -4085,23 +3826,26 @@ onMounted(() => {
 
 .curated-filter-pill {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 6px 13px;
   border-radius: 999px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  color: #475569;
+  border: none;
+  background: var(--dn-soft);
+  color: #545454;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
 }
 
 .curated-filter-pill.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.15);
+  border-color: #1c1b19;
+  box-shadow: none;
 }
 
 /* RECIPES GRID: Spacious, high-impact recipe cards */
@@ -4131,15 +3875,15 @@ onMounted(() => {
   border-radius: 18px;
   overflow: hidden;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  box-shadow: none;
 }
 
 .recipe-card:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+  border-color: #d4d4d4;
+  box-shadow: none;
 }
 
 .recipe-card:active {
@@ -4150,7 +3894,7 @@ onMounted(() => {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 10;
-  background: #f1f5f9;
+  background: #f2f3f5;
   overflow: hidden;
 }
 
@@ -4169,24 +3913,24 @@ onMounted(() => {
 .recipe-img-placeholder {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  background: linear-gradient(135deg, #f8f9fb 0%, #e5e6e8 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: #737373;
   gap: 6px;
 }
 
 .recipe-img-placeholder ion-icon {
   font-size: 36px;
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 .placeholder-label {
   font-size: 12px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
 }
 
 .recipe-badges-overlay {
@@ -4202,7 +3946,7 @@ onMounted(() => {
 }
 
 .recipe-badge-cuisine {
-  background: rgba(15, 23, 42, 0.82);
+  background: rgba(28, 27, 25, 0.82);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   color: #ffffff;
@@ -4220,7 +3964,7 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  color: #0f172a;
+  color: #1c1b19;
   font-size: 10.5px;
   font-weight: 700;
   padding: 3px 8px;
@@ -4229,7 +3973,7 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 
 .recipe-badge-source {
@@ -4245,12 +3989,12 @@ onMounted(() => {
 }
 
 .recipe-badge-source.custom {
-  background: rgba(2, 132, 199, 0.9);
+  background: rgba(125, 125, 125, 0.9);
   color: #ffffff;
 }
 
 .recipe-badge-source.api {
-  background: rgba(15, 23, 42, 0.85);
+  background: rgba(28, 27, 25, 0.85);
   color: #ffffff;
 }
 
@@ -4261,8 +4005,8 @@ onMounted(() => {
   padding: 3px 8px;
   border-radius: 7px;
   font-size: 10.5px;
-  font-weight: 800;
-  background: rgba(245, 158, 11, 0.95);
+  font-weight: 700;
+  background: rgba(177, 177, 177, 0.95);
   color: #ffffff;
 }
 
@@ -4273,8 +4017,8 @@ onMounted(() => {
   padding: 3px 8px;
   border-radius: 7px;
   font-size: 10.5px;
-  font-weight: 800;
-  background: rgba(15, 23, 42, 0.85);
+  font-weight: 700;
+  background: rgba(28, 27, 25, 0.85);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   color: #ffffff;
@@ -4289,8 +4033,8 @@ onMounted(() => {
 
 .recipe-card-title {
   font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   line-height: 1.35;
   margin: 0 0 10px 0;
   min-height: 40px;
@@ -4313,16 +4057,16 @@ onMounted(() => {
   gap: 3px;
   font-size: 11px;
   font-weight: 600;
-  color: #64748b;
-  background: #f1f5f9;
+  color: #737373;
+  background: #f2f3f5;
   padding: 3px 7px;
   border-radius: 6px;
 }
 
 .meta-tag.cookbook-tag {
-  background: rgba(15, 23, 42, 0.08);
-  color: #0f172a;
-  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: rgba(28, 27, 25, 0.08);
+  color: #1c1b19;
+  border: 1px solid rgba(28, 27, 25, 0.14);
 }
 
 .recipe-bottom-action {
@@ -4338,9 +4082,9 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  background: #f8fafc;
-  color: #334155;
-  border: 1px solid #cbd5e1;
+  background: #f8f9fb;
+  color: #404040;
+  border: 1px solid #d4d4d4;
   border-radius: 10px;
   padding: 8px 10px;
   font-size: 12px;
@@ -4351,7 +4095,7 @@ onMounted(() => {
 }
 
 .recipe-action-outline-btn:hover {
-  background: #f1f5f9;
+  background: #f2f3f5;
 }
 
 .recipe-action-bookmark-btn {
@@ -4361,9 +4105,9 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #f8fafc;
-  color: #64748b;
-  border: 1px solid #cbd5e1;
+  background: #f8f9fb;
+  color: #737373;
+  border: 1px solid #d4d4d4;
   border-radius: 10px;
   cursor: pointer;
   font-size: 16px;
@@ -4373,14 +4117,14 @@ onMounted(() => {
 }
 
 .recipe-action-bookmark-btn:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f2f3f5;
+  color: #1c1b19;
 }
 
 .recipe-action-bookmark-btn.is-saved {
-  background: rgba(15, 23, 42, 0.08);
-  color: #0f172a;
-  border-color: #0f172a;
+  background: rgba(28, 27, 25, 0.08);
+  color: #1c1b19;
+  border-color: #1c1b19;
 }
 
 .recipe-action-bookmark-btn:active {
@@ -4393,7 +4137,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
   border-radius: 10px;
@@ -4406,7 +4150,7 @@ onMounted(() => {
 }
 
 .recipe-action-plan-btn:hover {
-  background: #1e293b;
+  background: #1c1b19;
 }
 
 .recipe-action-delete-btn {
@@ -4416,9 +4160,9 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #f8fafc;
-  color: #94a3b8;
-  border: 1px solid #cbd5e1;
+  background: #f8f9fb;
+  color: #a2a2a2;
+  border: 1px solid #d4d4d4;
   border-radius: 10px;
   cursor: pointer;
   font-size: 16px;
@@ -4428,9 +4172,9 @@ onMounted(() => {
 }
 
 .recipe-action-delete-btn:hover {
-  background: #fef2f2;
-  color: #ef4444;
-  border-color: #fecaca;
+  background: #f3f4f6;
+  color: #d96856;
+  border-color: #fcefec;
 }
 
 .recipe-action-delete-btn:active {
@@ -4452,7 +4196,7 @@ onMounted(() => {
   padding: 8px 12px;
   border-radius: 14px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   gap: 16px;
   flex-wrap: nowrap;
   min-height: 48px;
@@ -4475,14 +4219,14 @@ onMounted(() => {
 
 .saved-hero-icon {
   font-size: 16.5px;
-  color: #0f172a;
+  color: #1c1b19;
   flex-shrink: 0;
 }
 
 .saved-heading {
   font-size: 13.5px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   margin: 0;
   white-space: nowrap;
   letter-spacing: -0.2px;
@@ -4492,10 +4236,10 @@ onMounted(() => {
 .saved-title-row .count-chip {
   flex-shrink: 0;
   font-size: 10px;
-  font-weight: 800;
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #e2e8f0;
+  font-weight: 500;
+  background: var(--dn-soft);
+  color: #545454;
+  border: none;
   padding: 1px 6px;
   border-radius: 9999px;
   line-height: 1.4;
@@ -4504,7 +4248,7 @@ onMounted(() => {
 
 .saved-subheading {
   font-size: 11.5px;
-  color: #64748b;
+  color: #737373;
   margin: 2px 0 0;
   white-space: nowrap;
   overflow: hidden;
@@ -4566,23 +4310,23 @@ onMounted(() => {
   display: flex;
   align-items: center;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   border-radius: 12px;
   padding: 0 10px;
   height: 40px;
   gap: 8px;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+  box-shadow: none;
 }
 
 .saved-search-box:focus-within {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.06);
+  border-color: var(--dn-ink);
+  box-shadow: 0 0 0 3px rgba(28, 27, 25, 0.06);
 }
 
 .saved-search-box .search-ico {
   font-size: 17px;
-  color: #94a3b8;
+  color: #a2a2a2;
   flex-shrink: 0;
 }
 
@@ -4592,13 +4336,13 @@ onMounted(() => {
   border: none;
   background: transparent;
   font-size: 13px;
-  color: #0f172a;
+  color: #1c1b19;
   outline: none;
   font-family: inherit;
 }
 
 .saved-search-box .search-input-el::placeholder {
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 .saved-search-box .search-clear-ico {
@@ -4608,7 +4352,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 17px;
   cursor: pointer;
   flex-shrink: 0;
@@ -4616,7 +4360,7 @@ onMounted(() => {
 }
 
 .saved-search-box .search-clear-ico:hover {
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .saved-filter-actions-row {
@@ -4631,23 +4375,23 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   border-radius: 12px;
   height: 40px;
   padding: 0 10px;
   gap: 6px;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+  box-shadow: none;
 }
 
 .saved-sort-dropdown:hover,
 .saved-sort-dropdown:focus-within {
-  border-color: #0f172a;
+  border-color: #1c1b19;
 }
 
 .saved-sort-dropdown .sort-icon {
   font-size: 16px;
-  color: #64748b;
+  color: #737373;
   pointer-events: none;
   flex-shrink: 0;
 }
@@ -4657,7 +4401,7 @@ onMounted(() => {
   background: transparent;
   font-size: 12.5px;
   font-weight: 600;
-  color: #0f172a;
+  color: #1c1b19;
   outline: none;
   cursor: pointer;
   padding-right: 4px;
@@ -4670,11 +4414,11 @@ onMounted(() => {
 .saved-view-toggle {
   display: inline-flex;
   align-items: center;
-  background: #f1f5f9;
+  background: #f2f3f5;
   border-radius: 12px;
   padding: 3px;
   gap: 2px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   height: 40px;
   box-sizing: border-box;
 }
@@ -4688,20 +4432,20 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: #737373;
   font-size: 17px;
   cursor: pointer;
   transition: all 0.18s ease;
 }
 
 .saved-view-toggle .view-btn:hover {
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .saved-view-toggle .view-btn.active {
   background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  color: #1c1b19;
+  box-shadow: none;
 }
 
 .saved-source-scroll {
@@ -4730,7 +4474,7 @@ onMounted(() => {
 .cat-filter-prefix {
   font-size: 11.5px;
   font-weight: 700;
-  color: #94a3b8;
+  color: #a2a2a2;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-right: 2px;
@@ -4743,25 +4487,25 @@ onMounted(() => {
   gap: 5px;
   padding: 5px 10px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   border-radius: 20px;
   font-size: 12px;
   font-weight: 600;
-  color: #475569;
+  color: #545454;
   cursor: pointer;
   transition: all 0.18s ease;
   white-space: nowrap;
 }
 
 .cat-pill-btn:hover {
-  border-color: #cbd5e1;
-  background: #f8fafc;
-  color: #0f172a;
+  border-color: #d4d4d4;
+  background: #f8f9fb;
+  color: #1c1b19;
 }
 
 .cat-pill-btn.active {
-  background: #0f172a;
-  border-color: #0f172a;
+  background: #1c1b19;
+  border-color: #1c1b19;
   color: #ffffff;
 }
 
@@ -4769,8 +4513,8 @@ onMounted(() => {
   font-size: 10px;
   padding: 1px 5px;
   border-radius: 10px;
-  background: #f1f5f9;
-  color: #64748b;
+  background: #f2f3f5;
+  color: #737373;
   font-weight: 700;
 }
 
@@ -4784,12 +4528,12 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   border-radius: 10px;
   padding: 6px 10px;
   font-size: 12px;
-  color: #475569;
+  color: #545454;
 }
 
 .summary-left {
@@ -4801,12 +4545,12 @@ onMounted(() => {
 
 .summary-count {
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
   margin-right: 4px;
 }
 
 .summary-count strong {
-  color: #0f172a;
+  color: #1c1b19;
   font-weight: 700;
 }
 
@@ -4815,35 +4559,35 @@ onMounted(() => {
   align-items: center;
   gap: 4px;
   background: #ffffff;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #d4d4d4;
   border-radius: 6px;
   padding: 2px 7px;
   font-size: 11px;
   font-weight: 600;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .summary-badge ion-icon {
   font-size: 13px;
   cursor: pointer;
-  color: #94a3b8;
+  color: #a2a2a2;
   transition: color 0.15s ease;
 }
 
 .summary-badge ion-icon:hover {
-  color: #ef4444;
+  color: #d96856;
 }
 
 .summary-badge.sort-badge {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1d4ed8;
+  background: #f3f4f6;
+  border-color: #d8d8d8;
+  color: #5c5c5c;
 }
 
 .summary-reset-btn {
   background: none;
   border: none;
-  color: #e06d53;
+  color: #d96856;
   font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
@@ -4854,7 +4598,7 @@ onMounted(() => {
 }
 
 .summary-reset-btn:hover {
-  color: #c2410c;
+  color: #6d6d6d;
 }
 
 .saved-card-meta-row {
@@ -4870,8 +4614,8 @@ onMounted(() => {
   gap: 3px;
   font-size: 11px;
   font-weight: 600;
-  color: #64748b;
-  background: #f1f5f9;
+  color: #737373;
+  background: #f2f3f5;
   border-radius: 6px;
   padding: 2px 6px;
 }
@@ -4881,23 +4625,23 @@ onMounted(() => {
 }
 
 .saved-card-meta-row .meta-tag.cookbook-tag {
-  background: #eef2ff;
-  color: #4338ca;
+  background: #f0f1f3;
+  color: #515151;
 }
 
 .saved-card-meta-row .meta-tag.cat-meta-tag {
-  background: #fdf2f8;
-  color: #be185d;
+  background: #f3f4f6;
+  color: #636363;
 }
 
 .saved-card-meta-row .meta-tag.ing-meta-tag {
-  background: #f0fdf4;
-  color: #15803d;
+  background: #f8f9fb;
+  color: #6f6f6f;
 }
 
 .saved-card-meta-row .meta-tag.date-tag {
-  background: #f8fafc;
-  color: #64748b;
+  background: #f8f9fb;
+  color: #737373;
 }
 
 /* WIDOK LISTY DWUKOLUMNOWY / POZIOMY (LIST VIEW) */
@@ -4914,15 +4658,15 @@ onMounted(() => {
   padding: 10px 12px;
   border-radius: 14px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+  box-shadow: none;
 }
 
 .saved-list-card:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.06);
+  border-color: #d4d4d4;
+  box-shadow: none;
   transform: translateY(-1px);
 }
 
@@ -4931,7 +4675,7 @@ onMounted(() => {
   height: 68px;
   border-radius: 12px;
   overflow: hidden;
-  background: #f1f5f9;
+  background: #f2f3f5;
   flex-shrink: 0;
   position: relative;
 }
@@ -4949,8 +4693,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f8fafc;
-  color: #94a3b8;
+  background: #f8f9fb;
+  color: #a2a2a2;
   font-size: 24px;
 }
 
@@ -4974,25 +4718,25 @@ onMounted(() => {
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 5px;
-  background: #f1f5f9;
-  color: #475569;
+  background: #f2f3f5;
+  color: #545454;
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
 
 .saved-list-source-pill.custom {
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: #f3f4f6;
+  color: #5c5c5c;
 }
 
 .saved-list-source-pill.import {
-  background: #fdf2f8;
-  color: #be185d;
+  background: #f3f4f6;
+  color: #636363;
 }
 
 .saved-list-source-pill.api {
-  background: #faf5ff;
-  color: #7e22ce;
+  background: #f5f6f8;
+  color: #595959;
 }
 
 .saved-list-cat-pill {
@@ -5000,9 +4744,9 @@ onMounted(() => {
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 5px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #64748b;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
+  color: #737373;
 }
 
 .saved-list-cooked-pill {
@@ -5013,8 +4757,8 @@ onMounted(() => {
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 5px;
-  background: #fff7ed;
-  color: #c2410c;
+  background: #f6f7f9;
+  color: #6d6d6d;
 }
 
 .saved-list-book-pill {
@@ -5025,14 +4769,14 @@ onMounted(() => {
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 5px;
-  background: #eef2ff;
-  color: #4338ca;
+  background: #f0f1f3;
+  color: #515151;
 }
 
 .saved-list-title {
   font-size: 14px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   margin: 0;
   line-height: 1.3;
   white-space: nowrap;
@@ -5052,13 +4796,13 @@ onMounted(() => {
   align-items: center;
   gap: 3px;
   font-size: 11px;
-  color: #64748b;
+  color: #737373;
   font-weight: 500;
 }
 
 .saved-list-meta-item ion-icon {
   font-size: 12px;
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 .saved-list-actions {
@@ -5074,7 +4818,7 @@ onMounted(() => {
   gap: 5px;
   padding: 7px 12px;
   border-radius: 10px;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
   font-size: 12px;
@@ -5084,7 +4828,7 @@ onMounted(() => {
 }
 
 .saved-list-plan-btn:hover {
-  background: #1e293b;
+  background: #1c1b19;
   transform: translateY(-1px);
 }
 
@@ -5096,9 +4840,9 @@ onMounted(() => {
   width: 32px;
   height: 32px;
   border-radius: 9px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
   background: #ffffff;
-  color: #94a3b8;
+  color: #a2a2a2;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5108,9 +4852,9 @@ onMounted(() => {
 }
 
 .saved-list-delete-btn:hover {
-  background: #fef2f2;
-  border-color: #fecaca;
-  color: #ef4444;
+  background: #f3f4f6;
+  border-color: #fcefec;
+  color: #d96856;
 }
 
 .saved-list-delete-btn:active {
@@ -5155,15 +4899,15 @@ onMounted(() => {
   gap: 12px;
   padding: 10px 12px;
   border-radius: 14px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   background: #ffffff;
   cursor: pointer;
   transition: all 0.18s ease;
 }
 
 .pick-recipe-item:hover, .pick-recipe-item:active {
-  border-color: #0f172a;
-  background: #f8fafc;
+  border-color: #1c1b19;
+  background: #f8f9fb;
 }
 
 .pick-item-thumb {
@@ -5172,12 +4916,12 @@ onMounted(() => {
   border-radius: 10px;
   background-size: cover;
   background-position: center;
-  background-color: #f1f5f9;
+  background-color: #f2f3f5;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 24px;
 }
 
@@ -5189,7 +4933,7 @@ onMounted(() => {
 .pick-item-title {
   font-size: 13.5px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   margin: 0 0 4px 0;
   white-space: nowrap;
   overflow: hidden;
@@ -5207,30 +4951,30 @@ onMounted(() => {
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 6px;
-  background: #f1f5f9;
-  color: #64748b;
+  background: #f2f3f5;
+  color: #737373;
 }
 
 .pick-meta-chip.source-chip.custom {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f2f3f5;
+  color: #1c1b19;
 }
 
 .pick-meta-chip.source-chip.api {
-  background: #f1f5f9;
-  color: #334155;
+  background: #f2f3f5;
+  color: #404040;
 }
 
 .pick-meta-chip.cook-chip {
-  background: #fef3c7;
-  color: #b45309;
+  background: #f1f2f4;
+  color: #6f6f6f;
 }
 
 .pick-item-select-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
   border-radius: 9px;
@@ -5259,21 +5003,21 @@ onMounted(() => {
   justify-content: space-between;
   padding: 2px 2px 8px;
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
 }
 
 .meta-count-text strong {
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .meta-page-badge {
-  background: #f1f5f9;
+  background: var(--dn-soft);
   padding: 3px 9px;
   border-radius: 9999px;
-  font-weight: 700;
-  color: #0f172a;
+  font-weight: 500;
+  color: #1c1b19;
   font-size: 11.5px;
-  border: 1px solid #e2e8f0;
+  border: none;
 }
 
 .meals-cards-container {
@@ -5290,9 +5034,9 @@ onMounted(() => {
   margin-bottom: 24px;
   padding: 8px 10px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  box-shadow: none;
 }
 
 .pagination-nav-btn {
@@ -5301,9 +5045,9 @@ onMounted(() => {
   gap: 4px;
   padding: 8px 11px;
   border-radius: 10px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #d4d4d4;
   background: #ffffff;
-  color: #0f172a;
+  color: #1c1b19;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -5313,8 +5057,8 @@ onMounted(() => {
 }
 
 .pagination-nav-btn:hover:not(:disabled) {
-  background: #f8fafc;
-  border-color: #0f172a;
+  background: #f8f9fb;
+  border-color: #1c1b19;
 }
 
 .pagination-nav-btn:active:not(:disabled) {
@@ -5324,7 +5068,7 @@ onMounted(() => {
 .pagination-nav-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
-  border-color: #e2e8f0;
+  border-color: #e5e6e8;
 }
 
 .pagination-pages-group {
@@ -5346,7 +5090,7 @@ onMounted(() => {
   border-radius: 8px;
   border: 1px solid transparent;
   background: transparent;
-  color: #475569;
+  color: #545454;
   font-size: 12.5px;
   font-weight: 700;
   display: flex;
@@ -5359,8 +5103,8 @@ onMounted(() => {
 }
 
 .page-number-btn:hover:not(.active):not(.ellipsis) {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: #f2f3f5;
+  color: #1c1b19;
 }
 
 .page-number-btn:active:not(.active):not(.ellipsis) {
@@ -5368,15 +5112,15 @@ onMounted(() => {
 }
 
 .page-number-btn.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.2);
+  border-color: #1c1b19;
+  box-shadow: none;
 }
 
 .page-number-btn.ellipsis {
   cursor: default;
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 /* ======================================================= */
@@ -5406,7 +5150,7 @@ onMounted(() => {
   background-size: cover;
   background-position: center;
   overflow: hidden;
-  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.1);
+  box-shadow: none;
 }
 
 .recipe-hero-img {
@@ -5426,23 +5170,23 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: #64748b;
+  color: #737373;
   background:
     radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.9), transparent 38%),
-    linear-gradient(135deg, #f8fafc, #e2e8f0);
+    linear-gradient(135deg, #f8f9fb, #e5e6e8);
   font-size: 13px;
   font-weight: 700;
 }
 
 .recipe-hero-placeholder ion-icon {
   font-size: 42px;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .recipe-hero-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.35) 0%, rgba(15, 23, 42, 0.05) 50%, rgba(15, 23, 42, 0.6) 100%);
+  background: linear-gradient(180deg, rgba(28, 27, 25, 0.35) 0%, rgba(28, 27, 25, 0.05) 50%, rgba(28, 27, 25, 0.6) 100%);
 }
 
 .recipe-hero-badges-row {
@@ -5460,15 +5204,15 @@ onMounted(() => {
   font-size: 11.5px;
   font-weight: 700;
   color: #ffffff;
-  background: rgba(15, 23, 42, 0.7);
+  background: rgba(28, 27, 25, 0.7);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: none;
 }
 
 .hero-glass-pill.cuisine-pill {
-  background: rgba(14, 165, 233, 0.85);
+  background: rgba(155, 155, 155, 0.85);
 }
 
 /* Title Section */
@@ -5481,15 +5225,15 @@ onMounted(() => {
 
 .recipe-display-title {
   font-size: 21px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   margin: 0;
   line-height: 1.25;
 }
 
 .recipe-original-name {
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
   font-style: italic;
   margin: 0;
 }
@@ -5507,15 +5251,15 @@ onMounted(() => {
   gap: 5px;
   padding: 4px 10px;
   border-radius: 9999px;
-  background: #f1f5f9;
+  background: var(--dn-soft);
   font-size: 11.5px;
-  font-weight: 600;
-  color: #475569;
+  font-weight: 500;
+  color: #545454;
 }
 
 .quick-chip ion-icon {
   font-size: 13px;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 /* Top Action Box */
@@ -5528,13 +5272,13 @@ onMounted(() => {
   padding: 13px;
   border-radius: 14px;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   touch-action: manipulation;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
+  box-shadow: none;
 }
 
 /* Sections */
@@ -5560,26 +5304,26 @@ onMounted(() => {
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  background: #f1f5f9;
+  background: #f2f3f5;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 15px;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .section-title-group h3 {
   font-size: 15px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   margin: 0;
 }
 
 .count-tag {
   font-size: 11.5px;
-  font-weight: 700;
-  color: #64748b;
-  background: #f1f5f9;
+  font-weight: 500;
+  color: var(--dn-ink);
+  background: var(--dn-soft);
   padding: 2px 8px;
   border-radius: 9999px;
 }
@@ -5590,7 +5334,7 @@ onMounted(() => {
   gap: 5px;
   font-size: 11.5px;
   font-weight: 600;
-  color: #64748b;
+  color: #737373;
 }
 
 .mini-spinner {
@@ -5611,16 +5355,16 @@ onMounted(() => {
   gap: 8px;
   padding: 10px 11px;
   border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
 }
 
 .ing-bullet-orb {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: rgba(16, 185, 129, 0.14);
-  color: #059669;
+  background: rgba(163, 163, 163, 0.14);
+  color: #838383;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5637,14 +5381,14 @@ onMounted(() => {
 .ing-title {
   font-size: 12.5px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   line-height: 1.25;
 }
 
 .ing-quantity {
   font-size: 11px;
   font-weight: 600;
-  color: #64748b;
+  color: #737373;
   margin-top: 1px;
 }
 
@@ -5674,18 +5418,18 @@ onMounted(() => {
   gap: 12px;
   padding: 12px 14px;
   border-radius: 14px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
 }
 
 .step-badge-number {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5702,15 +5446,15 @@ onMounted(() => {
 
 .step-counter-label {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #64748b;
+  color: #737373;
 }
 
 .step-instruction-text {
   font-size: 13.5px;
-  color: #1e293b;
+  color: #1c1b19;
   line-height: 1.55;
   margin: 0;
 }
@@ -5718,13 +5462,13 @@ onMounted(() => {
 .single-instruction-box {
   padding: 14px;
   border-radius: 14px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
 }
 
 .recipe-instructions-text {
   font-size: 13.5px;
-  color: #1e293b;
+  color: #1c1b19;
   line-height: 1.6;
   white-space: pre-line;
   margin: 0;
@@ -5737,8 +5481,8 @@ onMounted(() => {
   gap: 12px;
   padding: 12px 14px;
   border-radius: 14px;
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1.5px solid #e5e6e8;
   text-decoration: none;
   color: inherit;
   transition: all 0.2s ease;
@@ -5747,15 +5491,15 @@ onMounted(() => {
 
 .video-recipe-card:active {
   transform: scale(0.98);
-  background: #f1f5f9;
+  background: #f2f3f5;
 }
 
 .video-icon-circle {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: rgba(239, 68, 68, 0.12);
-  color: #ef4444;
+  background: rgba(217, 104, 86, 0.12);
+  color: #d96856;
   font-size: 24px;
   display: flex;
   align-items: center;
@@ -5773,12 +5517,12 @@ onMounted(() => {
 .video-title {
   font-size: 13.5px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .video-sub {
   font-size: 11.5px;
-  color: #64748b;
+  color: #737373;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5786,14 +5530,14 @@ onMounted(() => {
 
 .video-arrow {
   font-size: 18px;
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 /* Bottom Plan Button */
 .recipe-bottom-floating-bar {
   margin-top: 6px;
   padding-top: 10px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid #f2f3f5;
   display: flex;
   gap: 10px;
   align-items: center;
@@ -5808,9 +5552,9 @@ onMounted(() => {
   border-radius: 14px;
   font-size: 14px;
   font-weight: 700;
-  background: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fee2e2;
+  background: #f3f4f6;
+  color: #c2412d;
+  border: 1px solid #e6e7e9;
   cursor: pointer;
   transition: all 0.15s ease;
   touch-action: manipulation;
@@ -5818,8 +5562,8 @@ onMounted(() => {
 }
 
 .recipe-modal-delete-btn:hover {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: #e6e7e9;
+  color: #c2412d;
 }
 
 .recipe-modal-delete-btn:active {
@@ -5835,9 +5579,9 @@ onMounted(() => {
   border-radius: 14px;
   font-size: 14px;
   font-weight: 700;
-  background: #f8fafc;
-  color: #0f172a;
-  border: 1px solid #cbd5e1;
+  background: #f8f9fb;
+  color: #1c1b19;
+  border: 1px solid #d4d4d4;
   cursor: pointer;
   transition: all 0.15s ease;
   touch-action: manipulation;
@@ -5845,8 +5589,8 @@ onMounted(() => {
 }
 
 .recipe-modal-save-btn:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
+  background: #f2f3f5;
+  border-color: #a2a2a2;
 }
 
 .recipe-modal-save-btn:active {
@@ -5874,15 +5618,15 @@ onMounted(() => {
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  background: #f8fafc;
-  color: #0f172a;
-  border: 1.5px solid #cbd5e1;
+  background: #f8f9fb;
+  color: #1c1b19;
+  border: 1.5px solid #d4d4d4;
   transition: all 0.15s ease;
 }
 
 .recipe-save-btn:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
+  background: #f2f3f5;
+  border-color: #a2a2a2;
 }
 
 .bottom-plan-btn {
@@ -5891,13 +5635,13 @@ onMounted(() => {
   padding: 13px;
   border-radius: 14px;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   touch-action: manipulation;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
+  box-shadow: none;
 }
 
 /* ======================================================= */
@@ -5906,11 +5650,11 @@ onMounted(() => {
 ion-modal.dn-meal-sheet-modal {
   --border-radius: 28px 28px 0 0;
   --background: #ffffff;
-  --box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.16);
+  --box-shadow: 0 -12px 40px rgba(28, 27, 25, 0.16);
 }
 
 ion-modal.dn-meal-sheet-modal::part(handle) {
-  background: #94a3b8;
+  background: #a2a2a2;
   width: 44px;
   height: 5px;
   border-radius: 9999px;
@@ -5929,7 +5673,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 .dn-meal-sheet-modal .modal-custom-header {
   background: #ffffff;
   --background: #ffffff;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f2f3f5;
 }
 
 .dn-meal-sheet-modal .modal-sheet-header,
@@ -5956,11 +5700,11 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: #f1f5f9;
+  background: #f2f3f5;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #0f172a;
+  color: #1c1b19;
   font-size: 20px;
   flex-shrink: 0;
 }
@@ -5975,8 +5719,8 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 
 .dn-meal-sheet-modal .modal-main-title {
   font-size: 16px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   padding: 0;
   margin: 0;
   line-height: 1.25;
@@ -5988,7 +5732,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 .dn-meal-sheet-modal .modal-sub-title {
   font-size: 12px;
   font-weight: 500;
-  color: #64748b;
+  color: #737373;
   margin-top: 2px;
   margin-bottom: 0;
   white-space: nowrap;
@@ -6004,8 +5748,8 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .dn-meal-sheet-modal .modal-delete-icon-btn {
-  background: #fef2f2;
-  border: 1px solid #fee2e2;
+  background: var(--dn-soft);
+  border: none;
   width: 36px;
   height: 36px;
   min-width: 36px;
@@ -6013,7 +5757,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ef4444;
+  color: var(--dn-ink);
   cursor: pointer;
   font-size: 18px;
   transition: all 0.15s ease;
@@ -6023,9 +5767,9 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .dn-meal-sheet-modal .modal-delete-icon-btn:hover {
-  background: #fee2e2;
-  color: #dc2626;
-  border-color: #fca5a5;
+  background: #e6e7e9;
+  color: #c2412d;
+  border-color: #fcefec;
 }
 
 .dn-meal-sheet-modal .modal-delete-icon-btn:active {
@@ -6033,8 +5777,8 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .dn-meal-sheet-modal .modal-save-icon-btn {
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
+  background: var(--dn-soft);
+  border: none;
   width: 36px;
   height: 36px;
   min-width: 36px;
@@ -6042,7 +5786,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #0f172a;
+  color: #1c1b19;
   cursor: pointer;
   font-size: 18px;
   transition: all 0.15s ease;
@@ -6052,9 +5796,9 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .dn-meal-sheet-modal .modal-save-icon-btn:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
-  color: #0f172a;
+  background: #f2f3f5;
+  border-color: #a2a2a2;
+  color: #1c1b19;
 }
 
 .dn-meal-sheet-modal .modal-save-icon-btn:active {
@@ -6062,7 +5806,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .dn-meal-sheet-modal .modal-close-icon-btn {
-  background: #f1f5f9;
+  background: var(--dn-soft);
   border: none;
   width: 36px;
   height: 36px;
@@ -6071,7 +5815,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #64748b;
+  color: var(--dn-ink);
   cursor: pointer;
   font-size: 20px;
   transition: all 0.15s ease;
@@ -6081,8 +5825,8 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .dn-meal-sheet-modal .modal-close-icon-btn:hover {
-  background: #e2e8f0;
-  color: #0f172a;
+  background: #e5e6e8;
+  color: #1c1b19;
 }
 
 .dn-meal-sheet-modal .modal-close-icon-btn:active {
@@ -6112,8 +5856,8 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   gap: 12px;
   padding: 12px;
   border-radius: 14px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
   margin-bottom: 4px;
 }
 
@@ -6123,7 +5867,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   border-radius: 12px;
   background-size: cover;
   background-position: center;
-  background-color: #f1f5f9;
+  background-color: #f2f3f5;
   flex-shrink: 0;
 }
 
@@ -6135,8 +5879,8 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 
 .assign-meal-name {
   font-size: 14px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   margin: 0 0 3px;
   white-space: nowrap;
   overflow: hidden;
@@ -6145,16 +5889,11 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 
 .assign-meal-meta {
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
   margin: 0;
 }
 
 /* Form Groups & Labels */
-.form-group {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 0;
-}
 
 .label-between-row {
   display: flex;
@@ -6165,30 +5904,20 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   gap: 4px;
 }
 
-.form-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #1e293b;
-  margin-bottom: 8px;
-}
-
 .label-between-row .form-label {
   margin-bottom: 0;
 }
 
 .label-icon {
   font-size: 15px;
-  color: #64748b;
+  color: #737373;
 }
 
 .label-badge-optional {
   font-size: 11px;
-  font-weight: 600;
-  color: #94a3b8;
-  background: #f1f5f9;
+  font-weight: 500;
+  color: #a2a2a2;
+  background: var(--dn-soft);
   padding: 2px 8px;
   border-radius: 9999px;
 }
@@ -6196,18 +5925,18 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 .selected-day-badge {
   font-size: 11.5px;
   font-weight: 700;
-  color: #0f172a;
-  background: #f1f5f9;
+  color: #1c1b19;
+  background: #f2f3f5;
   padding: 3px 10px;
   border-radius: 9999px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e6e8;
 }
 
 /* Inputs & Textareas */
 .input-container-box,
 .textarea-container-box {
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1.5px solid #e5e6e8;
   border-radius: 14px;
   transition: all 0.2s ease;
   overflow: hidden;
@@ -6216,36 +5945,37 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 .input-container-box:focus-within,
 .textarea-container-box:focus-within {
   background: #ffffff;
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+  border-color: var(--dn-ink);
+  box-shadow: 0 0 0 3px rgba(28, 27, 25, 0.06);
 }
 
 .modal-input {
-  --background: transparent;
+  --background: var(--dn-field);
   --padding-start: 14px;
   --padding-end: 14px;
   --padding-top: 10px;
   --padding-bottom: 10px;
-  --color: #0f172a;
-  --placeholder-color: #94a3b8;
+  --color: #1c1b19;
+  --placeholder-color: #a2a2a2;
   --placeholder-opacity: 1;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
-  border: none;
+  border: 1px solid var(--dn-field-line);
+  min-height: 52px;
 }
 
 .modal-textarea {
-  --background: transparent;
+  --background: var(--dn-field);
   --padding-start: 14px;
   --padding-end: 14px;
   --padding-top: 10px;
   --padding-bottom: 10px;
-  --color: #0f172a;
-  --placeholder-color: #94a3b8;
+  --color: #1c1b19;
+  --placeholder-color: #a2a2a2;
   --placeholder-opacity: 1;
-  font-size: 13.5px;
+  font-size: 16px;
   line-height: 1.45;
-  border: none;
+  border: 1px solid var(--dn-field-line);
   min-height: 75px;
 }
 
@@ -6255,14 +5985,14 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   gap: 6px;
   margin-top: 6px;
   font-size: 11.5px;
-  color: #64748b;
+  color: #737373;
   line-height: 1.35;
 }
 
 .field-subtext-row ion-icon {
   font-size: 14px;
   flex-shrink: 0;
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 /* Custom Meal Category Chips */
@@ -6283,10 +6013,10 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   padding: 6px 12px;
   border-radius: 9999px;
   font-size: 12px;
-  font-weight: 600;
-  background: #f8fafc;
-  color: #475569;
-  border: 1px solid #e2e8f0;
+  font-weight: 500;
+  background: var(--dn-soft);
+  color: #545454;
+  border: none;
   white-space: nowrap;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -6294,14 +6024,14 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .custom-category-pill:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: #f2f3f5;
+  border-color: #d4d4d4;
 }
 
 .custom-category-pill.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
+  border-color: #1c1b19;
 }
 
 /* Custom Day Selection & Mode Choice */
@@ -6317,9 +6047,9 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   gap: 8px;
   padding: 10px 14px;
   border-radius: 12px;
-  background: #f8fafc;
-  border: 1.5px dashed #cbd5e1;
-  color: #475569;
+  background: #f8f9fb;
+  border: 1.5px dashed #d4d4d4;
+  color: #545454;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -6332,16 +6062,16 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .custom-mode-choice-btn:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
-  color: #0f172a;
+  background: #f2f3f5;
+  border-color: #a2a2a2;
+  color: #1c1b19;
 }
 
 .custom-mode-choice-btn.active {
-  background: rgba(15, 23, 42, 0.08);
-  border-color: #0f172a;
+  background: rgba(28, 27, 25, 0.08);
+  border-color: #1c1b19;
   border-style: solid;
-  color: #0f172a;
+  color: #1c1b19;
   font-weight: 700;
 }
 
@@ -6364,14 +6094,14 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   justify-content: center;
   padding: 8px 2px;
   border-radius: 12px;
-  border: 1.5px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   background: #ffffff;
   cursor: pointer;
   transition: all 0.15s ease;
   position: relative;
   touch-action: manipulation;
   min-width: 0;
-  color: #475569;
+  color: #545454;
 }
 
 .day-select-btn:active {
@@ -6379,20 +6109,20 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .day-select-btn.is-today:not(.active) {
-  border-color: #0f172a;
-  background: rgba(15, 23, 42, 0.04);
+  border-color: #1c1b19;
+  background: rgba(28, 27, 25, 0.04);
 }
 
 .day-select-btn.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+  border-color: #1c1b19;
+  box-shadow: none;
 }
 
 .btn-day-name {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.3px;
   line-height: 1.2;
@@ -6410,14 +6140,14 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: #10b981;
+  background: #a3a3a3;
   position: absolute;
   top: 4px;
   right: 4px;
 }
 
 .day-select-btn.active .btn-day-indicator {
-  background: #34d399;
+  background: #bbbbbb;
 }
 
 /* Cook chips */
@@ -6433,9 +6163,9 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   gap: 6px;
   padding: 8px 12px;
   border-radius: 12px;
-  border: 1.5px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   background: #ffffff;
-  color: #475569;
+  color: #545454;
   font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
@@ -6448,8 +6178,8 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .cook-chip-btn:hover {
-  background: #f8fafc;
-  color: #0f172a;
+  background: #f8f9fb;
+  color: #1c1b19;
 }
 
 .cook-chip-btn:active {
@@ -6457,10 +6187,10 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .cook-chip-btn.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+  border-color: #1c1b19;
+  box-shadow: none;
 }
 
 .cook-chip-btn.active ion-icon {
@@ -6477,13 +6207,13 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   padding: 13px;
   border-radius: 14px;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   touch-action: manipulation;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
+  box-shadow: none;
 }
 
 .submit-custom-meal-btn:disabled {
@@ -6512,7 +6242,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   white-space: nowrap;
   border-radius: 9px;
   font-weight: 700;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   border: none;
   cursor: pointer;
@@ -6538,16 +6268,16 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   transition: all 0.15s ease;
   touch-action: manipulation;
   white-space: nowrap;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #d4d4d4;
   background: #ffffff;
-  color: #0f172a;
+  color: #1c1b19;
   flex-shrink: 0;
   height: 30px;
 }
 
 .saved-action-btn:hover {
-  background: #f8fafc;
-  border-color: #94a3b8;
+  background: #f8f9fb;
+  border-color: #a2a2a2;
 }
 
 .saved-action-btn:active,
@@ -6556,14 +6286,14 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .saved-action-btn.import-btn {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-  color: #0f172a;
+  background: #f8f9fb;
+  border-color: #d4d4d4;
+  color: #1c1b19;
 }
 
 .saved-action-btn.import-btn ion-icon {
   font-size: 13px;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .saved-header-actions-group .btn-text-full {
@@ -6616,9 +6346,9 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .recipe-badge-source.import {
-  background: rgba(15, 23, 42, 0.9);
-  color: #38bdf8;
-  border: 1px solid rgba(56, 189, 248, 0.3);
+  background: rgba(28, 27, 25, 0.9);
+  color: #b1b1b1;
+  border: 1px solid rgba(177, 177, 177, 0.3);
 }
 
 .import-shortcut-banner {
@@ -6629,9 +6359,9 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   padding: 10px 12px;
   margin-bottom: 14px;
   border-radius: 12px;
-  background: rgba(14, 165, 233, 0.08);
-  border: 1px solid rgba(14, 165, 233, 0.25);
-  color: #0369a1;
+  background: rgba(155, 155, 155, 0.08);
+  border: 1px solid rgba(155, 155, 155, 0.25);
+  color: #646464;
   cursor: pointer;
   transition: all 0.15s ease;
   touch-action: manipulation;
@@ -6639,8 +6369,8 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .import-shortcut-banner:hover {
-  background: rgba(14, 165, 233, 0.12);
-  border-color: rgba(14, 165, 233, 0.4);
+  background: rgba(155, 155, 155, 0.12);
+  border-color: rgba(155, 155, 155, 0.4);
 }
 
 .import-shortcut-banner:active {
@@ -6653,7 +6383,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   gap: 8px;
   font-size: 12px;
   font-weight: 500;
-  color: #0c4a6e;
+  color: #464646;
   min-width: 0;
 }
 
@@ -6665,12 +6395,12 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 .import-shortcut-banner .shortcut-icon {
   font-size: 16px;
   flex-shrink: 0;
-  color: #0284c7;
+  color: #7d7d7d;
 }
 
 .import-shortcut-banner .shortcut-arrow {
   font-size: 15px;
-  color: #0284c7;
+  color: #7d7d7d;
   flex-shrink: 0;
   margin-left: 6px;
 }
@@ -6710,36 +6440,36 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   gap: 5px;
   padding: 5px 10px;
   border-radius: 9999px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  background: var(--dn-soft);
+  border: none;
   font-size: 11.5px;
-  font-weight: 700;
-  color: #475569;
+  font-weight: 500;
+  color: #545454;
 }
 
 .platform-chip ion-icon {
   font-size: 13px;
-  color: #64748b;
+  color: #737373;
 }
 
 .platform-chip.tiktok-chip {
-  background: rgba(15, 23, 42, 0.06);
-  border-color: #cbd5e1;
-  color: #0f172a;
+  background: rgba(28, 27, 25, 0.06);
+  border-color: #d4d4d4;
+  color: #1c1b19;
 }
 
 .platform-chip.tiktok-chip ion-icon {
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .platform-chip.youtube-chip {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.25);
-  color: #dc2626;
+  background: rgba(217, 104, 86, 0.08);
+  border-color: rgba(217, 104, 86, 0.25);
+  color: #c2412d;
 }
 
 .platform-chip.youtube-chip ion-icon {
-  color: #dc2626;
+  color: #c2412d;
 }
 
 .import-link-input-box {
@@ -6759,7 +6489,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   padding: 5px 11px;
   margin-right: 8px;
   border-radius: 8px;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   font-size: 11.5px;
   font-weight: 700;
@@ -6771,7 +6501,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 }
 
 .paste-clipboard-btn:hover {
-  background: #1e293b;
+  background: #1c1b19;
 }
 
 .paste-clipboard-btn:active {
@@ -6780,13 +6510,13 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 
 .import-error-banner {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #dc2626;
+  background: #f3f4f6;
+  border: 1px solid #fcefec;
+  color: #c2412d;
   font-size: 12.5px;
   font-weight: 600;
   line-height: 1.4;
@@ -6796,7 +6526,6 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 .import-error-banner ion-icon {
   font-size: 16px;
   flex-shrink: 0;
-  margin-top: 1px;
 }
 
 .imported-hero-banner {
@@ -6808,13 +6537,13 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   background-size: cover;
   background-position: center;
   overflow: hidden;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+  box-shadow: none;
 }
 
 .imported-hero-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.4) 0%, rgba(15, 23, 42, 0.1) 50%, rgba(15, 23, 42, 0.6) 100%);
+  background: linear-gradient(180deg, rgba(28, 27, 25, 0.4) 0%, rgba(28, 27, 25, 0.1) 50%, rgba(28, 27, 25, 0.6) 100%);
 }
 
 .imported-source-badge {
@@ -6826,7 +6555,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   gap: 5px;
   padding: 5px 10px;
   border-radius: 9999px;
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(28, 27, 25, 0.75);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.25);
@@ -6837,7 +6566,7 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 
 .imported-source-badge ion-icon {
   font-size: 13px;
-  color: #38bdf8;
+  color: #b1b1b1;
 }
 
 .imported-ingredients-list {
@@ -6848,8 +6577,8 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   overflow-y: auto;
   padding: 8px;
   border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
 }
 
 .imported-ing-pill {
@@ -6857,10 +6586,10 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   padding: 4px 9px;
   border-radius: 8px;
   background: #ffffff;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #d4d4d4;
   font-size: 11.5px;
   font-weight: 600;
-  color: #334155;
+  color: #404040;
   line-height: 1.3;
 }
 
@@ -6882,5 +6611,575 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
 
 .imported-actions-row .submit-custom-meal-btn {
   flex: 1;
+}
+
+/* ===== Beige accent: empty states ===== */
+.empty-icon-circle {
+  width: 64px !important;
+  height: 64px !important;
+  margin: 0 auto 16px !important;
+  border-radius: 20px !important;
+  background: var(--dn-cream) !important;
+  color: var(--dn-cream-ink) !important;
+  border: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 28px !important;
+  flex-shrink: 0;
+}
+
+/* =========================================================
+   WEEK PLAN – compact day rows (ml-*)
+   ========================================================= */
+.ml-weeknav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 20px 6px;
+}
+
+.ml-weeknav-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: var(--dn-soft);
+  color: var(--dn-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.ml-weeknav-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.ml-weeknav-title {
+  font-family: var(--dn-serif);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--dn-ink);
+}
+
+.ml-weeknav-today {
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--dn-cream-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.ml-days {
+  display: flex;
+  flex-direction: column;
+  margin: 6px 20px 0;
+}
+
+.ml-day {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--dn-line);
+}
+
+.ml-day:last-child {
+  border-bottom: none;
+}
+
+.ml-day.is-today {
+  margin: 4px -12px;
+  padding: 10px 12px;
+  border-bottom: none;
+  border-radius: 20px;
+  background: var(--dn-cream);
+}
+
+.ml-date {
+  width: 48px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--dn-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ml-day.is-today .ml-date {
+  background: var(--dn-ink);
+}
+
+.ml-date-dow {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dn-muted);
+}
+
+.ml-date-num {
+  font-family: var(--dn-serif);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--dn-ink);
+}
+
+.ml-day.is-today .ml-date-dow {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.ml-day.is-today .ml-date-num {
+  color: #ffffff;
+}
+
+.ml-meal {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  color: var(--dn-ink);
+  cursor: pointer;
+}
+
+.ml-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--dn-cream) center / cover no-repeat;
+  color: var(--dn-cream-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.ml-day.is-today .ml-thumb {
+  background-color: #ffffff;
+}
+
+.ml-meal-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ml-meal-title {
+  font-size: 15.5px;
+  font-weight: 500;
+  color: var(--dn-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ml-day.is-done .ml-meal-title {
+  color: var(--dn-faint);
+  text-decoration: line-through;
+}
+
+.ml-meal-meta {
+  font-size: 12.5px;
+  color: var(--dn-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ml-check {
+  width: 30px;
+  height: 30px;
+  border: 1.5px solid #c9ccd2;
+  border-radius: 50%;
+  background: transparent;
+  color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.ml-check.done {
+  background: var(--dn-ink);
+  border-color: var(--dn-ink);
+  color: #ffffff;
+}
+
+.ml-more {
+  width: 32px;
+  height: 32px;
+  margin-right: -6px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--dn-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.ml-empty {
+  flex: 1;
+  min-width: 0;
+  font-size: 14.5px;
+  color: var(--dn-faint);
+}
+
+.ml-day.is-today .ml-empty {
+  color: var(--dn-cream-ink);
+  font-weight: 500;
+}
+
+.ml-plan-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0 14px 0 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--dn-soft);
+  color: var(--dn-ink);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.ml-plan-btn ion-icon {
+  font-size: 16px;
+}
+
+.ml-day.is-today .ml-plan-btn {
+  background: var(--dn-ink);
+  color: #ffffff;
+}
+
+/* =========================================================
+   RECIPE PREVIEW SHEET (rp-*)
+   ========================================================= */
+.rp-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 20px 8px;
+}
+
+.rp-header-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dn-muted);
+}
+
+.rp-header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.rp-icon-btn {
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  background: var(--dn-soft);
+  color: var(--dn-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.rp-icon-btn.is-saved {
+  background: var(--dn-cream);
+  color: var(--dn-cream-ink);
+}
+
+.rp-content {
+  --background: #ffffff;
+}
+
+.rp-body {
+  padding: 4px 20px 24px;
+}
+
+.rp-hero {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 22px;
+  overflow: hidden;
+  background: var(--dn-soft);
+}
+
+.rp-hero img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.rp-hero.is-empty {
+  aspect-ratio: auto;
+  width: 72px;
+  height: 72px;
+  border-radius: 22px;
+  background: var(--dn-cream);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rp-hero-icon {
+  color: var(--dn-cream-ink);
+  font-size: 32px;
+  display: flex;
+}
+
+.rp-title {
+  margin: 18px 0 0;
+  font-family: var(--dn-serif);
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--dn-ink);
+}
+
+.rp-original {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--dn-muted);
+}
+
+.rp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.rp-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--dn-soft);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dn-ink);
+}
+
+.rp-chip.is-cream {
+  background: var(--dn-cream);
+  color: var(--dn-cream-ink);
+}
+
+.rp-section {
+  margin-top: 28px;
+}
+
+.rp-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.rp-section-title {
+  margin: 0;
+  font-family: var(--dn-serif);
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--dn-ink);
+}
+
+.rp-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: var(--dn-cream);
+  color: var(--dn-ink);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.rp-link-btn ion-icon {
+  font-size: 16px;
+}
+
+.rp-translating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--dn-muted);
+}
+
+.rp-translating ion-spinner {
+  width: 18px;
+  height: 18px;
+}
+
+.rp-ingredients,
+.rp-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rp-ing {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--dn-line);
+}
+
+.rp-ing:last-child {
+  border-bottom: none;
+}
+
+.rp-ing-name {
+  font-size: 15px;
+  color: var(--dn-ink);
+}
+
+.rp-ing-qty {
+  font-size: 14px;
+  color: var(--dn-muted);
+  text-align: right;
+  flex-shrink: 0;
+  max-width: 45%;
+}
+
+.rp-step {
+  display: flex;
+  gap: 14px;
+  padding: 10px 0;
+}
+
+.rp-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--dn-ink);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.rp-step-text,
+.rp-paragraph {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--dn-ink);
+  white-space: pre-line;
+}
+
+.rp-step-text {
+  padding-top: 3px;
+}
+
+.rp-source {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--dn-soft);
+  color: var(--dn-ink);
+  text-decoration: none;
+}
+
+.rp-source-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.rp-source-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rp-source-title {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.rp-source-sub {
+  font-size: 13px;
+  color: var(--dn-muted);
+}
+
+.rp-source-arrow {
+  color: var(--dn-faint);
+  font-size: 18px;
+}
+
+.rp-footer {
+  position: sticky;
+  bottom: 0;
+  padding: 28px 20px calc(16px + env(safe-area-inset-bottom));
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), #ffffff 40%);
+}
+
+.rp-plan-btn {
+  width: 100%;
 }
 </style>

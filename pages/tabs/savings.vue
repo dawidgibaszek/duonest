@@ -6,19 +6,18 @@
           <div class="header-action-row">
             <div>
               <div class="dn-header-title">
-                <span>Skarbonki & Cele</span>
+                <span>Skarbonki</span>
                 <span class="count-chip" v-if="activeGoalsCount > 0">{{ activeGoalsCount }}</span>
               </div>
               <p class="dn-header-subtitle">Wspólne cele, wyjazdy i oszczędności</p>
             </div>
             <button
               type="button"
-              class="new-chore-btn"
+              class="dn-header-btn dn-header-btn--icon"
               @click="openAddModal"
               aria-label="Dodaj nową skarbonkę"
             >
               <ion-icon :icon="ioniconsAddOutline" />
-              <span>Nowy cel</span>
             </button>
           </div>
         </div>
@@ -77,39 +76,39 @@
       </ion-toolbar>
 
       <!-- SUB-VIEW SEGMENT: W trakcie vs Zrealizowane vs Wszystkie -->
-      <ion-toolbar class="subview-toolbar" data-no-swipe>
-        <div class="subview-segmented-wrap">
+      <ion-toolbar class="dn-subtabs-toolbar" data-no-swipe>
+        <div class="dn-subtabs">
           <button
             type="button"
-            class="subview-pill"
+            class="dn-subtab"
             :class="{ active: statusFilter === 'active' }"
             @click="statusFilter = 'active'"
           >
             <ion-icon :icon="ioniconsTrendingUpOutline" />
             <span>W trakcie</span>
-            <span class="subview-count-badge" v-if="activeGoalsCount > 0">{{ activeGoalsCount }}</span>
+            <span class="dn-subtab-count" v-if="activeGoalsCount > 0">{{ activeGoalsCount }}</span>
           </button>
 
           <button
             type="button"
-            class="subview-pill"
+            class="dn-subtab"
             :class="{ active: statusFilter === 'completed' }"
             @click="statusFilter = 'completed'"
           >
             <ion-icon :icon="ioniconsCheckmarkDoneOutline" />
             <span>Zrealizowane</span>
-            <span class="subview-count-badge" v-if="completedGoalsCount > 0">{{ completedGoalsCount }}</span>
+            <span class="dn-subtab-count" v-if="completedGoalsCount > 0">{{ completedGoalsCount }}</span>
           </button>
 
           <button
             type="button"
-            class="subview-pill"
+            class="dn-subtab"
             :class="{ active: statusFilter === 'all' }"
             @click="statusFilter = 'all'"
           >
             <ion-icon :icon="ioniconsLayersOutline" />
             <span>Wszystkie</span>
-            <span class="subview-count-badge" v-if="savingsGoals.length > 0">{{ savingsGoals.length }}</span>
+            <span class="dn-subtab-count" v-if="savingsGoals.length > 0">{{ savingsGoals.length }}</span>
           </button>
         </div>
       </ion-toolbar>
@@ -352,9 +351,9 @@
           <div class="modal-header-inner">
             <div class="modal-title-wrap">
               <ion-icon :icon="isEditingGoal ? ioniconsCreateOutline : ioniconsWalletOutline" class="modal-title-icon" />
-              <ion-title>{{ isEditingGoal ? 'Edytuj skarbonkę' : 'Nowa skarbonka' }}</ion-title>
+              <h2 class="modal-main-title">{{ isEditingGoal ? 'Edytuj skarbonkę' : 'Nowa skarbonka' }}</h2>
             </div>
-            <ion-buttons slot="end">
+            <div class="modal-header-actions">
               <button
                 type="button"
                 class="modal-close-icon-btn"
@@ -363,7 +362,7 @@
               >
                 <ion-icon :icon="ioniconsCloseOutline" />
               </button>
-            </ion-buttons>
+            </div>
           </div>
         </ion-toolbar>
       </ion-header>
@@ -372,7 +371,7 @@
         <form @submit.prevent="handleSaveGoal" class="goal-form">
           <div class="form-group">
             <label class="form-label" for="goal-title">Nazwa celu / skarbonki *</label>
-            <ion-input
+            <ion-input aria-label="Nazwa skarbonki"
               id="goal-title"
               v-model="goalFormTitle"
               maxlength="100"
@@ -386,7 +385,7 @@
           <div class="form-row-2">
             <div class="form-group flex-1">
               <label class="form-label" for="goal-target-amount">Kwota docelowa (PLN) *</label>
-              <ion-input
+              <ion-input aria-label="Kwota docelowa w PLN"
                 id="goal-target-amount"
                 v-model="goalFormTargetAmount"
                 type="number"
@@ -401,7 +400,7 @@
 
             <div class="form-group flex-1" v-if="!isEditingGoal">
               <label class="form-label" for="goal-initial-deposit">Wpłata na start</label>
-              <ion-input
+              <ion-input aria-label="Wpłata na start"
                 id="goal-initial-deposit"
                 v-model="goalFormInitialDeposit"
                 type="number"
@@ -469,7 +468,7 @@
           <!-- Target Date (Optional) -->
           <div class="form-group">
             <label class="form-label" for="goal-target-date">Termin realizacji (opcjonalnie)</label>
-            <ion-input
+            <ion-input aria-label="Termin realizacji"
               id="goal-target-date"
               v-model="goalFormTargetDate"
               type="date"
@@ -506,9 +505,9 @@
           <div class="modal-header-inner">
             <div class="modal-title-wrap">
               <ion-icon :icon="ioniconsCashOutline" class="modal-title-icon" />
-              <ion-title>Wpłata do skarbonki</ion-title>
+              <h2 class="modal-main-title">Wpłata do skarbonki</h2>
             </div>
-            <ion-buttons slot="end">
+            <div class="modal-header-actions">
               <button
                 type="button"
                 class="modal-close-icon-btn"
@@ -517,7 +516,7 @@
               >
                 <ion-icon :icon="ioniconsCloseOutline" />
               </button>
-            </ion-buttons>
+            </div>
           </div>
         </ion-toolbar>
       </ion-header>
@@ -567,7 +566,7 @@
             <label class="form-label" for="deposit-amount">
               {{ isWithdrawal ? 'Kwota wypłaty (PLN) *' : 'Kwota wpłaty (PLN) *' }}
             </label>
-            <ion-input
+            <ion-input :aria-label="isWithdrawal ? 'Kwota wypłaty w PLN' : 'Kwota wpłaty w PLN'"
               id="deposit-amount"
               v-model="depositAmount"
               type="number"
@@ -583,7 +582,7 @@
           <!-- Note Input -->
           <div class="form-group">
             <label class="form-label" for="deposit-note">Krótka notatka (opcjonalnie)</label>
-            <ion-input
+            <ion-input aria-label="Notatka do wpłaty"
               id="deposit-note"
               v-model="depositNote"
               maxlength="150"
@@ -635,9 +634,9 @@
           <div class="modal-header-inner">
             <div class="modal-title-wrap">
               <ion-icon :icon="ioniconsTimeOutline" class="modal-title-icon" />
-              <ion-title>Historia skarbonki</ion-title>
+              <h2 class="modal-main-title">Historia skarbonki</h2>
             </div>
-            <ion-buttons slot="end">
+            <div class="modal-header-actions">
               <button
                 type="button"
                 class="modal-close-icon-btn"
@@ -646,7 +645,7 @@
               >
                 <ion-icon :icon="ioniconsCloseOutline" />
               </button>
-            </ion-buttons>
+            </div>
           </div>
         </ion-toolbar>
       </ion-header>
@@ -1258,7 +1257,7 @@ const handleRefresh = async (event: any) => {
   height: 34px;
   padding: 0 14px;
   border-radius: 10px;
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
   font-size: 12.5px;
   font-weight: 700;
@@ -1269,143 +1268,22 @@ const handleRefresh = async (event: any) => {
   cursor: pointer;
   flex-shrink: 0;
   touch-action: manipulation;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+  box-shadow: none;
   transition: transform 0.15s ease, background 0.15s ease;
 }
 
 .new-chore-btn:active {
   transform: scale(0.96);
-  background: #1e293b;
+  background: #1c1b19;
 }
 
 /* Main tabs toolbar styling */
-.main-tabs-toolbar {
-  --background: #ffffff;
-  padding: 4px 16px 8px 16px;
-}
-
-.main-tabs-pill-row {
-  display: flex;
-  background: #f1f5f9;
-  padding: 4px;
-  border-radius: 14px;
-  gap: 4px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.main-tabs-pill-row::-webkit-scrollbar {
-  display: none;
-}
-
-.main-tab-pill {
-  flex: 1 0 auto;
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 7px 10px;
-  border-radius: 10px;
-  border: none;
-  background: transparent;
-  color: #64748b;
-  font-size: 12.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.main-tab-pill.active {
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.main-tab-pill.pet-tab-pill.active {
-  color: #db2777;
-}
-
-.pill-count-chip {
-  background: #0f172a;
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: 800;
-  padding: 1px 6px;
-  border-radius: 999px;
-}
-
-.tab-pet-lvl {
-  font-size: 10px;
-  font-weight: 800;
-  background: #fdf2f8;
-  color: #db2777;
-  padding: 1px 5px;
-  border-radius: 999px;
-}
 
 /* SUBVIEW TOOLBAR (Identical to meals.vue / tasks.vue) */
-.subview-toolbar {
-  --background: #ffffff;
-  padding: 0 16px 8px;
-}
-
-.subview-segmented-wrap {
-  display: flex;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  padding: 3px;
-  border-radius: 12px;
-  gap: 3px;
-}
-
-.subview-pill {
-  flex: 1;
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 7px 6px;
-  border-radius: 9px;
-  border: none;
-  background: transparent;
-  color: #64748b;
-  font-size: 11.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.18s ease;
-  white-space: nowrap;
-}
-
-.subview-pill ion-icon {
-  font-size: 14px;
-}
-
-.subview-pill.active {
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-}
-
-.subview-count-badge {
-  font-size: 10px;
-  font-weight: 700;
-  background: #e2e8f0;
-  color: #334155;
-  padding: 1px 6px;
-  border-radius: 8px;
-}
-
-.subview-pill.active .subview-count-badge {
-  background: #0f172a;
-  color: #ffffff;
-}
 
 /* TOTAL SAVINGS HERO DASHBOARD CARD (Signature DuoNest Dark Slate) */
 .savings-summary-hero {
-  background: linear-gradient(135deg, #090e1a 0%, #0f172a 45%, #1e293b 100%);
+  background: linear-gradient(135deg, #1c1b19 0%, #1c1b19 45%, #1c1b19 100%);
   color: #ffffff;
   border-radius: 20px;
   padding: 20px;
@@ -1413,7 +1291,7 @@ const handleRefresh = async (event: any) => {
   flex-direction: column;
   gap: 16px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 10px 30px -4px rgba(15, 23, 42, 0.35);
+  box-shadow: none;
   margin: 0;
 }
 
@@ -1425,16 +1303,16 @@ const handleRefresh = async (event: any) => {
 
 .hero-section-tag {
   font-size: 10.5px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
-  color: #94a3b8;
+  color: #a2a2a2;
   display: block;
   margin-bottom: 4px;
 }
 
 .hero-balance-val {
   font-size: 30px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.02em;
   color: #ffffff;
   margin: 0;
@@ -1444,13 +1322,13 @@ const handleRefresh = async (event: any) => {
 .hero-balance-val small {
   font-size: 14px;
   font-weight: 700;
-  color: #94a3b8;
+  color: #a2a2a2;
   margin-left: 2px;
 }
 
 .hero-balance-sub {
   font-size: 12.5px;
-  color: #cbd5e1;
+  color: #d4d4d4;
   margin: 4px 0 0 0;
   font-weight: 500;
 }
@@ -1480,7 +1358,7 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   justify-content: space-between;
   font-size: 12px;
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 .hero-progress-header strong {
@@ -1489,7 +1367,7 @@ const handleRefresh = async (event: any) => {
 
 .hero-pct-pill {
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   background: rgba(255, 255, 255, 0.15);
   color: #ffffff;
   padding: 2px 8px;
@@ -1508,7 +1386,7 @@ const handleRefresh = async (event: any) => {
 .hero-progress-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #ffffff 0%, #cbd5e1 100%);
+  background: linear-gradient(90deg, #ffffff 0%, #d4d4d4 100%);
   transition: width 0.4s ease;
 }
 
@@ -1524,7 +1402,7 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   gap: 5px;
   font-size: 11.5px;
-  color: #e2e8f0;
+  color: #e5e6e8;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
   padding: 4px 10px;
@@ -1536,7 +1414,7 @@ const handleRefresh = async (event: any) => {
 }
 
 .text-emerald {
-  color: #34d399 !important;
+  color: #bbbbbb !important;
 }
 
 /* FILTER PILLS (Matching shopping.vue) */
@@ -1559,13 +1437,13 @@ const handleRefresh = async (event: any) => {
   padding: 7px 14px;
   border-radius: 999px;
   font-size: 13px;
-  font-weight: 600;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  color: #64748b;
+  font-weight: 500;
+  background: var(--dn-soft);
+  border: none;
+  color: var(--dn-ink);
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  box-shadow: none;
   transition: all 0.15s ease;
 }
 
@@ -1574,19 +1452,19 @@ const handleRefresh = async (event: any) => {
 }
 
 .filter-pill.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  border-color: #1c1b19;
+  box-shadow: none;
 }
 
 .filter-badge {
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--dn-soft);
+  color: #545454;
   padding: 1px 6px;
   border-radius: 999px;
   font-size: 10.5px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .filter-pill.active .filter-badge {
@@ -1604,7 +1482,7 @@ const handleRefresh = async (event: any) => {
   gap: 12px;
   border-radius: 18px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   margin: 0;
 }
 
@@ -1612,8 +1490,8 @@ const handleRefresh = async (event: any) => {
   width: 56px;
   height: 56px;
   border-radius: 16px;
-  background: #f1f5f9;
-  color: #64748b;
+  background: #f2f3f5;
+  color: #737373;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1623,13 +1501,13 @@ const handleRefresh = async (event: any) => {
 .empty-title {
   font-size: 16px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   margin: 0;
 }
 
 .empty-desc {
   font-size: 13px;
-  color: #64748b;
+  color: #737373;
   margin: 0;
   max-width: 280px;
   line-height: 1.45;
@@ -1650,18 +1528,18 @@ const handleRefresh = async (event: any) => {
   padding: 18px;
   border-radius: 18px;
   background: #ffffff;
-  box-shadow: var(--dn-card-shadow);
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   margin: 0;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .goal-card.is-completed {
-  border-color: #a7f3d0;
-  background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);
+  border-color: #e1e2e4;
+  background: linear-gradient(180deg, #ffffff 0%, #f8f9fb 100%);
 }
 
 .goal-header {
@@ -1696,7 +1574,7 @@ const handleRefresh = async (event: any) => {
 .goal-title {
   font-size: 16px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   margin: 0;
   line-height: 1.3;
 }
@@ -1707,8 +1585,8 @@ const handleRefresh = async (event: any) => {
   gap: 4px;
   font-size: 11px;
   font-weight: 700;
-  color: #059669;
-  background: #d1fae5;
+  color: #838383;
+  background: #eff0f2;
   padding: 2px 7px;
   border-radius: 8px;
 }
@@ -1724,8 +1602,8 @@ const handleRefresh = async (event: any) => {
 .meta-tag {
   font-size: 11px;
   font-weight: 600;
-  color: #64748b;
-  background: #f1f5f9;
+  color: #737373;
+  background: #f2f3f5;
   padding: 2px 8px;
   border-radius: 6px;
   display: inline-flex;
@@ -1734,9 +1612,9 @@ const handleRefresh = async (event: any) => {
 }
 
 .goal-menu-btn {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #64748b;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
+  color: #737373;
   width: 32px;
   height: 32px;
   border-radius: 8px;
@@ -1750,7 +1628,7 @@ const handleRefresh = async (event: any) => {
 }
 
 .goal-menu-btn:active {
-  background: #e2e8f0;
+  background: #e5e6e8;
 }
 
 /* PROGRESS BAR IN GOAL */
@@ -1770,15 +1648,15 @@ const handleRefresh = async (event: any) => {
 .target-amt-label {
   font-size: 11px;
   font-weight: 600;
-  color: #94a3b8;
+  color: #a2a2a2;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .current-amt-value {
   font-size: 20px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   line-height: 1.1;
 }
 
@@ -1786,22 +1664,22 @@ const handleRefresh = async (event: any) => {
 .target-amt-value small {
   font-size: 11.5px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
   margin-left: 2px;
 }
 
 .target-amt-value {
   font-size: 14px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
   line-height: 1.1;
 }
 
 .goal-track {
   width: 100%;
   height: 8px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  background: var(--dn-soft);
+  border: none;
   border-radius: 999px;
   overflow: hidden;
 }
@@ -1821,17 +1699,17 @@ const handleRefresh = async (event: any) => {
 
 .pct-text {
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .missing-text {
   font-weight: 500;
-  color: #64748b;
+  color: #737373;
 }
 
 .success-text {
   font-weight: 700;
-  color: #059669;
+  color: #838383;
 }
 
 /* RECENT CONTRIBUTION SNAPSHOT */
@@ -1841,10 +1719,10 @@ const handleRefresh = async (event: any) => {
   gap: 8px;
   padding: 8px 12px;
   border-radius: 10px;
-  background: #f8fafc;
-  border: 1px solid #f1f5f9;
+  background: #f8f9fb;
+  border: 1px solid #f2f3f5;
   font-size: 11.5px;
-  color: #475569;
+  color: #545454;
 }
 
 .contrib-user-dot {
@@ -1885,7 +1763,7 @@ const handleRefresh = async (event: any) => {
 ion-modal.dn-savings-modal {
   --border-radius: 28px 28px 0 0;
   --background: #ffffff;
-  --box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
+  --box-shadow: 0 -10px 40px rgba(28, 27, 25, 0.15);
 }
 
 .modal-custom-header ion-toolbar {
@@ -1914,18 +1792,18 @@ ion-modal.dn-savings-modal {
 
 .modal-title-icon {
   font-size: 20px;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
-.modal-title-wrap ion-title {
+.modal-title-wrap .modal-main-title {
   font-size: 17px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   padding: 0;
 }
 
 .modal-close-icon-btn {
-  background: #f1f5f9;
+  background: var(--dn-soft);
   border: none;
   width: 36px;
   height: 36px;
@@ -1934,7 +1812,7 @@ ion-modal.dn-savings-modal {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #475569;
+  color: #545454;
   cursor: pointer;
   font-size: 22px;
   touch-action: manipulation;
@@ -1943,7 +1821,7 @@ ion-modal.dn-savings-modal {
 
 .modal-close-icon-btn:active {
   transform: scale(0.92);
-  background: #e2e8f0;
+  background: #e5e6e8;
 }
 
 .modal-form-content,
@@ -1959,12 +1837,6 @@ ion-modal.dn-savings-modal {
   padding-bottom: 24px;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
 .form-row-2 {
   display: flex;
   gap: 12px;
@@ -1974,46 +1846,39 @@ ion-modal.dn-savings-modal {
   flex: 1;
 }
 
-.form-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: #334155;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
 .custom-ion-input {
-  --background: #f8fafc;
-  --border-color: #e2e8f0;
+  --background: var(--dn-field);
+  --border-color: #e5e6e8;
   --border-width: 1px;
   --border-style: solid;
-  --border-radius: 12px;
+  --border-radius: 14px;
   --padding-start: 12px;
   --padding-end: 12px;
-  --color: #0f172a;
-  font-size: 14px;
+  --color: #1c1b19;
+  font-size: 16px;
+  min-height: 52px;
 }
 
 #goal-target-date,
 ion-input[type="date"] {
-  --text-align: center;
-  text-align: center;
+  --text-align: left;
+  text-align: left;
 }
 
 #goal-target-date::part(native),
 ion-input[type="date"]::part(native) {
-  text-align: center !important;
+  text-align: left !important;
   display: flex !important;
   align-items: center !important;
-  justify-content: center !important;
+  justify-content: flex-start !important;
 }
 
 #goal-target-date :deep(input::-webkit-date-and-time-value),
 ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
-  text-align: center !important;
+  text-align: left !important;
   display: flex !important;
   align-items: center !important;
-  justify-content: center !important;
+  justify-content: flex-start !important;
   min-height: 1.4em !important;
   height: 100% !important;
   margin: 0 auto !important;
@@ -2043,20 +1908,20 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
   gap: 6px;
   padding: 8px 14px;
   border-radius: 999px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--dn-soft);
+  border: none;
   font-size: 12px;
-  font-weight: 600;
-  color: #475569;
+  font-weight: 500;
+  color: #545454;
   white-space: nowrap;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .cat-chip.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
+  border-color: #1c1b19;
 }
 
 .icon-selector-grid {
@@ -2068,20 +1933,20 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
 .icon-pick-btn {
   padding: 10px;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--dn-line);
   background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 20px;
-  color: #475569;
+  color: #545454;
   cursor: pointer;
 }
 
 .icon-pick-btn.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
+  border-color: #1c1b19;
 }
 
 .color-picker-row {
@@ -2094,7 +1959,7 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
   height: 32px;
   border-radius: 50%;
   border: 2px solid #ffffff;
-  box-shadow: 0 0 0 1px #cbd5e1;
+  box-shadow: 0 0 0 1px #d4d4d4;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2104,7 +1969,7 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
 }
 
 .color-circle.active {
-  box-shadow: 0 0 0 2px #0f172a;
+  box-shadow: 0 0 0 2px #1c1b19;
 }
 
 .submit-btn {
@@ -2115,18 +1980,18 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
 }
 
 .submit-btn.is-withdraw {
-  background: #d97706;
+  background: #909090;
 }
 
 /* DEPOSIT MODAL SPECIFICS */
 .deposit-goal-name-badge {
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  background: #f2f3f5;
+  border: 1px solid #e5e6e8;
   padding: 8px 12px;
   border-radius: 10px;
   font-size: 13px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
   text-align: center;
 }
 
@@ -2136,8 +2001,8 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
   justify-content: space-between;
   padding: 14px 16px;
   border-radius: 14px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
 }
 
 .deposit-status-item {
@@ -2149,14 +2014,14 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
   font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
-  color: #64748b;
+  color: #737373;
   letter-spacing: 0.04em;
 }
 
 .box-val {
   font-size: 18px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
   margin-top: 2px;
 }
 
@@ -2177,7 +2042,7 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
 .quick-title {
   font-size: 11px;
   font-weight: 700;
-  color: #64748b;
+  color: #737373;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -2196,11 +2061,11 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
 .quick-preset-btn {
   padding: 7px 13px;
   border-radius: 999px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--dn-soft);
+  border: none;
   font-size: 12.5px;
-  font-weight: 600;
-  color: #0f172a;
+  font-weight: 500;
+  color: #1c1b19;
   cursor: pointer;
   white-space: nowrap;
   transition: all 0.15s ease;
@@ -2211,9 +2076,9 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
 }
 
 .quick-preset-btn.active {
-  background: #0f172a;
+  background: #1c1b19;
   color: #ffffff;
-  border-color: #0f172a;
+  border-color: #1c1b19;
 }
 
 .withdraw-toggle-row {
@@ -2224,7 +2089,7 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
 .toggle-link-btn {
   background: transparent;
   border: none;
-  color: #64748b;
+  color: #737373;
   font-size: 12px;
   font-weight: 600;
   display: inline-flex;
@@ -2248,19 +2113,19 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
 
 .history-goal-badge {
   font-size: 16px;
-  font-weight: 800;
-  color: #0f172a;
+  font-weight: 700;
+  color: #1c1b19;
 }
 
 .history-total-sub {
   font-size: 12px;
-  color: #64748b;
+  color: #737373;
 }
 
 .empty-history {
   padding: 30px 10px;
   text-align: center;
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 13px;
 }
 
@@ -2276,8 +2141,8 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
   justify-content: space-between;
   padding: 12px 14px;
   border-radius: 14px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f8f9fb;
+  border: 1px solid #e5e6e8;
 }
 
 .history-item-left {
@@ -2314,17 +2179,17 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
 .author-name {
   font-size: 13px;
   font-weight: 700;
-  color: #0f172a;
+  color: #1c1b19;
 }
 
 .history-date {
   font-size: 11px;
-  color: #94a3b8;
+  color: #a2a2a2;
 }
 
 .history-note {
   font-size: 11.5px;
-  color: #64748b;
+  color: #737373;
   margin: 2px 0 0 0;
   white-space: nowrap;
   overflow: hidden;
@@ -2342,21 +2207,21 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
 
 .history-amount {
   font-size: 14.5px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .history-amount.positive {
-  color: #059669;
+  color: #838383;
 }
 
 .history-amount.negative {
-  color: #d97706;
+  color: #909090;
 }
 
 .delete-contrib-btn {
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: #a2a2a2;
   font-size: 16px;
   padding: 4px;
   cursor: pointer;
@@ -2364,6 +2229,55 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
 }
 
 .delete-contrib-btn:hover {
-  color: #ef4444;
+  color: #d96856;
+}
+
+/* ===== Beige accent: shared wallet card ===== */
+.savings-summary-hero {
+  background: var(--dn-cream) !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--dn-ink) !important;
+}
+
+.savings-summary-hero .hero-section-tag,
+.savings-summary-hero .hero-balance-sub,
+.savings-summary-hero .hero-progress-header,
+.savings-summary-hero .hero-balance-val small {
+  color: var(--dn-cream-ink) !important;
+}
+
+.savings-summary-hero .hero-balance-val,
+.savings-summary-hero .hero-progress-header strong {
+  color: var(--dn-ink) !important;
+}
+
+.savings-summary-hero .hero-balance-val {
+  font-family: var(--dn-serif);
+}
+
+.savings-summary-hero .hero-icon-circle,
+.savings-summary-hero .hero-stat-pill,
+.savings-summary-hero .hero-pct-pill {
+  background: #ffffff !important;
+  border: none !important;
+  color: var(--dn-ink) !important;
+}
+
+.savings-summary-hero .hero-progress-track {
+  background: var(--dn-cream-deep) !important;
+}
+
+.savings-summary-hero .hero-progress-fill {
+  background: var(--dn-ink) !important;
+}
+
+.savings-summary-hero .hero-stats-footer {
+  border-top-color: var(--dn-cream-deep) !important;
+}
+
+.empty-icon-wrap {
+  background: var(--dn-cream) !important;
+  color: var(--dn-cream-ink) !important;
 }
 </style>
