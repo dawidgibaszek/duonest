@@ -572,7 +572,7 @@
           <template v-if="!partnership">
             <label class="rl-label">Kod partnera</label>
             <div class="rl-inline-form">
-              <ion-input aria-label="Kod partnera" v-model="inputPartnerCode" placeholder="np. DN-LOVE" class="rl-input" :maxlength="10" />
+              <ion-input aria-label="Kod partnera" v-model="inputPartnerCode" placeholder="np. DN-LOVE" class="rl-input" :maxlength="15" />
               <button type="button" class="rl-inline-btn" :disabled="!inputPartnerCode.trim()" @click="handlePairWithCode">
                 Połącz
               </button>
@@ -757,7 +757,7 @@
             <button
               type="button"
               class="dn-button-primary rl-full-btn rl-sheet-save"
-              :disabled="!editProfileForm.name.trim()"
+              :disabled="isSavingProfile || !editProfileForm.name.trim()"
               @click="handleSaveProfile"
             >
               Zapisz profil
@@ -988,10 +988,11 @@ const handleSaveNestSettings = async () => {
   }
 
   try {
-    await updatePartnershipSettings({
+    const saved = await updatePartnershipSettings({
       nest_name: nestName,
       anniversary_date: anniversaryInput.value || null
     })
+    if (!saved) return
     nestNameInput.value = nestName
     triggerToast('Zapisano ustawienia gniazdka')
     confetti({
@@ -1134,7 +1135,7 @@ const handleSaveCustomColor = async () => {
   isSavingColor.value = true
 
   try {
-    await updateMyProfile({ avatar_color: colorToSave })
+    if (!(await updateMyProfile({ avatar_color: colorToSave }))) return
     triggerToast('Zapisano kolor')
     confetti({
       particleCount: 50,
@@ -1157,6 +1158,7 @@ watch(currentUserAccentColor, (newColor) => {
 
 // Personal Profile Modal
 const isEditProfileModalOpen = ref(false)
+const isSavingProfile = ref(false)
 const editProfileForm = ref({
   name: '',
   love_note: '',
@@ -1204,15 +1206,23 @@ const closeEditProfileModal = () => {
 }
 
 const handleSaveProfile = async () => {
-  if (!editProfileForm.value.name.trim()) return
-  await updateMyProfile(editProfileForm.value)
-  isEditProfileModalOpen.value = false
-  confetti({
-    particleCount: 60,
-    spread: 60,
-    origin: { y: 0.6 },
-    colors: [currentUserAccentColor.value, '#1e293b', '#475569', '#94a3b8']
-  })
+  const name = editProfileForm.value.name.trim()
+  if (isSavingProfile.value || !name) return
+  isSavingProfile.value = true
+  try {
+    if (!(await updateMyProfile({ ...editProfileForm.value, name }))) return
+    isEditProfileModalOpen.value = false
+    confetti({
+      particleCount: 60,
+      spread: 60,
+      origin: { y: 0.6 },
+      colors: [currentUserAccentColor.value, '#1e293b', '#475569', '#94a3b8']
+    })
+  } catch {
+    triggerToast('Nie udało się zapisać profilu.', { type: 'warning' })
+  } finally {
+    isSavingProfile.value = false
+  }
 }
 
 const selectedMood = ref(currentUser.value?.current_mood || 'happy')

@@ -23,7 +23,7 @@
               @keyup.enter="saveMyName"
             >
               <template #trailing>
-                <button type="button" class="dn-auth-inline-btn" @click="saveMyName" :disabled="!myNameInput.trim()">
+                <button type="button" class="dn-auth-inline-btn" @click="saveMyName" :disabled="isSavingName || !myNameInput.trim()">
                   Zapisz
                 </button>
               </template>
@@ -356,13 +356,7 @@ const qrCodeDataUrl = ref('')
 const copied = ref(false)
 const pairingError = ref('')
 const isPairingLoading = ref(false)
-
-// Auto-save user's name when typing
-watch(myNameInput, (val) => {
-  if (val && val.trim()) {
-    updateMyName(val.trim())
-  }
-})
+const isSavingName = ref(false)
 
 // Generate QR Code with Sea Blue styling
 const generateMyQrCode = async () => {
@@ -383,10 +377,15 @@ const generateMyQrCode = async () => {
   }
 }
 
-const saveMyName = () => {
-  if (myNameInput.value.trim()) {
-    updateMyName(myNameInput.value.trim())
-    triggerToast('Zapisano imię')
+const saveMyName = async () => {
+  if (isSavingName.value || !myNameInput.value.trim()) return
+  isSavingName.value = true
+  try {
+    if (await updateMyName(myNameInput.value)) triggerToast('Zapisano imię')
+  } catch {
+    triggerToast('Nie udało się zapisać imienia.', { type: 'warning' })
+  } finally {
+    isSavingName.value = false
   }
 }
 
@@ -406,14 +405,11 @@ const copyCode = async () => {
 // Pairing execution – returns true on success (the scanner shows its own result)
 const submitPairing = async (code: string, opts: { fromScanner?: boolean } = {}): Promise<{ ok: boolean, error?: string }> => {
   pairingError.value = ''
-  if (!code.trim()) return { ok: false }
-
-  if (myNameInput.value.trim()) {
-    updateMyName(myNameInput.value.trim())
-  }
+  if (isPairingLoading.value || !code.trim()) return { ok: false }
 
   isPairingLoading.value = true
   try {
+    if (myNameInput.value.trim()) await updateMyName(myNameInput.value)
     const partnerName = partnerNameInput.value.trim() || undefined
     const res = await pairWithCode(code.trim(), partnerName)
     if (res.success) {

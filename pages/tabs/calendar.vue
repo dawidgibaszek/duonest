@@ -1475,7 +1475,7 @@ const handleSaveEvent = async () => {
     const cleanDesc = modalForm.description.trim().slice(0, 500) || null
 
     if (isEditingMode.value && editingEventId.value) {
-      await updateEvent(editingEventId.value, {
+      const saved = await updateEvent(editingEventId.value, {
         title: cleanTitle,
         category: modalForm.category,
         start_time: startTimestamp,
@@ -1485,8 +1485,9 @@ const handleSaveEvent = async () => {
         planner_name: modalForm.plannerName,
         is_surprise: modalForm.isSurprise
       })
+      if (!saved) return
     } else {
-      await addEvent(
+      const saved = await addEvent(
         cleanTitle,
         modalForm.category,
         startTimestamp,
@@ -1496,6 +1497,7 @@ const handleSaveEvent = async () => {
         modalForm.isSurprise,
         modalForm.plannerName
       )
+      if (!saved) return
     }
 
     closeEventModal()

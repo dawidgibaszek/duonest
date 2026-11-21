@@ -1,4 +1,8 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import { databaseUrlForProject, DUONEST_PROJECT_ID } from './functions/src/firebaseProject'
+
+const firebaseProjectId = process.env.FIREBASE_PROJECT_ID || DUONEST_PROJECT_ID
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   ssr: false, // SPA / PWA mode for optimal mobile Ionic native app experience
@@ -81,11 +85,11 @@ export default defineNuxtConfig({
     public: {
       firebaseApiKey: process.env.FIREBASE_API_KEY || 'AIzaSyBrxtidFifD4vlf9OPSu9jkMWJLVsJAKV8',
       firebaseAuthDomain: process.env.FIREBASE_AUTH_DOMAIN || 'duonest-38dc2.firebaseapp.com',
-      firebaseProjectId: process.env.FIREBASE_PROJECT_ID || 'duonest-38dc2',
+      firebaseProjectId,
       firebaseStorageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'duonest-38dc2.firebasestorage.app',
       firebaseMessagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || '273218538953',
       firebaseAppId: process.env.FIREBASE_APP_ID || '1:273218538953:web:f8daf30bf01ae40a66ec18',
-      firebaseDatabaseUrl: process.env.FIREBASE_DATABASE_URL || '',
+      firebaseDatabaseUrl: process.env.FIREBASE_DATABASE_URL || databaseUrlForProject(firebaseProjectId) || '',
       vapidPublicKey: process.env.VAPID_PUBLIC_KEY || process.env.NUXT_PUBLIC_VAPID_PUBLIC_KEY || ''
     }
   },

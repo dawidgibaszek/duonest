@@ -174,8 +174,12 @@ import { useDuoState, getSupabaseClient, sanitizeEmail } from '~/composables/use
 import type { DuoAuthHeroTile } from '~/components/DuoAuthHero.vue'
 
 import { translateAppError } from '~/utils/errorTranslator'
+import { useRoute, useRouter } from 'vue-router'
+
+definePageMeta({ alias: ['/register'] })
 
 const route = useRoute()
+const router = useRouter()
 const {
   signInWithEmail,
   signUpWithEmail,
@@ -190,13 +194,10 @@ const {
 
 initializeClientState()
 
-const mode = ref<'login' | 'register' | 'forgot'>(
-  route?.query?.forgot === '1'
-    ? 'forgot'
-    : route?.query?.mode === 'register'
-      ? 'register'
-      : 'login'
-)
+const mode = computed<'login' | 'register' | 'forgot'>(() => {
+  if (route.query.forgot === '1') return 'forgot'
+  return route.path === '/register' || route.query.mode === 'register' ? 'register' : 'login'
+})
 
 const ionRouter = useIonRouter()
 
@@ -280,22 +281,11 @@ const isFormValid = computed(() => {
 })
 
 const switchMode = (newMode: 'login' | 'register' | 'forgot') => {
-  mode.value = newMode
   errorMessage.value = ''
   successMessage.value = ''
-  if (typeof window !== 'undefined' && window.history?.replaceState) {
-    const url = new URL(window.location.href)
-    url.searchParams.delete('recovery')
-    url.searchParams.delete('mode')
-    url.searchParams.delete('forgot')
-    if (newMode === 'forgot') {
-      url.searchParams.set('forgot', '1')
-    } else if (newMode === 'register') {
-      url.searchParams.set('mode', 'register')
-    }
-    const cleanUrl = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '')
-    window.history.replaceState({}, '', cleanUrl)
-  }
+  const { recovery, mode: previousMode, forgot, ...query } = route.query
+  if (newMode === 'forgot') query.forgot = '1'
+  return router.replace({ path: newMode === 'register' ? '/register' : '/login', query })
 }
 
 const handleSocialSignIn = async (provider: 'google' | 'apple') => {
@@ -385,12 +375,7 @@ onMounted(async () => {
     emailInput.value = sanitizeEmail(urlParams.get('email'))
   }
 
-  // 4. Check if user came from query params
-  if (route?.query?.forgot === '1') {
-    mode.value = 'forgot'
-  } else if (route?.query?.mode === 'register') {
-    mode.value = 'register'
-  }
+
 })
 
 const handleSubmit = async () => {

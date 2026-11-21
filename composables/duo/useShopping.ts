@@ -1,7 +1,31 @@
 import { getFirebaseBridge } from '../useFirebaseBridge'
-import { shoppingItems, currentUser, partnership, isOnlineWithSupabase } from './state'
-import { saveToStorage } from './utils'
+import { shoppingItems, currentUser, partnership } from './state'
+import { newDocumentId, saveToStorage } from './utils'
 import type { ShoppingItem } from '~/types/duo'
+
+const mergeShoppingQuantities = (current: string | null | undefined, incoming: string): string | null => {
+  const currentValue = current?.trim() || ''
+  const incomingValue = incoming.trim()
+  if (!currentValue && !incomingValue) return '2'
+  if (!currentValue) return incomingValue || null
+  if (!incomingValue) return currentValue
+
+  const parse = (value: string) => {
+    const match = value.match(/^(\d+(?:[.,]\d+)?)\s*(.*)$/)
+    if (!match) return null
+    const amount = Number(match[1].replace(',', '.'))
+    return Number.isFinite(amount) ? { amount, unit: match[2].trim() } : null
+  }
+
+  const currentQuantity = parse(currentValue)
+  const incomingQuantity = parse(incomingValue)
+  if (!currentQuantity || !incomingQuantity) return null
+  if (currentQuantity.unit.toLocaleLowerCase('pl-PL') !== incomingQuantity.unit.toLocaleLowerCase('pl-PL')) return null
+
+  const amount = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 3 })
+    .format(currentQuantity.amount + incomingQuantity.amount)
+  return currentQuantity.unit ? `${amount} ${currentQuantity.unit}` : amount
+}
 
 export function useShopping(options: {
   triggerToast: (msg: string, opts?: any) => void
@@ -13,122 +37,94 @@ export function useShopping(options: {
     saveToStorage('duonest_shopping', shoppingItems.value)
   }
 
-  const addShoppingItem = async (title: string, category: string = 'Inne', quantity: string = '') => {
-    if (!title.trim() || !partnership.value?.id) return null
-    const cleanTitle = title.trim()
-    const cleanCategory = category || 'Inne'
-    const cleanQty = quantity.trim() || null
+  const fail = () => options.triggerToast('Nie udało się zapisać zmiany na liście zakupów.', { type: 'warning' })
+  const normalize = (title: string) => title.trim().replace(/\s+/g, ' ').toLocaleLowerCase('pl-PL')
 
-    const newItem: ShoppingItem = {
-      id: `shop_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      partnership_id: partnership.value.id,
+  const persistUpdate = async (item: ShoppingItem, updates: Partial<ShoppingItem>) => {
+    try {
+      const { error } = await getDb().from('shopping_items').update(updates).eq('id', item.id)
+      if (error) throw error
+      if (partnership.value?.id !== item.partnership_id) return false
+      shoppingItems.value = shoppingItems.value.map(row => row.id === item.id ? { ...row, ...updates } : row)
+      syncShoppingToStorage()
+      return true
+    } catch {
+      fail()
+      return false
+    }
+  }
+
+  const addShoppingItem = async (title: string, category = 'Spożywcze', quantity = '') => {
+    const pid = partnership.value?.id
+    const cleanTitle = title.trim().replace(/\s+/g, ' ').slice(0, 100)
+    if (!cleanTitle || !pid) return null
+    const cleanCategory = category || 'Spożywcze'
+    const cleanQty = quantity.trim().slice(0, 30)
+    const duplicate = shoppingItems.value.find(item => item.partnership_id === pid && !item.is_completed &&
+      item.category === cleanCategory && normalize(item.title) === normalize(cleanTitle))
+    if (duplicate) {
+      const merged = mergeShoppingQuantities(duplicate.quantity, cleanQty)
+      if (merged !== null) {
+        if (merged !== (duplicate.quantity || '') && !(await persistUpdate(duplicate, { quantity: merged }))) return null
+        options.triggerToast('Połączono z pozycją na liście')
+        return duplicate.id
+      }
+    }
+    const item: ShoppingItem = {
+      id: newDocumentId('shop_'),
+      partnership_id: pid,
       title: cleanTitle,
       category: cleanCategory,
-      quantity: cleanQty,
+      quantity: cleanQty || null,
       is_completed: false,
       added_by: currentUser.value.id,
       created_at: new Date().toISOString()
     }
-
-    shoppingItems.value.unshift(newItem)
+    const { error } = await getDb().from('shopping_items').insert(item)
+    if (error) { fail(); return null }
+    if (partnership.value?.id !== pid) return null
+    shoppingItems.value = [item, ...shoppingItems.value.filter(row => row.id !== item.id)]
     syncShoppingToStorage()
-
-    options.broadcastToPartner('SHOPPING_ADD', newItem)
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value) {
-      try {
-        await bridge.from('shopping_items').insert(newItem)
-      } catch (err) {
-        console.warn('Błąd podczas zapisywania produktu:', err)
-      }
-    }
-
+    options.broadcastToPartner('SHOPPING_ADD', item)
     options.triggerToast('Dodano produkt do listy zakupów')
-    return newItem
+    return item.id
   }
 
   const toggleShoppingItem = async (id: string) => {
-    const item = shoppingItems.value.find(i => i.id === id)
-    if (!item) return
+    const item = shoppingItems.value.find(row => row.id === id)
+    if (!item) return false
+    const is_completed = !item.is_completed
+    if (!(await persistUpdate(item, { is_completed, completed_by: is_completed ? currentUser.value.id : null }))) return false
+    options.broadcastToPartner('SHOPPING_TOGGLE', { id, is_completed, title: item.title })
+    return true
+  }
 
-    item.is_completed = !item.is_completed
-    item.completed_by = item.is_completed ? currentUser.value.id : null
-    syncShoppingToStorage()
-
-    options.broadcastToPartner('SHOPPING_TOGGLE', { id, is_completed: item.is_completed })
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value) {
-      try {
-        await bridge.from('shopping_items').update({
-          is_completed: item.is_completed,
-          completed_by: item.completed_by
-        }).eq('id', id)
-      } catch (err) {
-        console.warn('Błąd aktualizacji produktu:', err)
-      }
+  const deleteItems = async (ids: string[], message: string) => {
+    const pid = partnership.value?.id
+    if (!ids.length || !pid) return false
+    try {
+      await getDb().commitSharedBatch('shopping_items', ids.map(id => ({ id })))
+      if (partnership.value?.id !== pid) return false
+      const deleted = new Set(ids)
+      shoppingItems.value = shoppingItems.value.filter(item => !deleted.has(item.id))
+      syncShoppingToStorage()
+      options.triggerToast(message)
+      return true
+    } catch {
+      fail()
+      return false
     }
   }
 
-  const deleteShoppingItem = async (id: string) => {
-    const idx = shoppingItems.value.findIndex(i => i.id === id)
-    if (idx === -1) return
-
-    shoppingItems.value.splice(idx, 1)
-    syncShoppingToStorage()
-
-    options.broadcastToPartner('SHOPPING_DELETE', { id })
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value) {
-      try {
-        await bridge.from('shopping_items').delete().eq('id', id)
-      } catch (err) {
-        console.warn('Błąd usuwania produktu:', err)
-      }
-    }
-
-    options.triggerToast('Usunięto produkt z listy zakupów')
-  }
-
-  const clearCompletedShopping = async () => {
-    const completedIds = shoppingItems.value.filter(i => i.is_completed).map(i => i.id)
-    if (completedIds.length === 0) return
-
-    shoppingItems.value = shoppingItems.value.filter(i => !i.is_completed)
-    syncShoppingToStorage()
-
-    options.broadcastToPartner('SHOPPING_CLEAR_COMPLETED', { ids: completedIds })
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value) {
-      try {
-        for (const cid of completedIds) {
-          await bridge.from('shopping_items').delete().eq('id', cid)
-        }
-      } catch (_) {}
-    }
-
-    options.triggerToast('Wyczyszczono kupione produkty')
-  }
+  const deleteShoppingItem = (id: string) => deleteItems([id], 'Usunięto produkt z listy zakupów')
+  const clearCompletedShopping = () => deleteItems(
+    shoppingItems.value.filter(item => item.is_completed).map(item => item.id),
+    'Wyczyszczono kupione produkty'
+  )
 
   const updateShoppingItem = async (id: string, updates: Partial<ShoppingItem>) => {
-    const item = shoppingItems.value.find(i => i.id === id)
-    if (!item) return false
-
-    Object.assign(item, updates)
-    syncShoppingToStorage()
-
-    options.broadcastToPartner('SHOPPING_UPDATE', { id, updates, item })
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value) {
-      try {
-        await bridge.from('shopping_items').update(updates).eq('id', id)
-      } catch (_) {}
-    }
-
+    const item = shoppingItems.value.find(row => row.id === id)
+    if (!item || !(await persistUpdate(item, updates))) return false
     options.triggerToast('Zaktualizowano produkt')
     return true
   }

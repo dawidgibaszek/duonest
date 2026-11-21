@@ -378,6 +378,8 @@ export const useDuoState = () => {
     dismissToast: realtime.dismissToast,
     initializeClientState: auth.initializeClientState,
     initSupabaseSync: realtime.initSupabaseSync,
+    subscribeToPartnershipRealtime: realtime.subscribeToPartnershipRealtime,
+    setNativeRealtimeActive: realtime.setNativeRealtimeActive,
 
     // Poziomy, punkty i statystyki
     nestLevel,

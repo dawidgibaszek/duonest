@@ -1,6 +1,6 @@
 import { getFirebaseBridge } from '../useFirebaseBridge'
-import { milestonesList, currentUser, partnership, isOnlineWithSupabase } from './state'
-import { saveToStorage } from './utils'
+import { milestonesList, currentUser, partnership } from './state'
+import { newDocumentId, saveToStorage } from './utils'
 import type { NestMilestone } from '~/types/duo'
 
 export function useMilestones(options: {
@@ -20,12 +20,13 @@ export function useMilestones(options: {
     assignedTo: string | null = null,
     description: string = ''
   ) => {
-    if (!title.trim()) return null
+    const pid = partnership.value?.id
+    if (!title.trim() || !pid) return null
     if (options.verifyAccess && !(await options.verifyAccess())) return null
 
     const newMilestone: NestMilestone = {
-      id: 'm_' + Math.random().toString(36).substring(2, 9),
-      partnership_id: partnership.value?.id,
+      id: newDocumentId('m_'),
+      partnership_id: pid,
       title: title.trim(),
       description: description.trim(),
       target_points: Math.max(10, Number(targetPoints) || 50),
@@ -35,109 +36,81 @@ export function useMilestones(options: {
       created_at: new Date().toISOString()
     }
 
-    milestonesList.value.push(newMilestone)
-    syncMilestonesToStorage()
-    options.broadcastToPartner('MILESTONE_ADD', newMilestone)
-
-    const bridge = getDb()
-    if (bridge && partnership.value?.id) {
-      try {
-        await bridge.from('milestones').insert(newMilestone)
-      } catch (err) {
-        console.warn('Błąd podczas zapisywania kamienia milowego:', err)
-      }
+    try {
+      const { error } = await getDb().from('milestones').insert(newMilestone)
+      if (error) throw error
+      if (partnership.value?.id !== pid) return null
+      if (!milestonesList.value.some(goal => goal.id === newMilestone.id)) milestonesList.value.push(newMilestone)
+      syncMilestonesToStorage()
+      options.broadcastToPartner('MILESTONE_ADD', newMilestone)
+      options.triggerToast('Dodano cel')
+      return newMilestone
+    } catch {
+      options.triggerToast('Nie udało się dodać celu.', { type: 'warning' })
+      return null
     }
-
-    options.triggerToast('Dodano cel')
-    return newMilestone
   }
 
   const updateMilestone = async (id: string, updates: Partial<NestMilestone>) => {
-    if (options.verifyAccess && !(await options.verifyAccess())) return
-    const idx = milestonesList.value.findIndex(m => m.id === id)
-    if (idx === -1) return
-
-    milestonesList.value[idx] = {
-      ...milestonesList.value[idx],
-      ...updates
+    const pid = partnership.value?.id
+    if (!pid || (options.verifyAccess && !(await options.verifyAccess()))) return false
+    if (!milestonesList.value.some(goal => goal.id === id)) return false
+    try {
+      const { error } = await getDb().from('milestones').update(updates).eq('id', id)
+      if (error) throw error
+      if (partnership.value?.id !== pid) return false
+      const goal = milestonesList.value.find(item => item.id === id)
+      if (goal) Object.assign(goal, updates)
+      syncMilestonesToStorage()
+      options.broadcastToPartner('MILESTONE_UPDATE', { id, updates })
+      options.triggerToast('Zaktualizowano cel')
+      return true
+    } catch {
+      options.triggerToast('Nie udało się zapisać celu.', { type: 'warning' })
+      return false
     }
-    syncMilestonesToStorage()
-    options.broadcastToPartner('MILESTONE_UPDATE', { id, updates })
-
-    const bridge = getDb()
-    if (bridge) {
-      try {
-        await bridge.from('milestones').update(updates).eq('id', id)
-      } catch (err) {
-        console.warn('Błąd podczas aktualizacji kamienia milowego:', err)
-      }
-    }
-
-    options.triggerToast('Zaktualizowano cel')
   }
 
   const deleteMilestone = async (id: string) => {
-    if (options.verifyAccess && !(await options.verifyAccess())) return
-    milestonesList.value = milestonesList.value.filter(m => m.id !== id)
-    syncMilestonesToStorage()
-    options.broadcastToPartner('MILESTONE_DELETE', { id })
-
-    const bridge = getDb()
-    if (bridge) {
-      try {
-        await bridge.from('milestones').delete().eq('id', id)
-      } catch (err) {
-        console.warn('Błąd podczas usuwania kamienia milowego:', err)
-      }
+    const pid = partnership.value?.id
+    if (!pid || (options.verifyAccess && !(await options.verifyAccess()))) return false
+    try {
+      const { error } = await getDb().from('milestones').delete().eq('id', id)
+      if (error) throw error
+      if (partnership.value?.id !== pid) return false
+      milestonesList.value = milestonesList.value.filter(goal => goal.id !== id)
+      syncMilestonesToStorage()
+      options.broadcastToPartner('MILESTONE_DELETE', { id })
+      options.triggerToast('Usunięto cel')
+      return true
+    } catch {
+      options.triggerToast('Nie udało się usunąć celu.', { type: 'warning' })
+      return false
     }
-
-    options.triggerToast('Usunięto cel')
   }
 
-  const claimMilestone = async (id: string) => {
-    if (options.verifyAccess && !(await options.verifyAccess())) return
-    const m = milestonesList.value.find(i => i.id === id)
-    if (!m || m.is_completed) return
-
-    const now = new Date().toISOString()
-    m.is_completed = true
-    m.completed_at = now
-    syncMilestonesToStorage()
-    options.broadcastToPartner('MILESTONE_CLAIM', { id, title: m.title, completed_at: now })
-
-    const bridge = getDb()
-    if (bridge) {
-      try {
-        await bridge.from('milestones').update({ is_completed: true, completed_at: now }).eq('id', id)
-      } catch (err) {
-        console.warn('Błąd podczas odbierania nagrody:', err)
-      }
+  const setMilestoneCompleted = async (id: string, completed: boolean) => {
+    if (options.verifyAccess && !(await options.verifyAccess())) return false
+    const partnershipId = partnership.value?.id
+    try {
+      const { milestone } = await getDb().callApi<{ milestone: NestMilestone }>('/api/duo/mutate', {
+        action: 'milestones/complete', id, completed
+      })
+      if (partnership.value?.id !== partnershipId) return false
+      const goal = milestonesList.value.find(item => item.id === id)
+      if (goal) Object.assign(goal, milestone)
+      syncMilestonesToStorage()
+      if (completed) options.broadcastToPartner('MILESTONE_CLAIM', milestone)
+      options.triggerToast(completed ? 'Odebrano nagrodę' : 'Wznowiono cel')
+      return true
+    } catch (error) {
+      options.triggerToast(error instanceof Error ? error.message : 'Nie udało się zapisać celu.', { type: 'warning' })
+      return false
     }
-
-    options.triggerToast('Odebrano nagrodę')
   }
 
-  const reactivateMilestone = async (id: string) => {
-    if (options.verifyAccess && !(await options.verifyAccess())) return
-    const m = milestonesList.value.find(i => i.id === id)
-    if (!m || !m.is_completed) return
-
-    m.is_completed = false
-    m.completed_at = null
-    syncMilestonesToStorage()
-    options.broadcastToPartner('MILESTONE_REACTIVATE', { id, title: m.title })
-
-    const bridge = getDb()
-    if (bridge) {
-      try {
-        await bridge.from('milestones').update({ is_completed: false, completed_at: null }).eq('id', id)
-      } catch (err) {
-        console.warn('Błąd podczas wznawiania kamienia milowego:', err)
-      }
-    }
-
-    options.triggerToast('Wznowiono cel')
-  }
+  const claimMilestone = (id: string) => setMilestoneCompleted(id, true)
+  const reactivateMilestone = (id: string) => setMilestoneCompleted(id, false)
 
   return {
     milestonesList,

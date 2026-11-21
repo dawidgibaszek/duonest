@@ -1,19 +1,7 @@
 rules_version = '2';
 
-// DuoNest – Firestore security rules
-//
-// Access model:
-//  - `members/{uid}` (written ONLY by the server: /api/account/sync, /api/pairing/*)
-//    maps a Firebase Auth user to their profile id and verified partnership id.
-//  - A user can read/write their own profile and read their partner's profile.
-//  - Shared data (shopping, tasks, events, …) is accessible only to members of
-//    the partnership stored in the document's `partnership_id`.
-//  - Pairing, disconnecting and linking accounts happen server-side (admin SDK),
-//    so clients can never change `partnership_id`, `auth_user_id` or partnership members.
-//  - Everything else (push_subscriptions, rate_limits, music_*, …) is server-only.
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function signedIn() {
       return request.auth != null;
     }
@@ -22,41 +10,51 @@ service cloud.firestore {
       return /databases/$(database)/documents/members/$(request.auth.uid);
     }
 
-    function myPartnershipId() {
-      return exists(memberPath()) ? get(memberPath()).data.get('partnership_id', null) : null;
+    function isActiveProfile(pid, profileId) {
+      let profile = get(/databases/$(database)/documents/profiles/$(profileId));
+      let nest = get(/databases/$(database)/documents/partnerships/$(pid));
+      return profile.data.get('auth_user_id', null) == request.auth.uid
+        && profile.data.get('partnership_id', null) == pid
+        && profileId in [nest.data.partner1_id, nest.data.partner2_id];
+    }
+
+    function matchingMember(pid) {
+      let member = get(memberPath());
+      return member.data.get('partnership_id', null) == pid
+        && member.data.get('profile_id', null) is string
+        && isActiveProfile(pid, member.data.profile_id);
     }
 
     function inPartnership(pid) {
-      return signedIn() && pid is string && myPartnershipId() == pid;
+      return signedIn() && pid is string && matchingMember(pid);
     }
 
-    function isSharedCollection(c) {
-      return c in [
-        'shopping_items',
-        'tasks',
-        'events',
-        'mood_logs',
-        'nudges',
-        'milestones',
-        'wishlist_items',
-        'savings_goals',
-        'savings_contributions',
-        'partnership_doodles',
-        'meals',
-        'movies'
-      ];
+    function isMe(profileId) {
+      return signedIn() && profileId is string
+        && (profileId == request.auth.uid || profileId == get(memberPath()).data.get('profile_id', null));
     }
 
-    // Membership index – server-managed
+    function changedOnly(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
+    }
+
+    function samePartnership() {
+      return inPartnership(resource.data.partnership_id)
+        && request.resource.data.partnership_id == resource.data.partnership_id;
+    }
+
+    function newShared(id) {
+      return request.resource.data.id == id
+        && inPartnership(request.resource.data.partnership_id);
+    }
+
     match /members/{uid} {
-      allow read: if signedIn() && request.auth.uid == uid;
-      allow write: if false;
+      allow get: if signedIn() && request.auth.uid == uid;
     }
 
-    // Profiles
-    match /profiles/{profileId} {
+    match /profiles/{id} {
       allow get: if signedIn() && (
-        profileId == request.auth.uid ||
+        (id == request.auth.uid && (resource == null || resource.data.get('auth_user_id', null) == null)) ||
         resource.data.get('auth_user_id', null) == request.auth.uid ||
         inPartnership(resource.data.get('partnership_id', null))
       );
@@ -64,51 +62,121 @@ service cloud.firestore {
         resource.data.get('auth_user_id', null) == request.auth.uid ||
         inPartnership(resource.data.get('partnership_id', null))
       );
-      // New profiles live at profiles/{uid} and start unpaired.
-      allow create: if signedIn()
-        && profileId == request.auth.uid
-        && request.resource.data.auth_user_id == request.auth.uid
-        && request.resource.data.get('partnership_id', null) == null;
-      // Owners may edit their profile, but not identity / pairing fields.
-      allow update: if signedIn()
-        && resource.data.get('auth_user_id', null) == request.auth.uid
-        && request.resource.data.get('auth_user_id', null) == resource.data.get('auth_user_id', null)
-        && request.resource.data.get('partnership_id', null) == resource.data.get('partnership_id', null)
-        && request.resource.data.get('id', null) == resource.data.get('id', null)
-        && (
-          request.resource.data.get('pairing_code', null) == resource.data.get('pairing_code', null) ||
-          resource.data.get('pairing_code', null) == null
-        );
-      allow delete: if false;
+
+      allow update: if signedIn() && resource.data.get('auth_user_id', null) == request.auth.uid
+        && changedOnly([
+          'name', 'avatar_url', 'avatar_color', 'current_mood', 'mood_note', 'mood_updated_at',
+          'love_note', 'favorite_drink', 'favorite_treat', 'last_seen_at', 'updated_at'
+        ]);
     }
 
-    // Partnerships (created/deleted only by the server)
     match /partnerships/{pid} {
       allow get: if inPartnership(pid);
-      allow list: if false;
       allow update: if inPartnership(pid)
-        && request.resource.data.get('partner1_id', null) == resource.data.get('partner1_id', null)
-        && request.resource.data.get('partner2_id', null) == resource.data.get('partner2_id', null)
-        && request.resource.data.get('id', null) == resource.data.get('id', null);
-      allow create, delete: if false;
-
-      // Per-partnership mirrors of shared data
-      match /{sub}/{docId} {
-        allow read, write: if inPartnership(pid);
-      }
+        && changedOnly(['nest_name', 'anniversary_date', 'pet_id', 'pet_name', 'updated_at'])
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pet_id', 'pet_name']) ||
+          (request.resource.data.pet_id in ['Cat', 'Dog', 'Bear', 'Bunny', 'Chick', 'Dragon', 'Fox', 'Frog', 'Ghost', 'Panda', 'Penguin', 'Slime']
+            && request.resource.data.pet_name is string
+            && request.resource.data.pet_name.size() > 0 && request.resource.data.pet_name.size() <= 40)
+        );
+      // Legacy per-partnership mirrors are private. Clients use top-level collections.
     }
 
-    // Shared partnership data
-    match /{coll}/{docId} {
-      allow read: if isSharedCollection(coll)
-        && inPartnership(resource.data.get('partnership_id', null));
-      allow create: if isSharedCollection(coll)
-        && inPartnership(request.resource.data.get('partnership_id', null));
-      allow update: if isSharedCollection(coll)
-        && inPartnership(resource.data.get('partnership_id', null))
-        && request.resource.data.get('partnership_id', null) == resource.data.get('partnership_id', null);
-      allow delete: if isSharedCollection(coll)
-        && inPartnership(resource.data.get('partnership_id', null));
+    match /tasks/{id} {
+      allow read, delete: if inPartnership(resource.data.partnership_id);
+      allow create: if newShared(id)
+        && isMe(request.resource.data.created_by)
+        && request.resource.data.points is int
+        && request.resource.data.points >= 1
+        && request.resource.data.points <= 100
+        && request.resource.data.is_completed == false
+        && request.resource.data.get('completed_by', null) == null
+        && request.resource.data.get('completed_at', null) == null
+        && request.resource.data.get('points_awarded', 0) == 0;
+      allow update: if samePartnership() && changedOnly([
+        'title', 'description', 'assigned_to', 'due_date', 'is_recurring', 'recurrence_interval', 'updated_at'
+      ]);
+    }
+
+    match /milestones/{id} {
+      allow read, delete: if inPartnership(resource.data.partnership_id);
+      allow create: if newShared(id)
+        && isMe(request.resource.data.created_by)
+        && request.resource.data.is_completed == false
+        && request.resource.data.get('completed_at', null) == null
+        && request.resource.data.target_points is number && request.resource.data.target_points >= 10;
+      allow update: if samePartnership()
+        && changedOnly(['title', 'description', 'assigned_to', 'target_points', 'updated_at'])
+        && request.resource.data.target_points is number && request.resource.data.target_points >= 10;
+    }
+
+    match /savings_goals/{id} {
+      allow read: if inPartnership(resource.data.partnership_id);
+    }
+
+    match /savings_contributions/{id} {
+      allow read: if inPartnership(resource.data.partnership_id);
+    }
+
+    match /wishlist_items/{id} {
+      function mayRead(data) {
+        return inPartnership(data.partnership_id)
+          && (isMe(data.get('created_by', null)) || data.get('is_visible_to_partner', false) == true);
+      }
+
+      allow read, delete: if mayRead(resource.data);
+      allow create: if newShared(id)
+        && isMe(request.resource.data.created_by)
+        && request.resource.data.is_visible_to_partner is bool;
+      allow update: if samePartnership() && mayRead(resource.data)
+        && request.resource.data.get('id', null) == resource.data.get('id', null)
+        && request.resource.data.get('created_by', null) == resource.data.get('created_by', null)
+        && request.resource.data.get('is_visible_to_partner', false) is bool
+        && (isMe(resource.data.get('created_by', null)) ||
+          request.resource.data.get('is_visible_to_partner', false) == resource.data.get('is_visible_to_partner', false));
+    }
+
+    match /nudges/{id} {
+      allow read, delete: if inPartnership(resource.data.partnership_id);
+      allow create: if newShared(id)
+        && isMe(request.resource.data.sender_id)
+        && !isMe(request.resource.data.receiver_id)
+        && request.resource.data.receiver_id in [
+          get(/databases/$(database)/documents/partnerships/$(request.resource.data.partnership_id)).data.partner1_id,
+          get(/databases/$(database)/documents/partnerships/$(request.resource.data.partnership_id)).data.partner2_id
+        ];
+    }
+
+    match /movies/{id} {
+      function reviewsAreValid() {
+        let before = resource.data.get('reviews', {});
+        let after = request.resource.data.get('reviews', {});
+        let me = get(memberPath()).data.profile_id;
+        let mine = after.get(me, null);
+        return before == after || (after.diff(before).affectedKeys().hasOnly([me])
+          && mine is map && mine.user_id == me
+          && mine.rating is int && mine.rating >= 1 && mine.rating <= 10);
+      }
+
+      allow read, delete: if inPartnership(resource.data.partnership_id);
+      allow create: if newShared(id) && isMe(request.resource.data.added_by)
+        && request.resource.data.get('reviews', {}) == {};
+      allow update: if samePartnership()
+        && request.resource.data.id == resource.data.id
+        && request.resource.data.get('added_by', null) == resource.data.get('added_by', null)
+        && reviewsAreValid();
+    }
+
+    function isSharedCollection(collection) {
+      return collection in ['shopping_items', 'events', 'mood_logs', 'partnership_doodles', 'meals'];
+    }
+
+    match /{collection}/{id} {
+      allow read, delete: if isSharedCollection(collection) && inPartnership(resource.data.partnership_id);
+      allow create: if isSharedCollection(collection) && newShared(id);
+      allow update: if isSharedCollection(collection) && samePartnership()
+        && request.resource.data.get('id', null) == resource.data.get('id', null);
     }
   }
 }

@@ -1,5 +1,5 @@
 import { getFirebaseBridge } from '../useFirebaseBridge'
-import { moviesList, currentUser, partnership, isOnlineWithSupabase } from './state'
+import { moviesList, currentUser, partnership } from './state'
 import { saveToStorage, deduplicateMoviesList } from './utils'
 import type { MovieItem, MovieReview } from '~/types/duo'
 
@@ -57,7 +57,7 @@ export function useMovies(options: {
       target_date: payload.target_date || null,
       added_by: currentUser.value?.id || null,
       watched_at: statusVal === 'watched' ? nowIso : null,
-      reviews: payload.reviews || {},
+      reviews: {},
       last_watched_season: payload.last_watched_season || (statusVal === 'watching' ? 1 : null),
       last_watched_episode: payload.last_watched_episode || (statusVal === 'watching' ? 1 : null),
       created_at: nowIso,
@@ -71,19 +71,15 @@ export function useMovies(options: {
       streaming_platform: payload.streaming_platform || null
     }
 
-    moviesList.value.unshift(newMovie)
-    syncMoviesToStorage()
-
-    options.broadcastToPartner('MOVIE_ADD', newMovie)
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value) {
-      try {
-        await bridge.from('movies').insert(newMovie)
-      } catch (err) {
-        console.warn('Błąd podczas zapisywania filmu:', err)
-      }
+    const { error } = await getDb().from('movies').insert(newMovie)
+    if (error) {
+      options.triggerToast('Nie udało się zapisać filmu.', { type: 'warning' })
+      return null
     }
+    if (partnership.value?.id !== newMovie.partnership_id) return null
+    moviesList.value = [newMovie, ...moviesList.value.filter(movie => movie.id !== newMovie.id)]
+    syncMoviesToStorage()
+    options.broadcastToPartner('MOVIE_ADD', newMovie)
 
     if (statusVal === 'watched') {
       options.triggerToast(`Dodano "${title}" jako obejrzane! 🎉`, { type: 'movies' })
@@ -95,162 +91,95 @@ export function useMovies(options: {
     return newMovie
   }
 
-  const updateMovie = async (id: string, updates: Partial<MovieItem>): Promise<boolean> => {
-    const movie = moviesList.value.find(m => m.id === id)
-    if (!movie) return false
-
-    const nowIso = new Date().toISOString()
-    const fullUpdates = { ...updates, updated_at: nowIso }
-    Object.assign(movie, fullUpdates)
-    syncMoviesToStorage()
-
-    options.broadcastToPartner('MOVIE_UPDATE', { id, ...fullUpdates })
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value) {
-      try {
-        await bridge.from('movies').update(fullUpdates).eq('id', id)
-      } catch (_) {}
+  const persistMovieUpdate = async (movie: MovieItem, changes: Partial<MovieItem>) => {
+    const patch = { ...changes, updated_at: new Date().toISOString() }
+    try {
+      const { error } = await getDb().from('movies').update(patch).eq('id', movie.id)
+      if (error) throw error
+      if (partnership.value?.id !== movie.partnership_id) return false
+      moviesList.value = moviesList.value.map(row => row.id === movie.id ? { ...row, ...patch } : row)
+      syncMoviesToStorage()
+      return true
+    } catch {
+      options.triggerToast('Nie udało się zapisać zmiany filmu.', { type: 'warning' })
+      return false
     }
+  }
 
+  const updateMovie = async (id: string, updates: Partial<MovieItem>) => {
+    const movie = moviesList.value.find(row => row.id === id)
+    if (!movie || !(await persistMovieUpdate(movie, updates))) return false
+    options.broadcastToPartner('MOVIE_UPDATE', { id, ...updates })
     options.triggerToast('Zaktualizowano film')
     return true
   }
 
-  const updateMovieProgress = async (id: string, seasonOrMinutes: number, episode?: number): Promise<boolean> => {
-    const movie = moviesList.value.find(m => m.id === id)
+  const updateMovieProgress = async (id: string, seasonOrMinutes: number, episode?: number) => {
+    const movie = moviesList.value.find(row => row.id === id)
     if (!movie) return false
+    const progress = episode === undefined
+      ? { watch_progress_minutes: seasonOrMinutes }
+      : { last_watched_season: seasonOrMinutes, last_watched_episode: episode }
+    return persistMovieUpdate(movie, { ...progress, last_watched_at: new Date().toISOString() })
+  }
 
-    const nowIso = new Date().toISOString()
-    const updates: Partial<MovieItem> = { updated_at: nowIso }
-
-    if (episode !== undefined) {
-      movie.last_watched_season = seasonOrMinutes
-      movie.last_watched_episode = episode
-      movie.last_watched_at = nowIso
-      updates.last_watched_season = seasonOrMinutes
-      updates.last_watched_episode = episode
-      updates.last_watched_at = nowIso
-    } else {
-      movie.watch_progress_minutes = seasonOrMinutes
-      movie.last_watched_at = nowIso
-      updates.watch_progress_minutes = seasonOrMinutes
-      updates.last_watched_at = nowIso
+  const toggleMovieWatched = async (id: string, targetStatus?: MovieItem['status']) => {
+    const movie = moviesList.value.find(row => row.id === id)
+    if (!movie) return false
+    const status = targetStatus || (movie.status === 'watched' ? 'planned' : 'watched')
+    const watched_at = status === 'watched' ? new Date().toISOString() : null
+    const patch: Partial<MovieItem> = { status, watched_at }
+    if (status === 'watching' && !movie.last_watched_season) {
+      patch.last_watched_season = 1
+      patch.last_watched_episode = 1
     }
-
-    syncMoviesToStorage()
-    options.broadcastToPartner('MOVIE_PROGRESS', { id, ...updates })
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value) {
-      try {
-        await bridge.from('movies').update(updates).eq('id', id)
-      } catch (_) {}
-    }
+    if (!(await persistMovieUpdate(movie, patch))) return false
+    options.broadcastToPartner('MOVIE_TOGGLE_WATCHED', { id, title: movie.title, ...patch })
+    options.triggerToast(status === 'watched' ? 'Oznaczono jako obejrzane' : status === 'watching' ? 'Rozpoczęto seans' : 'Przeniesiono do planowanych', { type: 'movies' })
     return true
   }
 
-  const toggleMovieWatched = async (id: string, targetStatus?: 'planned' | 'watching' | 'watched'): Promise<boolean> => {
-    const movie = moviesList.value.find(m => m.id === id)
-    if (!movie) return false
-
-    const newStatus: 'planned' | 'watching' | 'watched' = targetStatus || (movie.status === 'watched' ? 'planned' : 'watched')
-    const watchedAt = newStatus === 'watched' ? new Date().toISOString() : null
-    const nowIso = new Date().toISOString()
-
-    movie.status = newStatus
-    movie.watched_at = watchedAt
-    movie.updated_at = nowIso
-    if (newStatus === 'watching' && !movie.last_watched_season) {
-      movie.last_watched_season = 1
-      movie.last_watched_episode = 1
-    }
-    syncMoviesToStorage()
-
-    options.broadcastToPartner('MOVIE_TOGGLE_WATCHED', { id, status: newStatus, watched_at: watchedAt })
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value) {
-      try {
-        await bridge.from('movies').update({
-          status: newStatus,
-          watched_at: watchedAt,
-          last_watched_season: movie.last_watched_season || null,
-          last_watched_episode: movie.last_watched_episode || null,
-          updated_at: nowIso
-        }).eq('id', id)
-      } catch (_) {}
-    }
-
-    if (newStatus === 'watched') {
-      options.triggerToast(`"${movie.title}" oznaczono jako obejrzane! 🎉 Czas na recenzję.`, { type: 'movies', title: 'Filmy & Seriale' })
-    } else if (newStatus === 'watching') {
-      options.triggerToast(`Zaczęliście seans "${movie.title}"! 🍿`, { type: 'movies', title: 'Filmy & Seriale' })
-    } else {
-      options.triggerToast(`Przeniesiono "${movie.title}" do planowanych.`, { type: 'movies' })
-    }
-    return true
-  }
-
-  const saveMovieReview = async (id: string, rating: number, comment: string = ''): Promise<boolean> => {
-    const movie = moviesList.value.find(m => m.id === id)
-    if (!movie) return false
-
-    const myId = currentUser.value?.id
-    if (!myId) return false
-
-    if (!movie.reviews) movie.reviews = {}
-    const nowIso = new Date().toISOString()
-    const reviewData: MovieReview = {
-      user_id: myId,
-      author_name: currentUser.value?.name || 'Ja',
+  const saveMovieReview = async (id: string, rating: number, comment = '') => {
+    const movie = moviesList.value.find(row => row.id === id)
+    const profileId = currentUser.value.id
+    if (!movie || !profileId || !Number.isFinite(rating)) return false
+    const updatedAt = new Date().toISOString()
+    const review: MovieReview = {
+      user_id: profileId,
+      author_name: currentUser.value.name || 'Ja',
       rating: Math.max(1, Math.min(10, Math.round(rating))),
-      comment: comment.trim() || null,
-      reviewed_at: nowIso,
-      updated_at: nowIso
+      comment: comment.trim().slice(0, 2000) || null,
+      reviewed_at: updatedAt,
+      updated_at: updatedAt
     }
-    movie.reviews[myId] = reviewData
-    movie.updated_at = nowIso
-    syncMoviesToStorage()
-
-    options.broadcastToPartner('MOVIE_REVIEW', {
-      id,
-      userId: myId,
-      review: reviewData
-    })
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value) {
-      try {
-        await bridge.from('movies').update({ reviews: movie.reviews, updated_at: nowIso }).eq('id', id)
-      } catch (_) {}
+    try {
+      await getDb().saveMovieReview(id, profileId, review, updatedAt)
+      if (currentUser.value.id !== profileId || partnership.value?.id !== movie.partnership_id) return false
+      const current = moviesList.value.find(row => row.id === id)
+      if (current) current.reviews = { ...current.reviews, [profileId]: review }
+      syncMoviesToStorage()
+      options.triggerToast(`Zapisano Twoją recenzję dla „${movie.title}”`, { type: 'movies' })
+      return true
+    } catch {
+      options.triggerToast('Nie udało się zapisać recenzji.', { type: 'warning' })
+      return false
     }
-
-    options.triggerToast(`Zapisano Twoją recenzję dla "${movie.title}" (${rating}/10 ⭐)!`, { type: 'movies', title: 'Recenzje Filmowe' })
-    return true
   }
 
-  const deleteMovie = async (id: string): Promise<boolean> => {
-    const idx = moviesList.value.findIndex(m => m.id === id)
-    if (idx === -1) return false
-
-    const item = moviesList.value[idx]
-    moviesList.value.splice(idx, 1)
-    syncMoviesToStorage()
-
-    options.broadcastToPartner('MOVIE_DELETE', { id })
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value) {
-      try {
-        await bridge.from('movies').delete().eq('id', id)
-      } catch (err) {
-        console.warn('Błąd usuwania filmu:', err)
-      }
+  const deleteMovie = async (id: string) => {
+    const pid = partnership.value?.id
+    try {
+      const { error } = await getDb().from('movies').delete().eq('id', id)
+      if (error) throw error
+      if (partnership.value?.id !== pid) return false
+      moviesList.value = moviesList.value.filter(movie => movie.id !== id)
+      syncMoviesToStorage()
+      options.triggerToast('Usunięto film z listy')
+      return true
+    } catch {
+      options.triggerToast('Nie udało się usunąć filmu.', { type: 'warning' })
+      return false
     }
-
-    options.triggerToast(`Usunięto "${item.title}" z listy filmów.`)
-    return true
   }
 
   const refreshMovies = async () => {
@@ -267,7 +196,7 @@ export function useMovies(options: {
         .eq('partnership_id', pId)
         .order('created_at', { ascending: false })
 
-      if (!error && data) {
+      if (!error && data && partnership.value?.id === pId) {
         moviesList.value = deduplicateMoviesList(data)
         syncMoviesToStorage()
       }

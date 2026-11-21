@@ -53,7 +53,7 @@ export const savingsContributions = ref<SavingsContribution[]>([])
 // Stan tablicy rysowania (Doodle)
 export const currentDoodle = ref<DuoDoodle | null>(null)
 export const isPartnerDrawing = ref(false)
-export const partnerLiveStroke = ref<DuoDoodleStroke | null>(null)
+export const partnerLiveStroke = ref<{ stroke: DuoDoodleStroke; timestamp: number } | null>(null)
 
 // Stan gestów (Nudge)
 export const lastNudgeSentAt = ref<number | null>(null)

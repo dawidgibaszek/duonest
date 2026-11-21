@@ -118,16 +118,16 @@
       <!-- ============================================== -->
       <div v-if="activeMainTab === 'tasks'" class="tasks-tab-content">
         <!-- Companion pet mini-bar -->
-        <button type="button" class="pt-mini" @click="handleSwitchToPet">
+        <button type="button" class="pt-mini" :class="{ 'pt-mini--invite': !hasPet }" @click="handleSwitchToPet">
           <span class="pt-mini-sprite">
             <PetSprite v-if="hasPet" :pet="petId" :animation="currentAnimation" :scale="1.3" :interactive="false" />
             <ion-icon v-else :icon="ioniconsPawOutline" />
           </span>
           <span class="pt-mini-text">
-            <span class="pt-mini-title">{{ hasPet ? petName : 'Przygarnijcie pupila' }}</span>
+            <span class="pt-mini-title">{{ hasPet ? petName : 'Odbierzcie pupila' }}</span>
             <span class="pt-mini-sub">
               <template v-if="hasPet">Poziom {{ petLevel }} · {{ uncompletedTasksCount === 0 ? 'wszystko zrobione' : `${uncompletedTasksCount} do zrobienia` }}</template>
-              <template v-else>Rośnie razem z Waszymi zadaniami</template>
+              <template v-else>Wybierzcie go w zakładce Zwierzak.</template>
             </span>
           </span>
           <span v-if="hasPet" class="pt-mini-bar"><span :style="{ width: Math.max(petLevelProgressPct, 4) + '%' }" /></span>
@@ -306,7 +306,7 @@
             <div class="pt-section-head">
               <h2 class="pt-section-title">Imię</h2>
             </div>
-            <ion-input aria-label="Imię pupila" v-model="creatorPetName" placeholder="Jak ma się wabić?" class="pt-input" :clear-input="true" />
+            <ion-input aria-label="Imię pupila" v-model="creatorPetName" maxlength="40" placeholder="Jak ma się wabić?" class="pt-input" :clear-input="true" />
             <div class="pt-chips">
               <button
                 v-for="sug in suggestedNames"
@@ -321,7 +321,7 @@
             </div>
           </section>
 
-          <button type="button" class="dn-button-primary pt-full-btn" :disabled="!creatorPetName.trim()" @click="handleAdoptPet">
+          <button type="button" class="dn-button-primary pt-full-btn" :disabled="isSavingPet || !creatorPetName.trim()" @click="handleAdoptPet">
             <ion-icon :icon="ioniconsHeart" />
             <span>Przygarnij{{ creatorPetName.trim() ? ` ${creatorPetName.trim()}` : '' }}</span>
           </button>
@@ -372,7 +372,7 @@
               <h2 class="pt-section-title">Misje domowe</h2>
               <button type="button" class="pt-link" @click="handleSwitchToTasks">Wszystkie</button>
             </div>
-            <p class="pt-hint">Każde zrobione zadanie to +15 XP dla {{ petName }}.</p>
+            <p class="pt-hint">Za ukończone zadania {{ petName }} zdobywa XP.</p>
 
             <div v-if="petPriorityTasks.length > 0" class="pt-quests">
               <div v-for="task in petPriorityTasks" :key="task.id" class="pt-quest">
@@ -388,7 +388,7 @@
                   <span class="pt-quest-title">{{ task.title }}</span>
                   <span class="pt-quest-meta">{{ getAssigneeLabel(task.assigned_to) }}</span>
                 </span>
-                <span class="pt-xp">+15 XP</span>
+                <span class="pt-xp">+{{ task.points }} XP</span>
               </div>
             </div>
 
@@ -619,7 +619,7 @@
             <div class="pt-section-head">
               <h2 class="pt-section-title">Imię</h2>
             </div>
-            <ion-input aria-label="Imię pupila" v-model="settingsPetName" placeholder="Wpisz imię…" class="pt-input" :clear-input="true" />
+            <ion-input aria-label="Imię pupila" v-model="settingsPetName" maxlength="40" placeholder="Wpisz imię…" class="pt-input" :clear-input="true" />
             <div class="pt-chips">
               <button
                 v-for="sug in settingsSuggestedNames"
@@ -637,7 +637,7 @@
           <button
             type="button"
             class="dn-button-primary pt-full-btn is-flush"
-            :disabled="!settingsPetName.trim()"
+            :disabled="isSavingPet || !settingsPetName.trim()"
             @click="handleSavePetSettings"
           >
             Zapisz
@@ -806,7 +806,7 @@ const petPriorityTasks = computed(() => {
 })
 
 const handleQuickCompletePetTask = async (task: TaskItem) => {
-  await toggleTask(task.id)
+  if (!(await toggleTask(task.id))) return
   triggerPetAnimation('jump', 2200)
   confetti({
     particleCount: 70,
@@ -814,10 +814,11 @@ const handleQuickCompletePetTask = async (task: TaskItem) => {
     origin: { y: 0.45 },
     colors: ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b']
   })
-  setCustomSpeech('Zrobione. +15 XP dla mnie, dziękuję!')
+  setCustomSpeech(`Zrobione. +${tasksList.value.find(t => t.id === task.id)?.points_awarded ?? task.points} XP dla mnie, dziękuję!`)
 }
 
 // Pet Creator State (when !hasPet)
+const isSavingPet = ref(false)
 const creatorSelectedPetId = ref<string>('Cat')
 const creatorPetName = ref<string>('Kotek')
 const creatorSelectedDef = computed(() => getPetDefinition(creatorSelectedPetId.value))
@@ -866,13 +867,15 @@ const suggestedNames = computed(() => {
 
 const handleAdoptPet = async () => {
   const clean = creatorPetName.value.trim()
-  if (!clean) return
-  await selectPet(creatorSelectedPetId.value, clean)
-  confetti({
-    particleCount: 80,
-    spread: 70,
-    origin: { y: 0.6 }
-  })
+  if (!clean || isSavingPet.value) return
+  isSavingPet.value = true
+  try {
+    if (await selectPet(creatorSelectedPetId.value, clean)) {
+      confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } })
+    }
+  } finally {
+    isSavingPet.value = false
+  }
 }
 
 // Pet Settings Modal (Gear Icon)
@@ -930,14 +933,16 @@ const handleSettingsPetClick = () => {
 
 const handleSavePetSettings = async () => {
   const clean = settingsPetName.value.trim()
-  if (!clean) return
-  await selectPet(settingsPetId.value, clean)
-  showPetSettingsModal.value = false
-  confetti({
-    particleCount: 60,
-    spread: 60,
-    origin: { y: 0.5 }
-  })
+  if (!clean || isSavingPet.value) return
+  isSavingPet.value = true
+  try {
+    if (await selectPet(settingsPetId.value, clean)) {
+      showPetSettingsModal.value = false
+      confetti({ particleCount: 60, spread: 60, origin: { y: 0.5 } })
+    }
+  } finally {
+    isSavingPet.value = false
+  }
 }
 
 const selectedSegment = ref('all')
@@ -1076,7 +1081,7 @@ const handleToggleTask = async (task: TaskItem) => {
     await new Promise(resolve => setTimeout(resolve, 240))
     completingTaskIds.value.delete(task.id)
   }
-  await toggleTask(task.id)
+  if (!(await toggleTask(task.id)) || !hasPet.value) return
 
   if (willBeCompleted) {
     const remainingActive = tasksList.value.filter(t => !t.is_completed).length
@@ -1135,7 +1140,7 @@ const handleCreateTask = async () => {
       ? `custom:${customIntervalTotalMinutes.value}`
       : newTaskInterval.value
 
-    await addTask(
+    const saved = await addTask(
       cleanTitle,
       cleanDesc,
       newTaskAssignee.value,
@@ -1143,6 +1148,7 @@ const handleCreateTask = async () => {
       recurrenceInterval,
       cleanPoints
     )
+    if (!saved) return
     showAddModal.value = false
     newTaskTitle.value = ''
     newTaskDesc.value = ''
@@ -2841,6 +2847,10 @@ ion-modal.dn-pet-settings-modal {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.pt-mini--invite .pt-mini-sub {
+  white-space: normal;
 }
 
 .pt-mini-bar {

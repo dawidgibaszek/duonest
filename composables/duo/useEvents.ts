@@ -1,6 +1,6 @@
 import { getFirebaseBridge } from '../useFirebaseBridge'
-import { eventsList, currentUser, partnership, isOnlineWithSupabase } from './state'
-import { saveToStorage } from './utils'
+import { eventsList, currentUser, partnership } from './state'
+import { newDocumentId, saveToStorage } from './utils'
 import type { EventItem } from '~/types/duo'
 
 export function useEvents(options: {
@@ -13,125 +13,101 @@ export function useEvents(options: {
     saveToStorage('duonest_events', eventsList.value)
   }
 
-  const addEvent = async (
-    title: string,
-    startTime: string,
-    category: EventItem['category'] = 'date',
-    optionsData: {
-      description?: string
-      location?: string
-      end_time?: string
-      is_surprise?: boolean
-      planner_name?: string
-    } = {}
-  ) => {
-    if (!title.trim() || !partnership.value?.id) return null
+  const fail = () => options.triggerToast('Nie udało się zapisać zmian w terminarzu.', { type: 'warning' })
+  const toIso = (value: string) => {
+    const date = new Date(value)
+    return Number.isFinite(date.getTime()) ? date.toISOString() : null
+  }
 
-    const newEvent: EventItem = {
-      id: `event_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      partnership_id: partnership.value.id,
+  const addEvent = async (
+    title: string, category: EventItem['category'], startTime: string,
+    description = '', location = '', endTime = '', isSurprise = false, plannerName = ''
+  ) => {
+    const pid = partnership.value?.id
+    const start = toIso(startTime)
+    if (!title.trim() || !pid || !start) return null
+    const end = endTime && /^\d{2}:\d{2}$/.test(endTime) ? `${startTime.split('T')[0]}T${endTime}:00` : endTime
+    const event: EventItem = {
+      id: newDocumentId('event_'),
+      partnership_id: pid,
       title: title.trim(),
-      description: optionsData.description?.trim() || null,
-      location: optionsData.location?.trim() || null,
-      start_time: startTime,
-      end_time: optionsData.end_time || null,
+      description: description.trim() || null,
+      location: location.trim() || null,
+      start_time: start,
+      end_time: end ? toIso(end) : null,
       category,
       is_completed: false,
       completed_at: null,
       completed_by: null,
-      points_awarded: 15,
-      is_surprise: Boolean(optionsData.is_surprise),
-      planner_name: optionsData.planner_name || currentUser.value.name || 'Partner',
+      is_surprise: isSurprise,
+      planner_name: plannerName || currentUser.value.name || 'Partner',
       created_by: currentUser.value.id,
       created_at: new Date().toISOString()
     }
 
-    eventsList.value.push(newEvent)
-    eventsList.value.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+    const { error } = await getDb().from('events').insert(event)
+    if (error) { fail(); return null }
+    if (partnership.value?.id !== pid) return null
+    eventsList.value = [event, ...eventsList.value.filter(item => item.id !== event.id)]
+      .sort((a, b) => a.start_time.localeCompare(b.start_time))
     syncEventsToStorage()
+    options.broadcastToPartner('EVENT_ADD', event)
+    options.triggerToast('Dodano plan')
+    return event
+  }
 
-    options.broadcastToPartner('EVENT_ADD', newEvent)
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value) {
-      try {
-        await bridge.from('events').insert(newEvent)
-      } catch (err) {
-        console.warn('Błąd podczas zapisywania wydarzenia:', err)
-      }
+  const persistUpdate = async (event: EventItem, updates: Partial<EventItem>) => {
+    const patch = { category: event.category, start_time: event.start_time, ...updates }
+    try {
+      const { error } = await getDb().from('events').update(patch).eq('id', event.id)
+      if (error) throw error
+      if (partnership.value?.id !== event.partnership_id) return false
+      eventsList.value = eventsList.value.map(item => item.id === event.id ? { ...item, ...patch } : item)
+        .sort((a, b) => a.start_time.localeCompare(b.start_time))
+      syncEventsToStorage()
+      return true
+    } catch {
+      fail()
+      return false
     }
-
-    options.triggerToast('Dodano nowe wydarzenie do kalendarza')
-    return newEvent
   }
 
   const updateEvent = async (id: string, updates: Partial<EventItem>) => {
-    const idx = eventsList.value.findIndex(e => e.id === id)
-    if (idx === -1) return false
-
-    eventsList.value[idx] = { ...eventsList.value[idx], ...updates }
-    eventsList.value.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
-    syncEventsToStorage()
-
+    const event = eventsList.value.find(item => item.id === id)
+    if (!event || !(await persistUpdate(event, updates))) return false
     options.broadcastToPartner('EVENT_UPDATE', { id, updates })
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value) {
-      try {
-        await bridge.from('events').update(updates).eq('id', id)
-      } catch (_) {}
-    }
-
     options.triggerToast('Zaktualizowano wydarzenie')
     return true
   }
 
   const toggleEventCompleted = async (id: string) => {
-    const ev = eventsList.value.find(e => e.id === id)
-    if (!ev) return
-
-    ev.is_completed = !ev.is_completed
-    ev.completed_at = ev.is_completed ? new Date().toISOString() : null
-    ev.completed_by = ev.is_completed ? currentUser.value.id : null
-    syncEventsToStorage()
-
-    options.broadcastToPartner('EVENT_TOGGLE_COMPLETED', { id, is_completed: ev.is_completed })
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value) {
-      try {
-        await bridge.from('events').update({
-          is_completed: ev.is_completed,
-          completed_at: ev.completed_at,
-          completed_by: ev.completed_by
-        }).eq('id', id)
-      } catch (_) {}
-    }
-
-    if (ev.is_completed) {
-      options.triggerToast('Wydarzenie zrealizowane! 💖', { type: 'calendar' })
-    }
+    const event = eventsList.value.find(item => item.id === id)
+    if (!event) return false
+    const completed = !event.is_completed
+    if (!(await persistUpdate(event, {
+      is_completed: completed,
+      completed_at: completed ? new Date().toISOString() : null,
+      completed_by: completed ? currentUser.value.id : null
+    }))) return false
+    options.broadcastToPartner('EVENT_TOGGLE_COMPLETED', { id, is_completed: completed, title: event.title })
+    if (completed) options.triggerToast('Wydarzenie zrealizowane', { type: 'calendar' })
+    return true
   }
 
   const deleteEvent = async (id: string) => {
-    const idx = eventsList.value.findIndex(e => e.id === id)
-    if (idx === -1) return
-
-    eventsList.value.splice(idx, 1)
-    syncEventsToStorage()
-
-    options.broadcastToPartner('EVENT_DELETE', { id })
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value) {
-      try {
-        await bridge.from('events').delete().eq('id', id)
-      } catch (err) {
-        console.warn('Błąd usuwania wydarzenia:', err)
-      }
+    const pid = partnership.value?.id
+    try {
+      const { error } = await getDb().from('events').delete().eq('id', id)
+      if (error) throw error
+      if (partnership.value?.id !== pid) return false
+      eventsList.value = eventsList.value.filter(event => event.id !== id)
+      syncEventsToStorage()
+      options.triggerToast('Usunięto wydarzenie')
+      return true
+    } catch {
+      fail()
+      return false
     }
-
-    options.triggerToast('Usunięto wydarzenie z kalendarza')
   }
 
   return {

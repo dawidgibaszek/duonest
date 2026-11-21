@@ -45,7 +45,7 @@ const heroTiles: DuoAuthHeroTile[] = [
 ]
 
 const goTo = (mode: 'login' | 'register') => {
-  navigateTo(mode === 'register' ? '/login?mode=register' : '/login')
+  navigateTo(mode === 'register' ? '/register' : '/login')
 }
 </script>
 

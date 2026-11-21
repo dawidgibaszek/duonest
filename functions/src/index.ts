@@ -1,7 +1,13 @@
 import { onRequest } from 'firebase-functions/v2/https'
 import * as admin from 'firebase-admin'
+import { getDatabaseWithUrl } from 'firebase-admin/database'
+import { databaseUrlForProject } from './firebaseProject'
 import express from 'express'
 import cors from 'cors'
+import { getCalendarFeed, updateCalendarSubscription } from './calendarCore'
+import { mutateDuoData } from './duoMutations'
+import { DuoDataError } from './partnershipAccess'
+import { processScrape } from './wishlistScraper'
 import { syncAccount, pairWithCode, disconnectPartnership, resolveCallerProfile } from './duoAccount'
 import { handlePushAction, PUSH_ACTIONS, type PushAction } from './pushCore'
 import { handleMusicAction, isMusicAction } from './musicCore'
@@ -19,7 +25,10 @@ const auth = admin.auth()
 // Realtime Database (null if the project has no default RTDB instance)
 const getRtdb = () => {
   try {
-    return admin.database()
+    const app = admin.app()
+    const url = process.env.FIREBASE_DATABASE_URL || app.options.databaseURL ||
+      databaseUrlForProject(app.options.projectId || process.env.GCLOUD_PROJECT)
+    return url ? getDatabaseWithUrl(url, app) : null
   } catch (_) {
     return null
   }
@@ -28,6 +37,7 @@ const getRtdb = () => {
 const decodedUser = (req: any) => ({
   uid: req.user.uid,
   email: req.user.email,
+  name: typeof req.user.name === 'string' ? req.user.name : undefined,
   email_verified: req.user.email_verified === true
 })
 
@@ -114,7 +124,8 @@ app.get('/api/meals/lookup', async (req, res) => {
   }
 })
 
-app.post('/api/meals/import', async (req, res) => {
+app.post('/api/meals/import', requireAuth, async (req: any, res) => {
+  if (!allowPush(`recipes:${req.user.uid}`, 20)) return res.status(429).json({ success: false, error: 'Zbyt wiele prób importu.' })
   try {
     const result = await handleMealsImport(req.body)
     res.json(result)
@@ -126,52 +137,41 @@ app.post('/api/meals/import', async (req, res) => {
 // -----------------------------------------------------------------------------
 // 3. KALENDARZ (iCal FEED)
 // -----------------------------------------------------------------------------
+function respondToDataError(res: express.Response, error: unknown) {
+  if (error instanceof DuoDataError) {
+    res.status(error.status).json({ error: error.message })
+    return
+  }
+  console.error('[duo-data]', (error as any)?.code)
+  res.status(500).json({ error: 'Operacja chwilowo niedostępna.' })
+}
+
 app.get('/api/calendar/feed', async (req, res) => {
+  res.set('Cache-Control', 'no-store')
   try {
-    const partnershipId = String(req.query.partnership_id || '').trim()
-    if (!partnershipId) return res.status(400).send('Brak partnership_id')
+    const feed = await getCalendarFeed(db, req.query.token)
+    res.set('Content-Type', 'text/calendar; charset=utf-8')
+    res.set('Content-Disposition', 'inline; filename="duonest-calendar.ics"')
+    res.send(feed)
+  } catch (error) {
+    respondToDataError(res, error)
+  }
+})
 
-    const eventsSnapshot = await db
-      .collection('events')
-      .where('partnership_id', '==', partnershipId)
-      .limit(500)
-      .get()
+app.post('/api/calendar/subscription', requireAuth, async (req: any, res) => {
+  res.set('Cache-Control', 'no-store')
+  try {
+    res.json(await updateCalendarSubscription(db, req.user.uid, req.body?.action))
+  } catch (error) {
+    respondToDataError(res, error)
+  }
+})
 
-    const events = eventsSnapshot.docs.map(doc => doc.data())
-
-    // Prosty format iCalendar
-    let ics = [
-      'BEGIN:VCALENDAR',
-      'VERSION:2.0',
-      'PRODID:-//DuoNest//Wspolny Kalendarz//PL',
-      'CALSCALE:GREGORIAN',
-      'X-WR-CALNAME:DuoNest Kalendarz'
-    ]
-
-    for (const ev of events) {
-      if (!ev.start_time) continue
-      const dtStart = new Date(ev.start_time).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
-      const dtEnd = ev.end_time ? new Date(ev.end_time).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z' : dtStart
-
-      ics.push(
-        'BEGIN:VEVENT',
-        `UID:${ev.id || Math.random()}@duonestapp.pl`,
-        `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z`,
-        `DTSTART:${dtStart}`,
-        `DTEND:${dtEnd}`,
-        `SUMMARY:${ev.title || 'Wydarzenie'}`,
-        `DESCRIPTION:${ev.description || ''}`,
-        `LOCATION:${ev.location || ''}`,
-        'END:VEVENT'
-      )
-    }
-
-    ics.push('END:VCALENDAR')
-    res.setHeader('Content-Type', 'text/calendar; charset=utf-8')
-    res.setHeader('Content-Disposition', 'inline; filename="duonest-calendar.ics"')
-    res.send(ics.join('\r\n'))
-  } catch (err: any) {
-    res.status(500).send(`Błąd generowania kalendarza: ${err.message}`)
+app.post('/api/duo/mutate', requireAuth, async (req: any, res) => {
+  try {
+    res.json(await mutateDuoData(db, req.user.uid, req.body))
+  } catch (error) {
+    respondToDataError(res, error)
   }
 })
 
@@ -210,6 +210,17 @@ for (const action of PUSH_ACTIONS) {
     }
   })
 }
+
+app.post('/api/wishlist/preview', requireAuth, async (req: any, res) => {
+  if (!allowPush(`wishlist:${req.user.uid}`, 15)) return res.status(429).json({ success: false, error: 'Zbyt wiele zapytań o podgląd.' })
+  const url = typeof req.body?.url === 'string' ? req.body.url.trim() : ''
+  if (url.length > 2048) return res.status(400).json({ success: false, error: 'Link jest zbyt długi.' })
+  try {
+    res.json(await processScrape(url))
+  } catch (error) {
+    respondToDataError(res, error)
+  }
+})
 
 // -----------------------------------------------------------------------------
 // 4b. KONTO, CZŁONKOSTWO I PAROWANIE (wymaga uprawnień administratora)

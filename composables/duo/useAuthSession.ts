@@ -1,4 +1,5 @@
 import { getFirebaseBridge } from '../useFirebaseBridge'
+import { stopPartnershipRealtime } from './useRealtimeSync'
 import { detachNativePushOnLogout, isNativeApp } from '../usePushNotifications'
 import {
   currentUser,
@@ -31,7 +32,6 @@ import {
   saveToStorage,
   clearSupabaseSessionStorage,
   sanitizeEmail,
-  generateUniqueCode,
   getCleanAccentColor,
   createInitialProfile,
   deduplicateMoviesList,
@@ -45,7 +45,7 @@ let hasAttachedAuthListener = false
 let profileSyncInFlight: { uid: string; promise: Promise<boolean> } | null = null
 let profileSyncRetries = 0
 
-const PUBLIC_ROUTES = ['/welcome', '/login', '/verified', '/reset-password', '/auth/action', '/']
+const PUBLIC_ROUTES = ['/welcome', '/login', '/register', '/verified', '/reset-password', '/auth/action', '/']
 
 /** Firebase has no session, but the UI still shows a cached one → send the user to /welcome. */
 const leaveProtectedRoute = () => {
@@ -59,6 +59,7 @@ export function useAuthSession() {
   const getDb = () => getFirebaseBridge()
 
   const clearAllDuoState = () => {
+    stopPartnershipRealtime()
     currentUser.value = createInitialProfile()
     partnerUser.value = null
     partnership.value = null
@@ -151,6 +152,8 @@ export function useAuthSession() {
     eventsList.value = loadFromStorage<EventItem[]>('duonest_events', [])
     nudgesList.value = loadFromStorage<NudgeItem[]>('duonest_nudges', [])
     wishlistItems.value = loadFromStorage<WishlistItem[]>('duonest_wishlist', [])
+      .filter(item => item.is_visible_to_partner === true ||
+        (item.created_by && [currentUser.value.id, authUser.value?.id].includes(item.created_by)))
     moviesList.value = deduplicateMoviesList(loadFromStorage<MovieItem[]>('duonest_movies', []))
     mealsList.value = loadFromStorage<MealItem[]>('duonest_meals', [])
     savingsGoals.value = loadFromStorage<SavingsGoal[]>('duonest_savings_goals', [])
@@ -220,24 +223,11 @@ export function useAuthSession() {
 
   const hydrateCurrentUserFromProfile = async (profile: any, user: any) => {
     if (!profile) return
-    let pairingCode = profile.pairing_code
-    if (!pairingCode) {
-      // Persist a code for profiles without one – otherwise the code shown
-      // in the app would not exist in the database and pairing would fail.
-      pairingCode = generateUniqueCode()
-      const bridge = getDb()
-      if (bridge && profile.id) {
-        try {
-          await bridge.from('profiles').update({ pairing_code: pairingCode, updated_at: new Date().toISOString() }).eq('id', profile.id)
-        } catch (_) {}
-      }
-    }
-
     currentUser.value = {
       ...createInitialProfile(),
       ...profile,
       email: user?.email || profile.email || null,
-      pairing_code: pairingCode,
+      pairing_code: profile.pairing_code || '',
       avatar_color: getCleanAccentColor(profile.avatar_color, '#0284c7'),
       points: Number(profile.points) || 0
     }
@@ -268,72 +258,17 @@ export function useAuthSession() {
     if (!user || !bridge) return false
 
     try {
-      const userEmail = sanitizeEmail(user.email || '')
-
-      // 1. Pobranie przez RPC get_my_profile
-      try {
-        const { data: rpcProfile } = await bridge.rpc('get_my_profile')
-        if (rpcProfile && rpcProfile.id) {
-          profileSyncRetries = 0
-          await hydrateCurrentUserFromProfile(rpcProfile, user)
-          return true
-        }
-      } catch (_) {}
-
-      // 2. Nie zgadujemy po stronie klienta (stare kopie profili mogłyby wygrać z prawdziwym).
-      //    Nowy profil powstaje TYLKO gdy serwer potwierdzi, że to konto nie ma żadnego profilu –
-      //    inaczej chwilowa awaria serwera odcięłaby użytkownika od jego starych danych.
-      if (typeof bridge.syncAccount === 'function') {
-        const confirmed = await bridge.syncAccount(true)
-        if (!confirmed) {
-          scheduleProfileSyncRetry(user)
-          return false
-        }
-        if (confirmed.profile_id) {
-          const { data: again } = await bridge.rpc('get_my_profile')
-          if (again?.id) {
-            await hydrateCurrentUserFromProfile(again, user)
-            return true
-          }
-          scheduleProfileSyncRetry(user)
-          return false
-        }
+      const { data: profile } = await bridge.rpc('get_my_profile')
+      if (authUser.value?.id !== user.id) return false
+      if (!profile?.id || !profile.pairing_code) {
+        scheduleProfileSyncRetry(user)
+        return false
       }
-
-      // 4. Nowy użytkownik - natychmiastowe utworzenie profilu z kodem parowania.
-      //    Profil żyje pod profiles/{uid} (wymagane przez reguły bezpieczeństwa).
-      const newProfileId = user.id
-      const newPairingCode = generateUniqueCode()
-      const newProfileData = {
-        id: newProfileId,
-        auth_user_id: user.id,
-        email: userEmail,
-        name: user.user_metadata?.name || user.displayName || (userEmail ? userEmail.split('@')[0] : 'Użytkownik'),
-        avatar_color: '#0284c7',
-        pairing_code: newPairingCode,
-        partnership_id: null,
-        current_mood: 'happy',
-        mood_note: '',
-        mood_updated_at: new Date().toISOString(),
-        love_note: '',
-        favorite_drink: '',
-        favorite_treat: '',
-        points: 0,
-        is_email_verified: Boolean(user.email_confirmed_at || user.emailVerified),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-
-      const { error: insertError } = await bridge.from('profiles').insert(newProfileData)
-      if (insertError) throw insertError
-      // Membership record (profile id) used by the security rules
-      if (typeof bridge.syncAccount === 'function') {
-        await bridge.syncAccount(true)
-      }
-      await hydrateCurrentUserFromProfile(newProfileData, user)
+      profileSyncRetries = 0
+      await hydrateCurrentUserFromProfile(profile, user)
       return true
-    } catch (err) {
-      console.warn('syncUserProfileWithAuth error:', err)
+    } catch {
+      scheduleProfileSyncRetry(user)
       return false
     }
   }

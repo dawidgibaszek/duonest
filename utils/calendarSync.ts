@@ -267,14 +267,14 @@ export function generateOutlookCalendarSubscribeUrl(feedUrl: string): string {
 }
 
 /**
- * Generate webcal:// and https:// URLs for partnership calendar feed
+ * Generate webcal:// and https:// URLs for a private calendar subscription
  */
-export function getCalendarFeedUrls(partnershipId: string, currentOrigin?: string): { webcalUrl: string; httpsUrl: string } {
+export function getCalendarFeedUrls(token: string, currentOrigin?: string): { webcalUrl: string; httpsUrl: string } {
   const pageOrigin = typeof window !== 'undefined' ? window.location.origin : ''
   // The iOS app runs on capacitor://localhost – calendar apps need the public site
   const origin = currentOrigin || (/^https?:\/\//.test(pageOrigin) ? pageOrigin : 'https://duonestapp.pl')
   const cleanOrigin = origin.replace(/\/+$/, '')
-  const path = `/api/calendar/feed?p=${encodeURIComponent(partnershipId)}`
+  const path = `/api/calendar/feed?token=${encodeURIComponent(token)}`
 
   const httpsUrl = `${cleanOrigin}${path}`
   const webcalUrl = httpsUrl.replace(/^https?:\/\//i, 'webcal://')

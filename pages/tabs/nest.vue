@@ -463,6 +463,7 @@
                 type="button"
                 class="delete-milestone-btn"
                 @click="removeCurrentMilestone"
+                :disabled="isSavingMilestone"
               >
                 <ion-icon :icon="ioniconsTrashOutline" />
                 <span>Usuń cel</span>
@@ -471,7 +472,7 @@
                 type="button"
                 class="save-milestone-btn dn-button-sea"
                 @click="saveMilestone"
-                :disabled="!milestoneForm.title.trim() || !milestoneForm.target_points || Number(milestoneForm.target_points) <= 0"
+                :disabled="isSavingMilestone || !milestoneForm.title.trim() || !milestoneForm.target_points || Number(milestoneForm.target_points) < 10"
               >
                 <ion-icon :icon="ioniconsCheckmarkDoneOutline" />
                 <span>{{ editingMilestoneId ? 'Zapisz zmiany' : 'Utwórz cel' }}</span>
@@ -949,6 +950,7 @@ const getGoalProgressPct = (goal: any): number => {
 }
 
 const isMilestoneModalOpen = ref(false)
+const isSavingMilestone = ref(false)
 const editingMilestoneId = ref<string | null>(null)
 const milestoneForm = ref({
   title: '',
@@ -1039,47 +1041,47 @@ const applyTextSuggestion = (sugg: { title: string; pts: number }) => {
   }
 }
 
-const saveMilestone = () => {
-  if (!milestoneForm.value.title.trim()) return
-  const finalPts = Math.max(1, Number(milestoneForm.value.target_points) || 50)
-  if (editingMilestoneId.value) {
-    updateMilestone(editingMilestoneId.value, {
-      title: milestoneForm.value.title.trim(),
-      target_points: finalPts,
-      assigned_to: milestoneForm.value.assigned_to,
-      description: milestoneForm.value.description.trim()
-    })
-  } else {
-    addMilestone(
-      milestoneForm.value.title.trim(),
-      finalPts,
-      milestoneForm.value.assigned_to,
-      milestoneForm.value.description.trim()
-    )
+const saveMilestone = async () => {
+  const { title, target_points, assigned_to, description } = milestoneForm.value
+  const points = Number(target_points)
+  if (isSavingMilestone.value || !title.trim() || !Number.isFinite(points) || points < 10) return
+  const id = editingMilestoneId.value
+  isSavingMilestone.value = true
+  try {
+    const saved = id
+      ? await updateMilestone(id, { title: title.trim(), target_points: points, assigned_to, description: description.trim() })
+      : await addMilestone(title, points, assigned_to, description)
+    if (saved) closeMilestoneModal()
+  } finally {
+    isSavingMilestone.value = false
   }
-  closeMilestoneModal()
 }
 
 const removeCurrentMilestone = async () => {
-  if (editingMilestoneId.value) {
+  const id = editingMilestoneId.value
+  if (id && !isSavingMilestone.value) {
     const confirmed = await confirm({
       title: 'Usuń wspólny cel',
       message: 'Czy na pewno chcesz usunąć ten cel z Waszego Gniazdka?',
-      itemHighlight: milestoneForm.title || '',
+      itemHighlight: milestoneForm.value.title || '',
       confirmText: 'Usuń cel',
       cancelText: 'Anuluj',
       type: 'danger',
       icon: 'trash'
     })
-    if (confirmed) {
-      deleteMilestone(editingMilestoneId.value)
-      closeMilestoneModal()
+    if (confirmed && !isSavingMilestone.value && editingMilestoneId.value === id) {
+      isSavingMilestone.value = true
+      try {
+        if (await deleteMilestone(id)) closeMilestoneModal()
+      } finally {
+        isSavingMilestone.value = false
+      }
     }
   }
 }
 
-const handleClaimMilestone = (goal: any) => {
-  claimMilestone(goal.id)
+const handleClaimMilestone = async (goal: any) => {
+  if (!(await claimMilestone(goal.id))) return
   confetti({
     particleCount: 90,
     spread: 75,

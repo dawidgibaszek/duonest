@@ -27,8 +27,8 @@ export interface Partnership {
   nest_name: string
   nest_level: number
   anniversary_date?: string | null
-  pet_id?: string
-  pet_name?: string
+  pet_id?: string | null
+  pet_name?: string | null
   pet_xp?: number
   created_at: string
 }
@@ -96,33 +96,34 @@ export interface NestMilestone {
   id: string
   partnership_id?: string
   title: string
-  description: string
-  required_level: number
-  is_unlocked: boolean
-  is_claimed: boolean
-  claimed_at?: string | null
-  claimed_by?: string | null
-  reward_text: string
-  icon: string
-  created_at?: string
+  description?: string
+  target_points: number
+  assigned_to?: string | null
+  is_completed: boolean
+  completed_at?: string | null
+  created_by?: string | null
+  created_at: string
 }
 
 export interface WishlistItem {
   id: string
   partnership_id: string
-  title: string
-  description?: string | null
-  link_url?: string | null
-  image_url?: string | null
-  price_estimate?: string | null
-  priority: 'low' | 'medium' | 'high'
-  category?: string
-  is_surprise: boolean
-  is_completed: boolean
-  is_visible_to_partner: boolean
   created_by: string
-  created_at: string
+  for_user_id: string | null // null = Wspólne marzenie, lub user.id
+  title: string
+  url?: string | null
+  image_url?: string | null
+  price?: string | null
+  currency?: string | null
+  site_name?: string | null
+  note?: string | null
+  is_visible_to_partner: boolean // jeśli false, partner nie widzi (pomysł na prezent niespodziankę)
+  is_completed: boolean
   completed_at?: string | null
+  created_at: string
+  link_url?: string | null
+  price_estimate?: string | null
+  description?: string | null
 }
 
 export interface MovieReview {
@@ -169,40 +170,53 @@ export interface MovieItem {
 
 export interface MealIngredient {
   name: string
+  measure?: string
   amount?: string
   unit?: string
+  is_in_shopping_list?: boolean
 }
 
 export interface MealItem {
   id: string
   partnership_id: string
+  date: string // 'YYYY-MM-DD' or '' for cookbook-only
+  day_name?: string
   title: string
-  description?: string | null
-  meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'dessert'
-  date: string
-  recipe_url?: string | null
-  image_url?: string | null
-  ingredients: MealIngredient[]
+  category?: string
+  area?: string
+  cook_id?: string // 'me' | 'partner' | 'both' | 'restaurant' | 'takeout' | user_id
+  image_url?: string
+  source?: 'custom' | 'api' | 'import'
+  api_id?: string
+  ingredients?: MealIngredient[]
+  instructions?: string
+  youtube_url?: string
+  recipe_url?: string
   is_completed: boolean
-  created_by: string
+  completed_at?: string | null
+  created_by?: string
   created_at: string
-  is_favorite?: boolean
+  updated_at?: string
+  titlePl?: string
   is_saved_recipe?: boolean
+  description?: string | null
+  meal_type?: 'breakfast' | 'lunch' | 'dinner' | 'snack' | 'dessert'
 }
 
 export interface SavingsGoal {
   id: string
   partnership_id: string
   title: string
-  description?: string | null
+  category: 'travel' | 'home' | 'gadget' | 'date' | 'emergency' | 'other'
   target_amount: number
   current_amount: number
+  currency: string
   target_date?: string | null
-  category: 'trip' | 'home' | 'wedding' | 'emergency' | 'entertainment' | 'other'
   icon?: string
   color?: string
   is_completed: boolean
-  created_by: string
+  completed_at?: string | null
+  created_by?: string | null
   created_at: string
   updated_at?: string
 }
@@ -211,16 +225,17 @@ export interface SavingsContribution {
   id: string
   goal_id: string
   partnership_id: string
+  user_id: string | null
   amount: number
   note?: string | null
-  contributed_by: string
   created_at: string
 }
 
 export interface DuoDoodleStroke {
   points: number[]
   color: string
-  size: number
+  width: number
+  isEraser?: boolean
 }
 
 export interface DuoDoodle {

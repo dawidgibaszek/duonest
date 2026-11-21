@@ -54,6 +54,11 @@ export const sanitizeEmail = (email: string | null | undefined): string => {
   return email.trim().toLowerCase()
 }
 
+export function newDocumentId(prefix: string): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  return prefix + Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
 export const generateUniqueCode = (): string => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let res = 'DN-'

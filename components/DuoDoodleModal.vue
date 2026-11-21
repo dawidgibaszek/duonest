@@ -33,7 +33,7 @@
           </div>
         </div>
 
-        <button class="doodle-header-btn save-btn" @click="handleSave" :disabled="strokes.length === 0" title="Zapisz rysunek">
+        <button class="doodle-header-btn save-btn" @click="handleSave" :disabled="isSavingDoodle || strokes.length === 0" title="Zapisz rysunek">
           <ion-icon :icon="ioniconsCheckmarkOutline" />
           <span>Gotowe</span>
         </button>
@@ -550,7 +550,9 @@ const handleClear = () => {
   redrawFullCanvas()
 }
 
-const handleSave = () => {
+const isSavingDoodle = ref(false)
+const handleSave = async () => {
+  if (isSavingDoodle.value) return
   const canvas = canvasRef.value
   let previewDataUrl: string | undefined = undefined
   if (canvas) {
@@ -559,8 +561,12 @@ const handleSave = () => {
     } catch (_) {}
   }
 
-  saveDoodle(strokes.value, previewDataUrl)
-  emit('close')
+  isSavingDoodle.value = true
+  try {
+    if (await saveDoodle(strokes.value, previewDataUrl)) emit('close')
+  } finally {
+    isSavingDoodle.value = false
+  }
 }
 
 const handleClose = () => {

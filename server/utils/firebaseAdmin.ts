@@ -3,11 +3,12 @@
 import { initializeApp, cert, getApps, type App } from 'firebase-admin/app'
 import { getFirestore, type Query } from 'firebase-admin/firestore'
 import { getAuth } from 'firebase-admin/auth'
-import { getDatabase, type Database } from 'firebase-admin/database'
+import { getDatabaseWithUrl, type Database } from 'firebase-admin/database'
 import { getMessaging } from 'firebase-admin/messaging'
 import * as fs from 'fs'
 import * as path from 'path'
 import { createError } from 'h3'
+import { databaseUrlForProject, DUONEST_PROJECT_ID } from '~/functions/src/firebaseProject'
 
 let adminApp: App | null = null
 
@@ -25,11 +26,11 @@ export function getFirebaseAdmin(): App {
 
   if (fs.existsSync(resolved)) {
     const sa = JSON.parse(fs.readFileSync(resolved, 'utf-8'))
-    adminApp = initializeApp({ credential: cert(sa), databaseURL })
+    adminApp = initializeApp({ credential: cert(sa), projectId: sa.project_id, databaseURL })
   } else {
     // Application Default Credentials (e.g. inside Google Cloud)
     adminApp = initializeApp({
-      projectId: process.env.FIREBASE_PROJECT_ID || 'duonest-38dc2',
+      projectId: process.env.FIREBASE_PROJECT_ID || DUONEST_PROJECT_ID,
       databaseURL
     })
   }
@@ -44,11 +45,11 @@ export function getFirebaseAdminAuth() {
   return getAuth(getFirebaseAdmin())
 }
 
-/** Realtime Database (null when FIREBASE_DATABASE_URL is not configured). */
 export function getFirebaseAdminRtdb(): Database | null {
-  if (!process.env.FIREBASE_DATABASE_URL) return null
   try {
-    return getDatabase(getFirebaseAdmin())
+    const app = getFirebaseAdmin()
+    const url = app.options.databaseURL || databaseUrlForProject(app.options.projectId)
+    return url ? getDatabaseWithUrl(url, app) : null
   } catch (err) {
     console.warn('Firebase admin RTDB unavailable:', (err as any)?.message || err)
     return null
@@ -64,7 +65,7 @@ export async function requireFirebaseUser(event: any) {
   }
   try {
     const decoded = await getFirebaseAdminAuth().verifyIdToken(token)
-    return { uid: decoded.uid, email: decoded.email, email_verified: decoded.email_verified === true, sign_in_provider: decoded.firebase?.sign_in_provider || '' }
+    return { uid: decoded.uid, email: decoded.email, name: typeof decoded.name === 'string' ? decoded.name : undefined, email_verified: decoded.email_verified === true, sign_in_provider: decoded.firebase?.sign_in_provider || '' }
   } catch {
     throw createError({ statusCode: 401, statusMessage: 'Invalid authentication token' })
   }

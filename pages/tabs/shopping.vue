@@ -693,6 +693,7 @@ const handleAddItem = async () => {
   try {
     const cleanQty = newItemQty.value.trim().slice(0, 30)
     const addedId = await addShoppingItem(cleanTitle, selectedCategory.value, cleanQty)
+    if (!addedId) return
     saveRecentShoppingSuggestion(cleanTitle, selectedCategory.value)
     newItemTitle.value = ''
     newItemQty.value = ''

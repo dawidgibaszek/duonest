@@ -2123,11 +2123,12 @@ const closeReviewModal = () => {
 
 const submitReview = async () => {
   if (!selectedMovieForReview.value) return
-  await saveMovieReview(
+  const saved = await saveMovieReview(
     selectedMovieForReview.value.id,
     reviewForm.value.rating,
     reviewForm.value.comment
   )
+  if (!saved) return
 
   try {
     confetti({
@@ -2308,12 +2309,9 @@ const spinRandomMovie = async () => {
 const acceptRandomMovie = async (movie: any) => {
   const existing = movie.id ? moviesList.value.find(m => m.id === movie.id) : findMovieInList(movie)
   if (existing) {
-    await toggleMovieStatus(existing, 'watching')
-    triggerToast('Rozpoczęto seans', {
-      type: 'movies'
-    })
+    if (!(await toggleMovieStatus(existing, 'watching'))) return
   } else {
-    await addMovie({
+    const added = await addMovie({
       title: movie.title,
       original_title: movie.original_title,
       tmdb_id: movie.tmdb_id,
@@ -2326,9 +2324,7 @@ const acceptRandomMovie = async (movie: any) => {
       vote_average: movie.vote_average,
       status: 'watching'
     })
-    triggerToast('Obejrzano film', {
-      type: 'movies'
-    })
+    if (!added) return
   }
 
   try {
@@ -2350,7 +2346,7 @@ const addRandomToPlanned = async (movie: any) => {
     return
   }
 
-  await addMovie({
+  const added = await addMovie({
     title: movie.title,
     original_title: movie.original_title,
     tmdb_id: movie.tmdb_id,
@@ -2363,10 +2359,7 @@ const addRandomToPlanned = async (movie: any) => {
     vote_average: movie.vote_average,
     status: 'planned'
   })
-
-  triggerToast('Dodano do planowanych', {
-    type: 'movies'
-  })
+  if (!added) return
 
   try {
     confetti({
@@ -2453,7 +2446,7 @@ const submitManualAdd = async () => {
     const rawEpisode = parseInt(String(manualForm.value.episode), 10)
     const cleanEpisode = Number.isFinite(rawEpisode) ? Math.max(1, Math.min(rawEpisode, 1000)) : 1
 
-    await addMovie({
+    const added = await addMovie({
       title,
       media_type: manualForm.value.media_type,
       status: manualForm.value.status,
@@ -2465,7 +2458,7 @@ const submitManualAdd = async () => {
       last_watched_episode: isSeries(manualForm.value) ? cleanEpisode : null
     })
 
-    closeManualModal()
+    if (added) closeManualModal()
   } finally {
     isSubmittingManual.value = false
   }
@@ -2558,6 +2551,7 @@ const decrementEpisode = async (movie: MovieItem) => {
 
 // --- CARD ACTIONS ---
 const toggleMovieStatus = async (movie: MovieItem, newStatus: 'planned' | 'watching' | 'watched') => {
+  if (!(await toggleMovieWatched(movie.id, newStatus))) return false
   if (newStatus === 'watched') {
     completingMovieIds.value.add(movie.id)
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
@@ -2572,10 +2566,10 @@ const toggleMovieStatus = async (movie: MovieItem, newStatus: 'planned' | 'watch
       completingMovieIds.value.delete(movie.id)
     }, 450)
   }
-  await toggleMovieWatched(movie.id, newStatus)
   if (newStatus === 'watching' && isSeries(movie)) {
     openEpisodeModal(movie)
   }
+  return true
 }
 
 const confirmDeleteMovie = async (movie: MovieItem) => {
@@ -2607,7 +2601,7 @@ const confirmDeleteMovie = async (movie: MovieItem) => {
 const scheduleMovieDate = async (movie: any) => {
   // If drawn from TMDB and not yet saved in list, save it first as planned
   if (!movie.id && !isAlreadyInList(movie)) {
-    await addMovie({
+    const added = await addMovie({
       title: movie.title,
       original_title: movie.original_title,
       tmdb_id: movie.tmdb_id,
@@ -2620,6 +2614,7 @@ const scheduleMovieDate = async (movie: any) => {
       vote_average: movie.vote_average,
       status: 'planned'
     })
+    if (!added) return
   }
 
   // Suggest tonight (or tomorrow evening if past 20:00)
@@ -2630,7 +2625,7 @@ const scheduleMovieDate = async (movie: any) => {
   }
   const startTime = now.toISOString()
 
-  await addEvent(
+  const saved = await addEvent(
     `Randka filmowa: ${movie.title}`,
     'date',
     startTime,
@@ -2641,9 +2636,7 @@ const scheduleMovieDate = async (movie: any) => {
     currentUser.value?.name || 'Wspólnie'
   )
 
-  triggerToast('Dodano do terminarza', {
-    type: 'calendar'
-  })
+  if (saved) triggerToast('Dodano do terminarza', { type: 'calendar' })
 }
 
 // --- LABELS & STRINGS ---

@@ -28,17 +28,21 @@ import {
 } from './state'
 import {
   saveToStorage,
-  toRealtimeProfileSnapshot,
-  normalizeMovieTitle,
+  newDocumentId,
   deduplicateMoviesList,
   PROFILE_SELECT_FIELDS,
   getCleanAccentColor,
   inferToastMetadata
 } from './utils'
-import type { DuoDoodle, DuoDoodleStroke, WishlistItem, ToastType } from '~/types/duo'
+import type { DuoDoodle, DuoDoodleStroke, SavingsContribution, SavingsGoal, WishlistItem, ToastType } from '~/types/duo'
+import { normalizeEventRecord } from '~/functions/src/eventRecord'
+import { combineWishlist, readWishlist, wishlistFilters } from './useWishlist'
 
 let activePartnershipChannel: any = null
 let activePartnershipId: string | null = null
+let activePartnershipUid: string | null = null
+let nativeRealtimeSuspended = false
+let partnershipDisposers: Array<() => void> = []
 let activeSecurityChannel: any = null
 let activeSecurityUserId: string | null = null
 let activeSecurityPartnershipId: string | null = null
@@ -46,6 +50,34 @@ let activeInitSyncPromise: Promise<void> | null = null
 let heartbeatTimer: any = null
 let lastHeartbeatSentAt = 0
 let partnerDrawingTimeout: any = null
+
+const transientActions = new Set(['DOODLE_LIVE_STROKE', 'DOODLE_DRAWING_STATUS'])
+
+export function stopPartnershipRealtime() {
+  const channel = activePartnershipChannel
+  activePartnershipChannel = null
+  activePartnershipId = null
+  activePartnershipUid = null
+  for (const stop of partnershipDisposers.splice(0)) stop()
+  if (channel) getFirebaseBridge().removeChannel(channel)
+  clearTimeout(partnerDrawingTimeout)
+  realtimeStatus.value = 'disconnected'
+  isPartnerOnline.value = false
+  isPartnerDrawing.value = false
+  partnerLiveStroke.value = null
+}
+
+function normalizeStroke(raw: any, maxPoints = 100_000): DuoDoodleStroke | null {
+  const width = raw?.width ?? raw?.size
+  if (!Array.isArray(raw?.points) || raw.points.length < 2 || raw.points.length > maxPoints || raw.points.length % 2 !== 0 ||
+      !raw.points.every((n: unknown) => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1) ||
+      typeof raw.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(raw.color) ||
+      typeof width !== 'number' || !Number.isFinite(width) || width <= 0 || width > 100) return null
+  return { points: raw.points, color: raw.color, width, isEraser: raw.isEraser === true }
+}
+
+const byNewest = (a: { created_at?: string }, b: { created_at?: string }) =>
+  String(b.created_at || '').localeCompare(String(a.created_at || ''))
 
 export function useRealtimeSync(options?: {
   loadPartnershipAndPartner?: (partnershipId: string, currentUserId: string) => Promise<void>
@@ -101,35 +133,12 @@ export function useRealtimeSync(options?: {
 
   const broadcastToPartner = (action: string, payload: any): Promise<void> => {
     let deliveryPromise: Promise<any> = Promise.resolve()
-    if (activePartnershipChannel) {
-      try {
-        const envelope = {
-          action,
-          senderId: currentUser.value.id,
-          senderName: currentUser.value.name,
-          timestamp: new Date().toISOString(),
-          data: payload
-        }
-
-        const channel = activePartnershipChannel
-        const canPush = Boolean(
-          channel?.channelAdapter?.canPush?.() ||
-          channel?.state === 'joined' ||
-          channel?.subState === 'SUBSCRIBED'
-        )
-
-        if (canPush) {
-          deliveryPromise = Promise.resolve(channel.send({
-            type: 'broadcast',
-            event: 'duo_sync',
-            payload: envelope
-          })).catch(() => {})
-        } else if (typeof channel?.httpSend === 'function') {
-          deliveryPromise = channel.httpSend('duo_sync', envelope).catch(() => {})
-        }
-      } catch (err) {
-        console.warn('Błąd wysyłania Realtime broadcast:', err)
-      }
+    if (activePartnershipChannel && transientActions.has(action)) {
+      deliveryPromise = activePartnershipChannel.send({
+        type: 'broadcast',
+        event: 'duo_sync',
+        payload: { action, senderId: currentUser.value.id, data: payload }
+      }).catch(() => {})
     }
 
     if (typeof window !== 'undefined' && (currentUser.value?.partnership_id || partnerUser.value?.id)) {
@@ -178,775 +187,283 @@ export function useRealtimeSync(options?: {
   }
 
   const broadcastLiveStroke = (stroke: DuoDoodleStroke) => {
-    broadcastToPartner('DOODLE_LIVE_STROKE', { stroke })
+    const valid = normalizeStroke(stroke, 4096)
+    if (valid) void broadcastToPartner('DOODLE_LIVE_STROKE', { stroke: valid })
   }
 
   const broadcastDrawingStatus = (isDrawing: boolean) => {
     broadcastToPartner('DOODLE_DRAWING_STATUS', { isDrawing })
   }
 
-  const saveDoodle = (strokes: DuoDoodleStroke[], previewSvg?: string): DuoDoodle | null => {
-    if (!partnership.value?.id) return null
-    const newDoodle: DuoDoodle = {
-      id: 'doodle_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
-      partnership_id: partnership.value.id,
+  const saveDoodle = async (strokes: DuoDoodleStroke[], previewSvg?: string): Promise<DuoDoodle | null> => {
+    const pid = partnership.value?.id
+    if (!pid) return null
+    const now = new Date().toISOString()
+    const doodle: DuoDoodle = {
+      id: newDocumentId('doodle_'),
+      partnership_id: pid,
       strokes,
-      preview_svg: previewSvg,
+      preview_svg: previewSvg && previewSvg.length <= 500_000 ? previewSvg : undefined,
       author_id: currentUser.value.id,
       author_name: currentUser.value.name || 'Ty',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      created_at: now,
+      updated_at: now
     }
-
-    currentDoodle.value = newDoodle
-    saveToStorage('duonest_active_doodle', newDoodle)
-    broadcastToPartner('DOODLE_SAVE', { doodle: newDoodle })
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value && partnership.value?.id) {
-      try {
-        bridge.from('partnership_doodles').upsert({
-          id: newDoodle.id,
-          partnership_id: newDoodle.partnership_id,
-          strokes: newDoodle.strokes as any,
-          preview_svg: newDoodle.preview_svg,
-          author_id: newDoodle.author_id,
-          author_name: newDoodle.author_name,
-          updated_at: newDoodle.updated_at
-        })
-      } catch (err) {
-        console.warn('Błąd podczas zapisywania rysunku:', err)
-      }
+    const { error } = await getDb().from('partnership_doodles').insert(doodle)
+    if (error) {
+      triggerToast('Nie udało się zapisać rysunku. Spróbuj ponownie.', { type: 'warning' })
+      return null
     }
-
-    triggerToast('Zapisano rysunek na tablicy! 🎨', { type: 'love' })
-    return newDoodle
+    if (partnership.value?.id !== pid) return null
+    setDoodle(doodle)
+    broadcastToPartner('DOODLE_SAVE', {})
+    triggerToast('Zapisano rysunek na tablicy', { type: 'love' })
+    return doodle
   }
 
-  const clearDoodle = () => {
-    currentDoodle.value = null
-    saveToStorage('duonest_active_doodle', null)
-    broadcastToPartner('DOODLE_CLEAR', {})
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value && partnership.value?.id) {
-      try {
-        bridge.from('partnership_doodles').delete().eq('partnership_id', partnership.value.id)
-      } catch (err) {
-        console.warn('Błąd podczas czyszczenia rysunku:', err)
-      }
+  const clearDoodle = async () => {
+    const pid = partnership.value?.id
+    if (!pid) return false
+    try {
+      const bridge = getDb()
+      const { data, error } = await bridge.from('partnership_doodles').select('id').eq('partnership_id', pid)
+      if (error) throw error
+      await bridge.commitSharedBatch('partnership_doodles', (data || []).map((row: DuoDoodle) => ({ id: row.id })))
+      if (partnership.value?.id !== pid) return false
+      setDoodle(null)
+      triggerToast('Wyczyszczono tablicę')
+      return true
+    } catch {
+      triggerToast('Nie udało się wyczyścić tablicy.', { type: 'warning' })
+      return false
     }
-
-    triggerToast('Wyczyszczono tablicę')
   }
 
-  const subscribeToPartnershipRealtime = (partnershipId: string) => {
+  const setDoodle = (doc: any) => {
+    currentDoodle.value = doc ? {
+      ...doc,
+      strokes: Array.isArray(doc.strokes) ? doc.strokes.map((stroke: unknown) => normalizeStroke(stroke)).filter(Boolean) : []
+    } : null
+    saveToStorage('duonest_active_doodle', currentDoodle.value)
+  }
+
+  const subscribeToPartnershipRealtime = (pid: string) => {
+    if (typeof window === 'undefined' || !pid || nativeRealtimeSuspended) return
     const bridge = getDb()
-    if (!bridge || typeof window === 'undefined' || !partnershipId) return
+    const uid = bridge.auth.currentUser?.uid
+    const profileId = currentUser.value.id
+    if (!uid || !profileId || (activePartnershipUid === uid && activePartnershipId === pid)) return
 
-    const channelName = `duonest_channel_${partnershipId}`
-
-    if (
-      activePartnershipChannel &&
-      activePartnershipId === partnershipId &&
-      (activePartnershipChannel.state === 'joined' || activePartnershipChannel.state === 'joining')
-    ) {
-      return
-    }
-
-    if (activePartnershipChannel) {
-      try {
-        bridge.removeChannel(activePartnershipChannel)
-      } catch (_) {}
-      activePartnershipChannel = null
-    }
-
+    stopPartnershipRealtime()
+    activePartnershipUid = uid
+    activePartnershipId = pid
     realtimeStatus.value = 'connecting'
-    activePartnershipId = partnershipId
 
-    const channel = bridge.channel(channelName, {
-      config: {
-        private: true,
-        broadcast: { ack: false, self: false },
-        presence: { key: currentUser.value.id }
-      }
+    let stopped = false
+    let retry: ReturnType<typeof setTimeout> | undefined
+    partnershipDisposers.push(() => {
+      stopped = true
+      clearTimeout(retry)
     })
+    const isCurrent = () => !stopped && activePartnershipUid === uid && activePartnershipId === pid &&
+      bridge.auth.currentUser?.uid === uid && currentUser.value.id === profileId
+    let retryDelay = 1000
+    const connect = async () => {
+      const member = await bridge.syncAccount(true)
+      if (!isCurrent()) return
+      if (!member) {
+        retry = setTimeout(() => void connect(), retryDelay)
+        retryDelay = Math.min(retryDelay * 2, 30000)
+        return
+      }
+      if (member.profile_id !== profileId || member.partnership_id !== pid) {
+        stopPartnershipRealtime()
+        return
+      }
+      startPartnershipListeners(pid, uid, profileId, isCurrent)
+    }
+    void connect()
+  }
+
+  const startPartnershipListeners = (pid: string, uid: string, profileId: string, isCurrent: () => boolean) => {
+    const bridge = getDb()
+    const filters = { partnership_id: pid }
+    const observe = (table: string, apply: (rows: any[]) => void, order?: { field: string; limit: number }) => {
+      partnershipDisposers.push(bridge.observeCollection(table, filters, rows => {
+        if (!isCurrent()) return
+        apply(rows)
+      }, order))
+    }
+
+    partnershipDisposers.push(bridge.observeDocument('members', uid, member => {
+      if (!isCurrent() || (member?.partnership_id === pid && member.profile_id === profileId)) return
+      stopPartnershipRealtime()
+      options?.clearPartnershipData?.()
+      triggerToast('Rozłączono Gniazdko', { type: 'warning' })
+      if (window.location.pathname.startsWith('/tabs')) window.location.replace('/pairing')
+    }))
+
+    partnershipDisposers.push(bridge.observeDocument('profiles', profileId, profile => {
+      if (!isCurrent() || !profile || profile.auth_user_id !== uid || profile.partnership_id !== pid) return
+      currentUser.value = {
+        ...currentUser.value,
+        ...profile,
+        email: authUser.value?.email || currentUser.value.email,
+        points: Number(profile.points) || 0
+      }
+      saveToStorage('duonest_current_user', currentUser.value)
+    }))
+
+    let stopPartner: (() => void) | undefined
+    let observedPartnerId: string | null = null
+    partnershipDisposers.push(() => stopPartner?.())
+    partnershipDisposers.push(bridge.observeDocument('partnerships', pid, row => {
+      if (!isCurrent() || !row) return
+      partnership.value = { ...partnership.value, ...row }
+      saveToStorage('duonest_partnership', partnership.value)
+
+      const partnerId = row.partner1_id === profileId ? row.partner2_id : row.partner1_id
+      if (!partnerId || observedPartnerId === partnerId) return
+      observedPartnerId = partnerId
+      syncPresence()
+      stopPartner?.()
+      stopPartner = bridge.observeDocument('profiles', partnerId, profile => {
+        if (!isCurrent() || !profile || profile.partnership_id !== pid) return
+        const previousMood = partnerUser.value?.mood_updated_at
+        partnerUser.value = { ...partnerUser.value, ...profile, points: Number(profile.points) || 0 }
+        saveToStorage('duonest_partner_user', partnerUser.value)
+        if (!isPartnerOnline.value && profile.last_seen_at && (!partnerLastSeenAt.value || profile.last_seen_at > partnerLastSeenAt.value)) {
+          partnerLastSeenAt.value = profile.last_seen_at
+          saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
+        }
+        if (previousMood && profile.mood_updated_at && previousMood !== profile.mood_updated_at) {
+          triggerToast(`${profile.name || 'Partner'} zmienił(a) nastrój`, { type: 'mood' })
+        }
+      })
+    }))
+
+    observe('shopping_items', rows => {
+      shoppingItems.value = rows.sort(byNewest)
+      saveToStorage('duonest_shopping', shoppingItems.value)
+    })
+    observe('tasks', rows => {
+      tasksList.value = rows.sort(byNewest)
+      saveToStorage('duonest_tasks', tasksList.value)
+    })
+    observe('events', rows => {
+      eventsList.value = rows.map(normalizeEventRecord).sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)))
+      saveToStorage('duonest_events', eventsList.value)
+    })
+    let previousNudges: Set<string> | undefined
+    observe('nudges', rows => {
+      const newGesture = previousNudges && rows.find(row => row.sender_id !== profileId && !previousNudges!.has(row.id))
+      nudgesList.value = rows.sort(byNewest)
+      previousNudges = new Set(rows.map(row => row.id))
+      saveToStorage('duonest_nudges', nudgesList.value)
+      if (newGesture) triggerToast(`${partnerUser.value?.name || 'Partner'} przesłał(a) gest`, { type: 'love' })
+    }, { field: 'created_at', limit: 20 })
+    observe('milestones', rows => {
+      milestonesList.value = rows.sort(byNewest)
+      saveToStorage('duonest_milestones', milestonesList.value)
+    })
+    observe('movies', rows => {
+      moviesList.value = deduplicateMoviesList(rows.sort(byNewest))
+      saveToStorage('duonest_movies', moviesList.value)
+    })
+    observe('meals', rows => {
+      mealsList.value = rows.sort((a, b) => String(a.date).localeCompare(String(b.date)))
+      saveToStorage('duonest_meals', mealsList.value)
+    })
+    observe('partnership_doodles', rows => setDoodle(rows[0]), { field: 'updated_at', limit: 1 })
+
+    const wishQueries = wishlistFilters(profileId, uid)
+    const wishParts = new Map<number, WishlistItem[]>()
+    wishQueries.forEach((where, index) => {
+      partnershipDisposers.push(bridge.observeCollection('wishlist_items', { ...filters, ...where }, rows => {
+        if (!isCurrent()) return
+        wishParts.set(index, rows)
+        if (wishParts.size !== wishQueries.length) return
+        wishlistItems.value = combineWishlist([...wishParts.values()])
+        saveToStorage('duonest_wishlist', wishlistItems.value)
+      }))
+    })
+
+    let goalIds: Set<string> | null = null
+    let contributions: SavingsContribution[] | null = null
+    function applyContributions() {
+      if (!goalIds || !contributions) return
+      savingsContributions.value = contributions.filter(item => goalIds!.has(item.goal_id)).sort(byNewest)
+      saveToStorage('duonest_savings_contributions', savingsContributions.value)
+    }
+    observe('savings_goals', rows => {
+      savingsGoals.value = rows.filter(row => !row.deleted_at).sort(byNewest)
+      goalIds = new Set(savingsGoals.value.map(row => row.id))
+      saveToStorage('duonest_savings_goals', savingsGoals.value)
+      applyContributions()
+    })
+    observe('savings_contributions', rows => {
+      contributions = rows
+      applyContributions()
+    })
+
+    const channel = bridge.channel(`duonest_channel_${pid}`, { config: { presence: { key: profileId } } })
     activePartnershipChannel = channel
-
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const presenceState = channel.presenceState ? channel.presenceState() : {}
-        const users = Object.keys(presenceState)
-        const partnerIsHere = users.some(uid => uid !== currentUser.value.id)
-        isPartnerOnline.value = partnerIsHere
-        if (partnerIsHere) {
-          partnerLastSeenAt.value = new Date().toISOString()
-          saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
-        }
-      })
-      .on('presence', { event: 'join' }, ({ key }: any) => {
-        if (key !== currentUser.value.id) {
-          isPartnerOnline.value = true
-          partnerLastSeenAt.value = new Date().toISOString()
-          saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
-          triggerToast(`${partnerUser.value?.name || 'Partner'} jest online`)
-          broadcastToPartner('PROFILE_SYNC', {
-            profile: toRealtimeProfileSnapshot(currentUser.value),
-            partnership: partnership.value ? {
-              nest_name: partnership.value.nest_name,
-              anniversary_date: partnership.value.anniversary_date
-            } : undefined
-          })
-        }
-      })
-      .on('presence', { event: 'leave' }, ({ key }: any) => {
-        if (key !== currentUser.value.id) {
-          isPartnerOnline.value = false
-          partnerLastSeenAt.value = new Date().toISOString()
-          saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
-        }
-      })
-
-    channel.on('broadcast', { event: 'duo_sync' }, async (envelope: any) => {
-      const { action, senderId, senderName, data } = envelope.payload || {}
-      if (senderId === currentUser.value.id) return
-
-      partnerLastSeenAt.value = new Date().toISOString()
-      saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
-
-      switch (action) {
-        case 'HEARTBEAT': {
-          isPartnerOnline.value = true
-          break
-        }
-        case 'PARTNERSHIP_DISCONNECT': {
-          if (activePartnershipChannel && bridge) {
-            try { bridge.removeChannel(activePartnershipChannel) } catch (_) {}
-            activePartnershipChannel = null
-          }
-          if (options?.clearPartnershipData) {
-            options.clearPartnershipData()
-          }
-          triggerToast('Rozłączono Gniazdko', {
-            type: 'warning',
-            title: 'Gniazdko rozłączone'
-          })
-          if (typeof window !== 'undefined') {
-            navigateTo('/pairing')
-          }
-          break
-        }
-        case 'EVENT_ADD': {
-          if (data && !eventsList.value.some(e => e.id === data.id)) {
-            eventsList.value.push(data)
-            eventsList.value.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
-            syncAllToStorage()
-            triggerToast(`${senderName} dodał(a) plan`)
-          }
-          break
-        }
-        case 'EVENT_UPDATE': {
-          if (data?.id) {
-            const idx = eventsList.value.findIndex(e => e.id === data.id)
-            if (idx !== -1) {
-              eventsList.value[idx] = { ...eventsList.value[idx], ...data.updates }
-              eventsList.value.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
-              syncAllToStorage()
-              triggerToast(`${senderName} zmienił(a) plan`)
-            }
-          }
-          break
-        }
-        case 'EVENT_DELETE': {
-          if (data?.id) {
-            const deleted = eventsList.value.find(e => e.id === data.id)
-            eventsList.value = eventsList.value.filter(e => e.id !== data.id)
-            syncAllToStorage()
-            if (deleted) triggerToast(`${senderName} usunął(a) plan`)
-          }
-          break
-        }
-        case 'EVENT_TOGGLE_COMPLETED': {
-          if (data?.id) {
-            const ev = eventsList.value.find(e => e.id === data.id)
-            if (ev) {
-              ev.is_completed = data.is_completed
-              syncAllToStorage()
-              if (data.is_completed) {
-                triggerToast('Plan zrealizowany')
-              }
-            }
-          }
-          break
-        }
-        case 'SHOPPING_ADD': {
-          if (data && !shoppingItems.value.some(i => i.id === data.id)) {
-            shoppingItems.value.unshift(data)
-            syncAllToStorage()
-            triggerToast(`${senderName} dodał(a) zakupy`)
-          }
-          break
-        }
-        case 'SHOPPING_UPDATE': {
-          if (data?.id && data.updates) {
-            const item = shoppingItems.value.find(i => i.id === data.id)
-            if (item) {
-              Object.assign(item, data.updates)
-            } else if (data.item) {
-              shoppingItems.value.unshift(data.item)
-            }
-            syncAllToStorage()
-          }
-          break
-        }
-        case 'SHOPPING_TOGGLE': {
-          if (data?.id) {
-            const item = shoppingItems.value.find(i => i.id === data.id)
-            if (item) {
-              item.is_completed = data.is_completed
-              syncAllToStorage()
-            }
-          }
-          break
-        }
-        case 'SHOPPING_DELETE': {
-          if (data?.id) {
-            shoppingItems.value = shoppingItems.value.filter(i => i.id !== data.id)
-            syncAllToStorage()
-          }
-          break
-        }
-        case 'SHOPPING_CLEAR': {
-          const ids = Array.isArray(data?.ids) ? new Set(data.ids) : null
-          shoppingItems.value = shoppingItems.value.filter(i => ids ? !ids.has(i.id) : !i.is_completed)
-          syncAllToStorage()
-          break
-        }
-        case 'TASK_ADD': {
-          if (data && !tasksList.value.some(t => t.id === data.id)) {
-            tasksList.value.unshift(data)
-            syncAllToStorage()
-            triggerToast(`${senderName} dodał(a) zadanie`)
-          }
-          break
-        }
-        case 'TASK_TOGGLE': {
-          if (data?.id) {
-            const task = tasksList.value.find(t => t.id === data.id)
-            if (task) {
-              task.is_completed = data.is_completed
-              task.completed_by = data.completed_by !== undefined
-                ? data.completed_by
-                : (data.is_completed ? (senderId || partnerUser.value?.id || null) : null)
-              task.completed_at = data.completed_at !== undefined
-                ? data.completed_at
-                : (data.is_completed ? new Date().toISOString() : null)
-
-              const taskPts = Math.max(0, Math.min(100, Number(task.points) || 15))
-              const delta = data.is_completed ? taskPts : -task.points_awarded
-
-              if (partnership.value) {
-                if (data.pet_xp !== undefined) {
-                  partnership.value.pet_xp = Math.max(0, data.pet_xp)
-                } else {
-                  partnership.value.pet_xp = Math.max(0, (partnership.value.pet_xp || 0) + delta)
-                }
-              }
-              syncAllToStorage()
-              if (data.is_completed) {
-                triggerToast(`${senderName} ukończył(a) zadanie`)
-              }
-            }
-          }
-          break
-        }
-        case 'TASK_DELETE': {
-          if (data?.id) {
-            tasksList.value = tasksList.value.filter(t => t.id !== data.id)
-            syncAllToStorage()
-          }
-          break
-        }
-        case 'PET_UPDATE': {
-          if (data && partnership.value) {
-            if (data.pet_id) partnership.value.pet_id = data.pet_id
-            if (data.pet_name) partnership.value.pet_name = data.pet_name
-            if (data.pet_xp !== undefined) partnership.value.pet_xp = data.pet_xp
-            syncAllToStorage()
-            triggerToast('Zwierzak zaktualizowany', { type: 'love' })
-          }
-          break
-        }
-        case 'MOOD_UPDATE': {
-          if (data?.mood && partnerUser.value) {
-            partnerUser.value.current_mood = data.mood
-            partnerUser.value.mood_note = data.note || ''
-            partnerUser.value.mood_updated_at = new Date().toISOString()
-            syncAllToStorage()
-            triggerToast(`${senderName} zmienił(a) nastrój`)
-          }
-          break
-        }
-        case 'NUDGE_SEND': {
-          if (data) {
-            nudgesList.value.unshift(data)
-            syncAllToStorage()
-            triggerToast(`${senderName} przesłał(a) gest`)
-          }
-          break
-        }
-        case 'MILESTONE_ADD': {
-          if (data && !milestonesList.value.some(m => m.id === data.id)) {
-            milestonesList.value.push(data)
-            syncAllToStorage()
-            triggerToast('Partner dodał cel')
-          }
-          break
-        }
-        case 'MILESTONE_UPDATE': {
-          if (data?.id) {
-            const m = milestonesList.value.find(i => i.id === data.id)
-            if (m) {
-              Object.assign(m, data.updates)
-              syncAllToStorage()
-            }
-          }
-          break
-        }
-        case 'MILESTONE_DELETE': {
-          if (data?.id) {
-            milestonesList.value = milestonesList.value.filter(i => i.id !== data.id)
-            syncAllToStorage()
-          }
-          break
-        }
-        case 'MILESTONE_CLAIM': {
-          if (data?.id) {
-            const m = milestonesList.value.find(i => i.id === data.id)
-            if (m) {
-              m.is_completed = true
-              m.completed_at = data.completed_at || new Date().toISOString()
-              syncAllToStorage()
-              triggerToast('Nagroda odebrana')
-            }
-          }
-          break
-        }
-        case 'MILESTONE_REACTIVATE': {
-          if (data?.id) {
-            const m = milestonesList.value.find(i => i.id === data.id)
-            if (m) {
-              m.is_completed = false
-              m.completed_at = null
-              syncAllToStorage()
-            }
-          }
-          break
-        }
-        case 'WISHLIST_ADD': {
-          if (data && data.id) {
-            wishlistItems.value = [data, ...wishlistItems.value.filter(w => w.id !== data.id)]
-            syncAllToStorage()
-            triggerToast(`${senderName} dodał(a) marzenie`, { type: 'wishlist' })
-          }
-          break
-        }
-        case 'WISHLIST_UPDATE': {
-          if (data?.id) {
-            const idx = wishlistItems.value.findIndex(w => w.id === data.id)
-            if (idx !== -1) {
-              const updated = { ...wishlistItems.value[idx], ...data.updates }
-              wishlistItems.value = wishlistItems.value.map(w => w.id === data.id ? updated : w)
-              syncAllToStorage()
-              triggerToast(`${senderName} zmienił(a) marzenie`, { type: 'wishlist' })
-            } else if (data.item) {
-              wishlistItems.value = [data.item, ...wishlistItems.value.filter(w => w.id !== data.item.id)]
-              syncAllToStorage()
-            }
-          }
-          break
-        }
-        case 'WISHLIST_DELETE': {
-          if (data?.id) {
-            const deleted = wishlistItems.value.find(w => w.id === data.id)
-            wishlistItems.value = wishlistItems.value.filter(w => w.id !== data.id)
-            syncAllToStorage()
-            if (deleted) triggerToast(`${senderName} usunął(a) marzenie`, { type: 'wishlist' })
-          }
-          break
-        }
-        case 'WISHLIST_TOGGLE':
-        case 'WISHLIST_TOGGLE_COMPLETED': {
-          if (data?.id) {
-            const completedAt = data.completed_at || (data.is_completed ? new Date().toISOString() : null)
-            wishlistItems.value = wishlistItems.value.map(w => w.id === data.id ? { ...w, is_completed: data.is_completed, completed_at: completedAt } : w)
-            syncAllToStorage()
-            if (data.is_completed) {
-              triggerToast('Marzenie spełnione', { type: 'wishlist' })
-            }
-          }
-          break
-        }
-        case 'MOVIE_ADD': {
-          if (data?.id) {
-            const cleanTitle = normalizeMovieTitle(data.title)
-            const isDup = moviesList.value.some(m =>
-              m.id === data.id ||
-              (data.tmdb_id && m.tmdb_id && Number(m.tmdb_id) === Number(data.tmdb_id)) ||
-              (cleanTitle && normalizeMovieTitle(m.title) === cleanTitle)
-            )
-            if (!isDup) {
-              moviesList.value = [data, ...moviesList.value]
-              syncAllToStorage()
-              triggerToast(`${senderName} dodał(a) film`, { type: 'movies' })
-            }
-          }
-          break
-        }
-        case 'MOVIE_UPDATE': {
-          if (data?.id) {
-            const idx = moviesList.value.findIndex(m => m.id === data.id)
-            if (idx !== -1) {
-              const prev = moviesList.value[idx]
-              const updated = { ...prev, ...data }
-              moviesList.value = moviesList.value.map(m => m.id === data.id ? updated : m)
-              syncAllToStorage()
-              if (data.last_reviewer_id && data.last_reviewer_id !== currentUser.value?.id) {
-                triggerToast(`${senderName} ocenił(a) film`, { type: 'movies' })
-              }
-            } else {
-              moviesList.value = [data, ...moviesList.value]
-              syncAllToStorage()
-            }
-          }
-          break
-        }
-        case 'MOVIE_DELETE': {
-          if (data?.id) {
-            const deleted = moviesList.value.find(m => m.id === data.id)
-            moviesList.value = moviesList.value.filter(m => m.id !== data.id)
-            syncAllToStorage()
-            if (deleted) {
-              triggerToast(`${senderName} usunął(a) film`, { type: 'movies' })
-            }
-          }
-          break
-        }
-        case 'MOVIE_TOGGLE_WATCHED': {
-          if (data?.id) {
-            const item = moviesList.value.find(m => m.id === data.id)
-            if (item) {
-              item.status = data.status
-              item.watched_at = data.watched_at
-              moviesList.value = [...moviesList.value]
-              syncAllToStorage()
-              if (data.status === 'watched') {
-                triggerToast(`${senderName} obejrzał(a) film`, { type: 'movies' })
-              }
-            }
-          }
-          break
-        }
-        case 'MEAL_ADD': {
-          if (data?.id) {
-            const exists = mealsList.value.some(m => m.id === data.id)
-            if (!exists) {
-              mealsList.value = [data, ...mealsList.value]
-              syncAllToStorage()
-              triggerToast(`${senderName} zaplanował(a) obiad`, { type: 'meals' })
-            }
-          }
-          break
-        }
-        case 'MEAL_UPDATE': {
-          if (data?.id) {
-            const idx = mealsList.value.findIndex(m => m.id === data.id)
-            if (idx !== -1) {
-              mealsList.value[idx] = { ...mealsList.value[idx], ...data }
-              syncAllToStorage()
-            }
-          }
-          break
-        }
-        case 'MEAL_DELETE': {
-          if (data?.id) {
-            mealsList.value = mealsList.value.filter(m => m.id !== data.id)
-            syncAllToStorage()
-          }
-          break
-        }
-        case 'MEAL_TOGGLE':
-        case 'MEAL_TOGGLE_COMPLETED': {
-          if (data?.id) {
-            const item = mealsList.value.find(m => m.id === data.id)
-            if (item) {
-              item.is_completed = data.is_completed
-              item.completed_at = data.completed_at
-              mealsList.value = [...mealsList.value]
-              syncAllToStorage()
-              if (data.is_completed) {
-                triggerToast(`${senderName} zjadł(a) obiad`, { type: 'meals' })
-              }
-            }
-          }
-          break
-        }
-        case 'SAVINGS_GOAL_ADD': {
-          if (data?.id && !savingsGoals.value.some(g => g.id === data.id)) {
-            savingsGoals.value = [data, ...savingsGoals.value]
-            syncAllToStorage()
-            triggerToast(`${senderName} dodał(a) nową skarbonkę: ${data.title}`, { type: 'savings' })
-          }
-          break
-        }
-        case 'SAVINGS_GOAL_UPDATE': {
-          if (data?.id) {
-            const idx = savingsGoals.value.findIndex(g => g.id === data.id)
-            if (idx !== -1) {
-              savingsGoals.value[idx] = { ...savingsGoals.value[idx], ...data.updates }
-              syncAllToStorage()
-            }
-          }
-          break
-        }
-        case 'SAVINGS_GOAL_DELETE': {
-          if (data?.id) {
-            savingsGoals.value = savingsGoals.value.filter(g => g.id !== data.id)
-            savingsContributions.value = savingsContributions.value.filter(c => c.goal_id !== data.id)
-            syncAllToStorage()
-            triggerToast(`${senderName} usunął(a) skarbonkę`, { type: 'savings' })
-          }
-          break
-        }
-        case 'SAVINGS_CONTRIBUTION_ADD': {
-          if (data?.contribution?.id) {
-            const exists = savingsContributions.value.some(c => c.id === data.contribution.id)
-            if (!exists) {
-              savingsContributions.value = [data.contribution, ...savingsContributions.value]
-            }
-            let goalTitle = data.goalTitle || 'skarbonkę'
-            if (data.goalId && typeof data.newCurrentAmount === 'number') {
-              const goal = savingsGoals.value.find(g => g.id === data.goalId)
-              if (goal) {
-                goalTitle = goal.title
-                goal.current_amount = data.newCurrentAmount
-                goal.is_completed = Boolean(data.isCompleted)
-                if (data.isCompleted && !goal.completed_at) {
-                  goal.completed_at = new Date().toISOString()
-                }
-              }
-            }
-            syncAllToStorage()
-            if (data.isCompleted) {
-              triggerToast(`Cel zrealizowany! ${senderName} i Ty osiągnęliście: ${goalTitle}!`, { type: 'savings' })
-            } else if (Number(data.contribution.amount) > 0) {
-              triggerToast(`${senderName} dorzucił(a) +${data.contribution.amount} zł do skarbonki: ${goalTitle}!`, { type: 'savings' })
-            } else {
-              triggerToast(`${senderName} wypłacił(a) ${Math.abs(data.contribution.amount)} zł ze skarbonki: ${goalTitle}`, { type: 'savings' })
-            }
-          }
-          break
-        }
-        case 'SAVINGS_CONTRIBUTION_DELETE': {
-          if (data?.id) {
-            savingsContributions.value = savingsContributions.value.filter(c => c.id !== data.id)
-            if (data.goalId && typeof data.newCurrentAmount === 'number') {
-              const goal = savingsGoals.value.find(g => g.id === data.goalId)
-              if (goal) {
-                goal.current_amount = data.newCurrentAmount
-                goal.is_completed = Boolean(data.isCompleted)
-              }
-            }
-            syncAllToStorage()
-          }
-          break
-        }
-        case 'PARTNERSHIP_UPDATE': {
-          if (data && partnership.value) {
-            partnership.value = { ...partnership.value, ...data }
-            syncAllToStorage()
-          }
-          break
-        }
-        case 'PROFILE_SYNC': {
-          if (data?.profile) {
-            partnerUser.value = {
-              ...(partnerUser.value || {}),
-              ...data.profile,
-              name: data.profile.name || partnerUser.value?.name || 'Partner',
-              points: Number(partnerUser.value?.points) || 0
-            }
-            if (data.partnership && partnership.value) {
-              if (data.partnership.nest_name) partnership.value.nest_name = data.partnership.nest_name
-              if (data.partnership.anniversary_date) partnership.value.anniversary_date = data.partnership.anniversary_date
-            }
-            syncAllToStorage()
-          }
-          break
-        }
-        case 'PROFILE_UPDATE': {
-          if (data?.profile) {
-            partnerUser.value = {
-              ...(partnerUser.value || {}),
-              ...data.profile,
-              name: data.profile.name || partnerUser.value?.name || 'Partner',
-              points: Number(partnerUser.value?.points) || 0
-            }
-            if (data.partnership && partnership.value) {
-              if (data.partnership.nest_name) partnership.value.nest_name = data.partnership.nest_name
-              if (data.partnership.anniversary_date) partnership.value.anniversary_date = data.partnership.anniversary_date
-            }
-            syncAllToStorage()
-            if (data.is_manual_edit) {
-              triggerToast('Partner zaktualizował profil')
-            }
-          }
-          break
-        }
-        case 'DOODLE_LIVE_STROKE': {
-          if (data?.stroke) {
-            isPartnerDrawing.value = true
-            partnerLiveStroke.value = {
-              stroke: data.stroke,
-              timestamp: Date.now()
-            }
-            if (partnerDrawingTimeout) clearTimeout(partnerDrawingTimeout)
-            partnerDrawingTimeout = setTimeout(() => {
-              isPartnerDrawing.value = false
-            }, 3500)
-          }
-          break
-        }
-        case 'DOODLE_DRAWING_STATUS': {
-          isPartnerDrawing.value = Boolean(data?.isDrawing)
-          if (!data?.isDrawing && partnerDrawingTimeout) {
-            clearTimeout(partnerDrawingTimeout)
-            partnerDrawingTimeout = null
-          }
-          break
-        }
-        case 'DOODLE_SAVE': {
-          if (data?.doodle) {
-            currentDoodle.value = data.doodle
-            isPartnerDrawing.value = false
-            saveToStorage('duonest_active_doodle', currentDoodle.value)
-            triggerToast(`${senderName} narysował(a) coś dla Ciebie! 🎨`, { type: 'love' })
-          }
-          break
-        }
-        case 'DOODLE_CLEAR': {
-          currentDoodle.value = null
-          isPartnerDrawing.value = false
-          saveToStorage('duonest_active_doodle', null)
-          triggerToast(`${senderName} wyczyścił(a) tablicę`)
-          break
-        }
-        case 'REQ_STATE_SYNC': {
-          const shareableWishlist = wishlistItems.value.filter(i => i.is_visible_to_partner || i.created_by !== currentUser.value.id)
-          broadcastToPartner('RESP_STATE_SYNC', {
-            profile: toRealtimeProfileSnapshot(currentUser.value),
-            shopping: shoppingItems.value,
-            tasks: tasksList.value,
-            events: eventsList.value,
-            milestones: milestonesList.value,
-            wishlist: shareableWishlist,
-            savingsGoals: savingsGoals.value,
-            savingsContributions: savingsContributions.value,
-            partnership: partnership.value,
-            doodle: currentDoodle.value,
-            userMood: {
-              mood: currentUser.value.current_mood,
-              note: currentUser.value.mood_note
-            }
-          })
-          break
-        }
-        case 'RESP_STATE_SYNC': {
-          if (data) {
-            if (data.profile) {
-              partnerUser.value = {
-                ...(partnerUser.value || {}),
-                ...data.profile,
-                name: data.profile.name || partnerUser.value?.name || 'Partner',
-                points: Number(partnerUser.value?.points) || 0
-              }
-            }
-            if (data.doodle) {
-              if (!currentDoodle.value || new Date(data.doodle.updated_at) >= new Date(currentDoodle.value.updated_at)) {
-                currentDoodle.value = data.doodle
-                saveToStorage('duonest_active_doodle', currentDoodle.value)
-              }
-            }
-            if (Array.isArray(data.shopping) && data.shopping.length > 0) shoppingItems.value = data.shopping
-            if (Array.isArray(data.tasks) && data.tasks.length > 0) tasksList.value = data.tasks
-            if (Array.isArray(data.events) && data.events.length > 0) {
-              eventsList.value = data.events
-              eventsList.value.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
-            }
-            if (Array.isArray(data.milestones) && data.milestones.length > 0) {
-              milestonesList.value = data.milestones
-            }
-            if (Array.isArray(data.wishlist)) {
-              const existingMap = new Map(wishlistItems.value.map(w => [w.id, w]))
-              for (const item of data.wishlist) {
-                if (item && item.id) {
-                  existingMap.set(item.id, item)
-                }
-              }
-              wishlistItems.value = Array.from(existingMap.values())
-            }
-            if (Array.isArray(data.savingsGoals) && data.savingsGoals.length > 0) {
-              savingsGoals.value = data.savingsGoals
-            }
-            if (Array.isArray(data.savingsContributions) && data.savingsContributions.length > 0) {
-              savingsContributions.value = data.savingsContributions
-            }
-            if (data.partnership && partnership.value) {
-              if (data.partnership.nest_name) partnership.value.nest_name = data.partnership.nest_name
-              if (data.partnership.anniversary_date) partnership.value.anniversary_date = data.partnership.anniversary_date
-            }
-            if (data.userMood && partnerUser.value) {
-              partnerUser.value.current_mood = data.userMood.mood
-              partnerUser.value.mood_note = data.userMood.note
-            }
-            syncAllToStorage()
-          }
-          break
-        }
+    function syncPresence() {
+      if (!isCurrent()) return
+      const wasOnline = isPartnerOnline.value
+      const sessions = observedPartnerId && channel.presenceState()[observedPartnerId]
+      isPartnerOnline.value = Boolean(sessions && Object.keys(sessions).length)
+      if (isPartnerOnline.value || wasOnline) {
+        partnerLastSeenAt.value = new Date().toISOString()
+        saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
       }
+      if (isPartnerOnline.value && !wasOnline) triggerToast(`${partnerUser.value?.name || 'Partner'} jest online`)
+    }
+    // Account sync has published membership before we attach either set of listeners.
+    channel.on('presence', { event: 'sync' }, syncPresence)
+    channel.on('broadcast', { event: 'duo_sync' }, ({ payload, ts }: any) => {
+      if (!isCurrent() || !partnerUser.value?.id || payload?.senderId !== partnerUser.value.id ||
+          typeof ts !== 'number' || Date.now() - ts > 60000) return
+      if (payload.action === 'DOODLE_LIVE_STROKE') {
+        const stroke = normalizeStroke(payload.data?.stroke, 4096)
+        if (!stroke) return
+        partnerLiveStroke.value = { stroke, timestamp: Date.now() }
+        isPartnerDrawing.value = true
+      } else if (payload.action === 'DOODLE_DRAWING_STATUS' && typeof payload.data?.isDrawing === 'boolean') {
+        isPartnerDrawing.value = payload.data.isDrawing
+      } else {
+        return
+      }
+      clearTimeout(partnerDrawingTimeout)
+      if (isPartnerDrawing.value) partnerDrawingTimeout = setTimeout(() => { isPartnerDrawing.value = false }, 3500)
     })
+    const trackPresence = (active: boolean) => {
+      if (!isCurrent()) return
+      if (active) channel.track()
+      else void channel.untrack()
+    }
+    const syncVisibility = () => trackPresence(document.visibilityState === 'visible')
+    document.addEventListener('visibilitychange', syncVisibility)
+    partnershipDisposers.push(() => document.removeEventListener('visibilitychange', syncVisibility))
+    syncVisibility()
 
     channel.subscribe((status: string) => {
-      if (status === 'SUBSCRIBED') {
-        realtimeStatus.value = 'connected'
-        activePartnershipChannel = channel
-        isOnlineWithSupabase.value = true
-
-        if (channel.track) {
-          channel.track({
-            user_id: currentUser.value.id,
-            name: currentUser.value.name,
-            online_at: new Date().toISOString()
-          })
-        }
-
-        broadcastToPartner('PROFILE_SYNC', {
-          profile: toRealtimeProfileSnapshot(currentUser.value),
-          partnership: partnership.value ? {
-            nest_name: partnership.value.nest_name,
-            anniversary_date: partnership.value.anniversary_date
-          } : undefined
-        })
-
-        broadcastToPartner('REQ_STATE_SYNC', {})
-      } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        realtimeStatus.value = 'disconnected'
-        if (activePartnershipChannel === channel) {
-          activePartnershipChannel = null
-          activePartnershipId = null
-        }
-      }
+      if (!isCurrent()) return
+      realtimeStatus.value = status === 'SUBSCRIBED' ? 'connected' : 'disconnected'
     })
+  }
+
+  const setNativeRealtimeActive = (isActive: boolean) => {
+    const suspended = !isActive
+    if (nativeRealtimeSuspended === suspended) return
+    nativeRealtimeSuspended = suspended
+    if (suspended) stopPartnershipRealtime()
+    getDb().setRealtimeConnectionActive(isActive)
+    const pid = currentUser.value.partnership_id
+    if (isActive && authUser.value?.id && pid) {
+      subscribeToPartnershipRealtime(pid)
+      void sendHeartbeat(true)
+    }
   }
 
   const subscribeToSecurityChannel = (userId: string, partnershipId?: string | null) => {
@@ -992,13 +509,15 @@ export function useRealtimeSync(options?: {
   const loadSupabaseData = async (partnershipId: string) => {
     const bridge = getDb()
     if (!bridge || !partnershipId) return
+    const profileId = currentUser.value.id
+    const uid = bridge.auth.currentUser?.uid
     try {
-      const [shops, tasks, evts, ndgs, wshs, movs, mls, mlsList, svgGoals, svgContribs, doodles] = await Promise.all([
+      const [shops, tasks, evts, ndgs, wishes, movs, mls, mlsList, svgGoals, svgContribs, doodles] = await Promise.all([
         bridge.from('shopping_items').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         bridge.from('tasks').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         bridge.from('events').select('*').eq('partnership_id', partnershipId).order('start_time', { ascending: true }),
         bridge.from('nudges').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }).limit(20),
-        bridge.from('wishlist_items').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
+        readWishlist(partnershipId, profileId, uid).catch(() => null),
         bridge.from('movies').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         bridge.from('milestones').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         bridge.from('meals').select('*').eq('partnership_id', partnershipId).order('date', { ascending: true }),
@@ -1007,39 +526,22 @@ export function useRealtimeSync(options?: {
         bridge.from('partnership_doodles').select('*').eq('partnership_id', partnershipId).order('updated_at', { ascending: false }).limit(1)
       ])
 
+      if (bridge.auth.currentUser?.uid !== uid || currentUser.value.id !== profileId ||
+          (partnership.value?.id || currentUser.value.partnership_id) !== partnershipId) return
       if (shops.data) shoppingItems.value = shops.data
       if (tasks.data) tasksList.value = tasks.data
-      if (evts.data) eventsList.value = evts.data
+      if (evts.data) eventsList.value = evts.data.map(normalizeEventRecord).sort((a: any, b: any) => String(a.start_time).localeCompare(String(b.start_time)))
       if (ndgs.data) nudgesList.value = ndgs.data
-      if (wshs.data) {
-        const myIds = new Set([currentUser.value?.id, authUser.value?.id].filter(Boolean))
-        wishlistItems.value = wshs.data.filter((item: WishlistItem) => item.is_visible_to_partner || myIds.has(item.created_by))
-      }
+      if (wishes) wishlistItems.value = wishes
       if (movs?.data) moviesList.value = deduplicateMoviesList(movs.data)
       if (mls?.data) milestonesList.value = mls.data
       if (mlsList?.data) mealsList.value = mlsList.data
-      if (svgGoals?.data) savingsGoals.value = svgGoals.data
-      if (svgContribs?.data) savingsContributions.value = svgContribs.data
-      if (doodles?.data && doodles.data.length > 0) {
-        const d = doodles.data[0]
-        const author = d.author_id === currentUser.value.id
-          ? (currentUser.value.name || 'Ty')
-          : (partnerUser.value?.name || d.author_name || 'Partner')
-        const incomingDoodle: DuoDoodle = {
-          id: d.id,
-          partnership_id: d.partnership_id,
-          strokes: Array.isArray(d.strokes) ? d.strokes : [],
-          preview_svg: d.preview_svg,
-          author_id: d.author_id,
-          author_name: author,
-          created_at: d.created_at,
-          updated_at: d.updated_at
-        }
-        if (!currentDoodle.value || new Date(incomingDoodle.updated_at) >= new Date(currentDoodle.value.updated_at)) {
-          currentDoodle.value = incomingDoodle
-          saveToStorage('duonest_active_doodle', currentDoodle.value)
-        }
+      if (svgGoals?.data) savingsGoals.value = svgGoals.data.filter((goal: SavingsGoal & { deleted_at?: string }) => !goal.deleted_at)
+      if (svgContribs?.data) {
+        const activeGoals = new Set(savingsGoals.value.map(goal => goal.id))
+        savingsContributions.value = svgContribs.data.filter((entry: SavingsContribution) => activeGoals.has(entry.goal_id))
       }
+      if (doodles?.data) setDoodle(doodles.data[0])
 
       syncAllToStorage()
     } catch (e) {
@@ -1056,12 +558,6 @@ export function useRealtimeSync(options?: {
 
     const nowIso = new Date(now).toISOString()
     currentUser.value.last_seen_at = nowIso
-
-    if (activePartnershipChannel) {
-      try {
-        broadcastToPartner('HEARTBEAT', { user_id: currentUser.value.id, at: nowIso })
-      } catch (_) {}
-    }
 
     const bridge = getDb()
     if (bridge && isOnlineWithSupabase.value && currentUser.value.id) {
@@ -1164,6 +660,7 @@ export function useRealtimeSync(options?: {
     saveDoodle,
     clearDoodle,
     subscribeToPartnershipRealtime,
+    setNativeRealtimeActive,
     subscribeToSecurityChannel,
     loadSupabaseData,
     sendHeartbeat,

@@ -48,8 +48,10 @@ export const usePetState = () => {
   } = useDuoState()
 
   // Check if couple has adopted/chosen a pet
-  const hasPet = computed<boolean>(() => {
-    return !!partnership.value?.pet_id
+  const hasPet = computed(() => {
+    const id = partnership.value?.pet_id
+    // The old pairing endpoint assigned this lowercase placeholder before adoption.
+    return Boolean(id && (id !== 'cat' || partnership.value?.pet_name !== 'Kropek'))
   })
 
   // Current pet ID (e.g. 'Cat', 'Dog', etc.)
@@ -155,26 +157,19 @@ export const usePetState = () => {
   const selectPet = async (newId: string, customName?: string) => {
     const def = getPetDefinition(newId)
     const newName = customName || def.polishName
-    if (duoUpdatePet) {
-      await duoUpdatePet(def.id, newName)
-    } else if (partnership.value) {
-      partnership.value.pet_id = def.id
-      partnership.value.pet_name = newName
-    }
+    if (!(await duoUpdatePet(def.id, newName))) return false
     triggerToast('Wybrano pupila', { type: 'love' })
     triggerPetAnimation('happy')
+    return true
   }
 
   // Rename current pet
   const renamePet = async (newName: string) => {
     const clean = newName.trim()
     if (!clean) return
-    if (duoUpdatePet) {
-      await duoUpdatePet(petId.value, clean)
-    } else if (partnership.value) {
-      partnership.value.pet_name = clean
+    if (await duoUpdatePet(petId.value, clean)) {
+      triggerToast('Zmieniono imię pupila', { type: 'love' })
     }
-    triggerToast('Zmieniono imię pupila', { type: 'love' })
   }
 
   return {

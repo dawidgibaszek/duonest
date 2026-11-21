@@ -1882,6 +1882,7 @@
 </template>
 
 <script setup lang="ts">
+import { getFirebaseBridge } from '~/composables/useFirebaseBridge'
 import { ref, computed, onMounted, reactive } from 'vue'
 import {
   bicycleOutline as ioniconsBicycleOutline,
@@ -1984,35 +1985,12 @@ export interface SavedRecipe {
   createdAt?: string
 }
 
-const deletedSavedRecipeKeys = ref<Set<string>>(new Set())
-if (process.client) {
-  try {
-    const raw = localStorage.getItem('duonest_deleted_saved_recipes')
-    if (raw) {
-      deletedSavedRecipeKeys.value = new Set(JSON.parse(raw))
-    }
-  } catch (_) {}
-}
-
-const unblockSavedRecipeKey = (key?: string) => {
-  if (!key) return
-  if (deletedSavedRecipeKeys.value.has(key)) {
-    deletedSavedRecipeKeys.value.delete(key)
-    if (process.client) {
-      try {
-        localStorage.setItem('duonest_deleted_saved_recipes', JSON.stringify(Array.from(deletedSavedRecipeKeys.value)))
-      } catch (_) {}
-    }
-  }
-}
-
 const savedRecipes = computed<SavedRecipe[]>(() => {
   const map = new Map<string, SavedRecipe>()
 
   for (const m of mealsList.value) {
-    if (!m.title) continue
+    if (!m.title || m.is_saved_recipe === false) continue
     const key = m.api_id ? `api_${m.api_id}` : `custom_${m.title.trim().toLowerCase()}`
-    if (deletedSavedRecipeKeys.value.has(key)) continue
     const existing = map.get(key)
     const hasDate = !!(m.date && m.date.trim())
     if (!existing) {
@@ -2822,10 +2800,8 @@ const confirmAssignMeal = async () => {
 
   isSubmittingAssignMeal.value = true
   try {
-    const assignKey = (m.api_id || m.id) ? `api_${m.api_id || m.id}` : `custom_${(m.title || '').trim().toLowerCase()}`
-    unblockSavedRecipeKey(assignKey)
 
-    await addMeal({
+    const saved = await addMeal({
       date: assignDate.value,
       day_name: targetDay?.dayName || '',
       title: formatMealTitlePl(m.titlePl || m.title),
@@ -2834,13 +2810,14 @@ const confirmAssignMeal = async () => {
       cook_id: assignCook.value,
       image_url: m.thumbnail || m.image_url || '',
       source: m.source || (m.api_id ? 'api' : 'custom'),
-      api_id: m.api_id || m.id,
+      api_id: recipeApiId(m),
       ingredients: m.ingredients || [],
       instructions: m.instructions || '',
       youtube_url: m.youtubeUrl || m.youtube_url || '',
       recipe_url: m.sourceUrl || m.recipe_url || ''
     })
 
+    if (!saved) return
     showAssignModal.value = false
     activeSubView.value = 'calendar'
   } finally {
@@ -2894,9 +2871,8 @@ const selectSavedRecipeForDay = async (recipe: SavedRecipe) => {
 
   isSubmittingSavedRecipe.value = true
   try {
-    unblockSavedRecipeKey(recipe.key)
 
-    await addMeal({
+    const saved = await addMeal({
       date: targetPickDate.value,
       day_name: targetDay?.dayName || '',
       title: formatMealTitlePl(recipe.titlePl || recipe.title),
@@ -2912,6 +2888,7 @@ const selectSavedRecipeForDay = async (recipe: SavedRecipe) => {
       recipe_url: recipe.recipe_url || ''
     })
 
+    if (!saved) return
     showPickSavedModal.value = false
     activeSubView.value = 'calendar'
   } finally {
@@ -2931,6 +2908,11 @@ const isRecipeInSaved = (meal?: any): boolean => {
   return false
 }
 
+const recipeApiId = (meal: any): string | undefined => {
+  const id = meal.api_id || (meal.source === 'api' || /^\d+$/.test(String(meal.id || '')) ? meal.id : undefined)
+  return id ? String(id) : undefined
+}
+
 const confirmDeleteSavedRecipe = async (recipe: SavedRecipe | any) => {
   if (!recipe) return
   const title = formatMealTitlePl(recipe.titlePl || recipe.title || recipe.name)
@@ -2944,7 +2926,8 @@ const confirmDeleteSavedRecipe = async (recipe: SavedRecipe | any) => {
     icon: 'trash'
   })
   if (confirmed) {
-    const key = recipe.key || (recipe.api_id ? `api_${recipe.api_id}` : (recipe.id ? `api_${recipe.id}` : `custom_${(recipe.title || '').trim().toLowerCase()}`))
+    const apiId = recipeApiId(recipe)
+    const key = recipe.key || (apiId ? `api_${apiId}` : `custom_${(recipe.title || '').trim().toLowerCase()}`)
     if (deletingRecipeKeys.value.has(key)) return
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate([10, 30, 10])
@@ -2952,13 +2935,7 @@ const confirmDeleteSavedRecipe = async (recipe: SavedRecipe | any) => {
     deletingRecipeKeys.value.add(key)
     setTimeout(async () => {
       try {
-        deletedSavedRecipeKeys.value.add(key)
-        if (process.client) {
-          try {
-            localStorage.setItem('duonest_deleted_saved_recipes', JSON.stringify(Array.from(deletedSavedRecipeKeys.value)))
-          } catch (_) {}
-        }
-        await deleteSavedRecipe(recipe)
+        if (!(await deleteSavedRecipe({ ...recipe, api_id: recipeApiId(recipe) }))) return
         if (activeSelectedMeal.value) {
           const activeKey = activeSelectedMeal.value.key || (activeSelectedMeal.value.api_id ? `api_${activeSelectedMeal.value.api_id}` : `custom_${(activeSelectedMeal.value.title || '').trim().toLowerCase()}`)
           if (activeKey === key || (recipe.api_id && String(activeSelectedMeal.value.api_id) === String(recipe.api_id))) {
@@ -2980,8 +2957,8 @@ const handleToggleSaveRecipe = async (meal: any) => {
   }
 
   let fullMeal = meal
-  const mealId = meal.api_id || meal.id
-  if (meal.source === 'api' || mealId) {
+  const mealId = recipeApiId(meal)
+  if (mealId) {
     if (!meal.ingredients || meal.ingredients.length === 0) {
       try {
         const res = await fetchMealApi<{ success: boolean; meal: any }>(`/api/meals/lookup?id=${mealId}`)
@@ -2990,8 +2967,6 @@ const handleToggleSaveRecipe = async (meal: any) => {
     }
   }
 
-  const recipeKey = mealId ? `api_${mealId}` : `custom_${(fullMeal.title || fullMeal.name || '').trim().toLowerCase()}`
-  unblockSavedRecipeKey(recipeKey)
 
   await addMeal({
     date: '', // Brak wyznaczonego dnia - bezposrednio do ksiazki kucharskiej
@@ -3106,9 +3081,8 @@ const handleCreateCustomMeal = async () => {
     const cleanDate = customDate.value ? customDate.value.trim() : ''
     const targetDay = cleanDate ? weekDays.value.find(d => d.dateStr === cleanDate) : null
 
-    unblockSavedRecipeKey(`custom_${cleanTitle.toLowerCase()}`)
 
-    await addMeal({
+    const saved = await addMeal({
       date: cleanDate,
       day_name: targetDay?.dayName || '',
       title: cleanTitle,
@@ -3120,6 +3094,7 @@ const handleCreateCustomMeal = async () => {
       instructions: customInstructions.value.trim().slice(0, 2000)
     })
 
+    if (!saved) return
     showAddCustomModal.value = false
   } finally {
     isSubmittingCustomMeal.value = false
@@ -3180,10 +3155,9 @@ const handleFetchRecipeFromUrl = async () => {
   isFetchingImport.value = true
   importErrorMessage.value = ''
   try {
-    const res = await $fetch<{ success: boolean; recipe?: any; error?: string }>('/api/meals/import', {
-      method: 'POST',
-      body: { url: cleanUrl }
-    })
+    const res = await getFirebaseBridge().callApi<{ success: boolean; recipe?: any; error?: string }>(
+      '/api/meals/import', { url: cleanUrl }
+    )
 
     if (res && res.success && res.recipe) {
       importedRecipePreview.value = {
@@ -3220,10 +3194,8 @@ const handleSaveImportedRecipe = async () => {
     const cleanDate = importTargetDate.value ? importTargetDate.value.trim() : ''
     const targetDay = cleanDate ? weekDays.value.find(d => d.dateStr === cleanDate) : null
 
-    unblockSavedRecipeKey(`import_${cleanTitle.toLowerCase()}`)
-    unblockSavedRecipeKey(`custom_${cleanTitle.toLowerCase()}`)
 
-    await addMeal({
+    const saved = await addMeal({
       date: cleanDate,
       day_name: targetDay?.dayName || '',
       title: cleanTitle,
@@ -3237,6 +3209,7 @@ const handleSaveImportedRecipe = async () => {
       recipe_url: importedRecipePreview.value.recipeUrl || importUrlInput.value
     })
 
+    if (!saved) return
     closeImportModal()
     activeSubView.value = 'my-recipes'
   } finally {

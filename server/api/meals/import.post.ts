@@ -1,8 +1,10 @@
 import { defineEventHandler, readBody, createError } from 'h3'
-import { processRecipeImport } from '../../utils/recipeScraper'
+import { handleMealsImport } from '~/functions/src/mealsCore'
+import { requireFirebaseUser } from '~/server/utils/firebaseAdmin'
 import { checkRateLimit } from '../../utils/rateLimit'
 
 export default defineEventHandler(async (event) => {
+  await requireFirebaseUser(event)
   const rate = await checkRateLimit(event, { maxRequests: 20, windowMs: 60000, keyPrefix: 'recipe_import' })
   if (!rate.allowed) {
     throw createError({
@@ -12,15 +14,5 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event).catch(() => ({}))
-  const rawUrl = String(body?.url || '').trim()
-
-  if (!rawUrl) {
-    return {
-      success: false,
-      error: 'Wklej poprawny link do przepisu, TikToka lub YouTube Shorts.'
-    }
-  }
-
-  return await processRecipeImport(rawUrl)
+  return await handleMealsImport(body)
 })
-

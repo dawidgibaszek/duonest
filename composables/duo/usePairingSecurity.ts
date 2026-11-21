@@ -1,4 +1,5 @@
 import { getFirebaseBridge } from '../useFirebaseBridge'
+import { stopPartnershipRealtime } from './useRealtimeSync'
 import {
   currentUser,
   partnerUser,
@@ -11,7 +12,10 @@ import {
   pairingFailures,
   pairingLockoutUntil,
   activeToastMessage,
-  activeToastItem
+  activeToastItem,
+  shoppingItems, tasksList, eventsList, nudgesList, milestonesList,
+  wishlistItems, moviesList, mealsList, savingsGoals, savingsContributions,
+  currentDoodle
 } from './state'
 import {
   saveToStorage,
@@ -38,12 +42,30 @@ export function usePairingSecurity(options: {
   const getDb = () => getFirebaseBridge()
 
   const clearPartnershipData = () => {
+    stopPartnershipRealtime()
     partnerUser.value = null
     partnership.value = null
     currentUser.value.partnership_id = null
+    shoppingItems.value = []
+    tasksList.value = []
+    eventsList.value = []
+    nudgesList.value = []
+    milestonesList.value = []
+    wishlistItems.value = []
+    moviesList.value = []
+    mealsList.value = []
+    savingsGoals.value = []
+    savingsContributions.value = []
+    currentDoodle.value = null
+    isPartnerOnline.value = false
+    partnerLastSeenAt.value = null
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('duonest_partner_user')
-      localStorage.removeItem('duonest_partnership')
+      for (const key of [
+        'partner_user', 'partnership', 'shopping', 'tasks', 'events', 'nudges',
+        'milestones', 'wishlist', 'movies', 'meals', 'savings_goals',
+        'savings_contributions', 'active_doodle', 'partner_last_seen'
+      ]) localStorage.removeItem('duonest_' + key)
+      saveToStorage('duonest_current_user', currentUser.value)
     }
   }
 
@@ -101,11 +123,12 @@ export function usePairingSecurity(options: {
     if (!bridge || !myId) return Boolean(partnership.value?.id)
 
     try {
-      const { data } = await bridge
+      const { data, error } = await bridge
         .from('profiles')
         .select('partnership_id')
         .eq('id', myId)
         .maybeSingle()
+      if (error || (currentUser.value?.id || authUser.value?.id) !== myId) return Boolean(partnership.value?.id)
 
       if (data?.partnership_id) {
         if (!partnership.value?.id || partnership.value.id !== data.partnership_id) {
@@ -224,7 +247,6 @@ export function usePairingSecurity(options: {
       partnerUser.value = {
         ...createInitialProfile(),
         ...data.partner,
-        pairing_code: data.partner_pairing_code || '',
         name: data.partner.name || partnerDisplayName || 'Partner'
       }
 
@@ -250,14 +272,6 @@ export function usePairingSecurity(options: {
       return false
     }
 
-    // Notify the partner first – after the server removes our membership we can
-    // no longer write to the shared realtime channel.
-    if (options.broadcastToPartner) {
-      try {
-        await options.broadcastToPartner('PARTNERSHIP_DISCONNECT', {})
-      } catch (_) {}
-    }
-
     try {
       const { error } = await bridge.rpc('disconnect_my_partnership')
       if (error) throw error
@@ -278,45 +292,36 @@ export function usePairingSecurity(options: {
   }
 
   const updateMyName = async (newName: string) => {
-    if (!newName.trim()) return
-    currentUser.value.name = newName.trim()
-    saveToStorage('duonest_current_user', currentUser.value)
-
-    const bridge = getDb()
-    if (bridge && currentUser.value.id) {
-      try {
-        await bridge.from('profiles').update({ name: currentUser.value.name }).eq('id', currentUser.value.id)
-      } catch (_) {}
-    }
+    const name = newName.trim()
+    if (!name) return false
+    if (name === currentUser.value.name) return true
+    return updateMyProfile({ name })
   }
 
   const updateMyProfile = async (updates: Partial<Profile>) => {
+    const id = currentUser.value.id
+    if (!id) return false
+    const { error } = await getDb().from('profiles').update(updates).eq('id', id)
+    if (error) throw error
+    if (currentUser.value.id !== id) return false
     currentUser.value = { ...currentUser.value, ...updates }
     saveToStorage('duonest_current_user', currentUser.value)
-
-    const bridge = getDb()
-    if (bridge && currentUser.value.id) {
-      const { error } = await bridge.from('profiles').update(updates).eq('id', currentUser.value.id)
-      if (error) throw error
-    }
+    return true
   }
 
   const updatePartnershipSettings = async (updates: Partial<Partnership>) => {
-    if (!partnership.value?.id) return
-    const nextPartnership = { ...partnership.value, ...updates }
-
-    const bridge = getDb()
-    if (bridge && partnership.value.id) {
-      const { error } = await bridge.from('partnerships').update(updates).eq('id', partnership.value.id)
-      if (error) throw error
-    }
-
-    partnership.value = nextPartnership
+    const pid = partnership.value?.id
+    if (!pid) return false
+    const { error } = await getDb().from('partnerships').update(updates).eq('id', pid)
+    if (error) throw error
+    if (partnership.value?.id !== pid) return false
+    partnership.value = { ...partnership.value, ...updates }
     saveToStorage('duonest_partnership', partnership.value)
 
     if (options.broadcastToPartner) {
       await options.broadcastToPartner('PARTNERSHIP_SETTINGS_UPDATE', { updates })
     }
+    return true
   }
 
   const verifyUserAndPartnershipAccess = async (force: boolean = false): Promise<boolean> => {

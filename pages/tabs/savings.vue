@@ -686,6 +686,7 @@
                 {{ contrib.amount > 0 ? '+' : '' }}{{ formatMoney(contrib.amount) }} zł
               </span>
               <button
+                v-if="canDeleteContribution(contrib)"
                 type="button"
                 class="delete-contrib-btn"
                 @click="handleDeleteContribution(contrib)"
@@ -1033,7 +1034,7 @@ const handleSaveGoal = async () => {
   isSavingGoal.value = true
   try {
     if (isEditingGoal.value && editingGoalId.value) {
-      await updateSavingsGoal(editingGoalId.value, {
+      const saved = await updateSavingsGoal(editingGoalId.value, {
         title: cleanTitle,
         target_amount: targetNum,
         category: goalFormCategory.value,
@@ -1041,9 +1042,10 @@ const handleSaveGoal = async () => {
         color: goalFormColor.value,
         target_date: goalFormTargetDate.value || null
       })
+      if (!saved) return
     } else {
       const initialDep = parseFloat(goalFormInitialDeposit.value) || 0
-      await addSavingsGoal({
+      const saved = await addSavingsGoal({
         title: cleanTitle,
         target_amount: targetNum,
         initial_deposit: initialDep,
@@ -1052,6 +1054,7 @@ const handleSaveGoal = async () => {
         color: goalFormColor.value,
         target_date: goalFormTargetDate.value || null
       })
+      if (!saved) return
     }
     closeGoalModal()
   } finally {
@@ -1147,7 +1150,11 @@ const activeGoalContributions = computed(() => {
   return savingsContributions.value.filter(c => c.goal_id === activeGoalForAction.value!.id)
 })
 
+const canDeleteContribution = (entry: SavingsContribution) =>
+  entry.user_id === currentUser.value.id || entry.user_id === currentUser.value.auth_user_id
+
 const handleDeleteContribution = async (contrib: SavingsContribution) => {
+  if (!canDeleteContribution(contrib)) return
   const confirmed = await confirm({
     title: 'Usuń wpis z historii',
     message: `Czy na pewno chcesz usunąć wpis na kwotę ${formatMoney(contrib.amount)} zł? Stan skarbonki zostanie odpowiednio skorygowany.`,

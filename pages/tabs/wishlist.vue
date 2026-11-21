@@ -485,6 +485,7 @@
 </template>
 
 <script setup lang="ts">
+import { getFirebaseBridge } from '~/composables/useFirebaseBridge'
 import { ref, computed, onMounted, onUnmounted, nextTick, watch, reactive } from 'vue'
 import {
   openOutline as ioniconsOpenOutline,
@@ -732,31 +733,12 @@ const handleScrapeUrl = async () => {
   let resData: any = null
   let resNotice = ''
 
-  // 1. Try the server endpoint
-  const endpoints = ['/api/wishlist/preview']
-  for (const ep of endpoints) {
-    try {
-      const response = await fetch(ep, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
-      })
-
-      const contentType = response.headers.get('content-type') || ''
-      if (response.ok && contentType.includes('application/json')) {
-        const json = await response.json()
-        if (json.success && json.data) {
-          resData = json.data
-          resNotice = json.notice || ''
-          break
-        } else if (json.fallback) {
-          resData = json.fallback
-          break
-        }
-      }
-    } catch (_) {
-      // Continue to next endpoint or fallback
-    }
+  try {
+    const preview = await getFirebaseBridge().callApi('/api/wishlist/preview', { url })
+    resData = preview.success ? preview.data : preview.fallback
+    resNotice = preview.notice || ''
+  } catch {
+    // Fall back to details inferred from the URL when the store cannot be fetched.
   }
 
   // 2. Resilient Client-Side Parser Fallback
@@ -942,7 +924,7 @@ const handleSaveFormData = async () => {
 
     if (editingItemId.value) {
       // Update existing item
-      await updateWishlistItem(editingItemId.value, {
+      const saved = await updateWishlistItem(editingItemId.value, {
         title: cleanTitle,
         price: cleanPrice,
         currency: formData.value.currency || 'PLN',
@@ -953,9 +935,10 @@ const handleSaveFormData = async () => {
         for_user_id: forUserId,
         is_visible_to_partner: isVisible
       })
+      if (!saved) return
     } else {
       // Add new item
-      await addWishlistItem({
+      const saved = await addWishlistItem({
         title: cleanTitle,
         price: cleanPrice,
         currency: formData.value.currency || 'PLN',
@@ -966,6 +949,7 @@ const handleSaveFormData = async () => {
         for_user_id: forUserId,
         is_visible_to_partner: isVisible
       })
+      if (!saved) return
 
       // Immediately switch active filter tab so the newly added item is guaranteed to be in view!
       if (isSurprise) {

@@ -29,6 +29,8 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  writeBatch,
+  FieldPath,
   deleteDoc,
   query,
   where,
@@ -39,6 +41,8 @@ import {
 import type { Unsubscribe } from 'firebase/firestore'
 import {
   getDatabase,
+  goOffline,
+  goOnline,
   ref as rtdbRef,
   set as rtdbSet,
   get as rtdbGet,
@@ -53,8 +57,10 @@ import {
   startAfter,
   endAt,
   limitToLast,
+  type DatabaseReference,
   serverTimestamp as rtdbServerTimestamp
 } from 'firebase/database'
+import { databaseUrlForProject, DUONEST_PROJECT_ID } from '~/functions/src/firebaseProject'
 
 export interface BridgeUser {
   id: string
@@ -90,6 +96,16 @@ function formatUser(user: FirebaseUser | null): BridgeUser | null {
   }
 }
 
+function firestoreValue(value: any): any {
+  if (Array.isArray(value)) return value.map(item => item === undefined ? null : firestoreValue(item))
+  if (value && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(Object.entries(value)
+      .filter(([, item]) => item !== undefined)
+      .map(([key, item]) => [key, firestoreValue(item)]))
+  }
+  return value
+}
+
 export class FirebaseSupabaseBridge {
   private app: any
   public auth: any
@@ -99,21 +115,22 @@ export class FirebaseSupabaseBridge {
 
   constructor() {
     const config = typeof useRuntimeConfig === 'function' ? useRuntimeConfig() : null
+    const projectId = config?.public?.firebaseProjectId || DUONEST_PROJECT_ID
     const fbConfig = {
       apiKey: config?.public?.firebaseApiKey || 'AIzaSyBrxtidFifD4vlf9OPSu9jkMWJLVsJAKV8',
       authDomain: config?.public?.firebaseAuthDomain || 'duonest-38dc2.firebaseapp.com',
-      projectId: config?.public?.firebaseProjectId || 'duonest-38dc2',
+      projectId,
       storageBucket: config?.public?.firebaseStorageBucket || 'duonest-38dc2.firebasestorage.app',
       messagingSenderId: config?.public?.firebaseMessagingSenderId || '273218538953',
       appId: config?.public?.firebaseAppId || '1:273218538953:web:f8daf30bf01ae40a66ec18',
-      databaseURL: config?.public?.firebaseDatabaseUrl || ''
+      databaseURL: config?.public?.firebaseDatabaseUrl || databaseUrlForProject(projectId)
     }
 
     this.app = getApps().length === 0 ? initializeApp(fbConfig) : getApp()
     // Native-safe Auth instance (see utils/firebaseAuthInstance.ts)
     this.auth = getDuoAuth(this.app)
     this.db = getFirestore(this.app)
-    this.rtdb = fbConfig.databaseURL ? getDatabase(this.app) : null
+    this.rtdb = fbConfig.databaseURL ? getDatabase(this.app, fbConfig.databaseURL) : null
 
     this.setupAuthShim()
   }
@@ -402,7 +419,7 @@ export class FirebaseSupabaseBridge {
   private accountSyncCache: { uid: string; at: number; result: any } | null = null
   private accountSyncInFlight: Promise<any> | null = null
 
-  private async callApi(path: string, body: any = {}) {
+  public async callApi<T = any>(path: string, body: object = {}): Promise<T> {
     const user = this.auth.currentUser
     if (!user) throw new Error('Brak autoryzacji')
     const token = await user.getIdToken()
@@ -413,7 +430,7 @@ export class FirebaseSupabaseBridge {
     })
     const json = await res.json().catch(() => null)
     if (!res.ok) {
-      throw new Error(json?.statusMessage || json?.message || json?.error || `HTTP ${res.status}`)
+      throw new Error(json?.data?.message || json?.message || json?.error || json?.statusMessage || `HTTP ${res.status}`)
     }
     return json
   }
@@ -538,15 +555,11 @@ export class FirebaseSupabaseBridge {
           const items = Array.isArray(payload) ? payload : [payload]
           for (const item of items) {
             const id = String(item.id || item.profile_id || `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`)
-            const docData = { ...item, id }
+            const docData = firestoreValue({ ...item, id })
             const docRef = doc(self.db, tableName, id)
             await setDoc(docRef, docData, { merge: true })
 
-            // Jeśli ma partnership_id, indeksuj w subkolekcji dla optymalnych reguł
-            if (item.partnership_id && tableName !== 'partnerships' && tableName !== 'profiles') {
-              const subDocRef = doc(self.db, 'partnerships', item.partnership_id, tableName, id)
-              await setDoc(subDocRef, docData, { merge: true })
-            }
+
           }
           return { data: payload, error: null }
         } catch (err) {
@@ -576,7 +589,7 @@ export class FirebaseSupabaseBridge {
               if (idFilter) {
                 const docId = String(idFilter.val)
                 const docRef = doc(self.db, tableName, docId)
-                await setDoc(docRef, payload, { merge: true })
+                await updateDoc(docRef, firestoreValue(payload))
                 return resolve({ data: payload, error: null })
               }
 
@@ -585,7 +598,7 @@ export class FirebaseSupabaseBridge {
               if (docs && docs.length > 0) {
                 for (const d of docs) {
                   const docRef = doc(self.db, tableName, d.id)
-                  await setDoc(docRef, payload, { merge: true })
+                  await updateDoc(docRef, firestoreValue(payload))
                 }
               }
               return resolve({ data: payload, error: null })
@@ -641,7 +654,7 @@ export class FirebaseSupabaseBridge {
             if (!docSnap.exists()) {
               return { data: (this._isSingle || this._isMaybeSingle) ? null : [], error: null }
             }
-            const item = { id: docSnap.id, ...docSnap.data() }
+            const item = { ...docSnap.data(), id: docSnap.id }
             return { data: (this._isSingle || this._isMaybeSingle) ? item : [item], error: null }
           }
 
@@ -669,7 +682,7 @@ export class FirebaseSupabaseBridge {
             snapshot = await getDocs(query(q, ...constraints))
           }
 
-          let results = snapshot.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+          let results = snapshot.docs.map((d: any) => ({ ...d.data(), id: d.id }))
 
           // Sortowanie w pamięci jeśli było zdefiniowane
           if (this._orders.length > 0) {
@@ -708,13 +721,54 @@ export class FirebaseSupabaseBridge {
     }
   }
 
+  public async commitSharedBatch(table: string, changes: Array<{ id: string; updates?: object; insert?: object }>) {
+    if (!changes.length) return
+    const batch = writeBatch(this.db)
+    for (const change of changes) {
+      const target = doc(this.db, table, change.id)
+      if (change.insert) batch.set(target, firestoreValue(change.insert))
+      else if (change.updates) batch.update(target, firestoreValue(change.updates))
+      else batch.delete(target)
+    }
+    await batch.commit()
+  }
+
+  public async saveMovieReview(id: string, profileId: string, review: object, updatedAt: string) {
+    await updateDoc(doc(this.db, 'movies', id), new FieldPath('reviews', profileId), firestoreValue(review), 'updated_at', updatedAt)
+  }
+
+  public setRealtimeConnectionActive(active: boolean) {
+    if (!this.rtdb) return
+    if (active) goOnline(this.rtdb)
+    else goOffline(this.rtdb)
+  }
+
+  public observeDocument(table: string, id: string, onData: (data: any | null) => void) {
+    return onSnapshot(doc(this.db, table, id), { includeMetadataChanges: true }, snapshot => {
+      if (snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites) return
+      onData(snapshot.exists() ? { ...snapshot.data(), id: snapshot.id } : null)
+    }, error => { if (process.dev) console.warn(`[Firestore] ${table} listener:`, error.code) })
+  }
+
+  public observeCollection(table: string, filters: Record<string, string | boolean>, onData: (data: any[]) => void, order?: { field: string; limit: number }) {
+    const constraints = Object.entries(filters).map(([key, value]) => where(key, '==', value))
+    const source = collection(this.db, table)
+    const reference = order
+      ? query(source, ...constraints, orderBy(order.field, 'desc'), firestoreLimit(order.limit))
+      : query(source, ...constraints)
+    return onSnapshot(reference, { includeMetadataChanges: true }, snapshot => {
+      if (snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites) return
+      onData(snapshot.docs.map(row => ({ ...row.data(), id: row.id })))
+    }, error => { if (process.dev) console.warn(`[Firestore] ${table} listener:`, error.code) })
+  }
+
   public channel(channelName: string, channelOptions: any = {}) {
     const self = this
     const listeners: Array<() => void> = []
     const presenceKeyOption: string | null = channelOptions?.config?.presence?.key || null
     const presenceCallbacks: Record<string, Array<(p: any) => void>> = { sync: [], join: [], leave: [] }
     let presenceListening = false
-    let trackedKey: string | null = null
+    let trackedPresence: { ref: DatabaseReference; stop: () => void } | null = null
     let closed = false
     let lastCleanupAt = 0
 
@@ -726,7 +780,7 @@ export class FirebaseSupabaseBridge {
       }
     }
 
-    const broadcastRef = () => rtdbRef(self.rtdb, `live/broadcast/${channelName}`)
+    const broadcastRef = () => rtdbRef(self.rtdb, `live/transient/${channelName}`)
 
     const ch: any = {
       _name: channelName,
@@ -765,15 +819,9 @@ export class FirebaseSupabaseBridge {
             })
             listeners.push(unsub)
           } else if (filter.includes('id=eq.')) {
-            // Single document → document listener (queries on `id` cannot be authorised by rules)
             const idVal = filter.split('id=eq.')[1]
-            let initial = true
-            const unsub = onSnapshot(doc(self.db, table, idVal), (snap) => {
-              if (initial) { initial = false; return }
-              const row = snap.exists() ? { id: snap.id, ...snap.data() } : null
+            const unsub = self.observeDocument(table, idVal, row => {
               callback({ eventType: row ? 'UPDATE' : 'DELETE', new: row, old: row ? null : { id: idVal } })
-            }, (err) => {
-              if (process.dev) console.warn(`Firestore doc listener on [${table}/${idVal}]:`, err?.message)
             })
             listeners.push(unsub)
           }
@@ -785,24 +833,32 @@ export class FirebaseSupabaseBridge {
         return ch._presenceState
       },
 
-      track(payload: any) {
-        if (self.rtdb) {
-          const key = presenceKeyOption || payload?.user_id || payload?.id || self.auth.currentUser?.uid
-          if (!key) return Promise.resolve('error')
-          trackedKey = String(key)
-          const presenceRef = rtdbRef(self.rtdb, `live/presence/${channelName}/${trackedKey}`)
-          onDisconnect(presenceRef).remove().catch(() => {})
-          rtdbSet(presenceRef, { ...sanitize(payload), updated_at: Date.now() }).catch(() => {})
-        }
-        return Promise.resolve('ok')
+      track() {
+        if (!self.rtdb || !presenceKeyOption || trackedPresence || closed) return
+        const session = rtdbPush(rtdbRef(self.rtdb, `live/presence_v2/${channelName}/${presenceKeyOption}`))
+        const tracking = { ref: session, stop: () => {} }
+        trackedPresence = tracking
+        tracking.stop = onValue(rtdbRef(self.rtdb, '.info/connected'), async snapshot => {
+          if (snapshot.val() !== true || trackedPresence !== tracking) return
+          try {
+            await onDisconnect(session).remove()
+            if (trackedPresence !== tracking || closed) return
+            await rtdbSet(session, { updated_at: rtdbServerTimestamp() })
+          } catch (error) {
+            if (process.dev) console.warn('[RTDB] Presence registration failed', (error as any)?.code)
+          }
+        })
       },
 
-      untrack() {
-        if (self.rtdb && trackedKey) {
-          rtdbSet(rtdbRef(self.rtdb, `live/presence/${channelName}/${trackedKey}`), null).catch(() => {})
-          trackedKey = null
-        }
-        return Promise.resolve('ok')
+      async untrack() {
+        const tracked = trackedPresence
+        if (!tracked) return
+        trackedPresence = null
+        tracked.stop()
+        try {
+          await rtdbRemove(tracked.ref)
+          await onDisconnect(tracked.ref).cancel()
+        } catch {}
       },
 
       async httpSend(event: string, payload: any) {
@@ -866,6 +922,7 @@ export class FirebaseSupabaseBridge {
 
       unsubscribe() {
         closed = true
+        void ch.untrack()
         listeners.forEach(u => {
           try { u() } catch (_) {}
         })
@@ -877,7 +934,7 @@ export class FirebaseSupabaseBridge {
     function startPresence() {
       if (presenceListening || !self.rtdb) return
       presenceListening = true
-      const presenceRef = rtdbRef(self.rtdb, `live/presence/${channelName}`)
+      const presenceRef = rtdbRef(self.rtdb, `live/presence_v2/${channelName}`)
       const unsub = onValue(presenceRef, (snapshot) => {
         const next = (snapshot.val() || {}) as Record<string, any>
         const prev = ch._presenceState as Record<string, any>
@@ -918,7 +975,7 @@ export class FirebaseSupabaseBridge {
     if (synced?.profile_id) {
       try {
         const snap = await getDoc(doc(this.db, 'profiles', synced.profile_id))
-        if (snap.exists()) return { ...snap.data(), id: snap.data().id || snap.id }
+        if (snap.exists() && snap.data().auth_user_id === uid) return { ...snap.data(), id: snap.id }
       } catch (_) {}
     }
 
@@ -926,11 +983,11 @@ export class FirebaseSupabaseBridge {
     const candidates: any[] = []
     try {
       const own = await getDoc(doc(this.db, 'profiles', uid))
-      if (own.exists()) candidates.push({ ...own.data(), id: own.data().id || own.id })
+      if (own.exists() && own.data().auth_user_id === uid) candidates.push({ ...own.data(), id: own.id })
     } catch (_) {}
     try {
       const qSnap = await getDocs(query(collection(this.db, 'profiles'), where('auth_user_id', '==', uid)))
-      qSnap.docs.forEach(d => candidates.push({ ...d.data(), id: d.data().id || d.id }))
+      qSnap.docs.forEach(d => candidates.push({ ...d.data(), id: d.id }))
     } catch (_) {}
     // Prefer the real profile (nest, code, name) over partial copies from older versions
     const score = (p: any) =>

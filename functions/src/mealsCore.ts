@@ -41,12 +41,13 @@ export async function handleMealsLookup(query: any) {
 }
 
 export async function handleMealsImport(body: any) {
-  const rawUrl = String(body?.url || '').trim()
+  const rawUrl = typeof body?.url === 'string' ? body.url.trim() : ''
   if (!rawUrl) {
     return {
       success: false,
       error: 'Wklej poprawny link do przepisu, TikToka lub YouTube Shorts.'
     }
   }
+  if (rawUrl.length > 2048) return { success: false, error: 'Link jest zbyt długi.' }
   return await processRecipeImport(rawUrl)
 }

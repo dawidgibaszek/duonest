@@ -1,6 +1,6 @@
 import { computed } from 'vue'
 import { getFirebaseBridge } from '../useFirebaseBridge'
-import { nudgesList, currentUser, partnerUser, partnership, lastNudgeSentAt, isOnlineWithSupabase } from './state'
+import { nudgesList, currentUser, partnerUser, partnership, lastNudgeSentAt } from './state'
 import { saveToStorage } from './utils'
 import type { NudgeItem } from '~/types/duo'
 
@@ -52,54 +52,42 @@ export function useNudges(options: {
       created_at: new Date().toISOString()
     }
 
-    nudgesList.value.unshift(newNudge)
-    if (nudgesList.value.length > 30) nudgesList.value = nudgesList.value.slice(0, 30)
+    const { error } = await getDb().from('nudges').insert(newNudge)
+    if (error) {
+      options.triggerToast('Nie udało się wysłać gestu. Spróbuj ponownie.', { type: 'warning' })
+      return false
+    }
+    if (partnership.value?.id !== newNudge.partnership_id || currentUser.value.id !== newNudge.sender_id) return false
+    nudgesList.value = [newNudge, ...nudgesList.value.filter(nudge => nudge.id !== newNudge.id)].slice(0, 30)
     syncNudgesToStorage()
-
     lastNudgeSentAt.value = Date.now()
-    if (typeof window !== 'undefined' && currentUser.value.id) {
-      localStorage.setItem(`duonest_last_nudge_ts_${currentUser.value.id}`, String(lastNudgeSentAt.value))
-    }
-
+    saveToStorage(`duonest_last_nudge_ts_${currentUser.value.id}`, lastNudgeSentAt.value)
     options.broadcastToPartner('NUDGE_SEND', newNudge)
-
-    const bridge = getDb()
-    if (bridge && isOnlineWithSupabase.value) {
-      try {
-        await bridge.from('nudges').insert(newNudge)
-      } catch (err) {
-        console.warn('Błąd podczas zapisywania gestu:', err)
-      }
-    }
-
-    options.triggerToast('Przesłano gest partnerowi! 💕', { type: 'love' })
+    options.triggerToast('Przesłano gest partnerowi', { type: 'love' })
     return true
   }
 
   const updateMood = async (mood: string, note?: string) => {
-    currentUser.value.current_mood = mood
-    if (note !== undefined) currentUser.value.mood_note = note.trim()
-    currentUser.value.mood_updated_at = new Date().toISOString()
-    saveToStorage('duonest_current_user', currentUser.value)
-
-    options.broadcastToPartner('MOOD_UPDATE', {
-      mood: currentUser.value.current_mood,
-      note: currentUser.value.mood_note,
-      updated_at: currentUser.value.mood_updated_at
-    })
-
-    const bridge = getDb()
-    if (bridge && currentUser.value.id && isOnlineWithSupabase.value) {
-      try {
-        await bridge.from('profiles').update({
-          current_mood: currentUser.value.current_mood,
-          mood_note: currentUser.value.mood_note,
-          mood_updated_at: currentUser.value.mood_updated_at
-        }).eq('id', currentUser.value.id)
-      } catch (_) {}
+    const profileId = currentUser.value.id
+    if (!profileId) return false
+    const updates = {
+      current_mood: mood,
+      mood_note: note === undefined ? currentUser.value.mood_note || '' : note.trim(),
+      mood_updated_at: new Date().toISOString()
     }
-
-    options.triggerToast('Zaktualizowano nastrój')
+    try {
+      const { error } = await getDb().from('profiles').update(updates).eq('id', profileId)
+      if (error) throw error
+      if (currentUser.value.id !== profileId) return false
+      Object.assign(currentUser.value, updates)
+      saveToStorage('duonest_current_user', currentUser.value)
+      options.broadcastToPartner('MOOD_UPDATE', { mood, note: updates.mood_note, updated_at: updates.mood_updated_at })
+      options.triggerToast('Zaktualizowano nastrój')
+      return true
+    } catch {
+      options.triggerToast('Nie udało się zapisać nastroju.', { type: 'warning' })
+      return false
+    }
   }
 
   return {

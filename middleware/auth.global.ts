@@ -14,9 +14,9 @@ export default defineNuxtRouteMiddleware((to) => {
   const { isAuthenticated, needsEmailVerification, isPaired, currentUser, partnership, initializeClientState } = useDuoState()
   initializeClientState()
 
-  // 2. Unauthenticated users -> welcome screen (which leads to /login or /login?mode=register)
+  // 2. Unauthenticated users -> welcome screen with separate sign-in and registration routes
   if (!isAuthenticated.value) {
-    if (to.path !== '/login' && to.path !== '/welcome') {
+    if (to.path !== '/login' && to.path !== '/register' && to.path !== '/welcome') {
       return navigateTo('/welcome', { replace: true })
     }
     return
@@ -40,7 +40,7 @@ export default defineNuxtRouteMiddleware((to) => {
   }
 
   // 5. Authenticated and paired users -> if visiting entry or auth routes, redirect to /tabs/nest
-  if (to.path === '/' || to.path === '/welcome' || to.path === '/login' || to.path === '/pairing' || to.path === '/verify-email') {
+  if (to.path === '/' || to.path === '/welcome' || to.path === '/login' || to.path === '/register' || to.path === '/pairing' || to.path === '/verify-email') {
     return navigateTo('/tabs/nest', { replace: true })
   }
 })

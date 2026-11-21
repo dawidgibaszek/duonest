@@ -73,6 +73,16 @@
           </p>
         </div>
 
+        <div v-if="isLoadingFeed && !feedToken" class="sync-intro-card" aria-live="polite">
+          <p>Sprawdzam subskrypcję…</p>
+        </div>
+        <div v-else-if="!feedToken" class="sync-intro-card">
+          <p v-if="feedError">{{ feedError }}</p>
+          <button type="button" class="dn-button-primary" :disabled="!partnershipId" @click="changeSubscription('create')">
+            Utwórz prywatny link
+          </button>
+        </div>
+        <template v-else>
         <!-- POPULAR CALENDARS ONE-CLICK CONNECT -->
         <div class="sync-section-title">POŁĄCZ Z APLIKACJĄ KALENDARZA</div>
         <div class="quick-providers-grid">
@@ -81,7 +91,7 @@
             :href="webcalFeedUrl"
             class="provider-card apple-card"
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
           >
             <div class="provider-icon-box apple-icon">
               <ion-icon :icon="ioniconsLogoApple" />
@@ -101,7 +111,7 @@
             :href="googleCalendarSubscribeUrl"
             class="provider-card google-card"
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
           >
             <div class="provider-icon-box google-icon">
               <ion-icon :icon="ioniconsLogoGoogle" />
@@ -121,7 +131,7 @@
             :href="outlookCalendarSubscribeUrl"
             class="provider-card outlook-card"
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
           >
             <div class="provider-icon-box outlook-icon">
               <ion-icon :icon="ioniconsLogoWindows" />
@@ -163,6 +173,14 @@
           </div>
         </div>
 
+        <div class="feed-copy-box">
+          <p class="feed-copy-help">Każdy, kto ma ten link, może czytać terminarz. Zmień link, aby unieważnić poprzedni.</p>
+          <div class="feed-input-group">
+            <button type="button" class="dn-button-secondary" :disabled="isLoadingFeed" @click="changeSubscription('rotate')">Zmień link</button>
+            <button type="button" class="dn-button-secondary" :disabled="isLoadingFeed" @click="changeSubscription('revoke')">Wyłącz subskrypcję</button>
+          </div>
+          <p v-if="feedError" class="feed-copy-help" role="alert">{{ feedError }}</p>
+        </div>
         <!-- INSTRUCTIONS ACCORDION -->
         <div class="sync-instructions-card">
           <div class="instruction-header" @click="showInstructions = !showInstructions">
@@ -194,6 +212,7 @@
             </div>
           </div>
         </div>
+        </template>
       </div>
 
       <!-- ============================================== -->
@@ -237,7 +256,7 @@
               <a
                 :href="getGoogleUrl(evt)"
                 target="_blank"
-                rel="noopener"
+                rel="noopener noreferrer"
                 class="quick-action-pill google-pill"
                 title="Dodaj do Kalendarza Google"
               >
@@ -349,7 +368,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { getFirebaseBridge } from '~/composables/useFirebaseBridge'
 import { useDuoState, type EventItem } from '~/composables/useDuoState'
 import {
   generateIcsCalendar,
@@ -374,6 +394,7 @@ const emit = defineEmits<{
 
 const {
   partnership,
+  authUser,
   eventsList,
   addEvent,
   triggerToast
@@ -388,15 +409,40 @@ const uploadedFileName = ref('')
 const parsedEvents = ref<ParsedIcsEvent[]>([])
 const isImporting = ref(false)
 
-const partnershipId = computed(() => partnership.value?.id || 'demo')
+const partnershipId = computed(() => partnership.value?.id || null)
+const feedToken = ref<string | null>(null)
+const feedError = ref('')
+const isLoadingFeed = ref(false)
+let feedRequest = 0
 
-const feedUrls = computed(() => {
-  return getCalendarFeedUrls(partnershipId.value)
-})
+const changeSubscription = async (action: 'status' | 'create' | 'rotate' | 'revoke') => {
+  if (!props.isOpen || !partnershipId.value) return
+  const request = ++feedRequest
+  isLoadingFeed.value = true
+  feedError.value = ''
+  try {
+    const { token } = await getFirebaseBridge().callApi<{ token: string | null }>('/api/calendar/subscription', { action })
+    if (request === feedRequest) feedToken.value = token
+  } catch {
+    if (request === feedRequest) feedError.value = 'Nie udało się zapisać lub odczytać subskrypcji. Spróbuj ponownie.'
+  } finally {
+    if (request === feedRequest) isLoadingFeed.value = false
+  }
+}
 
-const webcalFeedUrl = computed(() => feedUrls.value.webcalUrl)
-const googleCalendarSubscribeUrl = computed(() => generateGoogleCalendarSubscribeUrl(feedUrls.value.webcalUrl))
-const outlookCalendarSubscribeUrl = computed(() => generateOutlookCalendarSubscribeUrl(feedUrls.value.httpsUrl))
+watch([() => props.isOpen, partnershipId, () => authUser.value?.id], ([open]) => {
+  feedRequest++
+  feedToken.value = null
+  feedError.value = ''
+  isLoadingFeed.value = false
+  isCopied.value = false
+  if (open) void changeSubscription('status')
+}, { immediate: true })
+
+const feedUrls = computed(() => feedToken.value ? getCalendarFeedUrls(feedToken.value) : null)
+const webcalFeedUrl = computed(() => feedUrls.value?.webcalUrl)
+const googleCalendarSubscribeUrl = computed(() => feedUrls.value ? generateGoogleCalendarSubscribeUrl(feedUrls.value.webcalUrl) : undefined)
+const outlookCalendarSubscribeUrl = computed(() => feedUrls.value ? generateOutlookCalendarSubscribeUrl(feedUrls.value.httpsUrl) : undefined)
 
 const upcomingEvents = computed(() => {
   return eventsList.value.filter(e => !e.is_completed)
@@ -408,7 +454,7 @@ const handleClose = () => {
 
 const copyFeedUrl = async () => {
   try {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+    if (typeof navigator !== 'undefined' && navigator.clipboard && webcalFeedUrl.value) {
       await navigator.clipboard.writeText(webcalFeedUrl.value)
       isCopied.value = true
       triggerToast('Skopiowano link subskrypcji')
@@ -510,7 +556,7 @@ const handleImportParsedEvents = async () => {
   let count = 0
   try {
     for (const evt of parsedEvents.value) {
-      await addEvent(
+      const saved = await addEvent(
         evt.title,
         evt.category,
         evt.startTime,
@@ -520,7 +566,7 @@ const handleImportParsedEvents = async () => {
         false,
         'Import z kalendarza'
       )
-      count++
+      if (saved) count++
     }
     triggerToast(`Zaimportowano ${count} planów`)
     clearParsedEvents()
