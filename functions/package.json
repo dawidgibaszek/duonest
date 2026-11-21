@@ -15,8 +15,8 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.21.2",
-    "firebase-admin": "^13.1.0",
-    "firebase-functions": "^6.3.2",
+    "firebase-admin": "^14.5.1",
+    "firebase-functions": "^7.4.0",
     "undici": "^6.21.1",
     "web-push": "^3.6.7"
   },

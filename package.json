@@ -64,6 +64,9 @@
     "@capacitor-firebase/messaging": {
       "firebase": "$firebase"
     },
+    "@firebase/firestore": {
+      "@grpc/grpc-js": "~1.14.7"
+    },
     "@capacitor-firebase/app-check": {
       "firebase": "$firebase"
     }

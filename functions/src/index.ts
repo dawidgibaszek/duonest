@@ -1,6 +1,9 @@
 import { onRequest } from 'firebase-functions/v2/https'
-import * as admin from 'firebase-admin'
+import { getApp, getApps, initializeApp } from 'firebase-admin/app'
+import { getAuth } from 'firebase-admin/auth'
 import { getDatabaseWithUrl } from 'firebase-admin/database'
+import { getFirestore } from 'firebase-admin/firestore'
+import { getMessaging } from 'firebase-admin/messaging'
 import { databaseUrlForProject } from './firebaseProject'
 import express from 'express'
 import cors from 'cors'
@@ -18,17 +21,17 @@ import { storeIosDiagnosticReports } from './iosDiagnostics'
 import { createAdminRouter } from './adminAccess'
 
 // Inicjalizacja Firebase Admin
-if (admin.apps.length === 0) {
-  admin.initializeApp()
+if (getApps().length === 0) {
+  initializeApp()
 }
 
-const db = admin.firestore()
-const auth = admin.auth()
+const db = getFirestore()
+const auth = getAuth()
 
 // Realtime Database (null if the project has no default RTDB instance)
 const getRtdb = () => {
   try {
-    const app = admin.app()
+    const app = getApp()
     const url = process.env.FIREBASE_DATABASE_URL || app.options.databaseURL ||
       databaseUrlForProject(app.options.projectId || process.env.GCLOUD_PROJECT)
     return url ? getDatabaseWithUrl(url, app) : null
@@ -218,7 +221,7 @@ for (const action of PUSH_ACTIONS) {
       }
       const profile = await resolveCallerProfile(db, decodedUser(req))
       if (!profile) return res.status(403).json({ success: false, error: 'No profile is linked to this account' })
-      const result = await handlePushAction(db, admin.messaging(), {
+      const result = await handlePushAction(db, getMessaging(), {
         uid: req.user.uid,
         profileId: profile.id,
         partnershipId: profile.partnership_id || null,
