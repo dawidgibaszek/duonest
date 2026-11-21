@@ -83,11 +83,6 @@
                 <span>{{ copied ? 'Skopiowano' : 'Kopiuj' }}</span>
               </button>
             </div>
-
-            <div class="pair-live">
-              <span class="pair-live-dot"></span>
-              <span>Gdy partner użyje Twojego kodu, aplikacja od razu Was połączy.</span>
-            </div>
           </section>
 
           <!-- MODE 2: DOŁĄCZ DO PARTNERA -->
@@ -1109,7 +1104,7 @@ onUnmounted(() => {
 
 .pair-code-value {
   font-family: var(--dn-auth-serif);
-  font-size: 26px;
+  font-size: 20px;
   font-weight: 600;
   letter-spacing: 0.06em;
   color: var(--dn-auth-ink);
