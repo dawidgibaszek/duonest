@@ -78,7 +78,8 @@
                 <label for="admin-build">Minimalny build w tej wersji</label>
                 <input id="admin-build" v-model.trim="settings.build" placeholder="np. 5" maxlength="32">
                 <label for="admin-update-url">Link do aktualizacji</label>
-                <input id="admin-update-url" v-model.trim="settings.url" type="url" placeholder="https://…" maxlength="500">
+                <input id="admin-update-url" v-model.trim="settings.url" type="url" placeholder="https://…" maxlength="500" aria-describedby="admin-update-url-help">
+                <p id="admin-update-url-help" class="admin-note">App Store, TestFlight lub https://duonestapp.pl. Puste pole otwiera stronę TestFlight w App Store.</p>
                 <button class="dn-button-primary" type="submit" :disabled="saving">{{ saving ? 'Publikowanie…' : 'Opublikuj zmiany' }}</button>
                 <p v-if="settingsSaved" class="admin-note" role="status">Ustawienia opublikowane w Firebase.</p>
               </template>
@@ -98,6 +99,7 @@ import { logoApple, logoGoogle } from 'ionicons/icons'
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useFirebase } from '~/composables/useFirebase'
 import { createFirebaseOAuthProvider } from '~/utils/firebaseOAuth'
+import { compareAppVersions, normalizeIosUpdateUrl } from '~/functions/src/appVersion'
 
 type Report = { day: string; version: string; build: string; kind: string; values: Record<string, number> }
 type Dashboard = { totals: Record<string, number>; reports: Report[]; expiresAt: number }
@@ -241,20 +243,33 @@ async function signIn(method: SignInMethod) {
 
 async function saveSettings() {
   if (!settings.value || saving.value) return
-  saving.value = true
   settingsError.value = ''
   settingsSaved.value = false
+  const { version, build, url } = settings.value
+  if (version && compareAppVersions(version, '0') === null) {
+    settingsError.value = 'Wpisz poprawną wersję, np. 1.0.'
+    return
+  }
+  if (version && build && compareAppVersions(build, '0') === null) {
+    settingsError.value = 'Wpisz poprawny numer buildu, np. 6.'
+    return
+  }
+  if (url && !normalizeIosUpdateUrl(url)) {
+    settingsError.value = 'Podaj link HTTPS do App Store, TestFlight lub https://duonestapp.pl.'
+    return
+  }
+  saving.value = true
   try {
     settings.value = await adminRequest<IosSettings>('/ios-settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(settings.value)
+      body: JSON.stringify({ ...settings.value, build: version ? build : '' })
     })
     settingsSaved.value = true
   } catch (error) {
     if (handleExpired(error)) return
     switch (errorStatus(error)) {
-      case 400: settingsError.value = 'Sprawdź wersję, numer buildu i link do TestFlight lub App Store.'; break
+      case 400: settingsError.value = 'Formularz zawiera nieprawidłowe dane. Odśwież panel i spróbuj ponownie.'; break
       case 409: settingsError.value = 'Ktoś w międzyczasie zmienił ustawienia. Wczytaj najnowsze dane.'; settings.value = null; break
       default: settingsError.value = 'Nie udało się opublikować ustawień.'
     }

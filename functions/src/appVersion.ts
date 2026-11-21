@@ -26,8 +26,9 @@ export function needsAppUpdate(
 export function normalizeIosUpdateUrl(value: string) {
   try {
     const url = new URL(value)
-    if (url.protocol === 'https:' && !url.username && !url.password && !url.port &&
-      ['apps.apple.com', 'testflight.apple.com'].includes(url.hostname)) return url.href
+    if (url.protocol !== 'https:' || url.username || url.password || url.port) return null
+    if (url.hostname === 'apps.apple.com' || url.hostname === 'testflight.apple.com') return url.href
+    if (url.href === 'https://duonestapp.pl/') return url.href
   } catch {
     // An empty Remote Config parameter uses the TestFlight fallback.
   }

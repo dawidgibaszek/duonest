@@ -82,7 +82,7 @@ W projekcie Firebase DuoNest otwórz [Remote Config](https://console.firebase.go
 | --- | --- |
 | `ios_minimum_version` | Najstarsza obsługiwana wersja, np. `1.0`. Pusta wartość wyłącza blokadę. |
 | `ios_minimum_build` | Opcjonalny numer najstarszego buildu dla tej wersji, np. `5`. Buildy nowszych wersji przechodzą bez tego porównania. |
-| `ios_update_url` | Opcjonalny link HTTPS z App Store lub TestFlight. Bez linku przycisk prowadzi do TestFlight w App Store. |
+| `ios_update_url` | Opcjonalny link HTTPS do App Store, TestFlight lub `https://duonestapp.pl`. Bez linku przycisk prowadzi do TestFlight w App Store. |
 
 Przykładowo wersja `1.0` i build `5` blokują instalację `1.0 (4)` oraz starsze wersje. Podnieś próg dopiero, gdy wskazany build będzie dostępny dla wszystkich objętych nim użytkowników. Zmiana progu działa przy uruchomieniu lub po powrocie aplikacji na ekran, przy ponownym pobraniu konfiguracji.
 
