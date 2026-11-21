@@ -1,4 +1,3 @@
-import { initializeApp, getApps, getApp } from 'firebase/app'
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -19,10 +18,9 @@ import {
   OAuthProvider
 } from 'firebase/auth'
 import { Capacitor } from '@capacitor/core'
-import { getDuoAuth } from '~/utils/firebaseAuthInstance'
+import { getDuoFirebase } from '~/utils/firebaseInstance'
 import type { User as FirebaseUser } from 'firebase/auth'
 import {
-  getFirestore,
   collection,
   doc,
   getDoc,
@@ -40,7 +38,6 @@ import {
 } from 'firebase/firestore'
 import type { Unsubscribe } from 'firebase/firestore'
 import {
-  getDatabase,
   goOffline,
   goOnline,
   ref as rtdbRef,
@@ -60,7 +57,6 @@ import {
   type DatabaseReference,
   serverTimestamp as rtdbServerTimestamp
 } from 'firebase/database'
-import { databaseUrlForProject, DUONEST_PROJECT_ID } from '~/functions/src/firebaseProject'
 
 export interface BridgeUser {
   id: string
@@ -107,7 +103,6 @@ function firestoreValue(value: any): any {
 }
 
 export class FirebaseSupabaseBridge {
-  private app: any
   public auth: any
   public db: any
   public rtdb: any
@@ -115,22 +110,10 @@ export class FirebaseSupabaseBridge {
 
   constructor() {
     const config = typeof useRuntimeConfig === 'function' ? useRuntimeConfig() : null
-    const projectId = config?.public?.firebaseProjectId || DUONEST_PROJECT_ID
-    const fbConfig = {
-      apiKey: config?.public?.firebaseApiKey || 'AIzaSyBrxtidFifD4vlf9OPSu9jkMWJLVsJAKV8',
-      authDomain: config?.public?.firebaseAuthDomain || 'duonest-38dc2.firebaseapp.com',
-      projectId,
-      storageBucket: config?.public?.firebaseStorageBucket || 'duonest-38dc2.firebasestorage.app',
-      messagingSenderId: config?.public?.firebaseMessagingSenderId || '273218538953',
-      appId: config?.public?.firebaseAppId || '1:273218538953:web:f8daf30bf01ae40a66ec18',
-      databaseURL: config?.public?.firebaseDatabaseUrl || databaseUrlForProject(projectId)
-    }
-
-    this.app = getApps().length === 0 ? initializeApp(fbConfig) : getApp()
-    // Native-safe Auth instance (see utils/firebaseAuthInstance.ts)
-    this.auth = getDuoAuth(this.app)
-    this.db = getFirestore(this.app)
-    this.rtdb = fbConfig.databaseURL ? getDatabase(this.app, fbConfig.databaseURL) : null
+    const { auth, db, rtdb } = getDuoFirebase(config?.public)
+    this.auth = auth
+    this.db = db
+    this.rtdb = rtdb
 
     this.setupAuthShim()
   }
