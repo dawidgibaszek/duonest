@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "273218538953",
+    "firebase_url": "https://duonest-38dc2-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "duonest-38dc2",
+    "storage_bucket": "duonest-38dc2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:273218538953:android:a3688a7d49847f3a66ec18",
+        "android_client_info": {
+          "package_name": "com.belka.duonest"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "273218538953-ajj1k0ncea6c1hbcvkikg7obg4429itv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAL7rF_WA_F6VXR2hUNFLOvaLbByfwsl2E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "273218538953-ajj1k0ncea6c1hbcvkikg7obg4429itv.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "273218538953-2uuaih8j8k1spmbtpr5v656mn6ddovia.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.belka.duonest"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
