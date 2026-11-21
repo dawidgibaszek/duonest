@@ -30,7 +30,7 @@
               <ion-icon :icon="ioniconsArrowForwardOutline" />
             </button>
 
-            <p class="redirect-hint" v-if="status === 'success'">
+            <p class="redirect-hint" v-if="status === 'success' && !browserOnly">
               Automatyczne przekierowanie za <strong>{{ countdown }}</strong> s…
             </p>
           </template>
@@ -46,6 +46,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { Capacitor } from '@capacitor/core'
 import { IonPage, IonContent, IonIcon, IonSpinner } from '@ionic/vue'
 import {
   checkmarkCircle as ioniconsCheckmarkCircle,
@@ -70,6 +71,7 @@ const {
 } = useDuoState()
 
 const status = ref<'checking' | 'success' | 'error'>('checking')
+const browserOnly = !import.meta.dev && !Capacitor.isNativePlatform()
 const verifiedEmail = ref('')
 const countdown = ref(4)
 let timer: ReturnType<typeof setInterval> | null = null
@@ -87,6 +89,11 @@ const heroTiles = computed<DuoAuthHeroTile[]>(() => status.value === 'error'
     ])
 
 const description = computed(() => {
+  if (browserOnly) {
+    return status.value === 'success'
+      ? 'Otwórz aplikację DuoNest na telefonie, aby kontynuować.'
+      : 'Otwórz aplikację DuoNest na telefonie, aby wysłać nowy link.'
+  }
   if (status.value === 'error') {
     return isAuthenticated.value
       ? 'Ten link jest nieprawidłowy, został już użyty albo wygasł. Wyślij nowy z ekranu potwierdzenia.'
@@ -98,12 +105,14 @@ const description = computed(() => {
 })
 
 const primaryActionLabel = computed(() => {
+  if (browserOnly) return 'Wróć na stronę DuoNest'
   if (!isAuthenticated.value) return 'Przejdź do logowania'
   if (status.value === 'error' && needsEmailVerification.value) return 'Wyślij nowy link'
   return 'Przejdź do DuoNest'
 })
 
 const destination = () => {
+  if (browserOnly) return '/'
   if (!isAuthenticated.value) return '/login'
   if (needsEmailVerification.value) return '/verify-email'
   return (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id) ? '/tabs/nest' : '/pairing'
@@ -134,6 +143,7 @@ onMounted(async () => {
   verifiedEmail.value = data?.email || ''
   status.value = 'success'
   window.history.replaceState(null, '', window.location.pathname)
+  if (browserOnly) return
   timer = setInterval(() => {
     countdown.value--
     if (countdown.value <= 0) continueNow()

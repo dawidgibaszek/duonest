@@ -13,6 +13,9 @@ import { handlePushAction, PUSH_ACTIONS, type PushAction } from './pushCore'
 import { handleMusicAction, isMusicAction } from './musicCore'
 import { handleMoviesTrending, handleMoviesSearch, handleMoviesRandom } from './moviesCore'
 import { handleMealsCategories, handleMealsSearch, handleMealsLookup, handleMealsImport } from './mealsCore'
+import { requireDuoClient } from './clientAccess'
+import { storeIosDiagnosticReports } from './iosDiagnostics'
+import { createAdminRouter } from './adminAccess'
 
 // Inicjalizacja Firebase Admin
 if (admin.apps.length === 0) {
@@ -43,7 +46,9 @@ const decodedUser = (req: any) => ({
 
 const app = express()
 app.use(cors({ origin: true }))
+app.use(requireDuoClient)
 app.use(express.json())
+app.use('/api/admin', createAdminRouter(db))
 
 // Middleware uwierzytelniania tokenu Firebase
 async function requireAuth(req: any, res: any, next: any) {
@@ -188,6 +193,22 @@ const allowPush = (key: string, max: number) => {
   return true
 }
 const PUSH_LIMITS: Record<PushAction, number> = { subscribe: 20, unsubscribe: 20, send: 30, test: 6 }
+
+app.post('/api/diagnostics/ios', requireAuth, async (req: any, res) => {
+  const reports = req.body?.reports
+  if (!Array.isArray(reports) || reports.length === 0 || reports.length > 8) {
+    return res.status(400).json({ error: 'invalid_diagnostics_batch' })
+  }
+  if (!allowPush(`diagnostics:${req.user.uid}`, 5)) {
+    return res.status(429).json({ error: 'too_many_diagnostics_batches' })
+  }
+  try {
+    await storeIosDiagnosticReports(db, reports)
+    return res.json({ success: true })
+  } catch {
+    return res.status(503).json({ error: 'diagnostics_unavailable' })
+  }
+})
 
 for (const action of PUSH_ACTIONS) {
   app.post(`/api/push/${action}`, requireAuth, async (req: any, res: any) => {

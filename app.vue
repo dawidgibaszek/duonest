@@ -1,47 +1,79 @@
 <template>
-  <ion-app>
-    <ion-router-outlet />
-    <!-- Global DuoNest Enhanced Toast with Mobile Swipe Gesture Dismissal -->
-    <DuoToast />
-    <!-- Post-Pairing One-Time Push Permission Prompt -->
-    <DuoPushPromptModal />
-    <!-- Global DuoNest Confirm Dialog Modal -->
-    <DuoConfirmModal />
+  <ion-app :class="{ 'dn-app-offline': offline }" :inert="offline || undefined">
+    <DuoRequiredUpdate
+      v-if="checking || requiredUpdate"
+      :checking="checking && !requiredUpdate"
+      :url="requiredUpdate?.url"
+    />
+    <template v-else>
+      <ion-router-outlet />
+      <DuoToast />
+      <DuoPushPromptModal />
+      <DuoConfirmModal />
+    </template>
   </ion-app>
+  <DuoOfflineScreen v-if="offline" :checking="checkingConnection" @retry="checkConnection" />
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, watch } from 'vue'
+import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { App } from '@capacitor/app'
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core'
+import { useAppUpdate } from '~/composables/useAppUpdate'
+import { useAppConnection } from '~/composables/useAppConnection'
+import { useIosDiagnosticsUpload } from '~/composables/useIosDiagnostics'
 import { useDuoState } from '~/composables/useDuoState'
 import { usePushNotifications } from '~/composables/usePushNotifications'
 import DuoToast from '~/components/DuoToast.vue'
 import DuoPushPromptModal from '~/components/DuoPushPromptModal.vue'
 import DuoConfirmModal from '~/components/DuoConfirmModal.vue'
+import DuoRequiredUpdate from '~/components/DuoRequiredUpdate.vue'
+import DuoOfflineScreen from '~/components/DuoOfflineScreen.vue'
 
 const { authUser, currentUser, isAuthLoading, initSupabaseSync, subscribeToPartnershipRealtime, setNativeRealtimeActive } = useDuoState()
+const appRuntime = import.meta.dev || Capacitor.isNativePlatform()
 const { initPushNotifications, clearAppBadge } = usePushNotifications()
+const { checking, requiredUpdate, checkForUpdate } = useAppUpdate()
+const { offline, checkingConnection, checkConnection, setConnectionForeground } = useAppConnection()
+const foreground = ref(true)
+useIosDiagnosticsUpload(() => foreground.value && !offline.value && !checking.value &&
+  !requiredUpdate.value && Boolean(authUser.value?.id))
 let appStateListener: PluginListenerHandle | undefined
 let disposed = false
 
 watch(
   [isAuthLoading, () => authUser.value?.id, () => currentUser.value.id, () => currentUser.value.partnership_id],
   ([loading, uid, profileId, partnershipId]) => {
-    if (!loading && uid && profileId && partnershipId) subscribeToPartnershipRealtime(partnershipId)
+    if (appRuntime && !loading && uid && profileId && partnershipId) subscribeToPartnershipRealtime(partnershipId)
   },
   { immediate: true }
 )
 
+watch([offline, foreground], ([disconnected, active], [wasDisconnected]) => {
+  if (!appRuntime) return
+  setNativeRealtimeActive(active && !disconnected)
+  if (wasDisconnected && !disconnected) {
+    checkForUpdate()
+    void initSupabaseSync()
+  }
+})
+
 onMounted(() => {
+  if (!appRuntime) return
+  checkForUpdate()
+  if (offline.value) setNativeRealtimeActive(false)
   if (Capacitor.isNativePlatform()) {
-    void App.addListener('appStateChange', ({ isActive }) => setNativeRealtimeActive(isActive)).then(listener => {
+    void App.addListener('appStateChange', ({ isActive }) => {
+      foreground.value = isActive
+      setConnectionForeground(isActive)
+      if (isActive && !offline.value) checkForUpdate()
+    }).then(listener => {
       if (disposed) void listener.remove()
       else appStateListener = listener
     }).catch(error => { if (import.meta.dev) console.warn('Nie udało się obserwować stanu aplikacji', error) })
   }
   initPushNotifications()
-  initSupabaseSync()
+  if (!offline.value) void initSupabaseSync()
   clearAppBadge()
 })
 
@@ -52,6 +84,10 @@ onBeforeUnmount(() => {
 </script>
 
 <style>
+.dn-app-offline {
+  visibility: hidden;
+}
+
 /* Safe area padding for notch and modern phones */
 ion-header ion-toolbar:first-child {
   padding-top: max(env(safe-area-inset-top), 4px);

@@ -19,6 +19,7 @@ import {
 } from 'firebase/auth'
 import { Capacitor } from '@capacitor/core'
 import { getDuoFirebase } from '~/utils/firebaseInstance'
+import { createFirebaseOAuthProvider } from '~/utils/firebaseOAuth'
 import type { User as FirebaseUser } from 'firebase/auth'
 import {
   collection,
@@ -359,17 +360,7 @@ export class FirebaseSupabaseBridge {
             appleName = String(result.user?.displayName || '').trim()
           }
         } else {
-          let authProvider: GoogleAuthProvider | OAuthProvider
-          if (provider === 'google') {
-            authProvider = new GoogleAuthProvider()
-            authProvider.setCustomParameters({ prompt: 'select_account' })
-          } else {
-            authProvider = new OAuthProvider('apple.com')
-            authProvider.addScope('email')
-            authProvider.addScope('name')
-            authProvider.setCustomParameters({ locale: 'pl_PL' })
-          }
-          cred = await signInWithPopup(self.auth, authProvider)
+          cred = await signInWithPopup(self.auth, createFirebaseOAuthProvider(provider))
           const raw: any = cred._tokenResponse || {}
           appleName = String(raw.displayName || [raw.firstName, raw.lastName].filter(Boolean).join(' ')).trim()
         }

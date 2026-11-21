@@ -12,6 +12,7 @@
     "ios:open": "cap open ios"
   },
   "dependencies": {
+    "@capacitor-firebase/app-check": "^8.6.0",
     "@capacitor-firebase/authentication": "^8.6.0",
     "@capacitor-firebase/messaging": "^8.6.0",
     "@capacitor/app": "^8.1.2",
@@ -23,7 +24,6 @@
     "@nuxtjs/ionic": "^1.0.2",
     "@nuxtjs/supabase": "^2.1.0",
     "@supabase/supabase-js": "^2.49.1",
-    "@vite-pwa/nuxt": "^1.1.1",
     "canvas-confetti": "^1.9.4",
     "firebase": "^13.4.0",
     "firebase-admin": "^14.5.1",
@@ -62,6 +62,9 @@
       "firebase": "$firebase"
     },
     "@capacitor-firebase/messaging": {
+      "firebase": "$firebase"
+    },
+    "@capacitor-firebase/app-check": {
       "firebase": "$firebase"
     }
   }

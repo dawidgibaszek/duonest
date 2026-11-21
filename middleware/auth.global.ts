@@ -1,7 +1,19 @@
+import { Capacitor } from '@capacitor/core'
+
 export default defineNuxtRouteMiddleware((to) => {
+  // The web site hosts the download page, administration and Firebase e-mail actions.
+  if (!import.meta.dev && !Capacitor.isNativePlatform()) {
+    if (to.path === '/' || to.path === '/admin') return
+    const emailAction = ['/verified', '/reset-password', '/auth/action'].includes(to.path)
+    if (emailAction && typeof to.query.oobCode === 'string' && to.query.oobCode) return
+    return navigateTo('/', { replace: true })
+  }
+
+  if (to.path === '/admin') return
+
   // 1. Whitelist public standalone landing pages (verified and reset-password)
   // These pages handle their own auth state and MUST NEVER be automatically redirected to /tabs/nest
-  if (to.path === '/verified' || to.path === '/reset-password' || to.path === '/auth/action') {
+  if (to.path === '/verified' || to.path === '/reset-password' || to.path === '/auth/action' || to.path === '/admin') {
     return
   }
 

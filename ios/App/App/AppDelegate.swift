@@ -13,6 +13,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         if FirebaseApp.app() == nil {
             FirebaseApp.configure()
         }
+        MetricKitDiagnostics.shared.start()
         DispatchQueue.main.async {
             application.registerForRemoteNotifications()
         }

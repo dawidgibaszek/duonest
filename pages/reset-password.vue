@@ -58,7 +58,7 @@
 
             <div class="dn-auth-stack">
               <button type="button" class="dn-auth-btn dn-auth-btn--outline" @click="goToLogin">
-                <span>Wróć do logowania</span>
+                <span>{{ browserOnly ? 'Wróć na stronę DuoNest' : 'Wróć do logowania' }}</span>
               </button>
             </div>
           </template>
@@ -68,9 +68,10 @@
             <header class="dn-auth-heading">
               <h1 class="dn-auth-title">Hasło zmienione</h1>
               <DuoAuthHero :tiles="heroTiles" bare />
-              <p class="dn-auth-subtitle">Twoje nowe hasło zostało zapisane. Trwa logowanie do DuoNest…</p>
+              <p class="dn-auth-subtitle">{{ browserOnly ? 'Twoje nowe hasło zostało zapisane. Zaloguj się w aplikacji DuoNest na telefonie.' : 'Twoje nowe hasło zostało zapisane. Trwa logowanie do DuoNest…' }}</p>
             </header>
-            <div class="dn-auth-status">
+            <button v-if="browserOnly" type="button" class="dn-auth-btn" @click="goToLogin">Wróć na stronę DuoNest</button>
+            <div v-else class="dn-auth-status">
               <ion-spinner name="crescent" />
             </div>
           </template>
@@ -125,7 +126,7 @@
                 :disabled="!isFormValid || isLoading"
               >
                 <ion-spinner name="crescent" v-if="isLoading" />
-                <span v-else>Zapisz i zaloguj</span>
+                <span v-else>{{ browserOnly ? 'Zapisz hasło' : 'Zapisz i zaloguj' }}</span>
               </button>
             </form>
           </template>
@@ -141,6 +142,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { Capacitor } from '@capacitor/core'
 import {
   IonPage,
   IonContent,
@@ -164,6 +166,7 @@ import { useDuoState, getSupabaseClient, sanitizeEmail } from '~/composables/use
 import { translateAppError } from '~/utils/errorTranslator'
 
 const { completePasswordReset, requestPasswordReset, isPaired, currentUser, partnership } = useDuoState()
+const browserOnly = !import.meta.dev && !Capacitor.isNativePlatform()
 
 const pageStatus = ref<'checking' | 'valid' | 'expired' | 'success'>('checking')
 const verifiedEmail = ref('')
@@ -213,7 +216,7 @@ const isFormValid = computed(() => {
 })
 
 const goToLogin = () => {
-  window.location.href = '/login'
+  window.location.href = browserOnly ? '/' : '/login'
 }
 
 onMounted(async () => {
@@ -280,7 +283,7 @@ const handleSubmit = async () => {
   try {
     const { error } = await completePasswordReset(
       newPassword.value,
-      verifiedEmail.value,
+      browserOnly ? undefined : verifiedEmail.value,
       undefined,
       resetOobCode.value
     )
@@ -292,6 +295,7 @@ const handleSubmit = async () => {
     }
 
     pageStatus.value = 'success'
+    if (browserOnly) return
     setTimeout(() => {
       const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id)
         ? '/tabs/nest'

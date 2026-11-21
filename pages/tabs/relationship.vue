@@ -551,6 +551,27 @@
           </button>
         </section>
 
+        <section v-if="iosDiagnostics.available" class="rl-section">
+          <div class="rl-section-head">
+            <h3 class="rl-section-title">Diagnostyka</h3>
+          </div>
+          <div class="rl-list">
+            <div class="rl-toggle-row">
+              <span class="rl-row-body">
+                <span class="rl-row-title">Wysyłaj raporty diagnostyczne</span>
+                <span class="rl-row-sub">Pomóż nam poprawiać wydajność DuoNest. Raporty nie zawierają treści z aplikacji ani danych konta.</span>
+              </span>
+              <ion-toggle
+                aria-label="Wysyłaj raporty diagnostyczne"
+                :checked="iosDiagnostics.enabled.value"
+                :disabled="diagnosticsSaving"
+                @ionChange="handleDiagnosticsToggle"
+              />
+            </div>
+          </div>
+          <p v-if="diagnosticsError" class="rl-error">{{ diagnosticsError }}</p>
+        </section>
+
         <!-- PAIR -->
         <section class="rl-section">
           <div class="rl-section-head">
@@ -668,6 +689,7 @@
         :is-open="isEditProfileModalOpen"
         @didDismiss="closeEditProfileModal"
         class="dn-form-sheet-modal"
+        :expand-to-scroll="false"
         :breakpoints="[0, 0.92, 1]"
         :initial-breakpoint="0.92"
         :handle="true"
@@ -775,6 +797,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import confetti from 'canvas-confetti'
 import { useDuoState } from '~/composables/useDuoState'
+import { useIosDiagnostics } from '~/composables/useIosDiagnostics'
 import { usePushNotifications } from '~/composables/usePushNotifications'
 import { useMusic } from '~/composables/useMusic'
 import { useConfirm } from '~/composables/useConfirm'
@@ -786,6 +809,25 @@ import DuoMusicCard from '~/components/DuoMusicCard.vue'
  * refused (e.g. notification permission denied), Vue does not re-render because the
  * bound value did not change – so we put the toggle back to the real state.
  */
+const iosDiagnostics = useIosDiagnostics()
+const diagnosticsSaving = ref(false)
+const diagnosticsError = ref('')
+
+async function handleDiagnosticsToggle(event: CustomEvent<{ checked: boolean }>) {
+  diagnosticsSaving.value = true
+  diagnosticsError.value = ''
+  try {
+    await iosDiagnostics.setEnabled(event.detail.checked)
+  } catch {
+    diagnosticsError.value = 'Nie udało się zapisać ustawienia. Spróbuj ponownie.'
+    if (event.target instanceof HTMLElement) {
+      (event.target as HTMLIonToggleElement).checked = iosDiagnostics.enabled.value
+    }
+  } finally {
+    diagnosticsSaving.value = false
+  }
+}
+
 const runToggle = async (event: any, action: () => unknown, actual: () => unknown) => {
   const el = event?.target as HTMLIonToggleElement | null
   try {

@@ -51,6 +51,7 @@ const config: CapacitorConfig = {
         },
         // Avoids the SwiftPM package identity collision (capacitor-firebase#959)
         packageOptions: {
+          '@capacitor-firebase/app-check': { symlink: true },
           '@capacitor-firebase/authentication': { symlink: true },
           '@capacitor-firebase/messaging': { symlink: true }
         }

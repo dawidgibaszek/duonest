@@ -45,7 +45,7 @@ let hasAttachedAuthListener = false
 let profileSyncInFlight: { uid: string; promise: Promise<boolean> } | null = null
 let profileSyncRetries = 0
 
-const PUBLIC_ROUTES = ['/welcome', '/login', '/register', '/verified', '/reset-password', '/auth/action', '/']
+const PUBLIC_ROUTES = ['/welcome', '/login', '/register', '/verified', '/reset-password', '/auth/action', '/admin', '/']
 
 /** Firebase has no session, but the UI still shows a cached one → send the user to /welcome. */
 const leaveProtectedRoute = () => {
