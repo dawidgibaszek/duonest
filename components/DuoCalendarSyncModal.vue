@@ -3,6 +3,7 @@
     :is-open="isOpen"
     @didDismiss="handleClose"
     class="dn-calendar-sync-modal"
+    :expand-to-scroll="false"
     :breakpoints="[0, 0.92, 1]"
     :initial-breakpoint="0.92"
     :handle="true"

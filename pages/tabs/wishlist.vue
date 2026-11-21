@@ -162,8 +162,9 @@
     <!-- ADD SHEET: paste a link or add manually (opened from the "+" in the header) -->
     <ion-modal
       :is-open="isAddSheetOpen"
-      @didDismiss="isAddSheetOpen = false"
+      @didDismiss="onImportDismiss"
       class="dn-form-sheet-modal"
+      :expand-to-scroll="false"
       :breakpoints="[0, 0.75, 0.92]"
       :initial-breakpoint="0.75"
       :handle="true"
@@ -224,7 +225,7 @@
           </button>
         </form>
 
-        <button type="button" class="wi-manual" @click="isModalOpen ? (isAddSheetOpen = false) : openManualAddModal()">
+        <button type="button" class="wi-manual" @click="isAddSheetOpen = false">
           Wolę wpisać ręcznie
         </button>
       </ion-content>
@@ -232,8 +233,9 @@
 
     <ion-modal
       :is-open="isModalOpen"
-      @didDismiss="closeModal"
+      @didDismiss="onItemFormDismiss"
       class="dn-wishlist-modal"
+      :expand-to-scroll="false"
       :breakpoints="[0, 0.92, 1]"
       :initial-breakpoint="0.92"
       :handle="true"
@@ -486,7 +488,7 @@
 
 <script setup lang="ts">
 import { getFirebaseBridge } from '~/composables/useFirebaseBridge'
-import { ref, computed, onMounted, onUnmounted, nextTick, watch, reactive } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, reactive } from 'vue'
 import {
   openOutline as ioniconsOpenOutline,
   pencilOutline as ioniconsPencilOutline,
@@ -582,10 +584,9 @@ const filters = [
 const isModalOpen = ref(false)
 const isAddSheetOpen = ref(false)
 
-// The item form opens after a successful scrape or "Dodaj ręcznie" – close the add sheet so sheets never stack
-watch(isModalOpen, (open) => {
-  if (open) isAddSheetOpen.value = false
-})
+const itemFormTransition = useSheetTransition(isModalOpen)
+let returnToItemForm = false
+
 const editingItemId = ref<string | null>(null)
 const formTarget = ref<'me' | 'partner' | 'together'>('me')
 
@@ -722,7 +723,7 @@ const getEmptyDescription = (): string => {
 // Scrape URL Action
 const handleScrapeUrl = async () => {
   let url = urlInput.value.trim()
-  if (!url) return
+  if (!url || isScraping.value) return
   if (!/^https?:\/\//i.test(url)) {
     url = 'https://' + url
   }
@@ -762,6 +763,11 @@ const handleScrapeUrl = async () => {
     } catch (_) {}
   }
 
+  if (!isAddSheetOpen.value) {
+    isScraping.value = false
+    return
+  }
+
   // 3. Pre-fill form & open modal
   if (resData && (resData.title || resData.site_name)) {
     let fallbackLogo = ''
@@ -777,12 +783,9 @@ const handleScrapeUrl = async () => {
       site_name: resData.site_name || '',
       url: resData.url || url,
       image_url: resData.image_url || fallbackLogo,
-      note: '',
-      is_visible_to_partner: true
+      note: formData.value.note,
+      is_visible_to_partner: formData.value.is_visible_to_partner
     }
-    editingItemId.value = null
-    formTarget.value = resolveDefaultTarget()
-    isModalOpen.value = true
     isAddSheetOpen.value = false
     urlInput.value = ''
     triggerToast(resNotice || 'Pobrano dane')
@@ -800,12 +803,9 @@ const handleScrapeUrl = async () => {
       site_name: fallbackSite,
       url: url,
       image_url: '',
-      note: '',
-      is_visible_to_partner: true
+      note: formData.value.note,
+      is_visible_to_partner: formData.value.is_visible_to_partner
     }
-    editingItemId.value = null
-    formTarget.value = resolveDefaultTarget()
-    isModalOpen.value = true
     isAddSheetOpen.value = false
     urlInput.value = ''
     scrapeError.value = 'Wpisz szczegóły przedmiotu ręcznie.'
@@ -815,10 +815,24 @@ const handleScrapeUrl = async () => {
   isScraping.value = false
 }
 
-// Open the link-import sheet (stacked over the add form)
+const onItemFormDismiss = () => {
+  editingItemId.value = null
+  itemFormTransition.didDismiss()
+}
+
+const onImportDismiss = () => {
+  isAddSheetOpen.value = false
+  if (!returnToItemForm) return
+  returnToItemForm = false
+  isModalOpen.value = true
+}
+
 const openImportSheet = () => {
-  scrapeError.value = null
-  isAddSheetOpen.value = true
+  itemFormTransition.closeThen(() => {
+    scrapeError.value = null
+    returnToItemForm = true
+    isAddSheetOpen.value = true
+  })
 }
 
 // Open manual add modal (backup when no link)

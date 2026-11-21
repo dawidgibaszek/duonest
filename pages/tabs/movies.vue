@@ -276,11 +276,12 @@
       <!-- ========================================================== -->
       <ion-modal
         :is-open="isSearchModalOpen"
+        :expand-to-scroll="false"
         :breakpoints="[0, 0.92, 1]"
         :initial-breakpoint="0.92"
         handle-behavior="cycle"
         class="dn-movies-search-modal"
-        @didDismiss="closeSearchModal"
+        @didDismiss="onSearchDismiss"
       >
         <div class="dn-modal-container search-modal-layout">
           <!-- Premium Header -->
@@ -321,7 +322,6 @@
                 <ion-icon :icon="ioniconsSearchOutline" />
               </div>
               <input
-                ref="searchInputRef"
                 v-model="tmdbSearchQuery"
                 type="text"
                 placeholder="Wpisz np. Incepcja, The Last of Us, Spirited Away..."
@@ -602,6 +602,7 @@
       <!-- ========================================================== -->
       <ion-modal
         :is-open="isReviewModalOpen"
+        :expand-to-scroll="false"
         :breakpoints="[0, 0.92, 1]"
         :initial-breakpoint="0.92"
         handle-behavior="cycle"
@@ -720,7 +721,7 @@
         :initial-breakpoint="0.95"
         handle-behavior="cycle"
         class="dn-movies-random-modal"
-        @didDismiss="closeRandomModal"
+        @didDismiss="onRandomDismiss"
       >
         <div class="dn-modal-container random-modal-layout">
           <!-- Header -->
@@ -1015,6 +1016,7 @@
       <!-- ========================================================== -->
       <ion-modal
         :is-open="isManualModalOpen"
+        :expand-to-scroll="false"
         :breakpoints="[0, 0.88, 1]"
         :initial-breakpoint="0.88"
         handle-behavior="cycle"
@@ -1177,7 +1179,7 @@
         :initial-breakpoint="0.9"
         handle-behavior="cycle"
         class="dn-movies-details-modal"
-        @didDismiss="closeDetailsModal"
+        @didDismiss="onDetailsDismiss"
       >
         <div class="dn-modal-container details-modal-layout" v-if="selectedMovieForDetails">
           <!-- Header -->
@@ -1476,6 +1478,7 @@
       <!-- ========================================================== -->
       <ion-modal
         :is-open="isEpisodeModalOpen"
+        :expand-to-scroll="false"
         :breakpoints="[0, 0.65, 0.95]"
         :initial-breakpoint="0.65"
         handle-behavior="cycle"
@@ -1804,7 +1807,7 @@ const formatWatchedDate = (isoStr?: string | null): string => {
 
 // --- MODAL 1: TMDB SEARCH & RECOMMENDATIONS ---
 const isSearchModalOpen = ref(false)
-const searchInputRef = ref<HTMLInputElement | null>(null)
+const searchTransition = useSheetTransition(isSearchModalOpen)
 const tmdbSearchQuery = ref('')
 const searchCategory = ref<'all' | 'movie' | 'tv' | 'anime'>('all')
 const isSearching = ref(false)
@@ -1865,15 +1868,17 @@ const openSearchModal = () => {
   searchError.value = ''
   apiKeyWarning.value = ''
   loadTrendingForCategory(searchCategory.value)
-  setTimeout(() => {
-    searchInputRef.value?.focus()
-  }, 350)
 }
 
 const closeSearchModal = () => {
   isSearchModalOpen.value = false
   tmdbSearchQuery.value = ''
   searchResults.value = []
+}
+
+const onSearchDismiss = () => {
+  closeSearchModal()
+  searchTransition.didDismiss()
 }
 
 const clearSearch = () => {
@@ -2143,6 +2148,7 @@ const submitReview = async () => {
 
 // --- MODAL 3: RANDOM MOVIE PICKER ---
 const isRandomModalOpen = ref(false)
+const randomMovieTransition = useSheetTransition(isRandomModalOpen)
 const randomSource = ref<'list' | 'tmdb'>('list')
 const randomFilterType = ref<'all' | 'movie' | 'tv' | 'anime'>('all')
 const randomGenre = ref<string>('all')
@@ -2406,9 +2412,10 @@ const openManualAddWithTitle = (title: string) => {
     })
     return
   }
-  closeSearchModal()
-  openManualAddModal()
-  manualForm.value.title = title
+  searchTransition.closeThen(() => {
+    openManualAddModal()
+    manualForm.value.title = title
+  })
 }
 
 const closeManualModal = () => {
@@ -2466,6 +2473,7 @@ const submitManualAdd = async () => {
 
 // --- MODAL 5: DETAILS MODAL ---
 const isDetailsModalOpen = ref(false)
+const movieDetailsTransition = useSheetTransition(isDetailsModalOpen)
 const selectedMovieForDetails = ref<any | null>(null)
 
 const savedMovieInList = computed<MovieItem | null>(() => {
@@ -2478,6 +2486,10 @@ const savedMovieInList = computed<MovieItem | null>(() => {
 })
 
 const openMovieDetailsModal = (movie: any) => {
+  if (isSearchModalOpen.value) {
+    searchTransition.closeThen(() => openMovieDetailsModal(movie))
+    return
+  }
   selectedMovieForDetails.value = movie
   isDetailsModalOpen.value = true
 }
@@ -2487,17 +2499,23 @@ const closeDetailsModal = () => {
   selectedMovieForDetails.value = null
 }
 
-const openReviewFromDetails = () => {
-  const m = savedMovieInList.value || selectedMovieForDetails.value
+const onDetailsDismiss = () => {
   closeDetailsModal()
-  if (m && m.id) {
-    openReviewModal(m)
-  }
+  movieDetailsTransition.didDismiss()
+}
+
+const openReviewFromDetails = () => {
+  const movie = savedMovieInList.value || selectedMovieForDetails.value
+  if (movie?.id) movieDetailsTransition.closeThen(() => openReviewModal(movie))
 }
 
 const deleteFromDetails = (movie: MovieItem) => {
-  closeDetailsModal()
-  confirmDeleteMovie(movie)
+  movieDetailsTransition.closeThen(() => { void confirmDeleteMovie(movie) })
+}
+
+const onRandomDismiss = () => {
+  closeRandomModal()
+  randomMovieTransition.didDismiss()
 }
 
 // --- MODAL 6: EPISODE PROGRESS MODAL ---
@@ -2514,6 +2532,14 @@ const isSeries = (item?: any): boolean => {
 }
 
 const openEpisodeModal = (movie: MovieItem) => {
+  const previous = isDetailsModalOpen.value ? movieDetailsTransition
+    : isSearchModalOpen.value ? searchTransition
+    : isRandomModalOpen.value ? randomMovieTransition
+    : null
+  if (previous) {
+    previous.closeThen(() => openEpisodeModal(movie))
+    return
+  }
   selectedMovieForEpisode.value = movie
   episodeForm.value = {
     season: movie.last_watched_season || 1,

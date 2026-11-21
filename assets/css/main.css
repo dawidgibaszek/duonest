@@ -305,6 +305,17 @@ ion-modal ion-content.ion-padding {
   --padding-end: 20px;
 }
 
+ion-modal ion-content[style*="--dn-keyboard-overlap"] {
+  --keyboard-offset: var(--dn-keyboard-overlap);
+}
+
+ion-modal .ion-content-scroll-host[style*="--dn-keyboard-overlap"]::after {
+  content: "";
+  display: block;
+  flex: none;
+  height: var(--dn-keyboard-overlap);
+}
+
 .dn-form-sheet-handle-spacer {
   width: 100%;
   height: 20px;

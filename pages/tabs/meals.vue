@@ -855,7 +855,7 @@
     <!-- ============================================== -->
     <ion-modal
       :is-open="showDetailsModal"
-      @didDismiss="showDetailsModal = false"
+      @didDismiss="detailsTransition.didDismiss"
       class="dn-meal-sheet-modal dn-recipe-details-modal"
       :breakpoints="[0, 0.92, 1]"
       :initial-breakpoint="0.92"
@@ -1154,7 +1154,7 @@
     <!-- ============================================== -->
     <ion-modal
       :is-open="showAddCustomModal"
-      @didDismiss="showAddCustomModal = false"
+      @didDismiss="customMealTransition.didDismiss"
       class="dn-meal-sheet-modal dn-custom-meal-modal"
       :breakpoints="[0, 0.92, 1]"
       :initial-breakpoint="0.92"
@@ -1193,7 +1193,7 @@
         <button
           type="button"
           class="import-shortcut-banner"
-          @click="showAddCustomModal = false; openImportRecipeModal()"
+          @click="customMealTransition.closeThen(openImportRecipeModal)"
         >
           <div class="shortcut-text-wrap">
             <ion-icon :icon="ioniconsLinkOutline" class="shortcut-icon" />
@@ -1425,7 +1425,7 @@
     <!-- ============================================== -->
     <ion-modal
       :is-open="showPickSavedModal"
-      @didDismiss="showPickSavedModal = false"
+      @didDismiss="savedMealTransition.didDismiss"
       class="dn-meal-sheet-modal dn-pick-saved-modal"
       :breakpoints="[0, 0.92, 1]"
       :initial-breakpoint="0.92"
@@ -1530,7 +1530,7 @@
               <button
                 type="button"
                 class="dn-button-primary saved-empty-btn"
-                @click="showPickSavedModal = false; openExploreForDate(targetPickDate)"
+                @click="savedMealTransition.closeThen(() => openExploreForDate(targetPickDate))"
               >
                 <ion-icon :icon="ioniconsSparklesOutline" />
                 <span>Odkryj inspiracje</span>
@@ -1538,7 +1538,7 @@
               <button
                 type="button"
                 class="slot-btn slot-secondary-btn saved-empty-btn"
-                @click="showPickSavedModal = false; openAddCustomModal(targetPickDate)"
+                @click="savedMealTransition.closeThen(() => openAddCustomModal(targetPickDate))"
               >
                 <ion-icon :icon="ioniconsAddOutline" />
                 <span>Wpisz własny obiad</span>
@@ -2694,6 +2694,7 @@ const handleSurpriseMe = async () => {
 
 // --- MODALS & DETAILS ---
 const showDetailsModal = ref(false)
+const detailsTransition = useSheetTransition(showDetailsModal)
 const activeSelectedMeal = ref<any>(null)
 const isTranslatingRecipe = ref(false)
 
@@ -2743,10 +2744,7 @@ const openApiMealPreview = async (meal: any) => {
 }
 
 const openAssignFromDetails = (meal: any) => {
-  showDetailsModal.value = false
-  setTimeout(() => {
-    openAssignModal(meal)
-  }, 220)
+  detailsTransition.closeThen(() => { void openAssignModal(meal) })
 }
 
 const handleAddIngredientsFromDetails = async () => {
@@ -2835,6 +2833,7 @@ const openExploreForDate = (dateStr: string) => {
 
 // --- PICK FROM SAVED RECIPES MODAL ---
 const showPickSavedModal = ref(false)
+const savedMealTransition = useSheetTransition(showPickSavedModal)
 const targetPickDate = ref('')
 const pickModalSearch = ref('')
 const pickModalCook = ref<'me' | 'partner' | 'both' | 'restaurant' | 'takeout'>('me')
@@ -3003,6 +3002,7 @@ const openSavedRecipeDetails = (recipe: SavedRecipe) => {
 
 // --- ADD CUSTOM MEAL / COOKBOOK RECIPE MODAL ---
 const showAddCustomModal = ref(false)
+const customMealTransition = useSheetTransition(showAddCustomModal)
 const customTitle = ref('')
 const customDate = ref('')
 const customCook = ref<'me' | 'partner' | 'both' | 'restaurant' | 'takeout'>('me')

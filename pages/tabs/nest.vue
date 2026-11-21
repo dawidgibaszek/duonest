@@ -305,6 +305,7 @@
         :is-open="isMilestoneModalOpen"
         @didDismiss="closeMilestoneModal"
         class="dn-form-sheet-modal"
+        :expand-to-scroll="false"
         :breakpoints="[0, 0.92, 1]"
         :initial-breakpoint="0.92"
         :handle="true"
