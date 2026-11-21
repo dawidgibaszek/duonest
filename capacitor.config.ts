@@ -1,14 +1,19 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
 /**
- * Native iOS shell for DuoNest.
- *   npm run ios:build   → nuxt generate + cap sync ios
- *   npm run ios:open    → open the project in Xcode (Archive → TestFlight)
+ * Native mobile shell for DuoNest (iOS & Android).
+ *   npm run ios:build      → nuxt generate + cap sync ios
+ *   npm run ios:open       → open the project in Xcode (Archive → TestFlight)
+ *   npm run android:build  → nuxt generate + cap sync android
+ *   npm run android:open   → open the project in Android Studio
  */
 const config: CapacitorConfig = {
   appId: 'com.belka.duonest',
   appName: 'DuoNest',
   webDir: 'dist',
+  android: {
+    backgroundColor: '#f6f2e7'
+  },
   ios: {
     // Web content goes under the status bar / notch; the app pads itself with env(safe-area-inset-*)
     contentInset: 'never',

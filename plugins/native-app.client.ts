@@ -12,12 +12,23 @@ export default defineNuxtPlugin({
   setup(nuxtApp) {
     if (!Capacitor.isNativePlatform()) return
 
-    document.documentElement.classList.add('dn-native', `dn-native-${Capacitor.getPlatform()}`)
+    const platform = Capacitor.getPlatform()
+    document.documentElement.classList.add('dn-native', `dn-native-${platform}`)
+
+    // Android WebView runs on https://localhost; ensure any legacy Service Worker is retired.
+    if (platform === 'android' && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations()
+        .then(regs => Promise.all(regs.map(reg => reg.unregister())))
+        .catch(() => {})
+    }
 
     // --- Status bar & launch screen ----------------------------------------
     nuxtApp.hook('app:mounted', async () => {
       try {
         const { StatusBar, Style } = await import('@capacitor/status-bar')
+        if (platform === 'android') {
+          await StatusBar.setOverlaysWebView({ overlay: true }).catch(() => {})
+        }
         await StatusBar.setStyle({ style: Style.Light }) // dark icons
       } catch (_) {}
       try {

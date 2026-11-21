@@ -1,0 +1,68 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace = "com.belka.duonest"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.belka.duonest"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+def hasGoogleServices = false
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.exists() && servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+        hasGoogleServices = true
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied.")
+}
+
+if (!hasGoogleServices) {
+    logger.warn("android/app/google-services.json is missing. Using fallback Firebase resources so debug builds do not crash on launch; add google-services.json from Firebase Console for native FCM & Google Sign-In.")
+    android.defaultConfig {
+        resValue "string", "project_id", "duonest-38dc2"
+        resValue "string", "google_app_id", "1:273218538953:web:f8daf30bf01ae40a66ec18"
+        resValue "string", "google_api_key", "AIzaSyBrxtidFifD4vlf9OPSu9jkMWJLVsJAKV8"
+        resValue "string", "gcm_defaultSenderId", "273218538953"
+        resValue "string", "google_storage_bucket", "duonest-38dc2.firebasestorage.app"
+        resValue "string", "firebase_database_url", "https://duonest-38dc2-default-rtdb.europe-west1.firebasedatabase.app"
+    }
+}

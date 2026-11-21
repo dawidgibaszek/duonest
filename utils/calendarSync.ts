@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core'
 import type { EventItem } from '~/composables/useDuoState'
 
 export interface ParsedIcsEvent {
@@ -271,8 +272,9 @@ export function generateOutlookCalendarSubscribeUrl(feedUrl: string): string {
  */
 export function getCalendarFeedUrls(token: string, currentOrigin?: string): { webcalUrl: string; httpsUrl: string } {
   const pageOrigin = typeof window !== 'undefined' ? window.location.origin : ''
-  // The iOS app runs on capacitor://localhost – calendar apps need the public site
-  const origin = currentOrigin || (/^https?:\/\//.test(pageOrigin) ? pageOrigin : 'https://duonestapp.pl')
+  // Native Capacitor apps run on capacitor://localhost (iOS) or https://localhost (Android) – calendar apps need the public site
+  const isPublicWebOrigin = !Capacitor.isNativePlatform() && /^https?:\/\//.test(pageOrigin) && !/^https?:\/\/localhost$/i.test(pageOrigin)
+  const origin = currentOrigin || (isPublicWebOrigin ? pageOrigin : 'https://duonestapp.pl')
   const cleanOrigin = origin.replace(/\/+$/, '')
   const path = `/api/calendar/feed?token=${encodeURIComponent(token)}`
 

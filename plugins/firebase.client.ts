@@ -9,7 +9,7 @@ let nativeAppCheckReady: Promise<void> | undefined
 export default defineNuxtPlugin(() => {
   const { app, auth, db, rtdb } = useFirebase()
   const siteKey = useRuntimeConfig().public.appCheckRecaptchaSiteKey
-  const provider = Capacitor.getPlatform() === 'ios'
+  const provider = Capacitor.isNativePlatform()
     ? new CustomProvider({
         async getToken() {
           nativeAppCheckReady ??= FirebaseAppCheck.initialize().catch(error => {
@@ -22,7 +22,7 @@ export default defineNuxtPlugin(() => {
           return { token, expireTimeMillis }
         }
       })
-    : siteKey && !Capacitor.isNativePlatform() ? new ReCaptchaEnterpriseProvider(siteKey) : undefined
+    : siteKey ? new ReCaptchaEnterpriseProvider(siteKey) : undefined
 
   const appCheck = provider ? initializeAppCheck(app, { provider, isTokenAutoRefreshEnabled: true }) : undefined
   installDuoApiFetch(appCheck)

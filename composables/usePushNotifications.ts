@@ -46,12 +46,12 @@ export const pushSettings = reactive<PushCategorySettings>({ ...DEFAULT_PUSH_SET
 
 let isInitialized = false
 
-// --- iOS app (Capacitor): native push via Firebase Cloud Messaging -------------
-// The web build uses Web Push + service worker; inside the app there is no
-// service worker, so the device registers an FCM token with the backend instead
-// and the server delivers through APNs (see server/utils/pushCore.ts).
+// --- Native app (Capacitor iOS & Android): push via Firebase Cloud Messaging -
+// The web build uses Web Push + service worker; inside the native app there is
+// no Web Push manager, so the device registers an FCM token with the backend
+// instead and the server delivers through APNs / FCM (see server/utils/pushCore.ts).
 export const isNativeApp = () =>
-  Capacitor.getPlatform() === 'ios' || (typeof window !== 'undefined' && window.location.protocol === 'capacitor:')
+  Capacitor.isNativePlatform() || (typeof window !== 'undefined' && window.location.protocol === 'capacitor:')
 
 const STORAGE_KEY_ENABLED = 'duonest_push_enabled'
 const STORAGE_KEY_SETTINGS = 'duonest_push_settings'
@@ -513,7 +513,7 @@ export const usePushNotifications = () => {
       body: {
         fcmToken: token,
         previousFcmToken: nativeDevice?.uid === account.uid ? nativeDevice.token : undefined,
-        platform: 'ios',
+        platform: Capacitor.getPlatform() === 'android' ? 'android' : 'ios',
         enabled: true,
         settings: { ...pushSettings },
         userAgent: navigator.userAgent
@@ -577,7 +577,10 @@ export const usePushNotifications = () => {
 
     if (permission.value !== 'granted') {
       nativeRegistered.value = false
-      if (permission.value === 'denied') triggerToast('Powiadomienia zablokowane w iOS', { type: 'warning' })
+      if (permission.value === 'denied') {
+        const osLabel = Capacitor.getPlatform() === 'android' ? 'Androidzie' : 'iOS'
+        triggerToast(`Powiadomienia zablokowane w ${osLabel}`, { type: 'warning' })
+      }
       return false
     }
 
@@ -596,6 +599,27 @@ export const usePushNotifications = () => {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY_NATIVE_DEVICE) || 'null')
       if (typeof stored?.uid === 'string' && typeof stored?.token === 'string') nativeDevice = stored
     } catch {}
+
+    if (Capacitor.getPlatform() === 'android') {
+      void Promise.all([
+        FirebaseMessaging.createChannel({
+          id: 'duonest_default',
+          name: 'DuoNest – Powiadomienia',
+          description: 'Powiadomienia od partnera i ze wspólnego domu',
+          importance: 4,
+          vibration: true,
+          visibility: 1
+        }),
+        FirebaseMessaging.createChannel({
+          id: 'duonest_silent',
+          name: 'DuoNest – Ciche powiadomienia',
+          description: 'Powiadomienia bez dźwięku',
+          importance: 2,
+          vibration: false,
+          visibility: 1
+        })
+      ]).catch(() => console.warn('[Push] Could not create Android notification channels'))
+    }
 
     try {
       let pendingRoute: { url: string; recipient?: string } | undefined
