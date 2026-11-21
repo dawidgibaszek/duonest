@@ -202,8 +202,8 @@ async function removeDeadDevice(snapshot: any) {
   await snapshot.ref.delete({ lastUpdateTime: snapshot.updateTime }).catch(() => {})
 }
 
-function fcmFailureMessage(code: string) {
-  if (code === 'messaging/third-party-auth-error' || code === 'messaging/invalid-apns-credentials') {
+function fcmFailureMessage(code: string, platform?: string) {
+  if (platform !== 'android' && (code === 'messaging/third-party-auth-error' || code === 'messaging/invalid-apns-credentials')) {
     return 'Firebase odrzucił wysyłkę do iOS. Sprawdź klucz APNs dla środowiska tej wersji aplikacji w Firebase.'
   }
   return 'Firebase nie przyjął powiadomienia. Spróbuj ponownie.'
@@ -225,6 +225,16 @@ async function deliverToDevice(messaging: Messaging, doc: any, n: OutgoingNotifi
         token: sub.fcm_token,
         notification: { title: n.title, body: n.body },
         data: { url: n.url, category: n.category, action: n.action || '', recipientProfileId: sub.user_id },
+        android: {
+          priority: 'high',
+          ttl: TTL_SECONDS * 1000,
+          notification: {
+            channelId: silent ? 'duonest_silent' : 'duonest_default',
+            icon: 'ic_stat_duonest',
+            color: '#232c38',
+            ...(silent ? {} : { defaultSound: true, defaultVibrateTimings: settings.vibrate !== false })
+          }
+        },
         apns: {
           headers: {
             'apns-push-type': 'alert',
@@ -247,7 +257,7 @@ async function deliverToDevice(messaging: Messaging, doc: any, n: OutgoingNotifi
         await removeDeadDevice(doc)
         return { success: false, error: 'Rejestracja tego urządzenia wygasła. Włącz powiadomienia ponownie.' }
       }
-      return { success: false, error: fcmFailureMessage(code) }
+      return { success: false, error: fcmFailureMessage(code, sub.platform) }
     }
   }
 

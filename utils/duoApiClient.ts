@@ -6,7 +6,6 @@ export const NATIVE_API_ORIGIN = 'https://duonestapp.pl'
 
 export function installDuoApiFetch(appCheck?: AppCheck) {
   const native = Capacitor.isNativePlatform()
-  const nativeIos = native && Capacitor.getPlatform() === 'ios'
   let appInfo: ReturnType<typeof App.getInfo> | undefined
   const originalFetch = window.fetch.bind(window)
   const originalOfetch = globalThis.$fetch
@@ -24,7 +23,7 @@ export function installDuoApiFetch(appCheck?: AppCheck) {
   }
 
   async function addHeaders(headers: Headers) {
-    if (nativeIos) {
+    if (native) {
       appInfo ??= App.getInfo().catch(error => {
         appInfo = undefined
         throw error

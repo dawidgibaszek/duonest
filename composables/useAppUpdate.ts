@@ -1,20 +1,25 @@
 import { App } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
 import { ref, shallowRef } from 'vue'
-import { getIosUpdateUrl, needsAppUpdate } from '~/functions/src/appVersion'
+import { getAndroidUpdateUrl, getIosUpdateUrl, needsAppUpdate } from '~/functions/src/appVersion'
 import { useFirebase } from '~/composables/useFirebase'
 
 const REMOTE_DEFAULTS = {
   ios_minimum_version: '',
   ios_minimum_build: '',
-  ios_update_url: ''
+  ios_update_url: '',
+  android_minimum_version: '',
+  android_minimum_build: '',
+  android_update_url: ''
 }
 
 export function useAppUpdate() {
-  const isIos = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios'
-  const checking = ref(isIos)
+  const platform = Capacitor.getPlatform()
+  const isNativeMobile = Capacitor.isNativePlatform() && (platform === 'ios' || platform === 'android')
+  const isAndroid = platform === 'android'
+  const checking = ref(isNativeMobile)
   const requiredUpdate = shallowRef<{ url: string } | null>(null)
-  const firebase = isIos ? useFirebase().app : undefined
+  const firebase = isNativeMobile ? useFirebase().app : undefined
   let inFlight: Promise<void> | undefined
 
   async function refresh() {
@@ -26,10 +31,12 @@ export function useAppUpdate() {
     config.settings = { fetchTimeoutMillis: 4000, minimumFetchIntervalMillis: 60000 }
 
     const apply = () => {
-      const minimumVersion = sdk.getString(config, 'ios_minimum_version').trim()
-      const minimumBuild = sdk.getString(config, 'ios_minimum_build').trim()
+      const prefix = isAndroid ? 'android' : 'ios'
+      const minimumVersion = sdk.getString(config, `${prefix}_minimum_version`).trim()
+      const minimumBuild = sdk.getString(config, `${prefix}_minimum_build`).trim()
+      const rawUrl = sdk.getString(config, `${prefix}_update_url`).trim()
       requiredUpdate.value = needsAppUpdate(current, minimumVersion, minimumBuild)
-        ? { url: getIosUpdateUrl(sdk.getString(config, 'ios_update_url').trim()) }
+        ? { url: isAndroid ? getAndroidUpdateUrl(rawUrl) : getIosUpdateUrl(rawUrl) }
         : null
     }
 
@@ -41,7 +48,7 @@ export function useAppUpdate() {
   }
 
   function checkForUpdate() {
-    if (!isIos || inFlight) return
+    if (!isNativeMobile || inFlight) return
 
     // A slow connection can delay the answer without trapping the user at startup.
     const timer = checking.value ? window.setTimeout(() => { checking.value = false }, 2000) : undefined

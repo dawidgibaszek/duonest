@@ -9,12 +9,15 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "ios:build": "nuxt generate && cap sync ios",
-    "ios:open": "cap open ios"
+    "ios:open": "cap open ios",
+    "android:build": "nuxt generate && cap sync android",
+    "android:open": "cap open android"
   },
   "dependencies": {
     "@capacitor-firebase/app-check": "^8.6.0",
     "@capacitor-firebase/authentication": "^8.6.0",
     "@capacitor-firebase/messaging": "^8.6.0",
+    "@capacitor/android": "^8.6.2",
     "@capacitor/app": "^8.1.2",
     "@capacitor/core": "^8.6.2",
     "@capacitor/ios": "^8.6.2",

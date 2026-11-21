@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DuoNest</string>
+    <string name="title_activity_main">DuoNest</string>
+    <string name="package_name">com.belka.duonest</string>
+    <string name="custom_url_scheme">com.belka.duonest</string>
+</resources>

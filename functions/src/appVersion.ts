@@ -38,3 +38,19 @@ export function normalizeIosUpdateUrl(value: string) {
 export function getIosUpdateUrl(value: string) {
   return normalizeIosUpdateUrl(value) ?? 'https://apps.apple.com/app/testflight/id899247664'
 }
+
+export function normalizeAndroidUpdateUrl(value: string) {
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'https:' || url.username || url.password || url.port) return null
+    if (url.hostname === 'play.google.com') return url.href
+    if (url.href === 'https://duonestapp.pl/') return url.href
+  } catch {
+    // An empty Remote Config parameter uses the Google Play fallback.
+  }
+  return null
+}
+
+export function getAndroidUpdateUrl(value: string) {
+  return normalizeAndroidUpdateUrl(value) ?? 'https://play.google.com/store/apps/details?id=com.belka.duonest'
+}

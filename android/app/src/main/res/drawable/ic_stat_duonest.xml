@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="480"
+    android:viewportHeight="480">
+    <!-- Left bird -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="16"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M218,124 C212,106 197,100 183,101 C164,103 150,118 152,138 C154,160 168,175 165,200 C162,224 132,236 90,232 M157,160 C108,160 76,192 78,228 C80,262 115,287 155,287 C190,287 214,255 212,222 C210,197 193,189 194,178 C196,166 208,160 220,154 M44,196 C54,217 67,231 84,240" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M215,121 L241,142 L217,158 Z" />
+    <!-- Right bird -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="16"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M262,124 C268,106 283,100 297,101 C316,103 330,118 328,138 C326,160 312,175 315,200 C318,224 348,236 390,232 M323,160 C372,160 404,192 402,228 C400,262 365,287 325,287 C290,287 266,255 268,222 C270,197 287,189 286,178 C284,166 272,160 260,154 M436,196 C426,217 413,231 396,240" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M265,121 L239,142 L263,158 Z" />
+    <!-- Nest -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="15"
+        android:strokeLineCap="round"
+        android:pathData="M42,272 C120,300 260,312 340,305 C380,300 410,282 436,254 M438,272 C360,300 220,312 140,305 C100,300 70,282 44,254 M40,312 C62,300 84,306 122,322 C200,344 330,344 440,306 M62,258 C108,296 142,330 168,350 M418,258 C372,296 338,330 312,350 M150,356 C204,330 250,306 296,290 M330,356 C276,330 230,306 184,290 M118,342 C196,370 262,384 330,390 M362,342 C284,370 218,384 150,390 M122,372 C200,376 286,376 362,368" />
+</vector>
