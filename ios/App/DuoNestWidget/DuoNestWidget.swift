@@ -68,8 +68,7 @@ struct DoodleProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<DoodleEntry>) -> Void) {
         Task {
             let store = DoodleWidgetStore.shared
-            await DoodleWidgetSync.refresh()
-            let state = store.state()
+            let state = await DoodleWidgetSync.refresh() ?? store.state()
 
             let now = Date()
             var entries = [entry(at: now, state: state, drawing: nil, context: context)]

@@ -43,6 +43,7 @@ final class DuoWidgetPlugin: CAPPlugin, CAPBridgedPlugin {
         let doodle = DoodleWidgetDoodle(json: call.options["doodle"] as? [String: Any])
         var changed = false
         store.update { state in
+            if let cached = state.doodle, let incoming = doodle, cached.isNewer(than: incoming) { return }
             changed = state.doodle?.id != doodle?.id || state.doodle?.updatedAt != doodle?.updatedAt
             if changed { state.liveStrokes = [] }
             state.doodle = doodle
@@ -163,7 +164,7 @@ enum DoodleWidgetPush {
             Task {
                 let refreshed = await DoodleWidgetSync.refresh()
                 WidgetCenter.shared.reloadTimelines(ofKind: DoodleWidgetConfig.kind)
-                completion(refreshed ? .newData : .failed)
+                completion(refreshed != nil ? .newData : .failed)
             }
         default:
             completion(.noData)

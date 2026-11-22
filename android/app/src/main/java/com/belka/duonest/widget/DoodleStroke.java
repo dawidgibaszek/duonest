@@ -2,6 +2,8 @@ package com.belka.duonest.widget;
 
 import android.graphics.Color;
 import androidx.annotation.Nullable;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -57,6 +59,19 @@ final class DoodleStroke {
     int paintColor() {
         // White ink would vanish on the white board, so the app draws it in navy.
         return Color.parseColor("#ffffff".equalsIgnoreCase(color) ? "#0f172a" : color);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof DoodleStroke)) return false;
+        DoodleStroke stroke = (DoodleStroke) other;
+        return width == stroke.width && isEraser == stroke.isEraser &&
+            color.equals(stroke.color) && Arrays.equals(points, stroke.points);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(width, isEraser, color, Arrays.hashCode(points));
     }
 
     /** Partner broadcasts resend the same stroke while it grows; true when {@code next} continues this one. */

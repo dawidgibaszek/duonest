@@ -117,7 +117,9 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
                 if (sameBoard && previous.partnerDrawing == snapshot.partnerDrawing &&
                     previous.authorName.equals(snapshot.authorName)) continue;
                 RemoteViews views = buildViews(context, manager, id, snapshot, !sameBoard);
-                if (previous == null) manager.updateAppWidget(id, views);
+                // A bitmap belongs to a complete update. Partial updates can leave
+                // an older bitmap in the launcher cache.
+                if (!sameBoard) manager.updateAppWidget(id, views);
                 else manager.partiallyUpdateAppWidget(id, views);
                 displayed.put(id, snapshot);
             } catch (RuntimeException e) {

@@ -89,7 +89,7 @@ final class DoodleWidgetSync {
         if (response.status == 400 && isRevokedSession(response.body)) {
             // The app hands over a new session at the next sign-in.
             Log.w(TAG, "Widget session revoked");
-            if (session.sameAccount(store.session())) store.setSession(null);
+            store.clearRevokedSession(session);
             return null;
         }
         if (response.status != 200) throw new IOException("Token refresh HTTP " + response.status);

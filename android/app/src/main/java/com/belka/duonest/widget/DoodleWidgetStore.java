@@ -143,8 +143,16 @@ final class DoodleWidgetStore {
     }
 
     synchronized void updateRefreshToken(Session from, String refreshToken) {
-        if (session == null || !session.sameAccount(from) || refreshToken.equals(session.refreshToken)) return;
+        if (!hasRefreshToken(from) || refreshToken.equals(from.refreshToken)) return;
         setSession(session.withRefreshToken(refreshToken));
+    }
+
+    synchronized void clearRevokedSession(Session from) {
+        if (hasRefreshToken(from)) setSession(null);
+    }
+
+    private boolean hasRefreshToken(Session from) {
+        return from.sameAccount(session) && from.refreshToken.equals(session.refreshToken);
     }
 
     synchronized String currentDoodleKey() {

@@ -17,6 +17,10 @@ public class DuoWidgetPlugin extends Plugin {
     public void setSession(PluginCall call) {
         DoodleWidgetStore store = DoodleWidgetStore.get(getContext());
         DoodleWidgetStore.Session session = DoodleWidgetStore.Session.fromJson(call.getData());
+        if (session == null && call.getString("uid") != null) {
+            call.reject("Incomplete widget session");
+            return;
+        }
         store.setSession(session);
         if (session != null) store.setPartnerName(call.getString("partnerName", ""));
         DoodleWidgetProvider.requestRender(getContext());
@@ -26,7 +30,15 @@ public class DuoWidgetPlugin extends Plugin {
     @PluginMethod
     public void setDoodle(PluginCall call) {
         JSObject doodle = call.getObject("doodle", null);
-        DoodleWidgetStore.get(getContext()).setDoodle(doodle);
+        DoodleWidgetStore store = DoodleWidgetStore.get(getContext());
+        if (doodle == null) {
+            // A null value from the app can also mean data is still loading.
+            // Only a successful server read can clear the saved drawing.
+            if (!store.currentDoodleKey().isEmpty()) DoodleRefreshWorker.enqueue(getContext());
+            call.resolve();
+            return;
+        }
+        store.setDoodle(doodle);
         DoodleWidgetProvider.requestRender(getContext());
         call.resolve();
     }

@@ -17,8 +17,19 @@ export default defineNuxtPlugin(() => {
   let accessInFlight = false
   let sessionQueue: Promise<void> = Promise.resolve()
 
+  function androidSessionMatches(key: string | null) {
+    if (isAuthLoading.value || isLoggingOut.value) return false
+    const user = bridge.auth.currentUser
+    const pid = partnership.value?.id
+    if (!user) return key === null && !authSession.value
+    if (!authSession.value?.access_token || currentUser.value.auth_user_id !== user.uid) return false
+    if (key === null) return !pid && !currentUser.value.partnership_id
+    return pid === currentUser.value.partnership_id && key === `${user.uid}:${pid}`
+  }
+
   function queueSession(session: DuoWidgetSession, key: string | null) {
     sessionQueue = sessionQueue.catch(ignore).then(async () => {
+      if (!isIos && !androidSessionMatches(key)) return
       if (key && (isLoggingOut.value || key !== `${bridge.auth.currentUser?.uid}:${partnership.value?.id}`)) return
       await DuoWidget.setSession(session)
       installedSession = key
@@ -31,6 +42,8 @@ export default defineNuxtPlugin(() => {
     if (!installedSession || isAuthLoading.value || isLoggingOut.value ||
         installedSession !== `${bridge.auth.currentUser?.uid}:${partnership.value?.id}`) return
     const doodle = currentDoodle.value
+    if (!isIos && (!androidSessionMatches(installedSession) ||
+        (doodle && doodle.partnership_id !== partnership.value?.id))) return
     return DuoWidget.setDoodle({
       doodle: doodle
         ? { id: doodle.id, updated_at: doodle.updated_at, author_name: doodle.author_name, strokes: doodle.strokes }
@@ -76,7 +89,7 @@ export default defineNuxtPlugin(() => {
   }
 
   watch(
-    () => [isAuthLoading.value, isLoggingOut.value, authSession.value?.access_token, partnership.value?.id, partnerUser.value?.name, currentUser.value.auth_user_id, currentUser.value.id] as const,
+    () => [isAuthLoading.value, isLoggingOut.value, authSession.value?.access_token, partnership.value?.id, partnerUser.value?.name, currentUser.value.auth_user_id, currentUser.value.id, isIos ? undefined : currentUser.value.partnership_id] as const,
     ([loading, loggingOut, accessToken, pid, partnerName]) => {
       if (loading || loggingOut) return
       const user = bridge.auth.currentUser

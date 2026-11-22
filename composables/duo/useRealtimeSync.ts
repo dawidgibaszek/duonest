@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core'
 import { getFirebaseBridge } from '../useFirebaseBridge'
 import {
   currentUser,
@@ -518,6 +519,9 @@ export function useRealtimeSync(options?: {
     if (!bridge || !partnershipId) return false
     const profileId = currentUser.value.id
     const uid = bridge.auth.currentUser?.uid
+    // Android also renders the board from a native server read in the background.
+    // A cached dashboard query must not replace that drawing when the app resumes.
+    const readDoodleFromServer = serverOnly || Capacitor.getPlatform() === 'android'
     try {
       const [shops, tasks, evts, ndgs, wishes, movs, mls, mlsList, svgGoals, svgContribs, doodles] = await Promise.all([
         bridge.from('shopping_items', serverOnly).select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
@@ -533,7 +537,7 @@ export function useRealtimeSync(options?: {
         bridge.from('meals', serverOnly).select('*').eq('partnership_id', partnershipId).order('date', { ascending: true }),
         bridge.from('savings_goals', serverOnly).select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         bridge.from('savings_contributions', serverOnly).select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
-        bridge.from('partnership_doodles', serverOnly).select('*').eq('partnership_id', partnershipId).order('updated_at', { ascending: false }).limit(1)
+        bridge.from('partnership_doodles', readDoodleFromServer).select('*').eq('partnership_id', partnershipId).order('updated_at', { ascending: false }).limit(1)
       ])
 
       if (serverOnly && [shops, tasks, evts, ndgs, movs, mls, mlsList, svgGoals, svgContribs, doodles].some(result => result.error)) return false
