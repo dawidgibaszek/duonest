@@ -12,7 +12,8 @@ done
 # Cezar's Antigravity runner adds an unrestricted permission flag by default.
 for arg in "${args[@]}"; do
   if [[ "$arg" == --input-format || "$arg" == --input-format=* ]]; then
-    exec agy --sandbox --mode auto "${args[@]}"
+    root=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
+    exec bash "$root/worktree-sandbox.sh" agy --mode accept-edits "${args[@]}"
   fi
 done
 

@@ -1,0 +1,8 @@
+(version 1)
+(allow default)
+(deny file-read-data file-write* (subpath (param "DUONEST_VAULT")))
+(deny file-write*
+  (require-all
+    (subpath (param "DUONEST_REPO"))
+    (require-not (subpath (param "DUONEST_WORKTREE")))
+    (require-not (literal (param "DUONEST_HANDOFF")))))

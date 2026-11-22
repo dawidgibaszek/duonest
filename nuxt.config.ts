@@ -2,6 +2,7 @@
 import { databaseUrlForProject, DUONEST_PROJECT_ID } from './functions/src/firebaseProject'
 
 const firebaseProjectId = process.env.FIREBASE_PROJECT_ID || DUONEST_PROJECT_ID
+const cezarState = '**/.ai/cezar/**'
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
@@ -9,6 +10,7 @@ export default defineNuxtConfig({
   // Cream boot screen shown before the JS bundle loads (mirrored by pages/index.vue)
   spaLoadingTemplate: 'spa-loading-template.html',
   devtools: { enabled: false },
+  ignore: [cezarState],
 
   experimental: {
     appManifest: false
@@ -32,7 +34,8 @@ export default defineNuxtConfig({
     },
     server: {
       watch: {
-        usePolling: false
+        usePolling: false,
+        ignored: [cezarState]
       },
       ws: {
         clientPort: 3000,
