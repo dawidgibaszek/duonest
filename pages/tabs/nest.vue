@@ -496,6 +496,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useDuoState } from '~/composables/useDuoState'
+import type { DuoDoodleStroke } from '~/types/duo'
+import { isStrokeContinued } from '~/composables/duo/utils'
 import { usePushNotifications } from '~/composables/usePushNotifications'
 import { useMusic } from '~/composables/useMusic'
 import { useConfirm } from '~/composables/useConfirm'
@@ -552,9 +554,13 @@ const {
 
 const isDoodleModalOpen = ref(false)
 const previewCanvasRef = ref<HTMLCanvasElement | null>(null)
+const partnerLiveStrokes = ref<DuoDoodleStroke[]>([])
 
 const hasDoodleContent = computed(() => {
-  return Boolean(currentDoodle.value && currentDoodle.value.strokes && currentDoodle.value.strokes.length > 0)
+  return Boolean(
+    (currentDoodle.value && currentDoodle.value.strokes && currentDoodle.value.strokes.length > 0) ||
+    partnerLiveStrokes.value.length > 0
+  )
 })
 
 const renderPreviewCanvas = () => {
@@ -579,7 +585,10 @@ const renderPreviewCanvas = () => {
   ctx.imageSmoothingQuality = 'high'
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-  const doodleStrokes = currentDoodle.value?.strokes || []
+  const doodleStrokes = [
+    ...(currentDoodle.value?.strokes || []),
+    ...partnerLiveStrokes.value
+  ]
   for (const stroke of doodleStrokes) {
     const pts = stroke.points
     if (!pts || pts.length < 2) continue
@@ -628,11 +637,37 @@ const renderPreviewCanvas = () => {
   }
 }
 
-watch([() => currentDoodle.value, () => partnerLiveStroke.value], () => {
-  nextTick(() => {
-    renderPreviewCanvas()
-  })
+watch(() => partnerLiveStroke.value, (live) => {
+  if (live && live.stroke) {
+    const strokeCopy: DuoDoodleStroke = JSON.parse(JSON.stringify(live.stroke))
+    let foundIdx = -1
+    for (let i = partnerLiveStrokes.value.length - 1; i >= 0; i--) {
+      if (isStrokeContinued(partnerLiveStrokes.value[i], strokeCopy)) {
+        foundIdx = i
+        break
+      }
+    }
+    if (foundIdx >= 0) {
+      partnerLiveStrokes.value[foundIdx] = strokeCopy
+    } else {
+      partnerLiveStrokes.value.push(strokeCopy)
+    }
+  } else {
+    partnerLiveStrokes.value = []
+  }
+  schedulePreviewRender()
+})
+
+watch(() => currentDoodle.value, () => {
+  partnerLiveStrokes.value = []
+  schedulePreviewRender()
 }, { deep: true })
+
+watch(() => isPartnerDrawing.value, (isDrawing) => {
+  if (!isDrawing) {
+    schedulePreviewRender()
+  }
+})
 
 // The preview must be redrawn whenever the canvas gets a real size or loses its
 // pixels: it is 0×0 while hidden (v-show) or during the Ionic page transition,

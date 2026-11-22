@@ -163,10 +163,10 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import {
-  useDuoState,
-  type DuoDoodleStroke
-} from '~/composables/useDuoState'
+import { useDuoState } from '~/composables/useDuoState'
+import type { DuoDoodleStroke } from '~/types/duo'
+import { isStrokeContinued } from '~/composables/duo/utils'
+import { trackDuoEvent } from '~/composables/useDuoAnalytics'
 
 const props = defineProps<{
   isOpen: boolean
@@ -177,11 +177,13 @@ const emit = defineEmits<{
 }>()
 
 const {
+  currentUser,
   currentDoodle,
   partnerUser,
   isPartnerOnline,
   isPartnerDrawing,
   partnerLiveStroke,
+  triggerToast,
   saveDoodle,
   clearDoodle,
   broadcastLiveStroke,
@@ -232,14 +234,125 @@ let currentActiveStroke: DuoDoodleStroke | null = null
 let isDrawingActive = false
 let resizeObserver: ResizeObserver | null = null
 let lastBroadcastTime = 0
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
+let autoSaveMaxTimer: ReturnType<typeof setTimeout> | null = null
+let lastSavedStrokesJson = ''
+const hasLocalChanges = ref(false)
+const isSavingDoodle = ref(false)
+let activeSavePromise: Promise<boolean> | null = null
+let pendingAutoSave = false
+let isClosing = false
+
+const cancelAutoSave = () => {
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+    autoSaveTimer = null
+  }
+  if (autoSaveMaxTimer) {
+    clearTimeout(autoSaveMaxTimer)
+    autoSaveMaxTimer = null
+  }
+}
+
+const scheduleAutoSave = (delayMs = 1500, maxWaitMs = 3500) => {
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+    autoSaveTimer = null
+  }
+  if (!autoSaveMaxTimer) {
+    autoSaveMaxTimer = setTimeout(() => {
+      cancelAutoSave()
+      void performAutoSave()
+    }, maxWaitMs)
+  }
+  autoSaveTimer = setTimeout(() => {
+    cancelAutoSave()
+    void performAutoSave()
+  }, delayMs)
+}
+
+const performSaveInternal = async (options: { silent?: boolean } = {}): Promise<boolean> => {
+  const currentJson = JSON.stringify(strokes.value)
+  if (currentJson === lastSavedStrokesJson) {
+    hasLocalChanges.value = false
+    return true
+  }
+
+  if (strokes.value.length === 0) {
+    if (lastSavedStrokesJson && lastSavedStrokesJson !== '[]') {
+      const cleared = await clearDoodle({ silent: options.silent })
+      if (cleared) {
+        lastSavedStrokesJson = '[]'
+        hasLocalChanges.value = strokes.value.length > 0
+        return true
+      }
+      return false
+    }
+    lastSavedStrokesJson = '[]'
+    hasLocalChanges.value = false
+    return true
+  }
+
+  const canvas = canvasRef.value
+  let previewDataUrl: string | undefined = undefined
+  if (canvas) {
+    try {
+      previewDataUrl = canvas.toDataURL('image/png', 0.92)
+    } catch (_) {}
+  }
+
+  const strokesSnapshot = JSON.parse(currentJson)
+  const saved = await saveDoodle(strokesSnapshot, previewDataUrl, { silent: options.silent })
+  if (saved) {
+    lastSavedStrokesJson = currentJson
+    hasLocalChanges.value = JSON.stringify(strokes.value) !== lastSavedStrokesJson
+    return true
+  }
+  return false
+}
+
+const performAutoSave = async (): Promise<boolean> => {
+  if (activeSavePromise) {
+    pendingAutoSave = true
+    return activeSavePromise
+  }
+  const currentJson = JSON.stringify(strokes.value)
+  if (currentJson === lastSavedStrokesJson) {
+    hasLocalChanges.value = false
+    return true
+  }
+
+  isSavingDoodle.value = true
+  const savePromise = (async () => {
+    try {
+      return await performSaveInternal({ silent: true })
+    } finally {
+      isSavingDoodle.value = false
+      activeSavePromise = null
+      hasLocalChanges.value = JSON.stringify(strokes.value) !== lastSavedStrokesJson
+      if (pendingAutoSave || hasLocalChanges.value) {
+        pendingAutoSave = false
+        if (JSON.stringify(strokes.value) !== lastSavedStrokesJson) {
+          scheduleAutoSave(800, 2000)
+        }
+      }
+    }
+  })()
+
+  activeSavePromise = savePromise
+  return savePromise
+}
 
 // Populate strokes from currentDoodle
 const loadStrokesFromDoodle = () => {
+  cancelAutoSave()
+  hasLocalChanges.value = false
   if (currentDoodle.value && Array.isArray(currentDoodle.value.strokes)) {
     strokes.value = JSON.parse(JSON.stringify(currentDoodle.value.strokes))
   } else {
     strokes.value = []
   }
+  lastSavedStrokesJson = JSON.stringify(strokes.value)
 }
 
 // Ensure canvas is resized and drawn immediately across animation frames
@@ -280,6 +393,7 @@ watch(() => props.isOpen, (open) => {
     loadStrokesFromDoodle()
     triggerCanvasRefresh()
   } else {
+    cancelAutoSave()
     if (isDrawingActive) {
       isDrawingActive = false
       broadcastDrawingStatus(false)
@@ -289,9 +403,64 @@ watch(() => props.isOpen, (open) => {
 
 // Sync if currentDoodle updates in background while modal is open
 watch(() => currentDoodle.value, (newDoodle) => {
-  if (props.isOpen && !isDrawingActive && newDoodle && Array.isArray(newDoodle.strokes)) {
-    strokes.value = JSON.parse(JSON.stringify(newDoodle.strokes))
+  if (!props.isOpen) return
+
+  if (!newDoodle || !Array.isArray(newDoodle.strokes) || newDoodle.strokes.length === 0) {
+    cancelAutoSave()
+    strokes.value = []
+    lastSavedStrokesJson = '[]'
+    hasLocalChanges.value = false
+    currentActiveStroke = null
+    if (isDrawingActive) {
+      isDrawingActive = false
+      broadcastDrawingStatus(false)
+    }
     redrawFullCanvas()
+    return
+  }
+
+  if (newDoodle.author_id === currentUser.value?.id) {
+    lastSavedStrokesJson = JSON.stringify(newDoodle.strokes || [])
+    hasLocalChanges.value = JSON.stringify(strokes.value) !== lastSavedStrokesJson
+    return
+  }
+
+  const incomingStrokes: DuoDoodleStroke[] = Array.isArray(newDoodle.strokes)
+    ? JSON.parse(JSON.stringify(newDoodle.strokes))
+    : []
+
+  if (!hasLocalChanges.value && !isDrawingActive) {
+    strokes.value = incomingStrokes
+    lastSavedStrokesJson = JSON.stringify(incomingStrokes)
+    redrawFullCanvas()
+  } else {
+    // Preserve local unsaved strokes and merge in new strokes from partner
+    let added = false
+    for (const inc of incomingStrokes) {
+      let matched = false
+      for (let i = 0; i < strokes.value.length; i++) {
+        const s = strokes.value[i]
+        if (isStrokeContinued(s, inc)) {
+          matched = true
+          if (inc.points.length > s.points.length) {
+            strokes.value[i] = inc
+            added = true
+          }
+          break
+        } else if (isStrokeContinued(inc, s)) {
+          matched = true
+          break
+        }
+      }
+      if (!matched) {
+        strokes.value.push(inc)
+        added = true
+      }
+    }
+    if (added) {
+      redrawFullCanvas()
+      scheduleAutoSave(1500, 3500)
+    }
   }
 }, { deep: true })
 
@@ -320,8 +489,21 @@ watch(containerRef, (el) => {
 // Listen to real-time strokes drawn by partner
 watch(() => partnerLiveStroke.value, (live) => {
   if (live && live.stroke && props.isOpen) {
-    strokes.value.push(JSON.parse(JSON.stringify(live.stroke)))
-    renderStroke(live.stroke)
+    const strokeCopy: DuoDoodleStroke = JSON.parse(JSON.stringify(live.stroke))
+    let foundIdx = -1
+    for (let i = strokes.value.length - 1; i >= 0; i--) {
+      if (isStrokeContinued(strokes.value[i], strokeCopy)) {
+        foundIdx = i
+        break
+      }
+    }
+    if (foundIdx >= 0) {
+      strokes.value[foundIdx] = strokeCopy
+      redrawFullCanvas()
+    } else {
+      strokes.value.push(strokeCopy)
+      renderStroke(strokeCopy)
+    }
   }
 })
 
@@ -464,6 +646,9 @@ const handlePointerDown = (e: PointerEvent) => {
   const canvas = canvasRef.value
   if (!canvas) return
 
+  hasLocalChanges.value = true
+  scheduleAutoSave(1500, 3500)
+
   // Ensure canvas is correctly sized prior to drawing
   if (canvas.width <= 300 || canvas.height <= 150) {
     initCanvas()
@@ -519,6 +704,7 @@ const handlePointerMove = (e: PointerEvent) => {
     lastBroadcastTime = now
     broadcastLiveStroke(currentActiveStroke)
   }
+  scheduleAutoSave(1500, 3500)
 }
 
 const handlePointerUp = (e: PointerEvent) => {
@@ -537,53 +723,100 @@ const handlePointerUp = (e: PointerEvent) => {
     broadcastLiveStroke(currentActiveStroke)
     currentActiveStroke = null
   }
+  scheduleAutoSave(1500, 3500)
 }
 
 const handleUndo = () => {
   if (strokes.value.length === 0) return
   strokes.value.pop()
+  hasLocalChanges.value = JSON.stringify(strokes.value) !== lastSavedStrokesJson
   redrawFullCanvas()
+  scheduleAutoSave(1200, 2500)
 }
 
 const handleClear = () => {
   strokes.value = []
+  hasLocalChanges.value = lastSavedStrokesJson !== '[]'
   redrawFullCanvas()
+  scheduleAutoSave(800, 2000)
 }
 
-const isSavingDoodle = ref(false)
 const handleSave = async () => {
-  if (isSavingDoodle.value) return
-  if (!strokes.value.length) {
-    isSavingDoodle.value = true
-    try {
-      if (await clearDoodle()) emit('close')
-    } finally {
-      isSavingDoodle.value = false
-    }
-    return
-  }
-  const canvas = canvasRef.value
-  let previewDataUrl: string | undefined = undefined
-  if (canvas) {
-    try {
-      previewDataUrl = canvas.toDataURL('image/png', 0.92)
-    } catch (_) {}
-  }
-
-  isSavingDoodle.value = true
-  try {
-    if (await saveDoodle(strokes.value, previewDataUrl)) emit('close')
-  } finally {
-    isSavingDoodle.value = false
-  }
-}
-
-const handleClose = () => {
+  cancelAutoSave()
   if (isDrawingActive) {
     isDrawingActive = false
     broadcastDrawingStatus(false)
   }
-  emit('close')
+  if (activeSavePromise) {
+    await activeSavePromise
+  }
+  if (!strokes.value.length) {
+    if (lastSavedStrokesJson && lastSavedStrokesJson !== '[]') {
+      isSavingDoodle.value = true
+      try {
+        const cleared = await clearDoodle({ silent: false })
+        if (cleared) {
+          lastSavedStrokesJson = '[]'
+          hasLocalChanges.value = false
+          emit('close')
+        }
+      } finally {
+        isSavingDoodle.value = false
+      }
+    } else {
+      emit('close')
+    }
+    return
+  }
+
+  const currentJson = JSON.stringify(strokes.value)
+  if (currentJson !== lastSavedStrokesJson) {
+    isSavingDoodle.value = true
+    try {
+      const saved = await performSaveInternal({ silent: false })
+      if (saved) {
+        emit('close')
+      }
+    } finally {
+      isSavingDoodle.value = false
+    }
+  } else {
+    trackDuoEvent('duo_doodle_saved')
+    triggerToast('Zapisano rysunek na tablicy', { type: 'love' })
+    emit('close')
+  }
+}
+
+const handleClose = async () => {
+  if (isClosing) return
+  isClosing = true
+  try {
+    cancelAutoSave()
+    if (isDrawingActive) {
+      isDrawingActive = false
+      broadcastDrawingStatus(false)
+    }
+    if (activeSavePromise) {
+      await activeSavePromise
+    }
+
+    const currentJson = JSON.stringify(strokes.value)
+    if (currentJson !== lastSavedStrokesJson) {
+      isSavingDoodle.value = true
+      try {
+        const saved = await performSaveInternal({ silent: true })
+        if (!saved) {
+          triggerToast('Nie udało się zapisać zmian przed zamknięciem', { type: 'warning' })
+          return
+        }
+      } finally {
+        isSavingDoodle.value = false
+      }
+    }
+    emit('close')
+  } finally {
+    isClosing = false
+  }
 }
 
 onMounted(() => {
@@ -593,6 +826,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  cancelAutoSave()
   if (resizeObserver) {
     resizeObserver.disconnect()
     resizeObserver = null

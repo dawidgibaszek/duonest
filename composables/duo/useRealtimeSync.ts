@@ -54,7 +54,7 @@ let partnerDrawingTimeout: any = null
 let lastDrawingPushAt = 0
 const DRAWING_PUSH_INTERVAL_MS = 45_000
 
-const transientActions = new Set(['DOODLE_LIVE_STROKE', 'DOODLE_DRAWING_STATUS'])
+const transientActions = new Set(['DOODLE_LIVE_STROKE', 'DOODLE_DRAWING_STATUS', 'DOODLE_CLEAR'])
 
 export function stopPartnershipRealtime() {
   const channel = activePartnershipChannel
@@ -199,7 +199,11 @@ export function useRealtimeSync(options?: {
     }
   }
 
-  const saveDoodle = async (strokes: DuoDoodleStroke[], previewSvg?: string): Promise<DuoDoodle | null> => {
+  const saveDoodle = async (
+    strokes: DuoDoodleStroke[],
+    previewSvg?: string,
+    options?: { silent?: boolean }
+  ): Promise<DuoDoodle | null> => {
     const pid = partnership.value?.id
     if (!pid) return null
     const now = new Date().toISOString()
@@ -215,19 +219,25 @@ export function useRealtimeSync(options?: {
     }
     const { error } = await getDb().from('partnership_doodles').insert(doodle)
     if (error) {
-      triggerToast('Nie udało się zapisać rysunku. Spróbuj ponownie.', { type: 'warning' })
+      if (!options?.silent) {
+        triggerToast('Nie udało się zapisać rysunku. Spróbuj ponownie.', { type: 'warning' })
+      }
       return null
     }
     if (partnership.value?.id !== pid) return null
-    trackDuoEvent('duo_doodle_saved')
+    if (!options?.silent) {
+      trackDuoEvent('duo_doodle_saved')
+    }
     setDoodle(doodle)
     lastDrawingPushAt = 0
     broadcastToPartner('DOODLE_SAVE', {})
-    triggerToast('Zapisano rysunek na tablicy', { type: 'love' })
+    if (!options?.silent) {
+      triggerToast('Zapisano rysunek na tablicy', { type: 'love' })
+    }
     return doodle
   }
 
-  const clearDoodle = async () => {
+  const clearDoodle = async (options?: { silent?: boolean }) => {
     const pid = partnership.value?.id
     if (!pid) return false
     try {
@@ -237,11 +247,17 @@ export function useRealtimeSync(options?: {
       await bridge.commitSharedBatch('partnership_doodles', (data || []).map((row: DuoDoodle) => ({ id: row.id })))
       if (partnership.value?.id !== pid) return false
       setDoodle(null)
+      lastDrawingPushAt = 0
+      void broadcastToPartner('DOODLE_CLEAR', {})
       await sendPartnerPush('DOODLE_CLEAR', {})
-      triggerToast('Wyczyszczono tablicę')
+      if (!options?.silent) {
+        triggerToast('Wyczyszczono tablicę')
+      }
       return true
     } catch {
-      triggerToast('Nie udało się wyczyścić tablicy.', { type: 'warning' })
+      if (!options?.silent) {
+        triggerToast('Nie udało się wyczyścić tablicy.', { type: 'warning' })
+      }
       return false
     }
   }
@@ -441,6 +457,10 @@ export function useRealtimeSync(options?: {
         isPartnerDrawing.value = true
       } else if (payload.action === 'DOODLE_DRAWING_STATUS' && typeof payload.data?.isDrawing === 'boolean') {
         isPartnerDrawing.value = payload.data.isDrawing
+      } else if (payload.action === 'DOODLE_CLEAR') {
+        setDoodle(null)
+        partnerLiveStroke.value = null
+        isPartnerDrawing.value = false
       } else {
         return
       }

@@ -1,4 +1,4 @@
-import type { DuoToastItem, ToastType, MovieItem, Profile } from '~/types/duo'
+import type { DuoToastItem, ToastType, MovieItem, Profile, DuoDoodleStroke } from '~/types/duo'
 import { getFirebaseBridge } from '../useFirebaseBridge'
 
 export const DEFAULT_SUPABASE_URL = 'https://wixmftffidwzbbidjydr.supabase.co'
@@ -195,3 +195,21 @@ export const toRealtimeProfileSnapshot = (profile: Profile) => ({
   favorite_treat: profile.favorite_treat,
   last_seen_at: profile.last_seen_at
 })
+
+export function isStrokeContinued(prev: DuoDoodleStroke, next: DuoDoodleStroke): boolean {
+  if (
+    (prev.isEraser === true) !== (next.isEraser === true) ||
+    prev.width !== next.width ||
+    prev.color.toLowerCase() !== next.color.toLowerCase() ||
+    next.points.length < prev.points.length
+  ) {
+    return false
+  }
+  const len = prev.points.length
+  for (let i = 0; i < len; i++) {
+    if (Math.abs(prev.points[i] - next.points[i]) > 0.0001) {
+      return false
+    }
+  }
+  return true
+}
