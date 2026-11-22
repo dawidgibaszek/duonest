@@ -1,6 +1,7 @@
 package com.belka.duonest.widget;
 
 import android.content.Context;
+import android.os.Looper;
 import android.util.Log;
 import androidx.annotation.Nullable;
 import com.google.android.gms.tasks.Tasks;
@@ -16,6 +17,8 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -28,8 +31,9 @@ import org.json.JSONObject;
 final class DoodleWidgetSync {
 
     private static final String TAG = "DuoWidget";
-    private static final int TIMEOUT_MS = 8000;
+    private static final int TIMEOUT_MS = 6000;
     private static final long PUSH_DRAWING_MS = 60_000;
+    private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
 
     private static String idToken;
     private static String idTokenUid;
@@ -37,9 +41,24 @@ final class DoodleWidgetSync {
 
     private DoodleWidgetSync() {}
 
+    static void refreshAsync(Context context, @Nullable Runnable done) {
+        Context app = context.getApplicationContext();
+        EXECUTOR.execute(() -> {
+            try {
+                if (!refreshInternal(app, false)) {
+                    DoodleRefreshWorker.enqueue(app);
+                }
+            } finally {
+                DoodleWidgetProvider.requestRender(app);
+                if (done != null) done.run();
+            }
+        });
+    }
+
     /** Data-only FCM message sent by pushCore.ts to the partner's Android devices. */
     static void handlePush(Context context, Map<String, String> data) {
-        DoodleWidgetStore store = DoodleWidgetStore.get(context);
+        Context app = context.getApplicationContext();
+        DoodleWidgetStore store = DoodleWidgetStore.get(app);
         DoodleWidgetStore.Session session = store.session();
         String recipient = data.get("recipientProfileId");
         if (session == null || (!session.profileId.isEmpty() && recipient != null && !recipient.equals(session.profileId))) return;
@@ -47,17 +66,53 @@ final class DoodleWidgetSync {
         String senderName = data.get("senderName");
         if (senderName != null && !senderName.isEmpty()) store.setPartnerName(senderName);
 
-        if ("DOODLE_DRAWING_STATUS".equals(data.get("action"))) {
+        String action = data.get("action");
+        if ("DOODLE_DRAWING_STATUS".equals(action)) {
+            if ("false".equals(data.get("isDrawing"))) {
+                store.finishPartnerDrawing();
+                DoodleWidgetProvider.cancelDrawingExpiry(app);
+                DoodleWidgetProvider.requestRender(app);
+                return;
+            }
             store.setPartnerDrawingUntil(System.currentTimeMillis() + PUSH_DRAWING_MS);
-            DoodleWidgetProvider.scheduleDrawingExpiry(context, PUSH_DRAWING_MS);
-            DoodleWidgetProvider.requestRender(context);
-        } else if ("DOODLE_SAVE".equals(data.get("action")) || "DOODLE_CLEAR".equals(data.get("action"))) {
-            store.setPartnerDrawingUntil(0);
-            DoodleRefreshWorker.enqueue(context);
+            DoodleWidgetProvider.scheduleDrawingExpiry(app, PUSH_DRAWING_MS);
+            DoodleWidgetProvider.requestRender(app);
+        } else if ("DOODLE_DRAWING_STOP".equals(action)) {
+            store.finishPartnerDrawing();
+            DoodleWidgetProvider.cancelDrawingExpiry(app);
+            DoodleWidgetProvider.requestRender(app);
+        } else if ("DOODLE_SAVE".equals(action) || "DOODLE_CLEAR".equals(action)) {
+            String doodleId = data.get("doodleId");
+            if ("DOODLE_SAVE".equals(action) && store.hasDoodleId(doodleId)) {
+                store.finishPartnerDrawing();
+                DoodleWidgetProvider.cancelDrawingExpiry(app);
+                DoodleWidgetProvider.requestRender(app);
+                return;
+            }
+            Runnable syncTask = () -> {
+                boolean ok = refreshInternal(app, true);
+                if (!ok) {
+                    store.finishPartnerDrawing();
+                    DoodleRefreshWorker.enqueue(app);
+                }
+                DoodleWidgetProvider.cancelDrawingExpiry(app);
+                DoodleWidgetProvider.requestRender(app);
+            };
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                EXECUTOR.execute(syncTask);
+            } else {
+                // FirebaseMessagingService invokes onMessageReceived on its own worker thread
+                // and keeps the service alive until this method returns.
+                syncTask.run();
+            }
         }
     }
 
-    static synchronized boolean refresh(Context context) {
+    static boolean refresh(Context context) {
+        return refreshInternal(context.getApplicationContext(), false);
+    }
+
+    private static synchronized boolean refreshInternal(Context context, boolean clearDrawing) {
         DoodleWidgetStore store = DoodleWidgetStore.get(context);
         DoodleWidgetStore.Session session = store.session();
         if (session == null) {
@@ -65,10 +120,14 @@ final class DoodleWidgetSync {
         }
         try {
             String previousKey = store.currentDoodleKey();
-            String token = idToken(store, session);
-            if (token == null) return true;
-            JSONObject doodle = fetchLatestDoodle(session, token);
-            store.applyRefresh(session, previousKey, doodle);
+            String appCheck = appCheckToken();
+            String token = idToken(store, session, appCheck);
+            if (token == null) {
+                if (clearDrawing) store.finishPartnerDrawing();
+                return true;
+            }
+            JSONObject doodle = fetchLatestDoodle(session, token, appCheck);
+            store.applyRefresh(session, previousKey, doodle, clearDrawing);
             return true;
         } catch (IOException | JSONException e) {
             Log.w(TAG, "Doodle widget refresh failed", e);
@@ -77,13 +136,12 @@ final class DoodleWidgetSync {
     }
 
     @Nullable
-    private static String idToken(DoodleWidgetStore store, DoodleWidgetStore.Session session) throws IOException, JSONException {
+    private static String idToken(DoodleWidgetStore store, DoodleWidgetStore.Session session, @Nullable String appCheck) throws IOException, JSONException {
         if (idToken != null && session.uid.equals(idTokenUid) && System.currentTimeMillis() < idTokenExpiresAt) return idToken;
 
         String body = "grant_type=refresh_token&refresh_token=" + URLEncoder.encode(session.refreshToken, "UTF-8");
         HttpURLConnection connection = open("https://securetoken.googleapis.com/v1/token?key=" + URLEncoder.encode(session.apiKey, "UTF-8"));
         connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-        String appCheck = appCheckToken();
         if (appCheck != null) connection.setRequestProperty("X-Firebase-AppCheck", appCheck);
         Response response = send(connection, body);
         if (response.status == 400 && isRevokedSession(response.body)) {
@@ -117,7 +175,7 @@ final class DoodleWidgetSync {
     }
 
     @Nullable
-    private static JSONObject fetchLatestDoodle(DoodleWidgetStore.Session session, String token) throws IOException, JSONException {
+    private static JSONObject fetchLatestDoodle(DoodleWidgetStore.Session session, String token, @Nullable String appCheck) throws IOException, JSONException {
         JSONObject query = new JSONObject().put("structuredQuery", new JSONObject()
             .put("from", new JSONArray().put(new JSONObject().put("collectionId", "partnership_doodles")))
             .put("where", new JSONObject().put("fieldFilter", new JSONObject()
@@ -135,7 +193,6 @@ final class DoodleWidgetSync {
         );
         connection.setRequestProperty("Content-Type", "application/json");
         connection.setRequestProperty("Authorization", "Bearer " + token);
-        String appCheck = appCheckToken();
         if (appCheck != null) connection.setRequestProperty("X-Firebase-AppCheck", appCheck);
 
         Response response = send(connection, query.toString());
@@ -169,6 +226,7 @@ final class DoodleWidgetSync {
             if (points.length() != rawPoints.length || !Double.isFinite(width)) continue;
             JSONObject isEraser = strokeFields.optJSONObject("isEraser");
             strokes.put(new JSONObject()
+                .put("id", string(strokeFields, "id"))
                 .put("points", points)
                 .put("color", string(strokeFields, "color"))
                 .put("width", width)

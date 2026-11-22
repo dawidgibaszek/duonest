@@ -105,6 +105,7 @@ final class DoodleWidgetStore {
     @Nullable
     private Session session;
     private String doodleKey = "";
+    private String updatedAt = "";
     private String authorName = "";
     private List<DoodleStroke> strokes = Collections.emptyList();
     private final List<DoodleStroke> liveStrokes = new ArrayList<>();
@@ -128,6 +129,7 @@ final class DoodleWidgetStore {
             strokes = Collections.emptyList();
             liveStrokes.clear();
             doodleKey = "";
+            updatedAt = "";
             authorName = "";
             sessionFile().delete();
             doodleFile().delete();
@@ -159,8 +161,29 @@ final class DoodleWidgetStore {
         return doodleKey;
     }
 
-    synchronized void applyRefresh(Session account, String previousKey, @Nullable JSONObject doodle) {
-        if (account.sameAccount(session) && previousKey.equals(doodleKey)) setDoodle(doodle);
+    synchronized boolean hasDoodleId(@Nullable String id) {
+        return id != null && !id.isEmpty() && doodleKey.startsWith(id + "@");
+    }
+
+    synchronized void finishPartnerDrawing() {
+        liveStrokes.clear();
+        setPartnerDrawingUntil(0);
+    }
+
+    synchronized void applyRefresh(Session account, String previousKey, @Nullable JSONObject doodle, boolean clearDrawing) {
+        if (!account.sameAccount(session)) return;
+        if (clearDrawing) {
+            liveStrokes.clear();
+            setPartnerDrawingUntil(0);
+        }
+        if (doodle == null) {
+            if (previousKey.equals(doodleKey)) setDoodle(null);
+            return;
+        }
+        String incomingUpdatedAt = doodle.optString("updated_at");
+        if (previousKey.equals(doodleKey) || isNewerTimestamp(incomingUpdatedAt, updatedAt)) {
+            setDoodle(doodle);
+        }
     }
 
     synchronized void setPartnerName(String name) {
@@ -169,6 +192,12 @@ final class DoodleWidgetStore {
 
     /** Accepts a partnership_doodles row ({@code null} when the board is empty). */
     synchronized void setDoodle(@Nullable JSONObject doodle) {
+        if (doodle != null) {
+            String incomingUpdatedAt = doodle.optString("updated_at");
+            if (!updatedAt.isEmpty() && !incomingUpdatedAt.isEmpty() && incomingUpdatedAt.compareTo(updatedAt) < 0) {
+                return;
+            }
+        }
         applyDoodle(doodle);
         if (doodle == null) {
             doodleFile().delete();
@@ -178,12 +207,13 @@ final class DoodleWidgetStore {
     }
 
     synchronized void addLiveStroke(DoodleStroke stroke) {
-        int last = liveStrokes.size() - 1;
-        if (last >= 0 && liveStrokes.get(last).isContinuedBy(stroke)) {
-            liveStrokes.set(last, stroke);
-        } else {
-            liveStrokes.add(stroke);
+        for (int i = liveStrokes.size() - 1; i >= 0; i--) {
+            if (liveStrokes.get(i).isContinuedBy(stroke)) {
+                liveStrokes.set(i, stroke);
+                return;
+            }
         }
+        liveStrokes.add(stroke);
     }
 
     synchronized void clearLiveStrokes() {
@@ -212,9 +242,11 @@ final class DoodleWidgetStore {
     }
 
     private void applyDoodle(@Nullable JSONObject doodle) {
-        String nextKey = doodle == null ? "" : doodle.optString("id") + "@" + doodle.optString("updated_at");
-        if (!nextKey.equals(doodleKey)) liveStrokes.clear();
+        String nextUpdatedAt = doodle == null ? "" : doodle.optString("updated_at");
+        String nextKey = doodle == null ? "" : doodle.optString("id") + "@" + nextUpdatedAt;
+        boolean keyChanged = !nextKey.equals(doodleKey);
         doodleKey = nextKey;
+        updatedAt = nextUpdatedAt;
         authorName = doodle == null ? "" : doodle.optString("author_name");
 
         List<DoodleStroke> parsed = new ArrayList<>();
@@ -226,6 +258,23 @@ final class DoodleWidgetStore {
             }
         }
         strokes = parsed;
+
+        if (doodle == null || System.currentTimeMillis() >= partnerDrawingUntil()) {
+            liveStrokes.clear();
+        } else if (keyChanged && !liveStrokes.isEmpty()) {
+            liveStrokes.removeIf(live -> {
+                for (DoodleStroke saved : parsed) {
+                    if (live.isContinuedBy(saved) || saved.equals(live)) return true;
+                }
+                return false;
+            });
+        }
+    }
+
+    private static boolean isNewerTimestamp(String incoming, String existing) {
+        if (incoming.isEmpty()) return false;
+        if (existing.isEmpty()) return true;
+        return incoming.compareTo(existing) > 0;
     }
 
     private JSONObject serializeDoodle() throws JSONException {

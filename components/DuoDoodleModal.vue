@@ -188,7 +188,8 @@ const {
   saveDoodle,
   clearDoodle,
   broadcastLiveStroke,
-  broadcastDrawingStatus
+  broadcastDrawingStatus,
+  broadcastToPartner
 } = useDuoState()
 
 // Elements
@@ -233,12 +234,15 @@ const colorPalette = [
 const strokes = ref<DuoDoodleStroke[]>([])
 let currentActiveStroke: DuoDoodleStroke | null = null
 let isDrawingActive = false
+let drawingSessionBroadcasted = false
+let drawingHeartbeatTimer: ReturnType<typeof setInterval> | null = null
 let resizeObserver: ResizeObserver | null = null
 let lastBroadcastTime = 0
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
-let autoSaveMaxTimer: ReturnType<typeof setTimeout> | null = null
 let lastSavedStrokesJson = ''
 let savingStrokesJson: string | null = null
+let savedSilentlyInSession = false
+const IDLE_AUTO_SAVE_MS = 4000
 const hasLocalChanges = ref(false)
 const isSavingDoodle = ref(false)
 let activeSavePromise: Promise<boolean> | null = null
@@ -249,25 +253,42 @@ const cancelAutoSave = () => {
     clearTimeout(autoSaveTimer)
     autoSaveTimer = null
   }
-  if (autoSaveMaxTimer) {
-    clearTimeout(autoSaveMaxTimer)
-    autoSaveMaxTimer = null
+}
+
+const stopDrawingHeartbeat = () => {
+  if (drawingHeartbeatTimer) {
+    clearInterval(drawingHeartbeatTimer)
+    drawingHeartbeatTimer = null
   }
 }
 
-const scheduleAutoSave = (delayMs = 1500, maxWaitMs = 3500) => {
-  if (autoSaveTimer) {
-    clearTimeout(autoSaveTimer)
-    autoSaveTimer = null
+const startDrawingSession = () => {
+  cancelAutoSave()
+  if (!drawingSessionBroadcasted) {
+    drawingSessionBroadcasted = true
+    broadcastDrawingStatus(true)
   }
-  if (!autoSaveMaxTimer) {
-    autoSaveMaxTimer = setTimeout(() => {
-      cancelAutoSave()
-      void performAutoSave()
-    }, maxWaitMs)
+  if (!drawingHeartbeatTimer) {
+    drawingHeartbeatTimer = setInterval(() => {
+      if (drawingSessionBroadcasted && isDrawingActive) {
+        broadcastDrawingStatus(true)
+      }
+    }, 2500)
   }
+}
+
+const endDrawingSession = (stopRemoteWidget: boolean) => {
+  stopDrawingHeartbeat()
+  if (drawingSessionBroadcasted) {
+    drawingSessionBroadcasted = false
+    broadcastDrawingStatus(false, { stopRemoteWidget })
+  }
+}
+
+const scheduleAutoSave = (delayMs = IDLE_AUTO_SAVE_MS) => {
+  cancelAutoSave()
   autoSaveTimer = setTimeout(() => {
-    cancelAutoSave()
+    autoSaveTimer = null
     void performAutoSave()
   }, delayMs)
 }
@@ -285,6 +306,8 @@ const performSaveInternal = async (options: { silent?: boolean } = {}): Promise<
       if (cleared) {
         lastSavedStrokesJson = '[]'
         hasLocalChanges.value = strokes.value.length > 0
+        savedSilentlyInSession = false
+        endDrawingSession(false)
         return true
       }
       return false
@@ -309,6 +332,10 @@ const performSaveInternal = async (options: { silent?: boolean } = {}): Promise<
     if (!saved) return false
     lastSavedStrokesJson = currentJson
     hasLocalChanges.value = JSON.stringify(strokes.value) !== lastSavedStrokesJson
+    savedSilentlyInSession = Boolean(options.silent)
+    if (!isDrawingActive && !hasLocalChanges.value) {
+      endDrawingSession(false)
+    }
     return true
   } finally {
     savingStrokesJson = null
@@ -316,7 +343,15 @@ const performSaveInternal = async (options: { silent?: boolean } = {}): Promise<
 }
 
 const performAutoSave = async () => {
-  if (!props.isOpen || isClosing.value || activeSavePromise || isDrawingActive) return
+  if (!props.isOpen || isClosing.value || activeSavePromise) return
+  if (isDrawingActive) {
+    scheduleAutoSave(IDLE_AUTO_SAVE_MS)
+    return
+  }
+  if (!hasLocalChanges.value) {
+    endDrawingSession(true)
+    return
+  }
   isSavingDoodle.value = true
   const snapshot = JSON.stringify(strokes.value)
   const saving = performSaveInternal({ silent: true })
@@ -329,7 +364,7 @@ const performAutoSave = async () => {
     isSavingDoodle.value = false
     activeSavePromise = null
     if (props.isOpen && !isClosing.value && snapshot !== JSON.stringify(strokes.value) && hasLocalChanges.value) {
-      scheduleAutoSave()
+      scheduleAutoSave(IDLE_AUTO_SAVE_MS)
     }
   }
 }
@@ -337,6 +372,9 @@ const performAutoSave = async () => {
 // Populate strokes from currentDoodle
 const loadStrokesFromDoodle = () => {
   cancelAutoSave()
+  stopDrawingHeartbeat()
+  drawingSessionBroadcasted = false
+  savedSilentlyInSession = false
   hasLocalChanges.value = false
   if (currentDoodle.value && Array.isArray(currentDoodle.value.strokes)) {
     strokes.value = JSON.parse(JSON.stringify(currentDoodle.value.strokes))
@@ -385,10 +423,9 @@ watch(() => props.isOpen, (open) => {
     triggerCanvasRefresh()
   } else {
     cancelAutoSave()
-    if (isDrawingActive) {
-      isDrawingActive = false
-      broadcastDrawingStatus(false)
-    }
+    isDrawingActive = false
+    currentActiveStroke = null
+    endDrawingSession(true)
   }
 })
 
@@ -401,11 +438,10 @@ watch(() => currentDoodle.value, (newDoodle) => {
     strokes.value = []
     lastSavedStrokesJson = '[]'
     hasLocalChanges.value = false
+    savedSilentlyInSession = false
     currentActiveStroke = null
-    if (isDrawingActive) {
-      isDrawingActive = false
-      broadcastDrawingStatus(false)
-    }
+    isDrawingActive = false
+    endDrawingSession(false)
     redrawFullCanvas()
     return
   }
@@ -499,21 +535,31 @@ watch(() => partnerLiveStroke.value, (live) => {
   }
 })
 
+const bumpDrawingIdleTimer = () => {
+  if (!drawingSessionBroadcasted && !hasLocalChanges.value) return
+  if (drawingSessionBroadcasted) broadcastDrawingStatus(true)
+  if (!isDrawingActive) scheduleAutoSave(IDLE_AUTO_SAVE_MS)
+}
+
 const setTool = (tool: 'brush' | 'eraser') => {
   currentTool.value = tool
+  bumpDrawingIdleTimer()
 }
 
 const setBrushSize = (size: number) => {
   currentBrushSize.value = size
+  bumpDrawingIdleTimer()
 }
 
 const setEraserSize = (size: number) => {
   currentEraserSize.value = size
+  bumpDrawingIdleTimer()
 }
 
 const setColor = (col: string) => {
   currentColor.value = col
   currentTool.value = 'brush'
+  bumpDrawingIdleTimer()
 }
 
 const focusCanvas = () => {
@@ -640,7 +686,6 @@ const handlePointerDown = (e: PointerEvent) => {
   if (!canvas) return
 
   hasLocalChanges.value = true
-  scheduleAutoSave(1500, 3500)
 
   // Ensure canvas is correctly sized prior to drawing
   if (canvas.width <= 300 || canvas.height <= 150) {
@@ -652,7 +697,7 @@ const handlePointerDown = (e: PointerEvent) => {
   } catch (_) {}
 
   isDrawingActive = true
-  broadcastDrawingStatus(true)
+  startDrawingSession()
 
   const rect = canvas.getBoundingClientRect()
   const normX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
@@ -703,7 +748,6 @@ const handlePointerMove = (e: PointerEvent) => {
 const handlePointerUp = (e: PointerEvent) => {
   if (!isDrawingActive) return
   isDrawingActive = false
-  broadcastDrawingStatus(false)
 
   const canvas = canvasRef.value
   if (canvas) {
@@ -716,7 +760,7 @@ const handlePointerUp = (e: PointerEvent) => {
     broadcastLiveStroke(currentActiveStroke)
     currentActiveStroke = null
   }
-  scheduleAutoSave(1500, 3500)
+  scheduleAutoSave(IDLE_AUTO_SAVE_MS)
 }
 
 const handleUndo = () => {
@@ -724,64 +768,102 @@ const handleUndo = () => {
   strokes.value.pop()
   hasLocalChanges.value = JSON.stringify(strokes.value) !== lastSavedStrokesJson
   redrawFullCanvas()
-  scheduleAutoSave(1200, 2500)
+  scheduleAutoSave(2000)
 }
 
 const handleClear = () => {
   strokes.value = []
   hasLocalChanges.value = lastSavedStrokesJson !== '[]'
   redrawFullCanvas()
-  scheduleAutoSave(800, 2000)
+  scheduleAutoSave(1500)
 }
 
-const flushBeforeClosing = async () => {
-  if (isClosing.value) return false
+const flushBeforeClosing = async (options: { silent?: boolean } = { silent: true }) => {
+  if (isClosing.value) return { ok: false, didSave: false }
   isClosing.value = true
   try {
     cancelAutoSave()
+    stopDrawingHeartbeat()
     if (isDrawingActive) {
       isDrawingActive = false
       if (currentActiveStroke) broadcastLiveStroke(currentActiveStroke)
       currentActiveStroke = null
-      broadcastDrawingStatus(false)
     }
     await activeSavePromise
-    if (!hasLocalChanges.value) return true
+    if (!hasLocalChanges.value) {
+      endDrawingSession(true)
+      return { ok: true, didSave: false }
+    }
 
     isSavingDoodle.value = true
-    if (await performSaveInternal({ silent: true })) return true
+    if (await performSaveInternal({ silent: options.silent })) {
+      endDrawingSession(false)
+      return { ok: true, didSave: true }
+    }
     triggerToast('Nie udało się zapisać zmian. Spróbuj ponownie.', { type: 'warning' })
-    return false
+    return { ok: false, didSave: false }
   } catch {
     triggerToast('Nie udało się zapisać zmian. Spróbuj ponownie.', { type: 'warning' })
-    return false
+    return { ok: false, didSave: false }
   } finally {
     isSavingDoodle.value = false
     isClosing.value = false
   }
 }
 
-const canDismissDoodle = () => !props.isOpen || flushBeforeClosing()
+const canDismissDoodle = async () => !props.isOpen || (await flushBeforeClosing({ silent: true })).ok
 
 const handleClose = async () => {
-  if (await flushBeforeClosing()) emit('close')
+  const result = await flushBeforeClosing({ silent: true })
+  if (result.ok) emit('close')
 }
 
 const handleSave = async () => {
-  if (!await flushBeforeClosing()) return
-  trackDuoEvent('duo_doodle_saved')
-  triggerToast('Zapisano rysunek na tablicy', { type: 'love' })
+  const wasSavedSilently = savedSilentlyInSession
+  const result = await flushBeforeClosing({ silent: false })
+  if (!result.ok) return
+  if (!result.didSave) {
+    trackDuoEvent('duo_doodle_saved')
+    triggerToast('Zapisano rysunek na tablicy', { type: 'love' })
+    if (wasSavedSilently && currentDoodle.value?.id) {
+      void broadcastToPartner('DOODLE_SAVE', { doodleId: currentDoodle.value.id })
+    }
+  }
+  savedSilentlyInSession = false
   emit('close')
+}
+
+const handleDocumentVisibilityChange = () => {
+  if (!props.isOpen || isClosing.value || typeof document === 'undefined' || document.visibilityState !== 'hidden') return
+  cancelAutoSave()
+  stopDrawingHeartbeat()
+  if (isDrawingActive) {
+    isDrawingActive = false
+    if (currentActiveStroke) broadcastLiveStroke(currentActiveStroke)
+    currentActiveStroke = null
+  }
+  if (hasLocalChanges.value) {
+    void performAutoSave()
+  } else {
+    endDrawingSession(true)
+  }
 }
 
 onMounted(() => {
   if (containerRef.value) {
     setupResizeObserver(containerRef.value)
   }
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', handleDocumentVisibilityChange)
+  }
 })
 
 onUnmounted(() => {
   cancelAutoSave()
+  endDrawingSession(true)
+  if (typeof document !== 'undefined') {
+    document.removeEventListener('visibilitychange', handleDocumentVisibilityChange)
+  }
   if (resizeObserver) {
     resizeObserver.disconnect()
     resizeObserver = null

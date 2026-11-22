@@ -37,6 +37,9 @@ dependencies {
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
     implementation "androidx.work:work-runtime:2.10.1"
+    // Firebase resolves listenablefuture to an empty jar. Worker still needs
+    // com.google.common.util.concurrent.ListenableFuture, which this artifact provides.
+    implementation "com.google.guava:guava:31.1-android"
     // Same versions as @capacitor-firebase/messaging and /app-check; used by the doodle widget.
     implementation "com.google.firebase:firebase-messaging:25.0.1"
     implementation "com.google.firebase:firebase-appcheck-playintegrity:19.0.1"

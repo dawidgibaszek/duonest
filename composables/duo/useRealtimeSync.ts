@@ -53,9 +53,12 @@ let heartbeatTimer: any = null
 let lastHeartbeatSentAt = 0
 let partnerDrawingTimeout: any = null
 let lastDrawingPushAt = 0
-const DRAWING_PUSH_INTERVAL_MS = 45_000
+let drawingPushActive = false
+const DRAWING_PUSH_INTERVAL_MS = 35_000
 
 const transientActions = new Set(['DOODLE_LIVE_STROKE', 'DOODLE_DRAWING_STATUS'])
+
+export const isPartnershipRealtimeSuspended = () => nativeRealtimeSuspended
 
 export function stopPartnershipRealtime() {
   const channel = activePartnershipChannel
@@ -189,15 +192,22 @@ export function useRealtimeSync(options?: {
     if (valid) void broadcastToPartner('DOODLE_LIVE_STROKE', { stroke: valid })
   }
 
-  const broadcastDrawingStatus = (isDrawing: boolean) => {
-    broadcastToPartner('DOODLE_DRAWING_STATUS', { isDrawing })
-    if (isDrawing) notifyDrawingWidget()
+  const broadcastDrawingStatus = (isDrawing: boolean, drawOptions?: { stopRemoteWidget?: boolean }) => {
+    void broadcastToPartner('DOODLE_DRAWING_STATUS', { isDrawing })
+    if (isDrawing) {
+      notifyDrawingWidget()
+    } else if (drawOptions?.stopRemoteWidget && drawingPushActive) {
+      drawingPushActive = false
+      lastDrawingPushAt = 0
+      void sendPartnerPush('DOODLE_DRAWING_STOP', {})
+    }
   }
 
   function notifyDrawingWidget() {
-    if (Date.now() - lastDrawingPushAt > DRAWING_PUSH_INTERVAL_MS) {
+    if (!drawingPushActive || Date.now() - lastDrawingPushAt > DRAWING_PUSH_INTERVAL_MS) {
+      drawingPushActive = true
       lastDrawingPushAt = Date.now()
-      sendPartnerPush('DOODLE_DRAWING_STATUS', { isDrawing: true })
+      void sendPartnerPush('DOODLE_DRAWING_STATUS', { isDrawing: true })
     }
   }
 
@@ -227,13 +237,17 @@ export function useRealtimeSync(options?: {
       return null
     }
     if (partnership.value?.id !== pid) return null
+    drawingPushActive = false
+    lastDrawingPushAt = 0
     if (!options?.silent) {
       trackDuoEvent('duo_doodle_saved')
     }
     setDoodle(doodle)
     if (!options?.silent) {
-      void broadcastToPartner('DOODLE_SAVE', {})
+      void broadcastToPartner('DOODLE_SAVE', { doodleId: doodle.id })
       triggerToast('Zapisano rysunek na tablicy', { type: 'love' })
+    } else {
+      void sendPartnerPush('DOODLE_WIDGET_SYNC', { doodleId: doodle.id })
     }
     return doodle
   }
@@ -248,6 +262,7 @@ export function useRealtimeSync(options?: {
       await bridge.commitSharedBatch('partnership_doodles', (data || []).map((row: DuoDoodle) => ({ id: row.id })))
       if (partnership.value?.id !== pid) return false
       setDoodle(null)
+      drawingPushActive = false
       lastDrawingPushAt = 0
       await sendPartnerPush('DOODLE_CLEAR', {})
       if (!options?.silent) {
@@ -476,7 +491,7 @@ export function useRealtimeSync(options?: {
         return
       }
       clearTimeout(partnerDrawingTimeout)
-      if (isPartnerDrawing.value) partnerDrawingTimeout = setTimeout(() => { isPartnerDrawing.value = false }, 3500)
+      if (isPartnerDrawing.value) partnerDrawingTimeout = setTimeout(() => { isPartnerDrawing.value = false }, 5000)
     })
     const trackPresence = (active: boolean) => {
       if (!isCurrent()) return

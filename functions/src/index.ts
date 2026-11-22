@@ -74,7 +74,13 @@ export const refreshSavedDoodleWidgets = region('europe-west1')
     if (Date.now() - Date.parse(context.timestamp) > 24 * 60 * 60_000) return
     const pid = snapshot.get('partnership_id')
     if (typeof pid === 'string' && pid && !pid.includes('/')) {
-      await notifySavedDoodle(db, getMessaging(), pid)
+      const authorId = snapshot.get('author_id')
+      const authorName = snapshot.get('author_name')
+      await notifySavedDoodle(db, getMessaging(), pid, {
+        doodleId: snapshot.id,
+        authorId: typeof authorId === 'string' ? authorId : '',
+        authorName: typeof authorName === 'string' ? authorName : ''
+      })
     }
   })
 

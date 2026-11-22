@@ -2,6 +2,7 @@ import { App } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
 import { watch } from 'vue'
 import { authSession, currentDoodle, currentUser, isAuthLoading, isLoggingOut, isPartnerDrawing, partnerLiveStroke, partnerUser, partnership } from '~/composables/duo/state'
+import { isPartnershipRealtimeSuspended } from '~/composables/duo/useRealtimeSync'
 import { getFirebaseBridge } from '~/composables/useFirebaseBridge'
 import { DuoWidget, getWidgetCredential, UPLOADED_WIDGET_PUSH_KEY, type DuoWidgetSession } from '~/utils/iosWidgetAccess'
 
@@ -33,12 +34,12 @@ export default defineNuxtPlugin(() => {
       if (key && (isLoggingOut.value || key !== `${bridge.auth.currentUser?.uid}:${partnership.value?.id}`)) return
       await DuoWidget.setSession(session)
       installedSession = key
-      if (key) await pushDoodle()
+      if (key) await pushDoodle(true)
     })
     void sessionQueue.catch(ignore)
   }
 
-  function pushDoodle() {
+  function pushDoodle(verifyEmpty = false) {
     if (!installedSession || isAuthLoading.value || isLoggingOut.value ||
         installedSession !== `${bridge.auth.currentUser?.uid}:${partnership.value?.id}`) return
     const doodle = currentDoodle.value
@@ -47,7 +48,8 @@ export default defineNuxtPlugin(() => {
     return DuoWidget.setDoodle({
       doodle: doodle
         ? { id: doodle.id, updated_at: doodle.updated_at, author_name: doodle.author_name, strokes: doodle.strokes }
-        : null
+        : null,
+      ...(!doodle && verifyEmpty ? { verifyEmpty: true } : {})
     }).catch(ignore)
   }
 
@@ -126,13 +128,15 @@ export default defineNuxtPlugin(() => {
     void App.addListener('appStateChange', ({ isActive }) => monitor(isActive)).catch(ignore)
   }
 
-  watch(currentDoodle, () => { void pushDoodle() })
+  watch(currentDoodle, () => { void pushDoodle(false) })
   watch(partnerLiveStroke, (live) => {
     if (isIos || !activeWidgetSession()) return
+    if (!live && isPartnershipRealtimeSuspended()) return
     void (live ? DuoWidget.addLiveStroke({ stroke: live.stroke }) : DuoWidget.clearLiveStrokes()).catch(ignore)
   })
   watch(isPartnerDrawing, (isDrawing) => {
     if (isIos || !activeWidgetSession()) return
+    if (!isDrawing && isPartnershipRealtimeSuspended()) return
     void DuoWidget.setPartnerDrawing({ isDrawing }).catch(ignore)
   })
 

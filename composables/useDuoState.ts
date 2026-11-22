@@ -387,6 +387,7 @@ export const useDuoState = () => {
     clearDoodle: realtime.clearDoodle,
     broadcastLiveStroke: realtime.broadcastLiveStroke,
     broadcastDrawingStatus: realtime.broadcastDrawingStatus,
+    broadcastToPartner: realtime.broadcastToPartner,
 
     // Synchronizacja, obecność i toast
     isOnlineWithSupabase,

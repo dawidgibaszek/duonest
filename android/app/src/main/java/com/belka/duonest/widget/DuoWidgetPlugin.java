@@ -32,9 +32,16 @@ public class DuoWidgetPlugin extends Plugin {
         JSObject doodle = call.getObject("doodle", null);
         DoodleWidgetStore store = DoodleWidgetStore.get(getContext());
         if (doodle == null) {
-            // A null value from the app can also mean data is still loading.
-            // Only a successful server read can clear the saved drawing.
-            if (!store.currentDoodleKey().isEmpty()) DoodleRefreshWorker.enqueue(getContext());
+            if (Boolean.TRUE.equals(call.getBoolean("verifyEmpty", false))) {
+                // Initial hydration may not have loaded the drawing yet; confirm on the server first.
+                if (!store.currentDoodleKey().isEmpty()) DoodleWidgetSync.refreshAsync(getContext(), null);
+                call.resolve();
+                return;
+            }
+            store.setDoodle(null);
+            store.finishPartnerDrawing();
+            DoodleWidgetProvider.cancelDrawingExpiry(getContext());
+            DoodleWidgetProvider.requestRender(getContext());
             call.resolve();
             return;
         }
@@ -50,7 +57,14 @@ public class DuoWidgetPlugin extends Plugin {
             call.reject("Invalid stroke");
             return;
         }
-        DoodleWidgetStore.get(getContext()).addLiveStroke(stroke);
+        DoodleWidgetStore store = DoodleWidgetStore.get(getContext());
+        store.addLiveStroke(stroke);
+        long now = System.currentTimeMillis();
+        long targetUntil = now + LIVE_DRAWING_MS;
+        if (store.partnerDrawingUntil() < now + LIVE_DRAWING_MS / 2) {
+            store.setPartnerDrawingUntil(Math.max(store.partnerDrawingUntil(), targetUntil));
+            DoodleWidgetProvider.scheduleDrawingExpiry(getContext(), LIVE_DRAWING_MS);
+        }
         DoodleWidgetProvider.requestRender(getContext());
         call.resolve();
     }
@@ -65,9 +79,21 @@ public class DuoWidgetPlugin extends Plugin {
     @PluginMethod
     public void setPartnerDrawing(PluginCall call) {
         boolean isDrawing = Boolean.TRUE.equals(call.getBoolean("isDrawing", false));
-        DoodleWidgetStore.get(getContext()).setPartnerDrawingUntil(System.currentTimeMillis() + (isDrawing ? LIVE_DRAWING_MS : 2500));
-        DoodleWidgetProvider.scheduleDrawingExpiry(getContext(), isDrawing ? LIVE_DRAWING_MS : 2500);
+        DoodleWidgetStore store = DoodleWidgetStore.get(getContext());
+        if (isDrawing) {
+            long until = Math.max(store.partnerDrawingUntil(), System.currentTimeMillis() + LIVE_DRAWING_MS);
+            store.setPartnerDrawingUntil(until);
+            DoodleWidgetProvider.scheduleDrawingExpiry(getContext(), Math.max(LIVE_DRAWING_MS, until - System.currentTimeMillis()));
+        } else {
+            store.setPartnerDrawingUntil(0);
+            DoodleWidgetProvider.cancelDrawingExpiry(getContext());
+        }
         DoodleWidgetProvider.requestRender(getContext());
         call.resolve();
+    }
+
+    @PluginMethod
+    public void refresh(PluginCall call) {
+        DoodleWidgetSync.refreshAsync(getContext(), call::resolve);
     }
 }

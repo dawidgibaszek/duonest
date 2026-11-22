@@ -15,10 +15,11 @@ export interface DuoWidgetSession {
 
 interface DuoWidgetPlugin {
   setSession(session: DuoWidgetSession): Promise<void>
-  setDoodle(options: { doodle: Pick<DuoDoodle, 'id' | 'updated_at' | 'author_name' | 'strokes'> | null }): Promise<void>
+  setDoodle(options: { doodle: Pick<DuoDoodle, 'id' | 'updated_at' | 'author_name' | 'strokes'> | null; verifyEmpty?: boolean }): Promise<void>
   addLiveStroke(options: { stroke: DuoDoodleStroke }): Promise<void>
   clearLiveStrokes(): Promise<void>
   setPartnerDrawing(options: { isDrawing: boolean }): Promise<void>
+  refresh?(): Promise<void>
   hasReadAccess(options: { uid: string; partnershipId: string }): Promise<{ valid: boolean }>
   getPushToken(): Promise<{ token?: string; environment?: 'production' | 'development' }>
 }
