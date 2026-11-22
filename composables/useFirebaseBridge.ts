@@ -740,11 +740,14 @@ export class FirebaseSupabaseBridge {
     else goOffline(this.rtdb)
   }
 
-  public observeDocument(table: string, id: string, onData: (data: any | null) => void) {
+  public observeDocument(table: string, id: string, onData: (data: any | null) => void, onError?: () => void) {
     return onSnapshot(doc(this.db, table, id), { includeMetadataChanges: true }, snapshot => {
       if (snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites) return
       onData(snapshot.exists() ? { ...snapshot.data(), id: snapshot.id } : null)
-    }, error => { if (process.dev) console.warn(`[Firestore] ${table} listener:`, error.code) })
+    }, error => {
+      if (process.dev) console.warn(`[Firestore] ${table} listener:`, error.code)
+      onError?.()
+    })
   }
 
   public observeCollection(table: string, filters: Record<string, string | boolean>, onData: (data: any[]) => void, order?: { field: string; limit: number }) {

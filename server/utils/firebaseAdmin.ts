@@ -65,7 +65,7 @@ export async function requireFirebaseUser(event: any) {
   }
   try {
     const decoded = await getFirebaseAdminAuth().verifyIdToken(token)
-    return { uid: decoded.uid, email: decoded.email, name: typeof decoded.name === 'string' ? decoded.name : undefined, email_verified: decoded.email_verified === true, sign_in_provider: decoded.firebase?.sign_in_provider || '' }
+    return { uid: decoded.uid, auth_time: decoded.auth_time, email: decoded.email, name: typeof decoded.name === 'string' ? decoded.name : undefined, email_verified: decoded.email_verified === true, sign_in_provider: decoded.firebase?.sign_in_provider || '' }
   } catch {
     throw createError({ statusCode: 401, statusMessage: 'Invalid authentication token' })
   }

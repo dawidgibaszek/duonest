@@ -1,3 +1,5 @@
+import type { DuoFeature, NestCard, OnboardingStage } from '~/utils/duoPersonalization'
+
 export interface Profile {
   id: string
   email: string | null
@@ -14,6 +16,11 @@ export interface Profile {
   favorite_treat?: string | null
   gender?: string | null
   grammatical_gender?: string | null
+  enabled_features?: DuoFeature[]
+  nest_cards?: NestCard[]
+  onboarding_stage?: OnboardingStage
+  onboarding_partnership_id?: string
+  show_location_widget?: boolean
   points?: number
   last_seen_at?: string | null
   created_at?: string | null

@@ -24,6 +24,7 @@
 		DA1D0E000000000000000011 /* DoodleWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D0E000000000000000003 /* DoodleWidgetShared.swift */; };
 		DA1D0E000000000000000012 /* DoodleWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D0E000000000000000003 /* DoodleWidgetShared.swift */; };
 		DA1D0E000000000000000013 /* DuoWidgetPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D0E000000000000000006 /* DuoWidgetPlugin.swift */; };
+		DA1D0E000000000000000037 /* DuoLocationPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D0E000000000000000036 /* DuoLocationPlugin.swift */; };
 		DA1D0E000000000000000014 /* DuoNestWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DA1D0E000000000000000001 /* DuoNestWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F1B3A5E70000000000000011 /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = F1B3A5E70000000000000001 /* FirebaseAppCheck */; };
 		F1B3A5E70000000000000012 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = F1B3A5E70000000000000002 /* FirebaseCore */; };
@@ -77,6 +78,7 @@
 		DA1D0E000000000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		DA1D0E000000000000000005 /* DuoNestWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DuoNestWidget.entitlements; sourceTree = "<group>"; };
 		DA1D0E000000000000000006 /* DuoWidgetPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuoWidgetPlugin.swift; sourceTree = "<group>"; };
+		DA1D0E000000000000000036 /* DuoLocationPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuoLocationPlugin.swift; sourceTree = "<group>"; };
 		DA1D0E000000000000000007 /* DuoNestWidgetDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DuoNestWidgetDebug.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -128,6 +130,7 @@
 				80294CDAAD3D47B4A8A20302 /* MetricKitDiagnostics.swift */,
 				80294CDAAD3D47B4A8A20304 /* DuoMetricKitPlugin.swift */,
 				DA1D0E000000000000000006 /* DuoWidgetPlugin.swift */,
+				DA1D0E000000000000000036 /* DuoLocationPlugin.swift */,
 				80294CDAAD3D47B4A8A20306 /* PrivacyInfo.xcprivacy */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
 				D0A1B2C3D4E5F60718293A01 /* GoogleService-Info.plist */,
@@ -285,6 +288,7 @@
 				80294CDAAD3D47B4A8A20301 /* MetricKitDiagnostics.swift in Sources */,
 				80294CDAAD3D47B4A8A20303 /* DuoMetricKitPlugin.swift in Sources */,
 				DA1D0E000000000000000013 /* DuoWidgetPlugin.swift in Sources */,
+				DA1D0E000000000000000037 /* DuoLocationPlugin.swift in Sources */,
 				DA1D0E000000000000000012 /* DoodleWidgetShared.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

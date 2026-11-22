@@ -24,6 +24,7 @@
       <ion-toolbar class="main-tabs-toolbar" data-no-swipe>
         <div ref="pillRowRef" class="main-tabs-pill-row" @scroll.passive="onTabsScroll">
           <button
+            v-if="isFeatureEnabled('shopping')"
             type="button"
             class="main-tab-pill active"
           >
@@ -33,6 +34,7 @@
           </button>
 
           <button
+            v-if="isFeatureEnabled('tasks')"
             type="button"
             class="main-tab-pill"
             @click="switchToTasks"
@@ -43,6 +45,7 @@
           </button>
 
           <button
+            v-if="isFeatureEnabled('meals')"
             type="button"
             class="main-tab-pill"
             @click="switchToMeals"
@@ -52,6 +55,7 @@
           </button>
 
           <button
+            v-if="isFeatureEnabled('savings')"
             type="button"
             class="main-tab-pill"
             @click="switchToSavings"
@@ -61,6 +65,7 @@
           </button>
 
           <button
+            v-if="isFeatureEnabled('pet')"
             type="button"
             class="main-tab-pill pet-tab-pill"
             @click="switchToPet"
@@ -504,6 +509,7 @@ const {
   initSupabaseSync,
   triggerToast
 } = useDuoState()
+const { isFeatureEnabled } = useDuoPersonalization()
 
 const { confirm } = useConfirm()
 const { pillRowRef, onTabsScroll } = useOrgTabsSync('shopping')

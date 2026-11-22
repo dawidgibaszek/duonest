@@ -52,6 +52,10 @@ service cloud.firestore {
       allow get: if signedIn() && request.auth.uid == uid;
     }
 
+    function validSelection(selection, allowed) {
+      return selection is list && selection.size() == selection.toSet().size() && selection.hasOnly(allowed);
+    }
+
     match /profiles/{id} {
       allow get: if signedIn() && (
         (id == request.auth.uid && (resource == null || resource.data.get('auth_user_id', null) == null)) ||
@@ -66,14 +70,35 @@ service cloud.firestore {
       allow update: if signedIn() && resource.data.get('auth_user_id', null) == request.auth.uid
         && changedOnly([
           'name', 'avatar_url', 'avatar_color', 'current_mood', 'mood_note', 'mood_updated_at',
-          'love_note', 'favorite_drink', 'favorite_treat', 'gender', 'grammatical_gender', 'last_seen_at', 'updated_at'
+          'love_note', 'favorite_drink', 'favorite_treat', 'gender', 'grammatical_gender',
+          'enabled_features', 'nest_cards', 'onboarding_stage', 'onboarding_partnership_id', 'show_location_widget',
+          'last_seen_at', 'updated_at'
         ])
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['gender'])
           || request.resource.data.get('gender', null) in [null, 'male', 'female', 'nonbinary'])
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['grammatical_gender'])
           || request.resource.data.get('grammatical_gender', null) in [
             null, 'female', 'male', 'neutral', 'impersonal'
-          ]);
+          ])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['enabled_features'])
+          || validSelection(request.resource.data.enabled_features, [
+            'shopping', 'tasks', 'meals', 'savings', 'pet', 'calendar', 'movies', 'wishlist'
+          ]))
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['nest_cards'])
+          || validSelection(request.resource.data.nest_cards, [
+            'summary', 'points', 'rewards', 'mood', 'music', 'gestures', 'today', 'doodle', 'shortcuts', 'location'
+          ]))
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['show_location_widget'])
+          || request.resource.data.show_location_widget is bool)
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['onboarding_stage'])
+          || (resource.data.get('onboarding_stage', null) in [null, 'profile']
+            && request.resource.data.onboarding_stage == 'features')
+          || (resource.data.get('onboarding_stage', null) == 'features' && request.resource.data.onboarding_stage == 'complete'))
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['onboarding_partnership_id'])
+          || (request.resource.data.onboarding_stage == 'complete'
+            && request.resource.data.onboarding_partnership_id is string
+            && request.resource.data.onboarding_partnership_id == resource.data.get('partnership_id', null)
+            && inPartnership(request.resource.data.onboarding_partnership_id)));
     }
 
     match /partnerships/{pid} {
@@ -87,6 +112,11 @@ service cloud.firestore {
             && request.resource.data.pet_name.size() > 0 && request.resource.data.pet_name.size() <= 40)
         );
       // Legacy per-partnership mirrors are private. Clients use top-level collections.
+    }
+
+    match /partnership_locations/{pid}/location_fixes/{profileId} {
+      allow get: if inPartnership(pid)
+        && (resource == null || resource.data.expires_at > request.time);
     }
 
     match /tasks/{id} {

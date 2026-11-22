@@ -40,14 +40,21 @@ function getClientAccessPolicy() {
   return policyFetch
 }
 
-export async function isIosWidgetVersionAllowed(version: string, build: string) {
+export async function isNativeVersionAllowed(platform: 'ios' | 'android', version: string, build: string) {
   if (process.env.DUO_APP_CHECK_ENFORCE !== 'true') return true
-  const minimum = (await getClientAccessPolicy()).ios
+  const minimum = (await getClientAccessPolicy())[platform]
   return !minimum.version || (
     compareAppVersions(version, version) !== null &&
-    (!minimum.build || compareAppVersions(build, build) !== null) &&
+    (!minimum.build || compareAppVersions(version, minimum.version) !== 0 || compareAppVersions(build, build) !== null) &&
     !needsAppUpdate({ version, build }, minimum.version, minimum.build)
   )
+}
+
+export async function isIosWidgetVersionAllowed(version: string, build: string) {
+  if (process.env.DUO_APP_CHECK_ENFORCE !== 'true') return true
+  const { ios } = await getClientAccessPolicy()
+  return (!ios.version || !ios.build || compareAppVersions(build, build) !== null)
+    && isNativeVersionAllowed('ios', version, build)
 }
 
 export const requireDuoClient: RequestHandler = async (req, res, next) => {
@@ -77,16 +84,10 @@ export const requireDuoClient: RequestHandler = async (req, res, next) => {
   res.locals.duoPlatform = isAndroidClient ? 'android' : 'ios'
 
   try {
-    const policies = await getClientAccessPolicy()
-    const { version: minimumVersion, build: minimumBuild } = isAndroidClient ? policies.android : policies.ios
     const version = req.get('X-DuoNest-Version') ?? ''
     const build = req.get('X-DuoNest-Build') ?? ''
     // Version headers are used for compatibility only, after verifying the app identity.
-    if (minimumVersion && (
-      compareAppVersions(version, version) === null ||
-      (minimumBuild && compareAppVersions(version, minimumVersion) === 0 && compareAppVersions(build, build) === null) ||
-      needsAppUpdate({ version, build }, minimumVersion, minimumBuild)
-    )) return res.status(426).json({ error: 'update_required', message: 'Zaktualizuj DuoNest, aby dalej korzystać z aplikacji.' })
+    if (!await isNativeVersionAllowed(res.locals.duoPlatform, version, build)) return res.status(426).json({ error: 'update_required', message: 'Zaktualizuj DuoNest, aby dalej korzystać z aplikacji.' })
   } catch (error) {
     console.error('[client-access] Unable to refresh version policy', (error as { code?: string })?.code)
     return res.status(503).json({ error: 'version_policy_unavailable' })

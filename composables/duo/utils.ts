@@ -163,7 +163,7 @@ export const clearSupabaseSessionStorage = () => {
   }
 }
 
-export const PROFILE_SELECT_FIELDS = 'id, name, email, pairing_code, auth_user_id, avatar_url, avatar_color, partnership_id, current_mood, mood_note, mood_updated_at, love_note, favorite_drink, favorite_treat, gender, grammatical_gender, points, last_seen_at, created_at, updated_at'
+export const PROFILE_SELECT_FIELDS = 'id, name, email, pairing_code, auth_user_id, avatar_url, avatar_color, partnership_id, current_mood, mood_note, mood_updated_at, love_note, favorite_drink, favorite_treat, gender, grammatical_gender, enabled_features, nest_cards, onboarding_stage, onboarding_partnership_id, show_location_widget, points, last_seen_at, created_at, updated_at'
 
 export const createInitialProfile = (): Profile => ({
   id: 'usr_' + Math.random().toString(36).substring(2, 11),

@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core'
+import { DUO_FEATURES, type DuoFeature } from '~/utils/duoPersonalization'
 
 export default defineNuxtRouteMiddleware((to) => {
   // The web site hosts the download page, administration and Firebase e-mail actions.
@@ -45,6 +46,11 @@ export default defineNuxtRouteMiddleware((to) => {
 
   // 4. Authenticated users without a partner -> must go to /pairing
   const hasPartner = isPaired.value
+  const { onboardingStage, needsPairingOnboarding, isFeatureEnabled } = useDuoPersonalization()
+  if (onboardingStage.value === 'profile' || needsPairingOnboarding.value) {
+    if (to.path !== '/onboarding') return navigateTo('/onboarding', { replace: true })
+    return
+  }
   if (!hasPartner) {
     if (to.path !== '/pairing') {
       return navigateTo('/pairing', { replace: true })
@@ -53,7 +59,11 @@ export default defineNuxtRouteMiddleware((to) => {
   }
 
   // 5. Authenticated and paired users -> if visiting entry or auth routes, redirect to /tabs/nest
-  if (to.path === '/' || to.path === '/welcome' || to.path === '/login' || to.path === '/register' || to.path === '/pairing' || to.path === '/verify-email') {
+  if (['/welcome', '/login', '/register', '/pairing', '/verify-email', '/onboarding'].includes(to.path)) {
+    return navigateTo('/tabs/nest', { replace: true })
+  }
+  const tab = (to.path === '/tabs/tasks' && to.query.view === 'pet' ? 'pet' : to.path.split('/')[2]) as DuoFeature
+  if (DUO_FEATURES.includes(tab) && !isFeatureEnabled(tab)) {
     return navigateTo('/tabs/nest', { replace: true })
   }
 })

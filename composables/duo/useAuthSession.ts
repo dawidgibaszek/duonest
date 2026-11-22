@@ -1,3 +1,4 @@
+import { stopDuoLocation } from '~/composables/useDuoLocation'
 import { trackDuoEmailVerified, trackDuoSignup } from '~/composables/useDuoAnalytics'
 import { getFirebaseBridge } from '../useFirebaseBridge'
 import { stopPartnershipRealtime } from './useRealtimeSync'
@@ -359,7 +360,7 @@ export function useAuthSession(options: {
     try {
       // Network cleanup must not prevent the local Firebase session from signing out.
       await Promise.race([
-        Promise.allSettled([unsubscribeDevicePush(), revokeIosWidgetAccess()]),
+        Promise.allSettled([unsubscribeDevicePush(), revokeIosWidgetAccess(), stopDuoLocation(true)]),
         new Promise<void>(resolve => { pushTimeout = setTimeout(resolve, 2500) })
       ])
       const bridge = getDb()

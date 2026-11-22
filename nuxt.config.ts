@@ -56,7 +56,7 @@ export default defineNuxtConfig({
           'X-Content-Type-Options': 'nosniff',
           'Referrer-Policy': 'strict-origin-when-cross-origin',
           // camera=(self): the pairing QR scanner needs the camera on our own origin
-          'Permissions-Policy': 'camera=(self), microphone=(), geolocation=()'
+          'Permissions-Policy': process.env.NODE_ENV === 'development' ? 'camera=(self), microphone=(), geolocation=(self)' : 'camera=(self), microphone=(), geolocation=()'
         }
       }
     }

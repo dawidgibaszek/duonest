@@ -76,9 +76,14 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>DuoNest pokaże Twoją pozycję na mapie Relacji. Udostępnisz ją dopiero po włączeniu tej opcji.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Gdy włączysz udostępnianie, DuoNest aktualizuje pozycję dla osoby z Twojej pary, także przy zablokowanym ekranie. Możesz wyłączyć udostępnianie w Relacji.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
+		<string>location</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>

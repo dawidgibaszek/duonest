@@ -8,6 +8,7 @@
  */
 
 import { randomInt, randomUUID } from 'node:crypto'
+import { removeDuoLocationForPair } from './duoLocation'
 import { isCurrentPairingCode, normalizePairingCode, PAIRING_CODE_ALPHABET, PAIRING_CODE_LENGTH } from './pairingCode'
 
 export interface DecodedUser {
@@ -150,6 +151,7 @@ export async function syncAccount(db: Db, rtdb: Rtdb | null, user: DecodedUser):
         favorite_treat: '',
         gender: null,
         grammatical_gender: null,
+        onboarding_stage: 'profile',
         partnership_id: null,
         points: 0,
         created_at: nowIso(),
@@ -384,6 +386,7 @@ export async function disconnectPartnership(db: Db, rtdb: Rtdb | null, user: Dec
     for (const [uid, profileId] of ids) {
       tx.set(db.collection('members').doc(uid), membership(profileId, null))
       tx.delete(db.collection('calendar_subscriptions').doc(uid))
+      removeDuoLocationForPair(db, tx, uid, pid, profileId)
     }
     return [...ids.keys()]
   })

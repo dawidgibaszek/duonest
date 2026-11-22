@@ -24,6 +24,7 @@
       <ion-toolbar class="main-tabs-toolbar" data-no-swipe>
         <div class="main-tabs-pill-row">
           <button
+            v-if="isFeatureEnabled('movies')"
             type="button"
             class="main-tab-pill active"
           >
@@ -33,6 +34,7 @@
           </button>
 
           <button
+            v-if="isFeatureEnabled('wishlist')"
             type="button"
             class="main-tab-pill"
             @click="switchToWishlist"
@@ -1689,6 +1691,7 @@ const {
   partnerUserAccentColor,
   triggerToast
 } = useDuoState()
+const { isFeatureEnabled } = useDuoPersonalization()
 
 const { confirm } = useConfirm()
 

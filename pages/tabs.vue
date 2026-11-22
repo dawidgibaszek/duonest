@@ -8,36 +8,37 @@
       <div
         ref="trackRef"
         class="tabs-track"
+        :style="{ width: `${visibleTabs.length * 100}%` }"
       >
-        <div class="tab-slide" :class="{ 'is-active': activeTabIndex === 0 }">
+        <div v-show="visibleTabs.includes(0)" class="tab-slide" :style="slideWidth" :inert="activeTabIndex !== 0" :class="{ 'is-active': activeTabIndex === 0 }">
           <TabNest />
         </div>
-        <div class="tab-slide" :class="{ 'is-active': activeTabIndex === 1 }">
+        <div v-show="visibleTabs.includes(1)" class="tab-slide" :style="slideWidth" :inert="activeTabIndex !== 1" :class="{ 'is-active': activeTabIndex === 1 }">
           <div v-show="activeDailySubTab === 'shopping'" class="subtab-fill-container">
-            <TabShopping />
+            <TabShopping v-if="isFeatureEnabled('shopping')" />
           </div>
           <div v-show="activeDailySubTab === 'tasks'" class="subtab-fill-container">
-            <TabTasks />
+            <TabTasks v-if="isFeatureEnabled('tasks') || isFeatureEnabled('pet')" />
           </div>
           <div v-show="activeDailySubTab === 'meals'" class="subtab-fill-container">
-            <TabMeals />
+            <TabMeals v-if="isFeatureEnabled('meals')" />
           </div>
           <div v-show="activeDailySubTab === 'savings'" class="subtab-fill-container">
-            <TabSavings />
+            <TabSavings v-if="isFeatureEnabled('savings')" />
           </div>
         </div>
-        <div class="tab-slide" :class="{ 'is-active': activeTabIndex === 2 }">
-          <TabCalendar />
+        <div v-show="visibleTabs.includes(2)" class="tab-slide" :style="slideWidth" :inert="activeTabIndex !== 2" :class="{ 'is-active': activeTabIndex === 2 }">
+          <TabCalendar v-if="isFeatureEnabled('calendar')" />
         </div>
-        <div class="tab-slide" :class="{ 'is-active': activeTabIndex === 3 }">
+        <div v-show="visibleTabs.includes(3)" class="tab-slide" :style="slideWidth" :inert="activeTabIndex !== 3" :class="{ 'is-active': activeTabIndex === 3 }">
           <div v-show="activeLeisureSubTab === 'movies'" class="subtab-fill-container">
-            <TabMovies />
+            <TabMovies v-if="isFeatureEnabled('movies')" />
           </div>
           <div v-show="activeLeisureSubTab === 'wishlist'" class="subtab-fill-container">
-            <TabWishlist />
+            <TabWishlist v-if="isFeatureEnabled('wishlist')" />
           </div>
         </div>
-        <div class="tab-slide" :class="{ 'is-active': activeTabIndex === 4 }">
+        <div v-show="visibleTabs.includes(4)" class="tab-slide" :style="slideWidth" :inert="activeTabIndex !== 4" :class="{ 'is-active': activeTabIndex === 4 }">
           <TabRelationship />
         </div>
       </div>
@@ -61,22 +62,24 @@
 
         <button
           type="button"
+          v-if="visibleTabs.includes(1)"
           id="tab-btn-daily"
           class="duo-tab-btn"
           :class="{ 'is-active': activeTabIndex === 1 }"
           @click="handleDailyTabClick"
         >
           <div class="tab-icon-wrap">
-            <ion-icon :icon="ioniconsCheckboxOutline" />
-            <span v-if="(pendingShoppingCount + pendingTasksCount) > 0" class="tab-badge primary-badge">
-              {{ pendingShoppingCount + pendingTasksCount }}
+            <ion-icon :icon="dailyFeatures.length === 1 && dailyFeatures[0] ? FEATURE_DETAILS[dailyFeatures[0]].icon : ioniconsCheckboxOutline" />
+            <span v-if="dailyBadge > 0" class="tab-badge primary-badge">
+              {{ dailyBadge }}
             </span>
           </div>
-          <span class="tab-title">Organizacja</span>
+          <span class="tab-title">{{ dailyFeatures.length === 1 && dailyFeatures[0] ? FEATURE_DETAILS[dailyFeatures[0]].label : 'Organizacja' }}</span>
         </button>
 
         <button
           type="button"
+          v-if="visibleTabs.includes(2)"
           id="tab-btn-calendar"
           class="duo-tab-btn"
           :class="{ 'is-active': activeTabIndex === 2 }"
@@ -93,18 +96,19 @@
 
         <button
           type="button"
+          v-if="visibleTabs.includes(3)"
           id="tab-btn-leisure"
           class="duo-tab-btn"
           :class="{ 'is-active': activeTabIndex === 3 }"
           @click="handleLeisureTabClick"
         >
           <div class="tab-icon-wrap">
-            <ion-icon :icon="ioniconsFilmOutline" />
-            <span v-if="(pendingMoviesCount + pendingWishlistCount) > 0" class="tab-badge primary-badge">
-              {{ pendingMoviesCount + pendingWishlistCount }}
+            <ion-icon :icon="leisureFeatures.length === 1 && leisureFeatures[0] ? FEATURE_DETAILS[leisureFeatures[0]].icon : ioniconsFilmOutline" />
+            <span v-if="leisureBadge > 0" class="tab-badge primary-badge">
+              {{ leisureBadge }}
             </span>
           </div>
-          <span class="tab-title">Rozrywka</span>
+          <span class="tab-title">{{ leisureFeatures.length === 1 && leisureFeatures[0] ? FEATURE_DETAILS[leisureFeatures[0]].label : 'Rozrywka' }}</span>
         </button>
 
         <button
@@ -126,6 +130,8 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { DAILY_FEATURES, LEISURE_FEATURES, featurePath } from '~/utils/duoPersonalization'
+import { FEATURE_DETAILS } from '~/utils/duoPersonalizationUi'
 import { useDuoState } from '~/composables/useDuoState'
 
 import TabNest from '~/pages/tabs/nest.vue'
@@ -139,6 +145,7 @@ import TabMovies from '~/pages/tabs/movies.vue'
 import TabRelationship from '~/pages/tabs/relationship.vue'
 
 const route = useRoute()
+const router = useRouter()
 const {
   shoppingItems,
   tasksList,
@@ -146,6 +153,7 @@ const {
   wishlistItems,
   moviesList,
   activeDailySubTab,
+  activeTasksMainTab,
   activeLeisureSubTab
 } = useDuoState()
 
@@ -171,6 +179,48 @@ const pendingMoviesCount = computed(() => {
 })
 
 const TABS = ['nest', 'daily', 'calendar', 'leisure', 'relationship']
+const { isFeatureEnabled, enabledFeatures } = useDuoPersonalization()
+const dailyFeatures = computed(() => DAILY_FEATURES.filter(isFeatureEnabled))
+const leisureFeatures = computed(() => LEISURE_FEATURES.filter(isFeatureEnabled))
+const dailyBadge = computed(() => (isFeatureEnabled('shopping') ? pendingShoppingCount.value : 0)
+  + (isFeatureEnabled('tasks') ? pendingTasksCount.value : 0))
+const leisureBadge = computed(() => (isFeatureEnabled('movies') ? pendingMoviesCount.value : 0)
+  + (isFeatureEnabled('wishlist') ? pendingWishlistCount.value : 0))
+const visibleTabs = computed(() => [
+  0, ...(dailyFeatures.value.length ? [1] : []), ...(isFeatureEnabled('calendar') ? [2] : []),
+  ...(leisureFeatures.value.length ? [3] : []), 4
+])
+const slideWidth = computed(() => ({ width: `${100 / visibleTabs.value.length}%` }))
+const dailyFeature = computed(() => activeDailySubTab.value === 'tasks' ? activeTasksMainTab.value : activeDailySubTab.value)
+
+function selectDaily(feature: typeof DAILY_FEATURES[number]) {
+  if (feature === 'tasks' || feature === 'pet') activeTasksMainTab.value = feature
+  activeDailySubTab.value = feature === 'pet' ? 'tasks' : feature
+}
+
+function normalizeSubTabs() {
+  const firstDaily = dailyFeatures.value[0]
+  if (firstDaily && !isFeatureEnabled(dailyFeature.value)) selectDaily(firstDaily)
+  const firstLeisure = leisureFeatures.value[0]
+  if (firstLeisure && !isFeatureEnabled(activeLeisureSubTab.value)) activeLeisureSubTab.value = firstLeisure
+}
+
+function tabPosition(index: number) {
+  return visibleTabs.value.indexOf(index)
+}
+
+function updateTabUrl(index: number) {
+  const target = index === 1 ? featurePath(dailyFeature.value)
+    : index === 3 ? featurePath(activeLeisureSubTab.value)
+      : `/tabs/${TABS[index]}`
+  // Preserve contextual query parameters, such as the settings section.
+  const currentPath = route.path
+  const petChanged = currentPath === '/tabs/tasks' &&
+    (route.query.view === 'pet') !== (target === featurePath('pet'))
+  if (currentPath !== target.split('?')[0] || petChanged) {
+    void router.replace(target)
+  }
+}
 const activeTabIndex = ref(0)
 const containerRef = ref<HTMLElement | null>(null)
 const trackRef = ref<HTMLElement | null>(null)
@@ -269,7 +319,7 @@ const onTouchStart = (e: TouchEvent) => {
   touchHistory = [{ x: touch.clientX, time: now }]
 
   const width = getContainerWidth()
-  currentTrackX = -activeTabIndex.value * width
+  currentTrackX = -tabPosition(activeTabIndex.value) * width
 }
 
 const onTouchMove = (e: TouchEvent) => {
@@ -317,7 +367,7 @@ const onTouchMove = (e: TouchEvent) => {
     const now = performance.now()
     touchHistory.push({ x: touch.clientX, time: now })
     // Keep only samples from last 100ms for accurate release velocity calculation
-    while (touchHistory.length > 1 && now - touchHistory[0].time > 100) {
+    while (touchHistory.length > 1 && now - (touchHistory[0]?.time ?? now) > 100) {
       touchHistory.shift()
     }
 
@@ -325,11 +375,11 @@ const onTouchMove = (e: TouchEvent) => {
     let effectiveDx = dx
 
     // Damping / rubber band effect at bounds
-    if ((activeTabIndex.value === 0 && dx > 0) || (activeTabIndex.value === TABS.length - 1 && dx < 0)) {
+    if ((tabPosition(activeTabIndex.value) === 0 && dx > 0) || (tabPosition(activeTabIndex.value) === visibleTabs.value.length - 1 && dx < 0)) {
       effectiveDx = applyRubberBand(dx, width)
     }
 
-    currentTrackX = -activeTabIndex.value * width + effectiveDx
+    currentTrackX = -tabPosition(activeTabIndex.value) * width + effectiveDx
 
     // Direct GPU transform update batched with requestAnimationFrame for 120Hz display refresh
     if (rAFId === null) {
@@ -362,36 +412,20 @@ const onTouchEnd = (e: TouchEvent) => {
     const now = performance.now()
     const recentPoints = touchHistory.filter(p => now - p.time <= 80)
     let velocityX = 0
-    if (recentPoints.length >= 2) {
-      const first = recentPoints[0]
-      const last = recentPoints[recentPoints.length - 1]
+    const first = recentPoints[0]
+    const last = recentPoints.at(-1)
+    if (first && last) {
       const dt = last.time - first.time
       if (dt > 8) {
         velocityX = (last.x - first.x) / dt // px/ms (>0 swiping right / <0 swiping left)
       }
     }
 
-    // Determine target tab
-    let targetIndex = activeTabIndex.value
-
-    if (Math.abs(velocityX) > 0.28) {
-      // Fast flick gesture
-      if (velocityX < -0.28 && activeTabIndex.value < TABS.length - 1) {
-        targetIndex = activeTabIndex.value + 1
-      } else if (velocityX > 0.28 && activeTabIndex.value > 0) {
-        targetIndex = activeTabIndex.value - 1
-      }
-    } else {
-      // Distance threshold: >22% drag
-      if (totalDx < -width * 0.22 && activeTabIndex.value < TABS.length - 1) {
-        targetIndex = activeTabIndex.value + 1
-      } else if (totalDx > width * 0.22 && activeTabIndex.value > 0) {
-        targetIndex = activeTabIndex.value - 1
-      }
-    }
-
-    // Calculate natural organic settling duration (based on physical spring damping)
-    const targetX = -targetIndex * width
+    const position = tabPosition(activeTabIndex.value)
+    const direction = Math.abs(velocityX) > 0.28 ? Math.sign(velocityX)
+      : Math.abs(totalDx) > width * 0.22 ? Math.sign(totalDx) : 0
+    const targetIndex = visibleTabs.value[position - direction] ?? activeTabIndex.value
+    const targetX = -tabPosition(targetIndex) * width
     const isSnapBack = targetIndex === activeTabIndex.value
     const speed = Math.abs(velocityX)
 
@@ -422,19 +456,11 @@ const onTouchEnd = (e: TouchEvent) => {
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         try { navigator.vibrate(10) } catch {}
       }
-      let targetPath = `/tabs/${TABS[targetIndex]}`
-      if (targetIndex === 1) {
-        targetPath = `/tabs/${activeDailySubTab.value}`
-      } else if (targetIndex === 3) {
-        targetPath = `/tabs/${activeLeisureSubTab.value}`
-      }
-      if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
-        window.history.replaceState({}, '', targetPath)
-      }
+      updateTabUrl(targetIndex)
     }
   } else {
     // If not dragging, always ensure track is securely positioned at activeTabIndex
-    const targetX = -activeTabIndex.value * width
+    const targetX = -tabPosition(activeTabIndex.value) * width
     if (trackRef.value) {
       trackRef.value.style.transition = 'transform 280ms cubic-bezier(0.25, 0.9, 0.3, 1)'
       trackRef.value.style.transform = `translate3d(${targetX}px, 0, 0)`
@@ -459,7 +485,7 @@ const onTouchCancel = () => {
   }
   isDragging = false
   const width = getContainerWidth()
-  const targetX = -activeTabIndex.value * width
+  const targetX = -tabPosition(activeTabIndex.value) * width
   if (trackRef.value) {
     trackRef.value.style.transition = 'transform 340ms cubic-bezier(0.25, 0.9, 0.3, 1)'
     trackRef.value.style.transform = `translate3d(${targetX}px, 0, 0)`
@@ -474,13 +500,14 @@ const onTouchCancel = () => {
   touchHistory = []
 }
 
-const goToTab = (index: number) => {
-  if (index < 0 || index >= TABS.length) return
+const goToTab = (index: number, updateUrl = true) => {
+  if (!visibleTabs.value.includes(index)) return
+  normalizeSubTabs()
   const oldIndex = activeTabIndex.value
   activeTabIndex.value = index
 
   const width = getContainerWidth()
-  const targetX = -index * width
+  const targetX = -tabPosition(index) * width
   const dist = Math.abs(index - oldIndex)
   const duration = dist > 1 ? 440 : 380
 
@@ -497,16 +524,7 @@ const goToTab = (index: number) => {
     try { navigator.vibrate(12) } catch {}
   }
 
-  let targetPath = `/tabs/${TABS[index]}`
-  if (index === 1) {
-    targetPath = `/tabs/${activeDailySubTab.value}`
-  } else if (index === 3) {
-    targetPath = `/tabs/${activeLeisureSubTab.value}`
-  }
-
-  if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
-    window.history.replaceState({}, '', targetPath)
-  }
+  if (updateUrl) updateTabUrl(index)
 }
 
 const onContainerScroll = () => {
@@ -517,20 +535,8 @@ const onContainerScroll = () => {
 
 const handleDailyTabClick = () => {
   if (activeTabIndex.value === 1) {
-    // Cycle between shopping -> tasks -> meals -> savings -> shopping
-    if (activeDailySubTab.value === 'shopping') {
-      activeDailySubTab.value = 'tasks'
-    } else if (activeDailySubTab.value === 'tasks') {
-      activeDailySubTab.value = 'meals'
-    } else if (activeDailySubTab.value === 'meals') {
-      activeDailySubTab.value = 'savings'
-    } else {
-      activeDailySubTab.value = 'shopping'
-    }
-    const targetPath = `/tabs/${activeDailySubTab.value}`
-    if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
-      window.history.replaceState({}, '', targetPath)
-    }
+    const next = dailyFeatures.value[(dailyFeatures.value.indexOf(dailyFeature.value) + 1) % dailyFeatures.value.length]
+    if (next) selectDaily(next)
   } else {
     goToTab(1)
   }
@@ -538,12 +544,8 @@ const handleDailyTabClick = () => {
 
 const handleLeisureTabClick = () => {
   if (activeTabIndex.value === 3) {
-    // If already on Rozrywka tab, toggle between movies and wishlist
-    activeLeisureSubTab.value = activeLeisureSubTab.value === 'movies' ? 'wishlist' : 'movies'
-    const targetPath = `/tabs/${activeLeisureSubTab.value}`
-    if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
-      window.history.replaceState({}, '', targetPath)
-    }
+    const next = leisureFeatures.value[(leisureFeatures.value.indexOf(activeLeisureSubTab.value) + 1) % leisureFeatures.value.length]
+    if (next) activeLeisureSubTab.value = next
   } else {
     goToTab(3)
   }
@@ -551,7 +553,7 @@ const handleLeisureTabClick = () => {
 
 const handleResize = () => {
   const width = getContainerWidth()
-  const targetX = -activeTabIndex.value * width
+  const targetX = -tabPosition(activeTabIndex.value) * width
   if (trackRef.value) {
     trackRef.value.style.transition = 'none'
     trackRef.value.style.transform = `translate3d(${targetX}px, 0, 0)`
@@ -570,7 +572,7 @@ const syncTabFromRoute = (animate: boolean = false) => {
     activeDailySubTab.value = 'shopping'
   } else if (path.includes('tasks')) {
     idx = 1
-    activeDailySubTab.value = 'tasks'
+    selectDaily(route.query.view === 'pet' ? 'pet' : 'tasks')
   } else if (path.includes('meals') || path.includes('dinner')) {
     idx = 1
     activeDailySubTab.value = 'meals'
@@ -593,16 +595,14 @@ const syncTabFromRoute = (animate: boolean = false) => {
     idx = 4
   }
 
-  if (animate && idx !== activeTabIndex.value) {
-    goToTab(idx)
-  } else {
-    activeTabIndex.value = idx
-    const width = getContainerWidth()
-    if (trackRef.value) {
-      trackRef.value.style.transition = 'none'
-      trackRef.value.style.transform = `translate3d(${-idx * width}px, 0, 0)`
-    }
+  normalizeSubTabs()
+  if (!visibleTabs.value.includes(idx)) idx = 0
+  if (animate) {
+    if (idx !== activeTabIndex.value) goToTab(idx, false)
+    return
   }
+  activeTabIndex.value = idx
+  handleResize()
 }
 
 onMounted(() => {
@@ -638,26 +638,19 @@ onUnmounted(() => {
   window.removeEventListener('orientationchange', handleResize)
 })
 
-watch(() => route?.path, () => {
-  syncTabFromRoute(true)
+watch(() => route.fullPath, () => syncTabFromRoute(true))
+
+watch(dailyFeature, () => {
+  if (activeTabIndex.value === 1) updateTabUrl(1)
+})
+watch(activeLeisureSubTab, () => {
+  if (activeTabIndex.value === 3) updateTabUrl(3)
 })
 
-watch(activeDailySubTab, (newVal) => {
-  if (activeTabIndex.value === 1 && typeof window !== 'undefined') {
-    const targetPath = `/tabs/${newVal}`
-    if (window.location.pathname !== targetPath) {
-      window.history.replaceState({}, '', targetPath)
-    }
-  }
-})
-
-watch(activeLeisureSubTab, (newVal) => {
-  if (activeTabIndex.value === 3 && typeof window !== 'undefined') {
-    const targetPath = `/tabs/${newVal}`
-    if (window.location.pathname !== targetPath) {
-      window.history.replaceState({}, '', targetPath)
-    }
-  }
+watch(enabledFeatures, () => {
+  normalizeSubTabs()
+  if (!visibleTabs.value.includes(activeTabIndex.value)) goToTab(0)
+  else handleResize()
 })
 </script>
 
@@ -694,7 +687,6 @@ watch(activeLeisureSubTab, (newVal) => {
   position: absolute;
   top: 0;
   left: 0;
-  width: 500%; /* 5 slides * 100% */
   will-change: transform;
   transform: translate3d(0, 0, 0);
   -webkit-backface-visibility: hidden;
@@ -704,7 +696,7 @@ watch(activeLeisureSubTab, (newVal) => {
 }
 
 .tab-slide {
-  width: 20%; /* 1/5th of 500% = 100% of container viewport */
+  flex-shrink: 0;
   height: 100%;
   position: relative;
   overflow: hidden;

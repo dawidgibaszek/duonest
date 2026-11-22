@@ -105,6 +105,18 @@
       "indexes": []
     },
     {
+      "collectionGroup": "location_fixes",
+      "fieldPath": "expires_at",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "location_grants",
+      "fieldPath": "expires_at",
+      "ttl": true,
+      "indexes": []
+    },
+    {
       "collectionGroup": "android_diagnostics",
       "fieldPath": "expiresAt",
       "ttl": true,

@@ -22,6 +22,7 @@ import { requireDuoClient } from './clientAccess'
 import { readWidgetDoodle, updateWidgetAccess } from './widgetAccess'
 import { storeNativeDiagnosticReports } from './nativeDiagnostics'
 import { createAdminRouter } from './adminAccess'
+import { locationSession, publishDuoLocation } from './duoLocation'
 
 // Inicjalizacja Firebase Admin
 if (getApps().length === 0) {
@@ -79,6 +80,15 @@ export const refreshSavedDoodleWidgets = region('europe-west1')
 
 const app = express()
 app.use(cors({ origin: true }))
+// Native background updates authenticate with the location-only grant, not the WebView.
+app.post('/api/location/update', express.json({ limit: '3kb' }), async (req, res) => {
+  res.set('Cache-Control', 'no-store')
+  try {
+    res.json(await publishDuoLocation(db, auth, req.get('Authorization') || '', req.body || {}))
+  } catch (error) {
+    respondToDataError(res, error)
+  }
+})
 app.use(requireDuoClient)
 app.use(express.json())
 app.use('/api/admin', createAdminRouter(db))
@@ -286,6 +296,17 @@ app.post('/api/wishlist/preview', requireAuth, async (req: any, res) => {
 // -----------------------------------------------------------------------------
 app.post('/api/widget/session', requireAuth, updateWidgetAccess(db))
 app.get('/api/widget/doodle', readWidgetDoodle(db, auth))
+
+app.post('/api/location/session', requireAuth, async (req: any, res) => {
+  res.set('Cache-Control', 'no-store')
+  try {
+    const platform = res.locals.duoPlatform
+    const client = platform ? { platform, version: req.get('X-DuoNest-Version') ?? '', build: req.get('X-DuoNest-Build') ?? '' } : undefined
+    res.json(await locationSession(db, req.user.uid, req.user.auth_time * 1000, req.body?.action, req.body?.partnershipId, client))
+  } catch (error) {
+    respondToDataError(res, error)
+  }
+})
 
 app.post('/api/account/sync', requireAuth, async (req: any, res) => {
   try {

@@ -12,18 +12,20 @@
                 v-if="partnerUser?.id"
                 type="button"
                 class="nest-partner-btn"
+                :class="{ 'is-offline': !isPartnerOnline }"
                 @click="navigateTo('/tabs/relationship')"
-                :aria-label="isPartnerOnline ? `${partnerUser?.name || partnerTitle} jest teraz online` : `${partnerUser?.name || partnerTitle} – ostatnia aktywność: ${partnerLastActiveText}`"
+                :aria-label="partnerActivityLabel"
               >
-                <span class="nest-partner-avatar" :style="{ backgroundColor: partnerUserAccentColor }">
-                  <img
-                    v-if="partnerUser?.avatar_url"
-                    :src="partnerUser.avatar_url"
-                    :alt="partnerUser.name || partnerTitle"
-                  />
-                  <span v-else>{{ partnerDisplayName.charAt(0).toUpperCase() }}</span>
+                <span class="nest-partner-indicator" aria-hidden="true">
+                  <span class="nest-partner-avatar" :style="{ backgroundColor: partnerUserAccentColor }">
+                    <img v-if="partnerUser.avatar_url" :src="partnerUser.avatar_url" alt="" />
+                    <span v-else>{{ partnerDisplayName.charAt(0).toUpperCase() }}</span>
+                  </span>
+                  <span class="nest-partner-pip" :class="{ 'is-online': isPartnerOnline }"></span>
                 </span>
-                <span class="nest-partner-pip" :class="{ 'is-online': isPartnerOnline }"></span>
+                <span v-if="!isPartnerOnline" class="nest-partner-last-seen" aria-hidden="true">
+                  {{ partnerLastActiveText || 'Offline' }}
+                </span>
               </button>
               <button
                 v-else
@@ -33,6 +35,14 @@
                 aria-label="Połącz konta"
               >
                 <ion-icon :icon="ioniconsPersonAddOutline" />
+              </button>
+              <button
+                type="button"
+                class="dn-header-btn dn-header-btn--icon dn-header-btn--soft"
+                aria-label="Edytuj układ Gniazdka"
+                @click="isLayoutEditorOpen = true"
+              >
+                <ion-icon :icon="ioniconsGridOutline" />
               </button>
               <button
                 type="button"
@@ -55,248 +65,274 @@
       </ion-refresher>
 
       <div class="nx-page">
-        <!-- ===== 1. COUPLE SUMMARY ===== -->
-        <section class="nx-summary">
-          <!-- Who: avatars + names + level badge -->
-          <div class="nx-summary-top">
-            <button type="button" class="nx-couple" @click="navigateTo('/tabs/relationship')" aria-label="Profil relacji">
-              <span class="nx-duo-avatars">
-                <span class="nx-avatar" :style="{ backgroundColor: currentUserAccentColor }">
-                  {{ (currentUser.name || 'T').charAt(0).toUpperCase() }}
-                </span>
-                <span class="nx-avatar nx-avatar--second" :style="{ backgroundColor: partnerUserAccentColor }">
-                  {{ partnerUser ? partnerDisplayName.charAt(0).toUpperCase() : '?' }}
-                </span>
-                <span class="nx-avatar-heart"><ion-icon :icon="ioniconsHeart" /></span>
-              </span>
-              <span class="nx-couple-text">
-                <span class="nx-couple-names">{{ currentUser.name || 'Ty' }} & {{ partnerUser?.name || partnerTitle }}</span>
-                <span class="nx-couple-nest">{{ partnership?.nest_name || 'Nasze Ciepłe Gniazdko' }}</span>
-              </span>
-            </button>
-          </div>
-
-          <!-- How long: big number + playful tile cluster -->
-          <div class="nx-days-row">
-            <div class="nx-days">
-              <span class="nx-days-num">{{ daysTogether }}</span>
-              <span class="nx-days-label">dni razem</span>
-            </div>
-            <div class="nx-tiles" aria-hidden="true">
-              <span class="nx-tile nx-tile--a"><ion-icon :icon="getStageIcon(nestLevel)" /></span>
-              <span class="nx-tile nx-tile--b"><ion-icon :icon="ioniconsHeart" /></span>
-              <span class="nx-tile nx-tile--c"><ion-icon :icon="ioniconsSparkles" /></span>
-            </div>
-          </div>
-
-          <!-- Progress: white inset panel -->
-          <div class="nx-level">
-            <div class="nx-level-row">
-              <span class="nx-level-badge">Poziom {{ nestLevel }}</span>
-              <span class="nx-level-name">{{ currentStageName }}</span>
-            </div>
-            <div class="nx-bar"><div class="nx-bar-fill" :style="{ width: Math.max(levelProgress, 2) + '%' }"></div></div>
-            <div class="nx-level-row nx-level-row--meta">
-              <span>{{ nestPoints }} pkt</span>
-              <span>jeszcze {{ pointsToNextLevel }} pkt do poziomu {{ nestLevel + 1 }}</span>
-            </div>
-          </div>
+        <section v-if="nestCards.length === 0" class="nx-section nx-empty-box">
+          <h2 class="nx-section-title">Twoje Gniazdko</h2>
+          <p class="nx-empty">Dodaj karty, które chcesz mieć pod ręką.</p>
+          <button type="button" class="dn-button-secondary nx-empty-btn" @click="isLayoutEditorOpen = true">Dodaj kartę</button>
         </section>
-
-        <!-- ===== 7. POINTS ===== -->
-        <section class="nx-section">
-          <div class="nx-section-head">
-            <h3 class="nx-section-title">Punkty</h3>
-            <span class="nx-section-meta">Razem {{ nestPoints }}</span>
-          </div>
-          <div class="nx-points">
-            <div class="nx-points-col">
-              <span class="nx-points-num">{{ userPoints }}</span>
-              <span class="nx-row-sub">Ty · {{ userCompletedTasksCount }} zadań</span>
-            </div>
-            <div class="nx-points-col nx-points-col--right">
-              <span class="nx-points-num">{{ partnerPoints }}</span>
-              <span class="nx-row-sub">{{ partnerUser?.name || partnerTitle }} · {{ partnerCompletedTasksCount }} zadań</span>
-            </div>
-          </div>
-          <div class="nx-split">
-            <div class="nx-split-a" :style="{ width: userPointsPct + '%' }"></div>
-            <div class="nx-split-b" :style="{ width: partnerPointsPct + '%' }"></div>
-          </div>
-          <p class="nx-note">{{ duoHarmonyMessage }}</p>
-        </section>
-
-        <!-- ===== 8. GOALS & REWARDS ===== -->
-        <section class="nx-section">
-          <div class="nx-section-head">
-            <h3 class="nx-section-title">Cele i nagrody</h3>
-            <button type="button" class="nx-round-btn" @click="openCreateMilestoneModal" aria-label="Dodaj cel">
-              <ion-icon :icon="ioniconsAddOutline" />
-            </button>
-          </div>
-
-          <div class="nx-chips" data-no-swipe>
-            <button type="button" class="dn-filter-chip" :class="{ active: activeMilestoneFilter === 'all' }" @click="activeMilestoneFilter = 'all'">
-              Wszystkie <span class="nx-chip-count">{{ milestonesList.length }}</span>
-            </button>
-            <button type="button" class="dn-filter-chip" :class="{ active: activeMilestoneFilter === 'shared' }" @click="activeMilestoneFilter = 'shared'">
-              Wspólne <span class="nx-chip-count">{{ sharedCount }}</span>
-            </button>
-            <button type="button" class="dn-filter-chip" :class="{ active: activeMilestoneFilter === 'mine' }" @click="activeMilestoneFilter = 'mine'">
-              Dla Ciebie <span class="nx-chip-count">{{ mineCount }}</span>
-            </button>
-            <button v-if="partnerUser" type="button" class="dn-filter-chip" :class="{ active: activeMilestoneFilter === 'theirs' }" @click="activeMilestoneFilter = 'theirs'">
-              Dla {{ partnerUser.name || partnerDopelniacz }} <span class="nx-chip-count">{{ theirsCount }}</span>
-            </button>
-          </div>
-
-          <div v-if="filteredMilestones.length > 0" class="nx-goals">
-            <div
-              v-for="goal in filteredMilestones"
-              :key="goal.id"
-              class="nx-goal"
-              :class="{ 'is-ready': isGoalReady(goal), 'is-claimed': goal.is_completed }"
-            >
-              <div class="nx-goal-top">
-                <div class="nx-row-body">
-                  <span class="nx-row-title">{{ goal.title }}</span>
-                  <span class="nx-row-sub">{{ getGoalScopeInfo(goal).label }}<template v-if="goal.description"> · {{ goal.description }}</template></span>
-                </div>
-                <button type="button" class="nx-icon-btn" @click.stop="openEditMilestoneModal(goal)" aria-label="Edytuj cel">
-                  <ion-icon :icon="ioniconsCreateOutline" />
-                </button>
-              </div>
-              <div class="nx-bar"><div class="nx-bar-fill" :style="{ width: getGoalProgressPct(goal) + '%' }"></div></div>
-              <div class="nx-level-row nx-level-row--meta">
-                <span>{{ goal.is_completed ? 'Zrealizowano' : `${Math.min(getGoalCurrentPoints(goal), goal.target_points)} / ${goal.target_points} pkt` }}</span>
-                <span v-if="!goal.is_completed">{{ isGoalReady(goal) ? 'Gotowe' : `${getGoalProgressPct(goal)}%` }}</span>
-                <button v-else type="button" class="nx-text-btn" @click="handleReactivateMilestone(goal)">Ustaw ponownie</button>
-              </div>
-              <button v-if="isGoalReady(goal)" type="button" class="dn-button-primary nx-claim" @click="handleClaimMilestone(goal)">
-                <ion-icon :icon="ioniconsGiftOutline" />
-                <span>Odbierzcie nagrodę</span>
+        <template v-for="card in nestCards" :key="card">
+          <!-- ===== 1. COUPLE SUMMARY ===== -->
+          <section v-if="card === 'summary'" class="nx-summary">
+            <!-- Who: avatars + names + level badge -->
+            <div class="nx-summary-top">
+              <button type="button" class="nx-couple" @click="navigateTo('/tabs/relationship')" aria-label="Profil relacji">
+                <span class="nx-duo-avatars">
+                  <span class="nx-avatar" :style="{ backgroundColor: currentUserAccentColor }">
+                    {{ (currentUser.name || 'T').charAt(0).toUpperCase() }}
+                  </span>
+                  <span class="nx-avatar nx-avatar--second" :style="{ backgroundColor: partnerUserAccentColor }">
+                    {{ partnerUser ? partnerDisplayName.charAt(0).toUpperCase() : '?' }}
+                  </span>
+                  <span class="nx-avatar-heart"><ion-icon :icon="ioniconsHeart" /></span>
+                </span>
+                <span class="nx-couple-text">
+                  <span class="nx-couple-names">{{ currentUser.name || 'Ty' }} & {{ partnerUser?.name || partnerTitle }}</span>
+                  <span class="nx-couple-nest">{{ partnership?.nest_name || 'Nasze Ciepłe Gniazdko' }}</span>
+                </span>
               </button>
             </div>
-          </div>
-          <div v-else class="nx-empty-box">
-            <p class="nx-empty">Brak celów w tej kategorii.</p>
-            <button type="button" class="dn-button-secondary nx-empty-btn" @click="openCreateMilestoneModal">Dodaj cel</button>
-          </div>
-        </section>
-        <!-- ===== 2. PARTNER MOOD ===== -->
-        <section class="nx-section" v-if="partnerUser">
-          <div class="nx-section-head">
-            <h3 class="nx-section-title">Nastrój</h3>
-            <span class="nx-section-meta">{{ formattedMoodTime }}</span>
-          </div>
-          <div class="nx-row">
-            <div class="nx-row-icon">
-              <DuoIcon :name="'mood-' + (partnerUser.current_mood || 'happy')" :size="22" />
+
+            <!-- How long: big number + playful tile cluster -->
+            <div class="nx-days-row">
+              <div class="nx-days">
+                <span class="nx-days-num">{{ daysTogether }}</span>
+                <span class="nx-days-label">dni razem</span>
+              </div>
+              <div class="nx-tiles" aria-hidden="true">
+                <span class="nx-tile nx-tile--a"><ion-icon :icon="getStageIcon(nestLevel)" /></span>
+                <span class="nx-tile nx-tile--b"><ion-icon :icon="ioniconsHeart" /></span>
+                <span class="nx-tile nx-tile--c"><ion-icon :icon="ioniconsSparkles" /></span>
+              </div>
             </div>
-            <div class="nx-row-body">
-              <span class="nx-row-title">{{ partnerDisplayName }} · {{ getMoodLabel(partnerUser.current_mood) }}</span>
-              <span class="nx-row-sub">{{ partnerUser.mood_note ? `„${partnerUser.mood_note}”` : 'Bez notatki na dziś' }}</span>
+
+            <!-- Progress: white inset panel -->
+            <div class="nx-level">
+              <div class="nx-level-row">
+                <span class="nx-level-badge">Poziom {{ nestLevel }}</span>
+                <span class="nx-level-name">{{ currentStageName }}</span>
+              </div>
+              <div class="nx-bar"><div class="nx-bar-fill" :style="{ width: Math.max(levelProgress, 2) + '%' }"></div></div>
+              <div class="nx-level-row nx-level-row--meta">
+                <span>{{ nestPoints }} pkt</span>
+                <span>jeszcze {{ pointsToNextLevel }} pkt do poziomu {{ nestLevel + 1 }}</span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <!-- ===== 3. PARTNER MUSIC ===== -->
-        <DuoMusicCard
-          v-if="partnerPlayback"
-          :playback="partnerPlayback"
-          :user-name="partnerUser?.name || partnerTitle"
-        />
-
-        <!-- ===== 4. GESTURES ===== -->
-        <section class="nx-section">
-          <div class="nx-section-head">
-            <h3 class="nx-section-title">Drobny gest</h3>
-            <span v-if="hasSentDailyNudge" class="nx-section-meta">Wysłano</span>
-          </div>
-
-          <div v-if="hasSentDailyNudge" class="nx-row">
-            <div class="nx-row-icon nx-row-icon--ink">
-              <ion-icon :icon="ioniconsCheckmarkOutline" />
+          <!-- ===== 7. POINTS ===== -->
+          <section v-if="card === 'points'" class="nx-section">
+            <div class="nx-section-head">
+              <h3 class="nx-section-title">Punkty</h3>
+              <span class="nx-section-meta">Razem {{ nestPoints }}</span>
             </div>
-            <div class="nx-row-body">
-              <span class="nx-row-title">Twój gest dotarł</span>
-              <span class="nx-row-sub">Kolejny za {{ formattedNextNudgeTime }}</span>
+            <div class="nx-points">
+              <div class="nx-points-col">
+                <span class="nx-points-num">{{ userPoints }}</span>
+                <span class="nx-row-sub">Ty · {{ userCompletedTasksCount }} zadań</span>
+              </div>
+              <div class="nx-points-col nx-points-col--right">
+                <span class="nx-points-num">{{ partnerPoints }}</span>
+                <span class="nx-row-sub">{{ partnerUser?.name || partnerTitle }} · {{ partnerCompletedTasksCount }} zadań</span>
+              </div>
             </div>
-          </div>
+            <div class="nx-split">
+              <div class="nx-split-a" :style="{ width: userPointsPct + '%' }"></div>
+              <div class="nx-split-b" :style="{ width: partnerPointsPct + '%' }"></div>
+            </div>
+            <p class="nx-note">{{ duoHarmonyMessage }}</p>
+          </section>
 
-          <div v-else class="nx-gestures" data-no-swipe>
-            <button
-              v-for="n in nudgePresets"
-              :key="n.id"
-              type="button"
-              class="nx-gesture"
-              @click="sendQuickNudge(n.id, n.defaultMsg)"
-            >
-              <span class="nx-gesture-icon"><DuoIcon :name="'nudge-' + n.id" :size="22" /></span>
-              <span class="nx-gesture-label">{{ n.title }}</span>
-            </button>
-          </div>
-        </section>
+          <!-- ===== 8. GOALS & REWARDS ===== -->
+          <section v-if="card === 'rewards'" class="nx-section">
+            <div class="nx-section-head">
+              <h3 class="nx-section-title">Cele i nagrody</h3>
+              <button type="button" class="nx-round-btn" @click="openCreateMilestoneModal" aria-label="Dodaj cel">
+                <ion-icon :icon="ioniconsAddOutline" />
+              </button>
+            </div>
 
-        <!-- ===== 5. TODAY ===== -->
-        <section class="nx-section">
-          <div class="nx-section-head">
-            <h3 class="nx-section-title">Na dziś</h3>
-            <NuxtLink to="/tabs/tasks" class="nx-link">Wszystkie</NuxtLink>
-          </div>
+            <div class="nx-chips" data-no-swipe>
+              <button type="button" class="dn-filter-chip" :class="{ active: activeMilestoneFilter === 'all' }" @click="activeMilestoneFilter = 'all'">
+                Wszystkie <span class="nx-chip-count">{{ milestonesList.length }}</span>
+              </button>
+              <button type="button" class="dn-filter-chip" :class="{ active: activeMilestoneFilter === 'shared' }" @click="activeMilestoneFilter = 'shared'">
+                Wspólne <span class="nx-chip-count">{{ sharedCount }}</span>
+              </button>
+              <button type="button" class="dn-filter-chip" :class="{ active: activeMilestoneFilter === 'mine' }" @click="activeMilestoneFilter = 'mine'">
+                Dla Ciebie <span class="nx-chip-count">{{ mineCount }}</span>
+              </button>
+              <button v-if="partnerUser" type="button" class="dn-filter-chip" :class="{ active: activeMilestoneFilter === 'theirs' }" @click="activeMilestoneFilter = 'theirs'">
+                Dla {{ partnerUser.name || partnerDopelniacz }} <span class="nx-chip-count">{{ theirsCount }}</span>
+              </button>
+            </div>
 
-          <div v-if="pendingChores.length > 0" class="nx-list">
-            <button
-              v-for="task in pendingChores.slice(0, 3)"
-              :key="task.id"
-              type="button"
-              class="nx-list-row"
-              @click="toggleTask(task.id)"
-            >
-              <span class="nx-check" :class="{ checked: task.is_completed }">
-                <ion-icon v-if="task.is_completed" :icon="ioniconsCheckmarkOutline" />
+            <div v-if="filteredMilestones.length > 0" class="nx-goals">
+              <div
+                v-for="goal in filteredMilestones"
+                :key="goal.id"
+                class="nx-goal"
+                :class="{ 'is-ready': isGoalReady(goal), 'is-claimed': goal.is_completed }"
+              >
+                <div class="nx-goal-top">
+                  <div class="nx-row-body">
+                    <span class="nx-row-title">{{ goal.title }}</span>
+                    <span class="nx-row-sub">{{ getGoalScopeInfo(goal).label }}<template v-if="goal.description"> · {{ goal.description }}</template></span>
+                  </div>
+                  <button type="button" class="nx-icon-btn" @click.stop="openEditMilestoneModal(goal)" aria-label="Edytuj cel">
+                    <ion-icon :icon="ioniconsCreateOutline" />
+                  </button>
+                </div>
+                <div class="nx-bar"><div class="nx-bar-fill" :style="{ width: getGoalProgressPct(goal) + '%' }"></div></div>
+                <div class="nx-level-row nx-level-row--meta">
+                  <span>{{ goal.is_completed ? 'Zrealizowano' : `${Math.min(getGoalCurrentPoints(goal), goal.target_points)} / ${goal.target_points} pkt` }}</span>
+                  <span v-if="!goal.is_completed">{{ isGoalReady(goal) ? 'Gotowe' : `${getGoalProgressPct(goal)}%` }}</span>
+                  <button v-else type="button" class="nx-text-btn" @click="handleReactivateMilestone(goal)">Ustaw ponownie</button>
+                </div>
+                <button v-if="isGoalReady(goal)" type="button" class="dn-button-primary nx-claim" @click="handleClaimMilestone(goal)">
+                  <ion-icon :icon="ioniconsGiftOutline" />
+                  <span>Odbierzcie nagrodę</span>
+                </button>
+              </div>
+            </div>
+            <div v-else class="nx-empty-box">
+              <p class="nx-empty">Brak celów w tej kategorii.</p>
+              <button type="button" class="dn-button-secondary nx-empty-btn" @click="openCreateMilestoneModal">Dodaj cel</button>
+            </div>
+          </section>
+          <!-- ===== 2. PARTNER MOOD ===== -->
+          <section class="nx-section" v-if="card === 'mood' && partnerUser">
+            <div class="nx-section-head">
+              <h3 class="nx-section-title">Nastrój</h3>
+              <span class="nx-section-meta">{{ formattedMoodTime }}</span>
+            </div>
+            <div class="nx-row">
+              <div class="nx-row-icon">
+                <DuoIcon :name="'mood-' + (partnerUser.current_mood || 'happy')" :size="22" />
+              </div>
+              <div class="nx-row-body">
+                <span class="nx-row-title">{{ partnerDisplayName }} · {{ getMoodLabel(partnerUser.current_mood) }}</span>
+                <span class="nx-row-sub">{{ partnerUser.mood_note ? `„${partnerUser.mood_note}”` : 'Bez notatki na dziś' }}</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===== 3. PARTNER MUSIC ===== -->
+          <DuoMusicCard
+            v-if="card === 'music' && partnerPlayback"
+            :playback="partnerPlayback"
+            :user-name="partnerUser?.name || partnerTitle"
+          />
+
+          <section v-if="card === 'music' && !partnerPlayback" class="nx-section">
+            <div class="nx-section-head"><h3 class="nx-section-title">Muzyka</h3></div>
+            <p class="nx-empty">Brak udostępnionej aktywności muzycznej.</p>
+          </section>
+
+          <!-- ===== 4. GESTURES ===== -->
+          <section v-if="card === 'gestures'" class="nx-section">
+            <div class="nx-section-head">
+              <h3 class="nx-section-title">Drobny gest</h3>
+              <span v-if="hasSentDailyNudge" class="nx-section-meta">Wysłano</span>
+            </div>
+
+            <div v-if="hasSentDailyNudge" class="nx-row">
+              <div class="nx-row-icon nx-row-icon--ink">
+                <ion-icon :icon="ioniconsCheckmarkOutline" />
+              </div>
+              <div class="nx-row-body">
+                <span class="nx-row-title">Twój gest dotarł</span>
+                <span class="nx-row-sub">Kolejny za {{ formattedNextNudgeTime }}</span>
+              </div>
+            </div>
+
+            <div v-else class="nx-gestures" data-no-swipe>
+              <button
+                v-for="n in nudgePresets"
+                :key="n.id"
+                type="button"
+                class="nx-gesture"
+                @click="sendQuickNudge(n.id, n.defaultMsg)"
+              >
+                <span class="nx-gesture-icon"><DuoIcon :name="'nudge-' + n.id" :size="22" /></span>
+                <span class="nx-gesture-label">{{ n.title }}</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- ===== 5. TODAY ===== -->
+          <section v-if="card === 'today'" class="nx-section">
+            <div class="nx-section-head">
+              <h3 class="nx-section-title">Na dziś</h3>
+              <NuxtLink v-if="isFeatureEnabled('tasks')" to="/tabs/tasks" class="nx-link">Wszystkie</NuxtLink>
+            </div>
+
+            <div v-if="isFeatureEnabled('tasks') && pendingChores.length > 0" class="nx-list">
+              <button
+                v-for="task in pendingChores.slice(0, 3)"
+                :key="task.id"
+                type="button"
+                class="nx-list-row"
+                @click="toggleTask(task.id)"
+              >
+                <span class="nx-check" :class="{ checked: task.is_completed }">
+                  <ion-icon v-if="task.is_completed" :icon="ioniconsCheckmarkOutline" />
+                </span>
+                <span class="nx-row-body">
+                  <span class="nx-row-title">{{ task.title }}</span>
+                  <span class="nx-row-sub">
+                    {{ task.assigned_to ? (task.assigned_to === currentUser?.id ? 'Dla Ciebie' : ('Dla ' + (partnerUser?.name || partnerDopelniacz.toLowerCase()))) : 'Wspólne' }}
+                  </span>
+                </span>
+                <span class="nx-row-trail">+{{ task.points }}</span>
+              </button>
+            </div>
+            <p v-else-if="isFeatureEnabled('tasks')" class="nx-empty">Wszystko zrobione. Czas na relaks.</p>
+
+            <NuxtLink v-if="isFeatureEnabled('calendar') && upcomingEvent" to="/tabs/calendar" class="nx-event">
+              <span class="nx-event-date">
+                <span class="nx-event-day">{{ new Date(upcomingEvent.start_time).getDate() }}</span>
+                <span class="nx-event-month">{{ new Date(upcomingEvent.start_time).toLocaleDateString('pl-PL', { month: 'short' }).replace('.', '') }}</span>
               </span>
               <span class="nx-row-body">
-                <span class="nx-row-title">{{ task.title }}</span>
-                <span class="nx-row-sub">
-                  {{ task.assigned_to ? (task.assigned_to === currentUser?.id ? 'Dla Ciebie' : ('Dla ' + (partnerUser?.name || partnerDopelniacz.toLowerCase()))) : 'Wspólne' }}
-                </span>
+                <span class="nx-row-title">{{ upcomingEvent.title }}</span>
+                <span class="nx-row-sub">{{ formatEventDate(upcomingEvent.start_time) }}</span>
               </span>
-              <span class="nx-row-trail">+{{ task.points }}</span>
+              <ion-icon :icon="ioniconsChevronForwardOutline" class="nx-chevron" />
+            </NuxtLink>
+            <p v-if="!isFeatureEnabled('tasks') && !(isFeatureEnabled('calendar') && upcomingEvent)" class="nx-empty">
+              Brak wydarzeń do pokazania.
+            </p>
+          </section>
+
+          <!-- ===== 6. SHARED DOODLE ===== -->
+          <section v-if="card === 'doodle'" class="nx-section">
+            <div class="nx-section-head">
+              <h3 class="nx-section-title">Wspólny rysunek</h3>
+              <span v-if="isPartnerDrawing" class="nx-live">
+                <span class="nx-live-dot"></span>{{ partnerUser?.name || partnerTitle }} rysuje
+              </span>
+              <span v-else-if="hasDoodleContent" class="nx-section-meta">{{ currentDoodle?.author_name }}</span>
+            </div>
+            <button type="button" class="nx-doodle" @click="isDoodleModalOpen = true">
+              <canvas v-show="hasDoodleContent" :ref="setPreviewCanvas" class="nx-doodle-canvas"></canvas>
+              <span v-show="!hasDoodleContent" class="nx-doodle-empty">
+                <ion-icon :icon="ioniconsBrushOutline" />
+                <span>Narysuj coś dla {{ partnerUser?.name || partnerDopelniacz.toLowerCase() }}</span>
+              </span>
             </button>
-          </div>
-          <p v-else class="nx-empty">Wszystko zrobione. Czas na relaks.</p>
-
-          <NuxtLink v-if="upcomingEvent" to="/tabs/calendar" class="nx-event">
-            <span class="nx-event-date">
-              <span class="nx-event-day">{{ new Date(upcomingEvent.start_time).getDate() }}</span>
-              <span class="nx-event-month">{{ new Date(upcomingEvent.start_time).toLocaleDateString('pl-PL', { month: 'short' }).replace('.', '') }}</span>
-            </span>
-            <span class="nx-row-body">
-              <span class="nx-row-title">{{ upcomingEvent.title }}</span>
-              <span class="nx-row-sub">{{ formatEventDate(upcomingEvent.start_time) }}</span>
-            </span>
-            <ion-icon :icon="ioniconsChevronForwardOutline" class="nx-chevron" />
-          </NuxtLink>
-        </section>
-
-        <!-- ===== 6. SHARED DOODLE ===== -->
-        <section class="nx-section">
-          <div class="nx-section-head">
-            <h3 class="nx-section-title">Wspólny rysunek</h3>
-            <span v-if="isPartnerDrawing" class="nx-live">
-              <span class="nx-live-dot"></span>{{ partnerUser?.name || partnerTitle }} rysuje
-            </span>
-            <span v-else-if="hasDoodleContent" class="nx-section-meta">{{ currentDoodle?.author_name }}</span>
-          </div>
-          <button type="button" class="nx-doodle" @click="isDoodleModalOpen = true">
-            <canvas v-show="hasDoodleContent" ref="previewCanvasRef" class="nx-doodle-canvas"></canvas>
-            <span v-show="!hasDoodleContent" class="nx-doodle-empty">
-              <ion-icon :icon="ioniconsBrushOutline" />
-              <span>Narysuj coś dla {{ partnerUser?.name || partnerDopelniacz.toLowerCase() }}</span>
-            </span>
-          </button>
-        </section>
+          </section>
+          <DuoLocationCard v-if="card === 'location' && partnership" :partner-name="partnerDisplayName" />
+          <section v-if="card === 'shortcuts'" class="nx-section">
+            <div class="nx-section-head"><h3 class="nx-section-title">Skróty</h3></div>
+            <div v-if="enabledFeatures.length" class="nx-shortcuts">
+              <NuxtLink v-for="feature in enabledFeatures" :key="feature" :to="featurePath(feature)" class="nx-shortcut">
+                <ion-icon :icon="FEATURE_DETAILS[feature].icon" aria-hidden="true" />
+                {{ FEATURE_DETAILS[feature].label }}
+              </NuxtLink>
+            </div>
+            <p v-else class="nx-empty">Skróty pojawią się po wybraniu zakładek w ustawieniach.</p>
+          </section>
+        </template>
 
       </div>
 
@@ -485,6 +521,7 @@
       </ion-modal>
 
       <!-- SHARED DOODLE / LIVE DRAWING STUDIO MODAL -->
+      <DuoNestLayoutEditor :is-open="isLayoutEditorOpen" @close="isLayoutEditorOpen = false" />
       <DuoDoodleModal :is-open="isDoodleModalOpen" @close="isDoodleModalOpen = false" />
 
       <!-- Floating bottom tab bar spacer so content never gets obscured -->
@@ -503,6 +540,8 @@ import { useMusic } from '~/composables/useMusic'
 import { useConfirm } from '~/composables/useConfirm'
 import DuoIcon from '~/components/DuoIcon.vue'
 import DuoDoodleModal from '~/components/DuoDoodleModal.vue'
+import { featurePath } from '~/utils/duoPersonalization'
+import { FEATURE_DETAILS } from '~/utils/duoPersonalizationUi'
 
 const {
   currentUser,
@@ -548,6 +587,8 @@ const {
 } = useDuoState()
 
 const { confirm } = useConfirm()
+const { nestCards, enabledFeatures, isFeatureEnabled } = useDuoPersonalization()
+const isLayoutEditorOpen = ref(false)
 
 const { askPermissionAfterPairing } = usePushNotifications()
 const {
@@ -558,6 +599,9 @@ const {
 
 const isDoodleModalOpen = ref(false)
 const previewCanvasRef = ref<HTMLCanvasElement | null>(null)
+function setPreviewCanvas(value: unknown) {
+  previewCanvasRef.value = value instanceof HTMLCanvasElement ? value : null
+}
 const partnerLiveStrokes = ref<DuoDoodleStroke[]>([])
 
 const hasDoodleContent = computed(() => {
@@ -685,8 +729,12 @@ const schedulePreviewRender = () => {
   cancelAnimationFrame(previewRaf)
   previewRaf = requestAnimationFrame(() => renderPreviewCanvas())
 }
+const liveNowMs = ref(Date.now())
 const onPreviewVisibility = () => {
-  if (!document.hidden) schedulePreviewRender()
+  if (!document.hidden) {
+    liveNowMs.value = Date.now()
+    schedulePreviewRender()
+  }
 }
 
 watch(previewCanvasRef, (canvas, prev) => {
@@ -694,6 +742,7 @@ watch(previewCanvasRef, (canvas, prev) => {
     previewResizeObserver = new ResizeObserver(() => schedulePreviewRender())
   }
   if (prev) previewResizeObserver?.unobserve(prev)
+  prev?.removeEventListener('contextrestored', schedulePreviewRender)
   if (canvas) {
     previewResizeObserver?.observe(canvas)
     canvas.addEventListener('contextrestored', schedulePreviewRender)
@@ -702,8 +751,7 @@ watch(previewCanvasRef, (canvas, prev) => {
 
 onIonViewDidEnter(() => schedulePreviewRender())
 
-const liveNowMs = ref(Date.now())
-let activityTimer: any = null
+let activityTimer: ReturnType<typeof setInterval> | undefined
 
 onMounted(async () => {
   if (typeof window !== 'undefined') {
@@ -738,63 +786,30 @@ onUnmounted(() => {
   stopMusicPolling()
   if (activityTimer) {
     clearInterval(activityTimer)
-    activityTimer = null
+    activityTimer = undefined
   }
 })
 
 const partnerLastActiveText = computed(() => {
-  const _ = liveNowMs.value
-  if (isPartnerOnline.value) return 'online'
-  if (!partnerLastSeenAt.value) return 'offline'
+  if (isPartnerOnline.value || !partnerLastSeenAt.value) return null
+  const lastSeen = Date.parse(partnerLastSeenAt.value)
+  if (!Number.isFinite(lastSeen)) return null
 
-  try {
-    const date = new Date(partnerLastSeenAt.value)
-    const timeMs = date.getTime()
-    if (isNaN(timeMs)) return 'offline'
-    const now = Date.now()
-    const diffSec = Math.floor((now - timeMs) / 1000)
+  const minutes = Math.floor((liveNowMs.value - lastSeen) / 60_000)
+  if (minutes < 1) return 'przed chwilą'
+  if (minutes < 60) return `${minutes} min temu`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} godz. temu`
+  const days = Math.floor(hours / 24)
+  return days === 1 ? '1 dzień temu' : `${days} dni temu`
+})
 
-    if (diffSec < 60) return 'przed chwilą'
-
-    const diffMin = Math.floor(diffSec / 60)
-    if (diffMin < 60) {
-      return `${diffMin} min temu`
-    }
-
-    const diffHours = Math.floor(diffMin / 60)
-    if (diffHours < 24) {
-      const nowDay = new Date(now).getDate()
-      const dateDay = date.getDate()
-      if (nowDay === dateDay) {
-        if (diffHours === 1) return '1 godz. temu'
-        if (diffHours >= 2 && diffHours <= 4) return `${diffHours} godz. temu`
-        return `${diffHours} godz. temu`
-      }
-    }
-
-    const nowZero = new Date(now)
-    nowZero.setHours(0, 0, 0, 0)
-    const dateZero = new Date(date)
-    dateZero.setHours(0, 0, 0, 0)
-    const diffCalendarDays = Math.round((nowZero.getTime() - dateZero.getTime()) / (24 * 60 * 60 * 1000))
-
-    const hh = String(date.getHours()).padStart(2, '0')
-    const mm = String(date.getMinutes()).padStart(2, '0')
-
-    if (diffCalendarDays === 1) {
-      return `wczoraj ${hh}:${mm}`
-    }
-
-    if (diffCalendarDays > 1 && diffCalendarDays < 7) {
-      return `${diffCalendarDays} dni temu`
-    }
-
-    const dd = String(date.getDate()).padStart(2, '0')
-    const mo = String(date.getMonth() + 1).padStart(2, '0')
-    return `${dd}.${mo}`
-  } catch (_) {
-    return 'offline'
-  }
+const partnerActivityLabel = computed(() => {
+  const name = partnerDisplayName.value
+  if (isPartnerOnline.value) return `${name} jest teraz online`
+  return partnerLastActiveText.value
+    ? `${name} jest offline. Ostatnia aktywność: ${partnerLastActiveText.value}.`
+    : `${name} jest offline.`
 })
 
 const stageNames: Record<number, { name: string; desc: string }> = {
@@ -3477,14 +3492,40 @@ ion-toolbar {
 }
 
 .nest-partner-btn {
-  position: relative;
-  width: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   height: 40px;
   padding: 0;
   border: none;
-  border-radius: 50%;
+  border-radius: 999px;
   background: transparent;
   cursor: pointer;
+}
+
+.nest-partner-btn.is-offline {
+  padding-inline-end: 10px;
+  background: var(--dn-cream);
+}
+
+.nest-partner-btn:focus-visible {
+  outline: 2px solid var(--dn-ink);
+  outline-offset: 2px;
+}
+
+.nest-partner-indicator {
+  position: relative;
+  display: block;
+  flex-shrink: 0;
+}
+
+.nest-partner-last-seen {
+  color: var(--dn-ink);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .nest-partner-avatar {
@@ -4247,4 +4288,23 @@ ion-toolbar {
 .nx-icon-btn {
   color: var(--dn-muted);
 }
+.nx-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+  gap: 8px;
+}
+.nx-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--dn-field);
+  color: var(--dn-ink);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+.nx-shortcut ion-icon { font-size: 18px; flex-shrink: 0; }
 </style>

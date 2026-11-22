@@ -39,6 +39,7 @@
       <ion-toolbar class="main-tabs-toolbar" data-no-swipe>
         <div ref="pillRowRef" class="main-tabs-pill-row" @scroll.passive="onTabsScroll">
           <button
+            v-if="isFeatureEnabled('shopping')"
             type="button"
             class="main-tab-pill"
             @click="handleSwitchToShopping"
@@ -49,6 +50,7 @@
           </button>
 
           <button
+            v-if="isFeatureEnabled('tasks')"
             type="button"
             class="main-tab-pill"
             :class="{ active: activeDailySubTab === 'tasks' && activeMainTab === 'tasks' }"
@@ -60,6 +62,7 @@
           </button>
 
           <button
+            v-if="isFeatureEnabled('meals')"
             type="button"
             class="main-tab-pill"
             @click="handleSwitchToMeals"
@@ -69,6 +72,7 @@
           </button>
 
           <button
+            v-if="isFeatureEnabled('savings')"
             type="button"
             class="main-tab-pill"
             @click="handleSwitchToSavings"
@@ -78,6 +82,7 @@
           </button>
 
           <button
+            v-if="isFeatureEnabled('pet')"
             type="button"
             class="main-tab-pill pet-tab-pill"
             :class="{ active: activeDailySubTab === 'tasks' && activeMainTab === 'pet' }"
@@ -118,7 +123,7 @@
       <!-- ============================================== -->
       <div v-if="activeMainTab === 'tasks'" class="tasks-tab-content">
         <!-- Companion pet mini-bar -->
-        <button type="button" class="pt-mini" :class="{ 'pt-mini--invite': !hasPet }" @click="handleSwitchToPet">
+        <button v-if="isFeatureEnabled('pet')" type="button" class="pt-mini" :class="{ 'pt-mini--invite': !hasPet }" @click="handleSwitchToPet">
           <span class="pt-mini-sprite">
             <PetSprite v-if="hasPet" :pet="petId" :animation="currentAnimation" :scale="1.3" :interactive="false" />
             <ion-icon v-else :icon="ioniconsPawOutline" />
@@ -680,6 +685,7 @@ const {
   partnerTitle,
   partnerDopelniacz
 } = useDuoState()
+const { isFeatureEnabled } = useDuoPersonalization()
 
 const { pillRowRef, onTabsScroll } = useOrgTabsSync('tasks')
 
@@ -738,8 +744,11 @@ const handleSwitchToTasks = () => {
 const handleSwitchToPet = () => {
   activeDailySubTab.value = 'tasks'
   activeTasksMainTab.value = 'pet'
-  onEnterPetView()
 }
+
+watch([activeDailySubTab, activeMainTab], ([tab, view]) => {
+  if (tab === 'tasks' && view === 'pet' && isFeatureEnabled('pet')) onEnterPetView()
+}, { immediate: true })
 
 // Custom speech bubble feedback override
 const customPetSpeech = ref<string | null>(null)

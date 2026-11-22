@@ -107,6 +107,8 @@
           </button>
         </section>
 
+        <DuoLocationCard v-if="currentUser.show_location_widget && partnership" :partner-name="partnerDisplayName" />
+
         <!-- MOOD -->
         <section class="rl-section">
           <div class="rl-section-head">
@@ -231,6 +233,28 @@
       <!-- USTAWIENIA                                      -->
       <!-- ============================================== -->
       <div v-show="currentCategory === 'nest_settings'" class="rl-page">
+        <section class="rl-section">
+          <div class="rl-section-head">
+            <h3 class="rl-section-title">Personalizacja</h3>
+          </div>
+          <button type="button" class="dn-button-secondary rl-full-btn" @click="isFeatureSettingsOpen = true">
+            <ion-icon :icon="ioniconsAppsOutline" aria-hidden="true" /> Twoje zakładki
+          </button>
+          <div class="rl-row rl-row--card">
+            <span class="rl-row-icon rl-row-icon--cream">
+              <ion-icon :icon="ioniconsLocationOutline" aria-hidden="true" />
+            </span>
+            <ion-toggle class="rl-row-main" :checked="Boolean(currentUser.show_location_widget)"
+              :disabled="locationWidgetSaving" @ionChange="toggleLocationWidget">
+              Karta lokalizacji
+            </ion-toggle>
+          </div>
+          <button v-if="isLocationSharing || hasSharedPosition || locationSharingError.startsWith('Telefon przestał')"
+            type="button" class="dn-button-secondary rl-full-btn" :disabled="locationWidgetSaving"
+            @click="stopLocationFromSettings">
+            Zatrzymaj udostępnianie lokalizacji
+          </button>
+        </section>
         <!-- NEST -->
         <section class="rl-section">
           <div class="rl-section-head">
@@ -875,6 +899,7 @@
         </ion-content>
       </ion-modal>
 
+      <DuoFeatureSettings :is-open="isFeatureSettingsOpen" @close="isFeatureSettingsOpen = false" />
       <div class="tab-bottom-spacer" style="height: 105px;" aria-hidden="true"></div>
     </ion-content>
   </ion-page>
@@ -885,6 +910,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useDuoState } from '~/composables/useDuoState'
 import { useDuoDiagnostics } from '~/composables/useDuoDiagnostics'
 import { usePushNotifications } from '~/composables/usePushNotifications'
+import { useDuoLocation } from '~/composables/useDuoLocation'
 import { useMusic } from '~/composables/useMusic'
 import { useConfirm } from '~/composables/useConfirm'
 import { normalizeGenderIdentity } from '~/functions/src/duoGrammar'
@@ -986,6 +1012,34 @@ const {
   GENDER_OPTIONS,
   GRAMMAR_OPTIONS
 } = useDuoState()
+
+const locationWidgetSaving = ref(false)
+const { sharing: isLocationSharing, ownShared: hasSharedPosition, sharingError: locationSharingError, stopSharing } = useDuoLocation()
+
+async function toggleLocationWidget(event: CustomEvent<{ checked: boolean }>) {
+  locationWidgetSaving.value = true
+  try {
+    await runToggle(event,
+      () => updateMyProfile({ show_location_widget: event.detail.checked }),
+      () => currentUser.value.show_location_widget)
+  } catch {
+    triggerToast('Nie udało się zapisać ustawienia lokalizacji.', { type: 'warning' })
+  } finally {
+    locationWidgetSaving.value = false
+  }
+}
+
+async function stopLocationFromSettings() {
+  locationWidgetSaving.value = true
+  try {
+    await stopSharing()
+    triggerToast('Udostępnianie lokalizacji zatrzymane.', { type: 'success' })
+  } catch {
+    triggerToast(locationSharingError.value, { type: 'warning' })
+  } finally {
+    locationWidgetSaving.value = false
+  }
+}
 
 const {
   isNativeApp: isPushNativeApp,
@@ -1300,6 +1354,7 @@ watch(currentUserAccentColor, (newColor) => {
 
 // Personal Profile Modal
 const isEditProfileModalOpen = ref(false)
+const isFeatureSettingsOpen = ref(false)
 const isSavingProfile = ref(false)
 const profileSaveError = ref('')
 const editProfileForm = ref({

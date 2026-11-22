@@ -10,4 +10,7 @@
     <string name="widget_doodle_partner">Druga osoba</string>
     <string name="widget_doodle_empty">Dodaj coś do wspólnego rysunku</string>
     <string name="widget_doodle_signed_out">Otwórz DuoNest, aby zobaczyć wspólny rysunek</string>
+    <string name="duo_location_channel">Udostępnianie lokalizacji</string>
+    <string name="duo_location_notification">Udostępniasz lokalizację w DuoNest</string>
+    <string name="duo_location_notification_info">Dotknij, aby przejść do ustawień udostępniania w Relacji</string>
 </resources>

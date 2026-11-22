@@ -11,6 +11,7 @@ const config: CapacitorConfig = {
   appId: 'com.belka.duonest',
   appName: 'DuoNest',
   webDir: 'dist',
+  appendUserAgent: 'DuoNest (+https://duonestapp.pl)',
   android: {
     backgroundColor: '#f6f2e7'
   },
