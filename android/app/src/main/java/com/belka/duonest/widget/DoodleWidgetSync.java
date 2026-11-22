@@ -16,8 +16,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -32,24 +30,12 @@ final class DoodleWidgetSync {
     private static final String TAG = "DuoWidget";
     private static final int TIMEOUT_MS = 8000;
     private static final long PUSH_DRAWING_MS = 60_000;
-    private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
 
     private static String idToken;
     private static String idTokenUid;
     private static long idTokenExpiresAt;
 
     private DoodleWidgetSync() {}
-
-    static void refreshAsync(Context context, @Nullable Runnable done) {
-        Context app = context.getApplicationContext();
-        EXECUTOR.execute(() -> {
-            try {
-                refresh(app);
-            } finally {
-                if (done != null) done.run();
-            }
-        });
-    }
 
     /** Data-only FCM message sent by pushCore.ts to the partner's Android devices. */
     static void handlePush(Context context, Map<String, String> data) {
@@ -67,26 +53,26 @@ final class DoodleWidgetSync {
             DoodleWidgetProvider.requestRender(context);
         } else if ("DOODLE_SAVE".equals(data.get("action")) || "DOODLE_CLEAR".equals(data.get("action"))) {
             store.setPartnerDrawingUntil(0);
-            refreshAsync(context, null);
+            DoodleRefreshWorker.enqueue(context);
         }
     }
 
-    private static synchronized void refresh(Context context) {
+    static synchronized boolean refresh(Context context) {
         DoodleWidgetStore store = DoodleWidgetStore.get(context);
         DoodleWidgetStore.Session session = store.session();
         if (session == null) {
-            DoodleWidgetProvider.requestRender(context);
-            return;
+            return true;
         }
         try {
+            String previousKey = store.currentDoodleKey();
             String token = idToken(store, session);
-            if (token == null) return;
+            if (token == null) return true;
             JSONObject doodle = fetchLatestDoodle(session, token);
-            if (session.sameAccount(store.session())) store.setDoodle(doodle);
+            store.applyRefresh(session, previousKey, doodle);
+            return true;
         } catch (IOException | JSONException e) {
             Log.w(TAG, "Doodle widget refresh failed", e);
-        } finally {
-            DoodleWidgetProvider.requestRender(context);
+            return false;
         }
     }
 
@@ -97,6 +83,8 @@ final class DoodleWidgetSync {
         String body = "grant_type=refresh_token&refresh_token=" + URLEncoder.encode(session.refreshToken, "UTF-8");
         HttpURLConnection connection = open("https://securetoken.googleapis.com/v1/token?key=" + URLEncoder.encode(session.apiKey, "UTF-8"));
         connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+        String appCheck = appCheckToken();
+        if (appCheck != null) connection.setRequestProperty("X-Firebase-AppCheck", appCheck);
         Response response = send(connection, body);
         if (response.status == 400 && isRevokedSession(response.body)) {
             // The app hands over a new session at the next sign-in.
@@ -170,12 +158,20 @@ final class DoodleWidgetSync {
             JSONObject strokeFields = mapFields(value);
             if (strokeFields == null) continue;
             JSONArray points = new JSONArray();
-            for (Object point : arrayValues(strokeFields.optJSONObject("points"))) points.put(number(point));
+            Object[] rawPoints = arrayValues(strokeFields.optJSONObject("points"));
+            if (rawPoints.length < 2 || rawPoints.length > 100_000 || rawPoints.length % 2 != 0) continue;
+            for (Object point : rawPoints) {
+                double coordinate = number(point);
+                if (!Double.isFinite(coordinate) || coordinate < 0 || coordinate > 1) break;
+                points.put(coordinate);
+            }
+            double width = number(strokeFields.opt(strokeFields.has("width") ? "width" : "size"));
+            if (points.length() != rawPoints.length || !Double.isFinite(width)) continue;
             JSONObject isEraser = strokeFields.optJSONObject("isEraser");
             strokes.put(new JSONObject()
                 .put("points", points)
                 .put("color", string(strokeFields, "color"))
-                .put("width", number(strokeFields.opt("width")))
+                .put("width", width)
                 .put("isEraser", isEraser != null && isEraser.optBoolean("booleanValue", false)));
         }
 

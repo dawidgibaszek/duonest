@@ -47,7 +47,8 @@ export default defineNuxtPlugin(() => {
     accessInFlight = true
     try {
       const credential = getWidgetCredential(user.uid)
-      if (confirmedAccess?.key !== key || confirmedAccess.credential !== credential ||
+      const { valid } = await DuoWidget.hasReadAccess({ uid: user.uid, partnershipId: pid })
+      if (!valid || confirmedAccess?.key !== key || confirmedAccess.credential !== credential ||
           Date.now() - confirmedAccess.renewedAt > 12 * 60 * 60_000) {
         const result = await bridge.callApi<{ success: boolean }>('/api/widget/session', { token: credential })
         if (!result?.success || !isCurrent()) return
@@ -75,7 +76,7 @@ export default defineNuxtPlugin(() => {
   }
 
   watch(
-    () => [isAuthLoading.value, isLoggingOut.value, authSession.value?.access_token, partnership.value?.id, partnerUser.value?.name] as const,
+    () => [isAuthLoading.value, isLoggingOut.value, authSession.value?.access_token, partnership.value?.id, partnerUser.value?.name, currentUser.value.auth_user_id, currentUser.value.id] as const,
     ([loading, loggingOut, accessToken, pid, partnerName]) => {
       if (loading || loggingOut) return
       const user = bridge.auth.currentUser

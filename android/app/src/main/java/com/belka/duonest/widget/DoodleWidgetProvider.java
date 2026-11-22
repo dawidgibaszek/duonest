@@ -38,8 +38,7 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
         requestRender(context);
-        PendingResult result = goAsync();
-        DoodleWidgetSync.refreshAsync(context, result::finish);
+        DoodleRefreshWorker.enqueue(context);
     }
 
     @Override
@@ -92,7 +91,7 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
         alarms.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + delayMs + 500, pending);
     }
 
-    private static void renderAll(Context context) {
+    static void renderAll(Context context) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         int[] ids = manager.getAppWidgetIds(new ComponentName(context, DoodleWidgetProvider.class));
         if (ids.length == 0) return;

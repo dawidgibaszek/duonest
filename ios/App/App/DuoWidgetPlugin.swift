@@ -14,6 +14,7 @@ final class DuoWidgetPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "addLiveStroke", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clearLiveStrokes", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setPartnerDrawing", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "hasReadAccess", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getPushToken", returnType: CAPPluginReturnPromise)
     ]
 
@@ -80,6 +81,13 @@ final class DuoWidgetPlugin: CAPPlugin, CAPBridgedPlugin {
         store.update { $0.partnerDrawingUntil = isDrawing ? Date().addingTimeInterval(Self.liveDrawing) : nil }
         scheduleReload()
         call.resolve()
+    }
+
+    @objc func hasReadAccess(_ call: CAPPluginCall) {
+        let session = store.session()
+        call.resolve(["valid": session?.credential != nil &&
+                      session?.uid == call.getString("uid") &&
+                      session?.partnershipId == call.getString("partnershipId")])
     }
 
     @objc func getPushToken(_ call: CAPPluginCall) {

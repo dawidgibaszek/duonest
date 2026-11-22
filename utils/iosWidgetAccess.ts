@@ -19,6 +19,7 @@ interface DuoWidgetPlugin {
   addLiveStroke(options: { stroke: DuoDoodleStroke }): Promise<void>
   clearLiveStrokes(): Promise<void>
   setPartnerDrawing(options: { isDrawing: boolean }): Promise<void>
+  hasReadAccess(options: { uid: string; partnershipId: string }): Promise<{ valid: boolean }>
   getPushToken(): Promise<{ token?: string; environment?: 'production' | 'development' }>
 }
 

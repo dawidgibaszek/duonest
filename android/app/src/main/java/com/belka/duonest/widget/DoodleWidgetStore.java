@@ -147,6 +147,14 @@ final class DoodleWidgetStore {
         setSession(session.withRefreshToken(refreshToken));
     }
 
+    synchronized String currentDoodleKey() {
+        return doodleKey;
+    }
+
+    synchronized void applyRefresh(Session account, String previousKey, @Nullable JSONObject doodle) {
+        if (account.sameAccount(session) && previousKey.equals(doodleKey)) setDoodle(doodle);
+    }
+
     synchronized void setPartnerName(String name) {
         prefs.edit().putString(PREF_PARTNER_NAME, name).apply();
     }

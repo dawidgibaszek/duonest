@@ -4,7 +4,6 @@ import {
   partnerUser,
   partnership,
   authUser,
-  authSession,
   realtimeStatus,
   isPartnerOnline,
   partnerLastSeenAt,
@@ -175,16 +174,7 @@ export function useRealtimeSync(options?: {
   }
 
   const sendPartnerPush = (action: string, payload: any) => {
-    $fetch('/api/push/send', {
-      method: 'POST',
-      headers: authSession.value?.access_token
-        ? { Authorization: `Bearer ${authSession.value.access_token}` }
-        : undefined,
-      body: {
-        action,
-        payload
-      }
-    }).catch((err) => {
+    return getDb().callApi('/api/push/send', { action, payload }).catch((err) => {
       console.warn('[Push] Nie udało się wysłać powiadomienia:', err?.statusCode)
     })
   }
@@ -239,7 +229,7 @@ export function useRealtimeSync(options?: {
       await bridge.commitSharedBatch('partnership_doodles', (data || []).map((row: DuoDoodle) => ({ id: row.id })))
       if (partnership.value?.id !== pid) return false
       setDoodle(null)
-      sendPartnerPush('DOODLE_CLEAR', {})
+      await sendPartnerPush('DOODLE_CLEAR', {})
       triggerToast('Wyczyszczono tablicę')
       return true
     } catch {

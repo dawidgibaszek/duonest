@@ -33,7 +33,7 @@
           </div>
         </div>
 
-        <button class="doodle-header-btn save-btn" @click="handleSave" :disabled="isSavingDoodle || strokes.length === 0" title="Zapisz rysunek">
+        <button class="doodle-header-btn save-btn" @click="handleSave" :disabled="isSavingDoodle || (strokes.length === 0 && !currentDoodle?.strokes.length)" title="Zapisz rysunek">
           <ion-icon :icon="ioniconsCheckmarkOutline" />
           <span>Gotowe</span>
         </button>
@@ -553,6 +553,15 @@ const handleClear = () => {
 const isSavingDoodle = ref(false)
 const handleSave = async () => {
   if (isSavingDoodle.value) return
+  if (!strokes.value.length) {
+    isSavingDoodle.value = true
+    try {
+      if (await clearDoodle()) emit('close')
+    } finally {
+      isSavingDoodle.value = false
+    }
+    return
+  }
   const canvas = canvasRef.value
   let previewDataUrl: string | undefined = undefined
   if (canvas) {

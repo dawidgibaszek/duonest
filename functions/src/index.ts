@@ -14,7 +14,7 @@ import { mutateDuoData } from './duoMutations'
 import { DuoDataError } from './partnershipAccess'
 import { processScrape } from './wishlistScraper'
 import { syncAccount, pairWithCode, disconnectPartnership, resolveCallerProfile } from './duoAccount'
-import { handlePushAction, PUSH_ACTIONS, type PushAction } from './pushCore'
+import { handlePushAction, notifySavedDoodle, PUSH_ACTIONS, type PushAction } from './pushCore'
 import { handleMusicAction, isMusicAction } from './musicCore'
 import { handleMoviesTrending, handleMoviesSearch, handleMoviesRandom } from './moviesCore'
 import { handleMealsCategories, handleMealsSearch, handleMealsLookup, handleMealsImport } from './mealsCore'
@@ -65,6 +65,16 @@ export const provisionDuoProfile = region('europe-west1').runWith({ failurePolic
       name: user.displayName,
       email_verified: user.emailVerified
     })
+  })
+
+export const refreshSavedDoodleWidgets = region('europe-west1')
+  .runWith({ secrets: ['APNS_KEY_PRODUCTION', 'APNS_KEY_SANDBOX'], failurePolicy: true })
+  .firestore.document('partnership_doodles/{id}').onCreate(async (snapshot, context) => {
+    if (Date.now() - Date.parse(context.timestamp) > 24 * 60 * 60_000) return
+    const pid = snapshot.get('partnership_id')
+    if (typeof pid === 'string' && pid && !pid.includes('/')) {
+      await notifySavedDoodle(db, getMessaging(), pid)
+    }
   })
 
 const app = express()

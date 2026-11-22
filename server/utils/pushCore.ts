@@ -363,7 +363,7 @@ async function send(db: Db, messaging: Messaging, caller: PushCaller, body: any)
   return ok({ success: true, ...result })
 }
 
-const WIDGET_ACTIONS = new Set(['DOODLE_SAVE', 'DOODLE_CLEAR', 'DOODLE_DRAWING_STATUS'])
+const WIDGET_ACTIONS = new Set(['DOODLE_CLEAR', 'DOODLE_DRAWING_STATUS'])
 
 /**
  * Silent message for the doodle home-screen widget on the partner's phones, whichever
@@ -376,14 +376,25 @@ async function refreshPartnerWidgets(db: Db, messaging: Messaging, partnerId: st
     await Promise.all([
       pushWidgetReloads(db, partnerId),
       pushWidgetReloads(db, caller.profileId),
-      wakePartnerApps(db, messaging, partnerId, action, caller)
+      wakePartnerApps(db, messaging, partnerId, action, caller.name || '')
     ])
   } else {
-    await wakePartnerApps(db, messaging, partnerId, action, caller)
+    await wakePartnerApps(db, messaging, partnerId, action, caller.name || '')
   }
 }
 
-async function wakePartnerApps(db: Db, messaging: Messaging, partnerId: string, action: string, caller: PushCaller) {
+// A committed drawing wakes every device of both current members, even if the
+// author closes the app immediately after Firestore acknowledges the write.
+export async function notifySavedDoodle(db: Db, messaging: Messaging, partnershipId: string) {
+  const nest = (await db.collection('partnerships').doc(partnershipId).get()).data()
+  if (!nest) return
+  const recipients = new Set<string>([nest.partner1_id, nest.partner2_id])
+  await Promise.all([...recipients].filter(id => typeof id === 'string' && id).map(id =>
+    Promise.all([pushWidgetReloads(db, id), wakePartnerApps(db, messaging, id, 'DOODLE_SAVE', '')])
+  ))
+}
+
+async function wakePartnerApps(db: Db, messaging: Messaging, partnerId: string, action: string, senderName: string) {
   if (!messaging) return
   const subs = await db.collection(COLLECTION).where('user_id', '==', partnerId).get()
   const ttlSeconds = action === 'DOODLE_DRAWING_STATUS' ? 60 : TTL_SECONDS
@@ -391,7 +402,7 @@ async function wakePartnerApps(db: Db, messaging: Messaging, partnerId: string, 
     const sub = doc.data() || {}
     if (typeof sub.fcm_token !== 'string') return
     if (action === 'DOODLE_DRAWING_STATUS' && sub.platform !== 'android') return
-    const data = { widget: 'doodle', action, senderName: String(caller.name || '').slice(0, 60), recipientProfileId: partnerId }
+    const data = { widget: 'doodle', action, senderName: senderName.slice(0, 60), recipientProfileId: partnerId }
     try {
       await messaging.send(sub.platform === 'android'
         ? { token: sub.fcm_token, data, android: { priority: 'high', ttl: ttlSeconds * 1000 } }
