@@ -656,7 +656,6 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
-import confetti from 'canvas-confetti'
 import { useDuoState, type TaskItem } from '~/composables/useDuoState'
 import { usePetState } from '~/composables/usePetState'
 import DuoIcon from '~/components/DuoIcon.vue'
@@ -785,12 +784,6 @@ const petSpeechText = computed(() => {
 // Pet Interactions
 const handlePetClick = () => {
   triggerPetAnimation('jump', 1400)
-  confetti({
-    particleCount: 25,
-    spread: 45,
-    origin: { y: 0.4 },
-    colors: ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b']
-  })
 }
 
 // Clean happiness text without emojis
@@ -810,12 +803,6 @@ const petPriorityTasks = computed(() => {
 const handleQuickCompletePetTask = async (task: TaskItem) => {
   if (!(await toggleTask(task.id))) return
   triggerPetAnimation('jump', 2200)
-  confetti({
-    particleCount: 70,
-    spread: 75,
-    origin: { y: 0.45 },
-    colors: ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b']
-  })
   setCustomSpeech(`Zrobione. +${tasksList.value.find(t => t.id === task.id)?.points_awarded ?? task.points} XP dla mnie, dziękuję!`)
 }
 
@@ -872,9 +859,7 @@ const handleAdoptPet = async () => {
   if (!clean || isSavingPet.value) return
   isSavingPet.value = true
   try {
-    if (await selectPet(creatorSelectedPetId.value, clean)) {
-      confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } })
-    }
+    await selectPet(creatorSelectedPetId.value, clean)
   } finally {
     isSavingPet.value = false
   }
@@ -922,12 +907,6 @@ const selectSettingsSpecies = (id: string) => {
 
 const handleSettingsPetClick = () => {
   settingsAnimation.value = 'jump'
-  confetti({
-    particleCount: 20,
-    spread: 45,
-    origin: { y: 0.5 },
-    colors: ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b']
-  })
   setTimeout(() => {
     settingsAnimation.value = 'happy'
   }, 900)
@@ -940,7 +919,6 @@ const handleSavePetSettings = async () => {
   try {
     if (await selectPet(settingsPetId.value, clean)) {
       showPetSettingsModal.value = false
-      confetti({ particleCount: 60, spread: 60, origin: { y: 0.5 } })
     }
   } finally {
     isSavingPet.value = false
@@ -1092,20 +1070,8 @@ const handleToggleTask = async (task: TaskItem) => {
       triggerPetAnimation('jump', 2200, () => {
         currentAnimation.value = 'sleep'
       })
-      confetti({
-        particleCount: 110,
-        spread: 80,
-        origin: { y: 0.6 },
-        colors: ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b', '#cbd5e1']
-      })
     } else {
       triggerPetAnimation('happy', 1400)
-      confetti({
-        particleCount: 60,
-        spread: 50,
-        origin: { y: 0.7 },
-        colors: ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b']
-      })
     }
   } else {
     // If a task is unmarked (restored) and pet was sleeping because all tasks were done, wake it up to idle

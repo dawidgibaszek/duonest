@@ -18,11 +18,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
-        if FirebaseApp.app() == nil {
-            AppCheck.setAppCheckProviderFactory(DuoAppCheckProviderFactory())
-            FirebaseApp.configure()
-        }
+        AppCheck.setAppCheckProviderFactory(DuoAppCheckProviderFactory())
+        FirebaseApp.configure()
         MetricKitDiagnostics.shared.start()
         DispatchQueue.main.async {
             application.registerForRemoteNotifications()

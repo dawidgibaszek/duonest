@@ -8,6 +8,7 @@ import {
   authUser,
   authSession,
   isAuthLoading,
+  authRestoreFailed,
   isStateInitialized,
   isLoggingOut,
   shoppingItems,
@@ -24,26 +25,28 @@ import {
   lastNudgeSentAt,
   partnerLastSeenAt,
   loginFailures,
-  loginLockoutUntil,
-  isPaired
+  loginLockoutUntil
 } from './state'
 import {
-  loadFromStorage,
   saveToStorage,
   clearSupabaseSessionStorage,
   sanitizeEmail,
   getCleanAccentColor,
-  createInitialProfile,
-  deduplicateMoviesList,
-  PROFILE_SELECT_FIELDS
+  createInitialProfile
 } from './utils'
+import { revokeIosWidgetAccess } from '~/utils/iosWidgetAccess'
 import { translateAppError } from '~/utils/errorTranslator'
-import type { Profile, ShoppingItem, TaskItem, EventItem, NudgeItem, WishlistItem, MovieItem, MealItem, SavingsGoal, SavingsContribution, DuoDoodle } from '~/types/duo'
 
 let hasAttachedAuthListener = false
 // One profile sync per user at a time (getSession + onAuthStateChange both fire on start)
 let profileSyncInFlight: { uid: string; promise: Promise<boolean> } | null = null
-let profileSyncRetries = 0
+let retryDelay = 1500
+let restoreTimer: ReturnType<typeof setTimeout> | undefined
+let restorableSessionConfirmed = false
+
+export const requiresVerifiedEmail = (user: any) => Boolean(user && !user.email_confirmed_at &&
+  (!user.providers || user.providers.includes('password')))
+
 
 const PUBLIC_ROUTES = ['/welcome', '/login', '/register', '/verified', '/reset-password', '/auth/action', '/admin', '/']
 
@@ -51,11 +54,15 @@ const PUBLIC_ROUTES = ['/welcome', '/login', '/register', '/verified', '/reset-p
 const leaveProtectedRoute = () => {
   if (typeof window === 'undefined') return
   if (!PUBLIC_ROUTES.includes(window.location.pathname)) {
-    navigateTo('/welcome', { replace: true })
+    window.location.replace('/welcome')
   }
 }
 
-export function useAuthSession() {
+export function useAuthSession(options: {
+  loadPartnership: (pid: string, profileId: string, serverOnly: boolean) => Promise<boolean>
+  loadDashboard: (pid: string, serverOnly: boolean) => Promise<boolean>
+  triggerToast: (message: string, opts?: { type: 'warning' }) => void
+}) {
   const getDb = () => getFirebaseBridge()
 
   const clearAllDuoState = () => {
@@ -75,6 +82,7 @@ export function useAuthSession() {
     savingsContributions.value = []
     currentDoodle.value = null
     lastNudgeSentAt.value = null
+    partnerLastSeenAt.value = null
 
     if (typeof window !== 'undefined') {
       const keys = [
@@ -106,122 +114,80 @@ export function useAuthSession() {
   const initializeClientState = () => {
     if (typeof window === 'undefined' || isStateInitialized.value) return
     isStateInitialized.value = true
-
-    // 1. Sesja autentykacji
-    const savedAuthSession = loadFromStorage<any>('duonest_auth_session', null)
-    const savedAuthUser = loadFromStorage<any>('duonest_auth_user', null)
-
-    if (savedAuthSession && savedAuthUser) {
-      authUser.value = savedAuthUser
-      authSession.value = savedAuthSession
-    } else {
-      authUser.value = null
-      authSession.value = null
+    const bridge = getDb()
+    if (!hasAttachedAuthListener) {
+      hasAttachedAuthListener = true
+      bridge.auth.onAuthStateChange((event: string, session: any) => {
+        if (isLoggingOut.value) return
+        if (event === 'SESSION_ERROR') {
+          if (isAuthLoading.value) scheduleRestoreRetry(retrySessionRestore)
+          return
+        }
+        acceptSession(session, event === 'SIGNED_IN')
+      })
     }
-
-    // 2. Profil aktualnego użytkownika
-    const savedUser = loadFromStorage<Profile | null>('duonest_current_user', null)
-    if (savedUser) {
-      currentUser.value = {
-        ...createInitialProfile(),
-        ...savedUser,
-        avatar_color: getCleanAccentColor(savedUser.avatar_color, '#0284c7'),
-        points: Number(savedUser.points) || 0
-      }
-    }
-
-    // 3. Profil partnera i związek
-    const savedPartner = loadFromStorage<Profile | null>('duonest_partner_user', null)
-    if (savedPartner) {
-      partnerUser.value = {
-        ...createInitialProfile(),
-        ...savedPartner,
-        avatar_color: getCleanAccentColor(savedPartner.avatar_color, '#0d9488'),
-        points: Number(savedPartner.points) || 0
-      }
-    }
-
-    const savedPartnership = loadFromStorage<any>('duonest_partnership', null)
-    if (savedPartnership) {
-      partnership.value = savedPartnership
-    }
-
-    // 4. Listy domenowe
-    shoppingItems.value = loadFromStorage<ShoppingItem[]>('duonest_shopping', [])
-    tasksList.value = loadFromStorage<TaskItem[]>('duonest_tasks', [])
-    eventsList.value = loadFromStorage<EventItem[]>('duonest_events', [])
-    nudgesList.value = loadFromStorage<NudgeItem[]>('duonest_nudges', [])
-    wishlistItems.value = loadFromStorage<WishlistItem[]>('duonest_wishlist', [])
-      .filter(item => item.is_visible_to_partner === true ||
-        (item.created_by && [currentUser.value.id, authUser.value?.id].includes(item.created_by)))
-    moviesList.value = deduplicateMoviesList(loadFromStorage<MovieItem[]>('duonest_movies', []))
-    mealsList.value = loadFromStorage<MealItem[]>('duonest_meals', [])
-    savingsGoals.value = loadFromStorage<SavingsGoal[]>('duonest_savings_goals', [])
-    savingsContributions.value = loadFromStorage<SavingsContribution[]>('duonest_savings_contributions', [])
-    currentDoodle.value = loadFromStorage<DuoDoodle | null>('duonest_active_doodle', null)
-    partnerLastSeenAt.value = loadFromStorage<string | null>('duonest_partner_last_seen', null)
-
-    // 5. Jednokrotne podpięcie listenera auth w tle
-    setupAuthObserver()
   }
 
-  const setupAuthObserver = () => {
-    if (hasAttachedAuthListener) return
-    hasAttachedAuthListener = true
+  const acceptSession = (session: any, syncProfile: boolean) => {
+    const user = session?.user
+    if (user && getDb().auth.currentUser?.uid !== user.id) return
+    const oldUid = authUser.value?.id
+    if (!user) {
+      clearTimeout(restoreTimer)
+      authUser.value = null
+      authSession.value = null
+      clearAllDuoState()
+      clearSupabaseSessionStorage()
+      restorableSessionConfirmed = true
+      authRestoreFailed.value = false
+      isAuthLoading.value = false
+      if (oldUid && !isLoggingOut.value) leaveProtectedRoute()
+      return
+    }
+    if (oldUid && oldUid !== user.id) clearAllDuoState()
+    restorableSessionConfirmed = true
+    authRestoreFailed.value = false
+    authUser.value = user
+    authSession.value = session
+    saveToStorage('duonest_auth_user', user)
+    saveToStorage('duonest_auth_session', session)
 
-    const bridge = getDb()
-    if (!bridge) {
+    if (requiresVerifiedEmail(user)) {
+      clearTimeout(restoreTimer)
+      authRestoreFailed.value = false
       isAuthLoading.value = false
       return
     }
-
-    bridge.auth.getSession().then(({ data }: any) => {
-      if (data?.session?.user) {
-        authUser.value = data.session.user
-        authSession.value = data.session
-        saveToStorage('duonest_auth_user', data.session.user)
-        saveToStorage('duonest_auth_session', data.session)
-        syncUserProfileWithAuth(data.session.user)
-      } else {
-        // No Firebase session (signed out elsewhere, expired, cleared storage):
-        // drop the cached session/profile restored from localStorage.
-        const hadCachedSession = Boolean(authUser.value || authSession.value)
-        authUser.value = null
-        authSession.value = null
-        clearSupabaseSessionStorage()
-        if (hadCachedSession) {
-          clearAllDuoState()
-          leaveProtectedRoute()
-        }
-      }
-      isAuthLoading.value = false
-    }).catch(() => {
-      isAuthLoading.value = false
-    })
-
-    bridge.auth.onAuthStateChange((event: string, session: any) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        if (session?.user) {
-          authUser.value = session.user
-          authSession.value = session
-          saveToStorage('duonest_auth_user', session.user)
-          saveToStorage('duonest_auth_session', session)
-          // A token refresh only renews access_token – no need to re-sync the profile
-          if (event === 'SIGNED_IN') syncUserProfileWithAuth(session.user)
-        }
-      } else if (event === 'SIGNED_OUT') {
-        if (!isLoggingOut.value) {
-          const hadSession = Boolean(authUser.value || authSession.value)
-          authUser.value = null
-          authSession.value = null
-          clearAllDuoState()
-          if (hadSession) leaveProtectedRoute()
-        }
-      }
-    })
+    if (syncProfile || isAuthLoading.value || currentUser.value.auth_user_id !== user.id) {
+      void syncUserProfileWithAuth(user)
+    }
   }
 
-  const hydrateCurrentUserFromProfile = async (profile: any, user: any) => {
+  const scheduleRestoreRetry = (retry: () => void | Promise<void>) => {
+    if (typeof window === 'undefined' || isLoggingOut.value) return
+    authRestoreFailed.value = true
+    clearTimeout(restoreTimer)
+    restoreTimer = setTimeout(() => { void retry() }, retryDelay)
+    retryDelay = Math.min(retryDelay * 2, 30000)
+  }
+
+  const retrySessionRestore = async () => {
+    if (isLoggingOut.value) return
+    clearTimeout(restoreTimer)
+    authRestoreFailed.value = false
+    if (restorableSessionConfirmed && authUser.value) {
+      await syncUserProfileWithAuth(authUser.value)
+      return
+    }
+    try {
+      const { data } = await getDb().auth.getSession()
+      if (!isLoggingOut.value) acceptSession(data?.session, true)
+    } catch {
+      if (isAuthLoading.value) scheduleRestoreRetry(retrySessionRestore)
+    }
+  }
+
+  const hydrateCurrentUserFromProfile = (profile: any, user: any) => {
     if (!profile) return
     currentUser.value = {
       ...createInitialProfile(),
@@ -235,8 +201,10 @@ export function useAuthSession() {
   }
 
   const syncUserProfileWithAuth = (user: any): Promise<boolean> => {
-    if (!user?.id) return Promise.resolve(false)
-    if (profileSyncInFlight && profileSyncInFlight.uid === user.id) return profileSyncInFlight.promise
+    if (!user?.id || requiresVerifiedEmail(user) || isLoggingOut.value) return Promise.resolve(false)
+    if (profileSyncInFlight?.uid === user.id) return profileSyncInFlight.promise
+    clearTimeout(restoreTimer)
+    isAuthLoading.value = true
     const promise = runProfileSync(user).finally(() => {
       if (profileSyncInFlight?.promise === promise) profileSyncInFlight = null
     })
@@ -244,31 +212,34 @@ export function useAuthSession() {
     return promise
   }
 
-  const scheduleProfileSyncRetry = (user: any) => {
-    if (typeof window === 'undefined') return
-    if (profileSyncRetries >= 6) return
-    profileSyncRetries++
-    setTimeout(() => {
-      if (authUser.value?.id === user.id) syncUserProfileWithAuth(user)
-    }, Math.min(30000, 2000 * 2 ** profileSyncRetries))
-  }
-
   const runProfileSync = async (user: any): Promise<boolean> => {
     const bridge = getDb()
-    if (!user || !bridge) return false
-
+    const firebaseUser = bridge.auth.currentUser
+    const stillSignedIn = () => !isLoggingOut.value && authUser.value?.id === user.id &&
+      firebaseUser?.uid === user.id && bridge.auth.currentUser === firebaseUser
     try {
-      const { data: profile } = await bridge.rpc('get_my_profile')
-      if (authUser.value?.id !== user.id) return false
-      if (!profile?.id || !profile.pairing_code) {
-        scheduleProfileSyncRetry(user)
-        return false
+      const member = await bridge.syncAccount(true)
+      if (!stillSignedIn()) return false
+      if (!member?.profile_id) throw new Error('Missing account profile')
+      const { data: profile, error } = await bridge.from('profiles', true).select('*').eq('id', member.profile_id).maybeSingle()
+      if (!stillSignedIn()) return false
+      if (error || profile?.auth_user_id !== user.id || !profile.pairing_code ||
+          (profile.partnership_id || null) !== member.partnership_id) throw new Error('Profile membership is not ready')
+
+      if (partnership.value && partnership.value.id !== member.partnership_id) clearAllDuoState()
+      hydrateCurrentUserFromProfile(profile, user)
+      if (member.partnership_id) {
+        if (!await options.loadPartnership(member.partnership_id, profile.id, true) ||
+            !await options.loadDashboard(member.partnership_id, true)) throw new Error('Partnership data is not ready')
       }
-      profileSyncRetries = 0
-      await hydrateCurrentUserFromProfile(profile, user)
+      if (!stillSignedIn()) return false
+      if (currentUser.value.partnership_id !== member.partnership_id) throw new Error('Membership changed during loading')
+      retryDelay = 1500
+      authRestoreFailed.value = false
+      isAuthLoading.value = false
       return true
     } catch {
-      scheduleProfileSyncRetry(user)
+      if (stillSignedIn()) scheduleRestoreRetry(async () => { await syncUserProfileWithAuth(user) })
       return false
     }
   }
@@ -298,12 +269,7 @@ export function useAuthSession() {
 
       loginFailures.value = 0
       loginLockoutUntil.value = 0
-      authUser.value = data.user
-      authSession.value = data.session
-      saveToStorage('duonest_auth_user', data.user)
-      saveToStorage('duonest_auth_session', data.session)
-
-      await syncUserProfileWithAuth(data.user)
+      acceptSession(data.session, true)
       return { data: { user: data.user, session: data.session }, error: null }
     } catch (err: any) {
       const friendlyMessage = translateAppError(err)
@@ -338,11 +304,7 @@ export function useAuthSession() {
       }
 
       if (data?.session && data?.user) {
-        authUser.value = data.user
-        authSession.value = data.session
-        saveToStorage('duonest_auth_user', data.user)
-        saveToStorage('duonest_auth_session', data.session)
-        await syncUserProfileWithAuth(data.user)
+        acceptSession(data.session, true)
       }
 
       return {
@@ -389,37 +351,29 @@ export function useAuthSession() {
   const signOutUser = async () => {
     if (isLoggingOut.value) return
     isLoggingOut.value = true
-
+    clearTimeout(restoreTimer)
+    let pushTimeout: ReturnType<typeof setTimeout> | undefined
     try {
-      // 1. Detach this device from push notifications of the account that is
-      //    signing out (otherwise it keeps receiving the partner's notifications).
-      await unsubscribeDevicePush()
-
+      // Network cleanup must not prevent the local Firebase session from signing out.
+      await Promise.race([
+        Promise.allSettled([unsubscribeDevicePush(), revokeIosWidgetAccess()]),
+        new Promise<void>(resolve => { pushTimeout = setTimeout(resolve, 2500) })
+      ])
       const bridge = getDb()
-      if (bridge?.auth) {
-        try {
-          await bridge.auth.signOut()
-        } catch (_) {}
-      }
+      const result = await bridge.auth.signOut()
+      if (result?.error && bridge.auth.currentUser) throw result.error
 
-      clearSupabaseSessionStorage()
-      authUser.value = null
-      authSession.value = null
-      clearAllDuoState()
-      isStateInitialized.value = false
-
-      if (typeof window !== 'undefined') {
-        window.location.href = '/welcome'
+      profileSyncInFlight = null
+      acceptSession(null, false)
+      if (typeof window !== 'undefined' && window.location.pathname !== '/welcome') {
+        window.location.replace('/welcome')
       }
-    } catch (err) {
-      console.warn('Błąd podczas wylogowywania:', err)
-      if (typeof window !== 'undefined') {
-        window.location.href = '/welcome'
-      }
+    } catch {
+      options.triggerToast('Nie udało się wylogować. Spróbuj ponownie.', { type: 'warning' })
     } finally {
-      setTimeout(() => {
-        isLoggingOut.value = false
-      }, 500)
+      clearTimeout(pushTimeout)
+      isLoggingOut.value = false
+      if (isAuthLoading.value) scheduleRestoreRetry(retrySessionRestore)
     }
   }
 
@@ -494,7 +448,7 @@ export function useAuthSession() {
     const { data, error } = await bridge.auth.reloadUser()
     if (error || !data?.user) return false
     applyAuthUser(data.user)
-    if (data.user.email_confirmed_at && (currentUser.value.auth_user_id !== data.user.id || !currentUser.value.pairing_code)) {
+    if (data.user.email_confirmed_at && currentUser.value.auth_user_id !== data.user.id) {
       void syncUserProfileWithAuth(data.user)
     }
     return Boolean(data.user.email_confirmed_at)
@@ -526,6 +480,7 @@ export function useAuthSession() {
 
   return {
     initializeClientState,
+    retrySessionRestore,
     syncUserProfileWithAuth,
     signInWithEmail,
     signUpWithEmail,

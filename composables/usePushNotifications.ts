@@ -707,7 +707,6 @@ export const usePushNotifications = () => {
       postPairingPartnerName.value = partnerUser.value.name
     }
 
-    // Small delay so user finishes admiring pairing confetti
     setTimeout(() => {
       isPostPairingPromptOpen.value = true
     }, 1200)

@@ -363,7 +363,7 @@ async function send(db: Db, messaging: Messaging, caller: PushCaller, body: any)
   return ok({ success: true, ...result })
 }
 
-const WIDGET_ACTIONS = new Set(['DOODLE_SAVE', 'DOODLE_DRAWING_STATUS'])
+const WIDGET_ACTIONS = new Set(['DOODLE_SAVE', 'DOODLE_CLEAR', 'DOODLE_DRAWING_STATUS'])
 
 /**
  * Silent message for the doodle home-screen widget on the partner's phones, whichever
@@ -372,19 +372,25 @@ const WIDGET_ACTIONS = new Set(['DOODLE_SAVE', 'DOODLE_DRAWING_STATUS'])
  * A saved doodle also reaches iOS 26+ widgets directly, even when the app was force-quit.
  */
 async function refreshPartnerWidgets(db: Db, messaging: Messaging, partnerId: string, action: string, caller: PushCaller) {
-  await Promise.all([
-    action === 'DOODLE_SAVE' ? pushWidgetReloads(db, partnerId) : undefined,
-    wakePartnerApps(db, messaging, partnerId, action, caller)
-  ])
+  if (action !== 'DOODLE_DRAWING_STATUS') {
+    await Promise.all([
+      pushWidgetReloads(db, partnerId),
+      pushWidgetReloads(db, caller.profileId),
+      wakePartnerApps(db, messaging, partnerId, action, caller)
+    ])
+  } else {
+    await wakePartnerApps(db, messaging, partnerId, action, caller)
+  }
 }
 
 async function wakePartnerApps(db: Db, messaging: Messaging, partnerId: string, action: string, caller: PushCaller) {
   if (!messaging) return
   const subs = await db.collection(COLLECTION).where('user_id', '==', partnerId).get()
-  const ttlSeconds = action === 'DOODLE_SAVE' ? TTL_SECONDS : 60
+  const ttlSeconds = action === 'DOODLE_DRAWING_STATUS' ? 60 : TTL_SECONDS
   await Promise.all(subs.docs.map(async (doc: any) => {
     const sub = doc.data() || {}
     if (typeof sub.fcm_token !== 'string') return
+    if (action === 'DOODLE_DRAWING_STATUS' && sub.platform !== 'android') return
     const data = { widget: 'doodle', action, senderName: String(caller.name || '').slice(0, 60), recipientProfileId: partnerId }
     try {
       await messaging.send(sub.platform === 'android'
@@ -416,7 +422,7 @@ const APNS = {
   development: { host: 'api.sandbox.push.apple.com', keyId: 'AUNYM58R67', keyEnv: 'APNS_KEY_SANDBOX' }
 } as const
 type ApnsEnvironment = keyof typeof APNS
-const DEAD_APNS_REASONS = new Set(['BadDeviceToken', 'Unregistered', 'DeviceTokenNotForTopic'])
+const DEAD_APNS_REASONS = new Set(['Unregistered'])
 
 // APNs rejects provider tokens older than an hour and throttles refreshing them more than every 20 minutes.
 const apnsJwts = new Map<ApnsEnvironment, { jwt: string; issuedAt: number }>()
@@ -488,7 +494,16 @@ async function pushWidgetReloads(db: Db, partnerId: string) {
     const entry = doc.data() || {}
     if (!validWidgetToken(entry.token)) return
     const environment: ApnsEnvironment = entry.environment === 'development' ? 'development' : 'production'
-    const result = await sendApnsWidgetPush(environment, entry.token)
+    let result = await sendApnsWidgetPush(environment, entry.token)
+    // A Release build installed directly from Xcode can still be signed for sandbox APNs.
+    if (result.reason === 'BadDeviceToken') {
+      const alternate = environment === 'production' ? 'development' : 'production'
+      result = await sendApnsWidgetPush(alternate, entry.token)
+      if (result.status === 200) {
+        await doc.ref.update({ environment: alternate }).catch(() => {})
+        return
+      }
+    }
     if (result.status === 200) return
     if (result.status === 410 || DEAD_APNS_REASONS.has(result.reason || '')) await removeDeadDevice(doc)
     else console.warn('[push] widget push failed:', result.status, result.reason || 'unknown')

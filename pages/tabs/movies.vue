@@ -1651,7 +1651,6 @@ import {
 import DuoActionSheet, { type DuoActionSheetButton } from '~/components/DuoActionSheet.vue'
 import { useDuoState, type MovieItem } from '~/composables/useDuoState'
 import { useConfirm } from '~/composables/useConfirm'
-import confetti from 'canvas-confetti'
 
 const {
   currentUser,
@@ -2086,14 +2085,6 @@ const addFromTmdb = async (item: any, status: 'planned' | 'watched' | 'watching'
 
   if (!added) return
 
-  // Celebrate with confetti
-  try {
-    confetti({
-      particleCount: 35,
-      spread: 60,
-      origin: { y: 0.85 }
-    })
-  } catch {}
 
   if (status === 'watching' && isSeries(added)) {
     openEpisodeModal(added)
@@ -2135,13 +2126,6 @@ const submitReview = async () => {
   )
   if (!saved) return
 
-  try {
-    confetti({
-      particleCount: 45,
-      spread: 70,
-      origin: { y: 0.7 }
-    })
-  } catch {}
 
   closeReviewModal()
 }
@@ -2239,13 +2223,6 @@ const spinRandomMovie = async () => {
         selectedRandomMovie.value = winner
         isSpinning.value = false
 
-        try {
-          confetti({
-            particleCount: 60,
-            spread: 80,
-            origin: { y: 0.6 }
-          })
-        } catch {}
       }
     }, 100)
   } else {
@@ -2295,13 +2272,6 @@ const spinRandomMovie = async () => {
           selectedRandomMovie.value = res.winner
           isSpinning.value = false
 
-          try {
-            confetti({
-              particleCount: 65,
-              spread: 85,
-              origin: { y: 0.6 }
-            })
-          } catch {}
         }
       }, 90)
     } catch (err: any) {
@@ -2333,13 +2303,6 @@ const acceptRandomMovie = async (movie: any) => {
     if (!added) return
   }
 
-  try {
-    confetti({
-      particleCount: 50,
-      spread: 70,
-      origin: { y: 0.7 }
-    })
-  } catch {}
 
   closeRandomModal()
 }
@@ -2367,13 +2330,6 @@ const addRandomToPlanned = async (movie: any) => {
   })
   if (!added) return
 
-  try {
-    confetti({
-      particleCount: 35,
-      spread: 60,
-      origin: { y: 0.85 }
-    })
-  } catch {}
 }
 
 // --- MODAL 4: MANUAL ADD MODAL ---
@@ -2583,11 +2539,6 @@ const toggleMovieStatus = async (movie: MovieItem, newStatus: 'planned' | 'watch
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate([20, 40, 20])
     }
-    confetti({
-      particleCount: 50,
-      spread: 60,
-      origin: { y: 0.6 }
-    })
     setTimeout(() => {
       completingMovieIds.value.delete(movie.id)
     }, 450)

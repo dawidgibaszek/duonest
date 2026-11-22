@@ -211,7 +211,7 @@
         <section class="nx-section">
           <div class="nx-section-head">
             <h3 class="nx-section-title">Drobny gest</h3>
-            <span class="nx-section-meta">{{ hasSentDailyNudge ? 'Wysłano dziś' : '+5 pkt' }}</span>
+            <span v-if="hasSentDailyNudge" class="nx-section-meta">Wysłano</span>
           </div>
 
           <div v-if="hasSentDailyNudge" class="nx-row">
@@ -495,7 +495,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import confetti from 'canvas-confetti'
 import { useDuoState } from '~/composables/useDuoState'
 import { usePushNotifications } from '~/composables/usePushNotifications'
 import { useMusic } from '~/composables/useMusic'
@@ -825,15 +824,6 @@ const formatEventDate = (dateStr: string) => {
   }
 }
 
-const celebrateWithConfetti = () => {
-  confetti({
-    particleCount: 80,
-    spread: 60,
-    origin: { y: 0.6 },
-    colors: ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b', '#cbd5e1']
-  })
-}
-
 const nudgePresets = [
   { id: 'hug', title: 'Uścisk', defaultMsg: 'Ciepły uścisk w trakcie dnia!' },
   { id: 'kiss', title: 'Buziak', defaultMsg: 'Słodki buziak dla Ciebie!' },
@@ -845,7 +835,6 @@ const nudgePresets = [
 const sendQuickNudge = async (type: string, msg: string) => {
   const sent = await sendNudge(type, msg)
   if (sent) {
-    celebrateWithConfetti()
   }
 }
 
@@ -1082,13 +1071,7 @@ const removeCurrentMilestone = async () => {
 }
 
 const handleClaimMilestone = async (goal: any) => {
-  if (!(await claimMilestone(goal.id))) return
-  confetti({
-    particleCount: 90,
-    spread: 75,
-    origin: { y: 0.6 },
-    colors: ['#0f172a', '#1e293b', '#334155', '#475569', '#64748b', '#cbd5e1']
-  })
+  await claimMilestone(goal.id)
 }
 
 const handleReactivateMilestone = (goal: any) => {
@@ -2052,22 +2035,6 @@ ion-toolbar {
   font-size: 12px;
   color: #737373;
   margin: -4px 0 12px 0;
-}
-
-.nudge-points-tag {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--dn-ink);
-  background: var(--dn-soft);
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: none;
-}
-
-.nudge-points-tag.points-done {
-  background: #f2f3f5;
-  color: #6f6f6f;
-  border-color: #dadada;
 }
 
 .nudge-already-sent-box {

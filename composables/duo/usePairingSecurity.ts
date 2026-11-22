@@ -5,7 +5,6 @@ import {
   partnerUser,
   partnership,
   authUser,
-  isPaired,
   isPartnerOnline,
   partnerLastSeenAt,
   nestLevel,
@@ -67,52 +66,36 @@ export function usePairingSecurity(options: {
     }
   }
 
-  const loadPartnershipAndPartner = async (partnershipId: string, currentUserId: string) => {
+  const loadPartnershipAndPartner = async (partnershipId: string, currentUserId: string, serverOnly = false): Promise<boolean> => {
     const bridge = getDb()
-    if (!bridge || !partnershipId) return
+    const uid = bridge.auth.currentUser?.uid
+    const isCurrent = () => Boolean(uid && bridge.auth.currentUser?.uid === uid &&
+      currentUser.value.id === currentUserId && currentUser.value.partnership_id === partnershipId)
+    if (!isCurrent()) return false
 
-    try {
-      const { data: pData } = await bridge
-        .from('partnerships')
-        .select('*')
-        .eq('id', partnershipId)
-        .maybeSingle()
+    const { data: nest, error } = await bridge.from('partnerships', serverOnly)
+      .select('*').eq('id', partnershipId).maybeSingle()
+    if (error || !nest || !isCurrent()) return false
 
-      if (pData) {
-        partnership.value = {
-          ...partnership.value,
-          ...pData,
-          nest_level: nestLevel.value
-        }
-        saveToStorage('duonest_partnership', partnership.value)
+    const partnerId = nest.partner1_id === currentUserId ? nest.partner2_id
+      : nest.partner2_id === currentUserId ? nest.partner1_id : null
+    if (!partnerId) return false
 
-        const myId = currentUserId || currentUser.value?.id || authUser.value?.id
-        const partnerId = (myId && pData.partner1_id === myId)
-          ? pData.partner2_id
-          : ((myId && pData.partner2_id === myId) ? pData.partner1_id : (pData.partner1_id || pData.partner2_id))
+    const { data: profile, error: partnerError } = await bridge.from('profiles', serverOnly)
+      .select(PROFILE_SELECT_FIELDS).eq('id', partnerId).maybeSingle()
+    if (partnerError || profile?.partnership_id !== partnershipId || !isCurrent()) return false
 
-        if (partnerId) {
-          const { data: pUser } = await bridge
-            .from('profiles')
-            .select(PROFILE_SELECT_FIELDS)
-            .eq('id', partnerId)
-            .maybeSingle()
-
-          if (pUser) {
-            partnerUser.value = {
-              ...createInitialProfile(),
-              ...pUser,
-              name: pUser.name || 'Partner',
-              avatar_color: getCleanAccentColor(pUser.avatar_color, '#0d9488'),
-              points: Number(pUser.points) || 0
-            }
-            saveToStorage('duonest_partner_user', partnerUser.value)
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('loadPartnershipAndPartner error:', err)
+    partnerUser.value = {
+      ...createInitialProfile(),
+      ...profile,
+      name: profile.name || 'Partner',
+      avatar_color: getCleanAccentColor(profile.avatar_color, '#0d9488'),
+      points: Number(profile.points) || 0
     }
+    partnership.value = { ...nest, nest_level: nestLevel.value }
+    saveToStorage('duonest_partner_user', partnerUser.value)
+    saveToStorage('duonest_partnership', partnership.value)
+    return true
   }
 
   const checkDbPairingStatus = async (): Promise<boolean> => {
@@ -122,7 +105,7 @@ export function usePairingSecurity(options: {
 
     try {
       const { data, error } = await bridge
-        .from('profiles')
+        .from('profiles', true)
         .select('partnership_id')
         .eq('id', myId)
         .maybeSingle()
@@ -131,7 +114,9 @@ export function usePairingSecurity(options: {
       if (data?.partnership_id) {
         if (!partnership.value?.id || partnership.value.id !== data.partnership_id) {
           currentUser.value.partnership_id = data.partnership_id
-          await loadPartnershipAndPartner(data.partnership_id, myId)
+          if (!await loadPartnershipAndPartner(data.partnership_id, myId, true)) {
+            return false
+          }
           saveToStorage('duonest_current_user', currentUser.value)
           if (options.subscribeToPartnershipRealtime) {
             options.subscribeToPartnershipRealtime(data.partnership_id)
@@ -176,9 +161,9 @@ export function usePairingSecurity(options: {
           const newPId = payload.new?.partnership_id
           if (newPId && (!partnership.value?.id || partnership.value?.id !== newPId)) {
             currentUser.value.partnership_id = newPId
-            await loadPartnershipAndPartner(newPId, myId)
+            if (!await loadPartnershipAndPartner(newPId, myId, true)) return
             saveToStorage('duonest_current_user', currentUser.value)
-            options.triggerToast('Połączono z partnerem! 🎉', { type: 'love' })
+            options.triggerToast('Połączono z partnerem.', { type: 'love' })
             setTimeout(() => {
               try { bridge.removeChannel(pairChan) } catch (_) {}
               activePairingChannel = null
@@ -205,7 +190,7 @@ export function usePairingSecurity(options: {
 
     const trimmedInput = rawInput.trim()
     const code = normalizePairingCode(trimmedInput.replace(/\s+/g, ''))
-    if (!/^DN-[A-Z0-9]{4,12}$/.test(code)) {
+    if (!code) {
       return { success: false, error: translateAppError('invalid_pairing_input') }
     }
     const myCode = normalizePairingCode(currentUser.value?.pairing_code)
@@ -332,24 +317,19 @@ export function usePairingSecurity(options: {
     isSecurityVerifying = true
 
     try {
-      const { data: profileId } = await bridge.rpc('my_profile_id')
-      let { data: dbProfile } = profileId
-        ? await bridge.from('profiles').select(PROFILE_SELECT_FIELDS).eq('id', profileId).maybeSingle()
-        : { data: null }
-
-      if (!dbProfile && authUser.value?.id) {
-        const { data: fallbackProfile } = await bridge.from('profiles').select(PROFILE_SELECT_FIELDS).eq('auth_user_id', authUser.value.id).maybeSingle()
-        if (fallbackProfile) dbProfile = fallbackProfile
+      const uid = authUser.value.id
+      const profileId = currentUser.value.id
+      const member = await bridge.syncAccount(true)
+      if (!member || authUser.value?.id !== uid || currentUser.value.id !== profileId) return true
+      if (member.profile_id !== profileId || member.partnership_id !== currentUser.value.partnership_id) {
+        window.location.replace('/')
+        return false
       }
 
-      if (dbProfile) {
-        // The partner disconnected while we missed the realtime message
-        const hadPartnership = Boolean(partnership.value?.id)
-        if (hadPartnership && !dbProfile.partnership_id) {
-          clearPartnershipData()
-          options.triggerToast('Gniazdko zostało rozłączone.', { type: 'warning' })
-          navigateTo('/pairing', { replace: true })
-        }
+      const { data: dbProfile } = await bridge.from('profiles', true)
+        .select(PROFILE_SELECT_FIELDS).eq('id', profileId).maybeSingle()
+      if (dbProfile?.auth_user_id === uid && dbProfile.partnership_id === member.partnership_id &&
+          authUser.value?.id === uid && currentUser.value.id === profileId) {
         currentUser.value = {
           ...currentUser.value,
           ...dbProfile,

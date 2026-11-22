@@ -21,10 +21,10 @@ export function combineWishlist(items: WishlistItem[][]): WishlistItem[] {
     .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
 }
 
-export async function readWishlist(partnershipId: string, profileId: string, uid?: string): Promise<WishlistItem[]> {
+export async function readWishlist(partnershipId: string, profileId: string, uid?: string, serverOnly = false): Promise<WishlistItem[]> {
   const bridge = getFirebaseBridge()
   const results = await Promise.all(wishlistFilters(profileId, uid).map(async filter => {
-    const request = bridge.from('wishlist_items').select('*').eq('partnership_id', partnershipId)
+    const request = bridge.from('wishlist_items', serverOnly).select('*').eq('partnership_id', partnershipId)
     for (const [key, value] of Object.entries(filter)) request.eq(key, value)
     const { data, error } = await request
     if (error) throw error

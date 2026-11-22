@@ -22,7 +22,7 @@ struct DoodleWidget: Widget {
             DoodleWidgetView(entry: entry)
         }
         .configurationDisplayName("Wspólny rysunek")
-        .description("Wasz wspólny rysunek, aktualizowany na żywo")
+        .description("Wasz wspólny rysunek, odświeżany po zapisaniu zmian")
         .supportedFamilies([.systemMedium, .systemLarge])
     }
 }
@@ -57,10 +57,6 @@ struct DoodleProvider: TimelineProvider {
     private static let header: CGFloat = 28
     private static let gap: CGFloat = 10
     private static let refreshInterval: TimeInterval = 15 * 60
-    // State the app or a background push wrote this recently is current; reloads after that
-    // come from the timeline policy or a widget push and must hit Firestore.
-    private static let freshFor: TimeInterval = 30
-
     func placeholder(in context: Context) -> DoodleEntry {
         DoodleEntry(date: Date(), connected: true, partnerName: "", authorName: "", partnerDrawing: false, image: nil)
     }
@@ -72,12 +68,8 @@ struct DoodleProvider: TimelineProvider {
     func getTimeline(in context: Context, completion: @escaping (Timeline<DoodleEntry>) -> Void) {
         Task {
             let store = DoodleWidgetStore.shared
-            var state = store.state()
-            // Uses the App Check token the app cached; the extension cannot attest on its own.
-            if store.session() != nil, Date().timeIntervalSince(state.lastFetchAt ?? .distantPast) > Self.freshFor {
-                let appCheck = (state.appCheckExpiresAt ?? .distantPast) > Date() ? state.appCheckToken : nil
-                if await DoodleWidgetSync.refresh(appCheckToken: appCheck) { state = store.state() }
-            }
+            await DoodleWidgetSync.refresh()
+            let state = store.state()
 
             let now = Date()
             var entries = [entry(at: now, state: state, drawing: nil, context: context)]

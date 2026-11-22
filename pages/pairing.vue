@@ -114,7 +114,7 @@
               <DuoAuthField
                 v-model="partnerCodeInput"
                 label="Kod parowania partnera"
-                placeholder="np. DN-8K4P2Q"
+                placeholder="np. 8K4P2QZ"
                 maxlength="20"
                 autocomplete="off"
                 autocorrect="off"
@@ -282,7 +282,7 @@
 import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import QRCode from 'qrcode'
 import { Html5Qrcode } from 'html5-qrcode'
-import confetti from 'canvas-confetti'
+import { isPairingCode } from '~/functions/src/pairingCode'
 import { useDuoState } from '~/composables/useDuoState'
 import { usePushNotifications } from '~/composables/usePushNotifications'
 import { translateAppError } from '~/utils/errorTranslator'
@@ -298,8 +298,6 @@ const heroTiles: DuoAuthHeroTile[] = [
   { icon: ioniconsQrCode, color: '#1c1b19' },
   { icon: ioniconsPeople, color: '#7c5cff' }
 ]
-
-const confettiColors = ['#1c1b19', '#e5484d', '#e8a33d', '#ece5d3', '#7c5cff']
 
 const {
   authUser,
@@ -317,40 +315,24 @@ const {
 
 const { askPermissionAfterPairing } = usePushNotifications()
 
-let pairingPollInterval: any = null
+const router = useRouter()
+let pairingPollInterval: ReturnType<typeof setInterval> | undefined
+let finishPairingTimer: ReturnType<typeof setTimeout> | undefined
 
-const handleSignOut = async () => {
-  if (pairingPollInterval) {
-    clearInterval(pairingPollInterval)
-    pairingPollInterval = null
-  }
-  try {
-    await signOutUser()
-  } catch (err) {
-    console.error('Sign out error:', err)
-  }
-  if (typeof window !== 'undefined') {
-    window.location.href = '/welcome'
-  }
-}
+const handleSignOut = signOutUser
 
 watch(isPaired, (paired) => {
-  if (paired) {
-    if (pairingPollInterval) {
-      clearInterval(pairingPollInterval)
-      pairingPollInterval = null
-    }
-    confetti({
-      particleCount: 120,
-      spread: 75,
-      origin: { y: 0.6 },
-      colors: confettiColors
-    })
-    askPermissionAfterPairing(partnerUser.value?.name || 'Partner')
-    setTimeout(() => {
-      navigateTo('/tabs/nest', { replace: true })
-    }, 600)
-  }
+  if (!paired) return
+  clearInterval(pairingPollInterval)
+  clearTimeout(finishPairingTimer)
+  const uid = authUser.value?.id
+  finishPairingTimer = setTimeout(async () => {
+    if (!uid || authUser.value?.id !== uid || router.currentRoute.value.path !== '/pairing') return
+    if (isScannerOpen.value) await stopScanner()
+    const restored = syncUserProfileWithAuth(authUser.value)
+    await router.replace('/')
+    if (await restored && authUser.value?.id === uid) askPermissionAfterPairing(partnerUser.value?.name || 'Partner')
+  }, 850)
 }, { immediate: true })
 
 const activeMode = ref<'share' | 'join'>('share')
@@ -435,20 +417,7 @@ const submitPairing = async (code: string, opts: { fromScanner?: boolean } = {})
     if (myNameInput.value.trim()) await updateMyName(myNameInput.value)
     const partnerName = partnerNameInput.value.trim() || undefined
     const res = await pairWithCode(code.trim(), partnerName)
-    if (res.success) {
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: confettiColors,
-        zIndex: 30000
-      })
-      setTimeout(() => {
-        if (isScannerOpen.value) stopScanner()
-        navigateTo('/tabs/nest', { replace: true })
-      }, opts.fromScanner ? 1100 : 800)
-      return { ok: true }
-    }
+    if (res.success) return { ok: true }
     const message = translateAppError(res.error) || 'Nie udało się połączyć kont.'
     if (!opts.fromScanner) pairingError.value = message
     return { ok: false, error: message }
@@ -464,7 +433,6 @@ const submitPairing = async (code: string, opts: { fromScanner?: boolean } = {})
 // Scanner & Camera state
 type ScanState = 'starting' | 'scanning' | 'detected' | 'pairing' | 'success' | 'error' | 'blocked'
 const DEFAULT_HINT = 'Skieruj aparat na kod QR w aplikacji partnera'
-const PAIRING_CODE_RE = /^DN-[A-Z0-9]{4,12}$/
 
 const isScannerOpen = ref(false)
 const scanState = ref<ScanState>('starting')
@@ -486,11 +454,11 @@ let scannerRun = 0
 let lastCameraCode = ''
 let lastCameraCodeSeenAt = 0
 
-// Extract pairing code from raw decoded text or URLs
 const extractPairingCode = (rawText: string): string => {
-  if (!rawText) return ''
-  const match = rawText.trim().match(/\bDN-[A-Z0-9]{4,12}(?![A-Z0-9])/i)
-  return match ? match[0].toUpperCase() : rawText.trim().toUpperCase()
+  const candidate = rawText.trim().toUpperCase()
+  if (isPairingCode(candidate)) return candidate
+  const legacy = candidate.match(/\bDN-[A-Z0-9]{4,12}(?![A-Z0-9])/)
+  return legacy?.[0] || ''
 }
 
 const haptic = (pattern: number | number[]) => {
@@ -613,7 +581,7 @@ const handleDecoded = async (decodedText: string) => {
   const run = scannerRun
   const code = extractPairingCode(decodedText)
 
-  if (!PAIRING_CODE_RE.test(code)) {
+  if (!isPairingCode(code)) {
     // Throttle so a foreign QR in view doesn't spam the hint / vibration
     if (lastRejected.text === decodedText && Date.now() - lastRejected.at < 2500) return
     lastRejected = { text: decodedText, at: Date.now() }
@@ -673,7 +641,7 @@ const handleFileUpload = async (e: Event) => {
   if (!file) return
   const decoded = await decodeQrFromImage(file)
   const code = decoded ? extractPairingCode(decoded) : ''
-  if (!PAIRING_CODE_RE.test(code)) {
+  if (!isPairingCode(code)) {
     triggerToast('Nie znaleziono kodu DuoNest na zdjęciu', { type: 'warning' })
     return
   }
@@ -802,7 +770,7 @@ const scanLoop = async (run = scannerRun) => {
         const code = extractPairingCode(text)
         lastCameraCodeSeenAt = Date.now()
         if (code !== lastCameraCode) {
-          if (PAIRING_CODE_RE.test(code) && code !== currentUser.value?.pairing_code) lastCameraCode = code
+          if (isPairingCode(code) && code !== currentUser.value?.pairing_code) lastCameraCode = code
           await handleDecoded(text)
         }
       } else if (!text && Date.now() - lastCameraCodeSeenAt >= 450) {
@@ -970,41 +938,20 @@ onMounted(async () => {
     subscribeToPairingChannel(currentUser.value.pairing_code)
   }
 
-  // Check immediately with Supabase DB if already paired or if local state was stale
-  const currentlyPaired = await checkDbPairingStatus()
-  if (currentlyPaired && isPaired.value) {
-    navigateTo('/tabs/nest', { replace: true })
-    return
-  }
+  if (await checkDbPairingStatus() || router.currentRoute.value.path !== '/pairing') return
 
-  // Periodic poll to detect if partner accepted / paired while on this screen
-  if (!pairingPollInterval) {
-    pairingPollInterval = setInterval(async () => {
-      if (isPaired.value) {
-        if (pairingPollInterval) {
-          clearInterval(pairingPollInterval)
-          pairingPollInterval = null
-        }
-        return
-      }
-      const paired = await checkDbPairingStatus()
-      if (paired) {
-        if (pairingPollInterval) {
-          clearInterval(pairingPollInterval)
-          pairingPollInterval = null
-        }
-        triggerToast('Połączono z partnerem')
-        confetti({
-          particleCount: 120,
-          spread: 75,
-          origin: { y: 0.6 },
-          colors: confettiColors
-        })
-        askPermissionAfterPairing(partnerUser.value?.name || 'Partner')
-        navigateTo('/tabs/nest', { replace: true })
-      }
-    }, 2500)
-  }
+  // Poll as a fallback if the partner accepts while this view is open.
+  let polling = false
+  pairingPollInterval = setInterval(async () => {
+    if (polling || isPaired.value || router.currentRoute.value.path !== '/pairing') return
+    polling = true
+    try {
+      await checkDbPairingStatus()
+    } finally {
+      polling = false
+    }
+  }, 2500)
+
 })
 
 watch(() => pairingProfileReady.value ? currentUser.value.pairing_code : '', (newCode) => {
@@ -1015,11 +962,9 @@ watch(() => pairingProfileReady.value ? currentUser.value.pairing_code : '', (ne
 })
 
 onUnmounted(() => {
-  stopScanner()
-  if (pairingPollInterval) {
-    clearInterval(pairingPollInterval)
-    pairingPollInterval = null
-  }
+  void stopScanner()
+  clearInterval(pairingPollInterval)
+  clearTimeout(finishPairingTimer)
 })
 </script>
 

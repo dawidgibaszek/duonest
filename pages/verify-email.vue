@@ -89,10 +89,7 @@ const {
   authUser,
   refreshEmailVerification,
   resendVerificationEmail,
-  signOutUser,
-  isPaired,
-  currentUser,
-  partnership
+  signOutUser
 } = useDuoState()
 
 const RESEND_COOLDOWN_S = 60
@@ -114,13 +111,10 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 let cooldownTimer: ReturnType<typeof setInterval> | null = null
 let leaving = false
 
-const continueIntoApp = () => {
+const continueIntoApp = async () => {
   if (leaving) return
   leaving = true
-  const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id)
-    ? '/tabs/nest'
-    : '/pairing'
-  navigateTo(destination, { replace: true })
+  await navigateTo('/', { replace: true })
 }
 
 const checkSilently = async () => {

@@ -25,7 +25,9 @@ import {
   collection,
   doc,
   getDoc,
+  getDocFromServer,
   getDocs,
+  getDocsFromServer,
   setDoc,
   updateDoc,
   writeBatch,
@@ -166,9 +168,18 @@ export class FirebaseSupabaseBridge {
     // access_token (used for /api/* calls) never goes stale.
     this.auth.onAuthStateChange = (callback: (event: string, session: any) => void) => {
       let lastUid: string | null = null
+      let sequence = 0
       return onIdTokenChanged(self.auth, async (user) => {
+        const request = ++sequence
         if (user) {
-          const token = await user.getIdToken()
+          let token: string
+          try {
+            token = await user.getIdToken()
+          } catch {
+            if (request === sequence && self.auth.currentUser === user) callback('SESSION_ERROR', null)
+            return
+          }
+          if (request !== sequence || self.auth.currentUser !== user) return
           const bridgeUser = formatUser(user)
           const session: BridgeSession = {
             access_token: token,
@@ -391,7 +402,7 @@ export class FirebaseSupabaseBridge {
   // Server API (admin operations: membership, pairing, disconnect)
   // ---------------------------------------------------------------------------
   private accountSyncCache: { uid: string; at: number; result: any } | null = null
-  private accountSyncInFlight: Promise<any> | null = null
+  private accountSyncInFlight: { uid: string; promise: Promise<any> } | null = null
 
   public async callApi<T = any>(path: string, body: object = {}): Promise<T> {
     const user = this.auth.currentUser
@@ -400,7 +411,8 @@ export class FirebaseSupabaseBridge {
     const res = await fetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10_000)
     })
     const json = await res.json().catch(() => null)
     if (!res.ok) {
@@ -422,25 +434,29 @@ export class FirebaseSupabaseBridge {
     if (!uid) return null
     const cached = this.accountSyncCache
     if (!force && cached && cached.uid === uid && Date.now() - cached.at < 30000) return cached.result
-    if (!force && this.accountSyncInFlight) return this.accountSyncInFlight
+    if (this.accountSyncInFlight?.uid === uid) return this.accountSyncInFlight.promise
 
-    this.accountSyncInFlight = (async () => {
+    const promise = (async () => {
       try {
         const result = await this.callApi('/api/account/sync')
+        if (this.auth.currentUser?.uid !== uid) return null
         this.accountSyncCache = { uid, at: Date.now(), result }
         return result
       } catch (err) {
         if (process.dev) console.warn('[Bridge] account sync failed:', (err as any)?.message || err)
         return null
       } finally {
-        this.accountSyncInFlight = null
+        if (this.accountSyncInFlight?.promise === promise) this.accountSyncInFlight = null
       }
     })()
-    return this.accountSyncInFlight
+    this.accountSyncInFlight = { uid, promise }
+    return promise
   }
 
-  public from(tableName: string) {
+  public from(tableName: string, serverOnly = false) {
     const self = this
+    const readDoc = serverOnly ? getDocFromServer : getDoc
+    const readDocs = serverOnly ? getDocsFromServer : getDocs
 
     return {
       _tableName: tableName,
@@ -628,7 +644,7 @@ export class FirebaseSupabaseBridge {
           // Optymalizacja dla bezpośredniego pobierania po 'id'
           const idFilter = this._filters.find(f => f.field === 'id' && f.op === '==')
           if (idFilter && this._filters.length === 1) {
-            const docSnap = await getDoc(doc(self.db, tableName, String(idFilter.val)))
+            const docSnap = await readDoc(doc(self.db, tableName, String(idFilter.val)))
             if (!docSnap.exists()) {
               return { data: (this._isSingle || this._isMaybeSingle) ? null : [], error: null }
             }
@@ -652,12 +668,12 @@ export class FirebaseSupabaseBridge {
             if (this._limit) {
               queryConstraints.push(firestoreLimit(this._limit))
             }
-            snapshot = await getDocs(query(q, ...queryConstraints))
+            snapshot = await readDocs(query(q, ...queryConstraints))
           } catch (queryErr: any) {
             if (process.dev) {
               console.warn(`Query with order fallback on [${tableName}]:`, queryErr?.message)
             }
-            snapshot = await getDocs(query(q, ...constraints))
+            snapshot = await readDocs(query(q, ...constraints))
           }
 
           let results = snapshot.docs.map((d: any) => ({ ...d.data(), id: d.id }))

@@ -64,19 +64,14 @@ struct DoodleWidgetSession: Codable, Equatable {
     var uid: String
     var profileId: String
     var partnershipId: String
-    var refreshToken: String
-    var apiKey: String
-    var projectId: String
+    var credential: String?
 
     init?(json: [String: Any]) {
-        func value(_ key: String) -> String { (json[key] as? String) ?? "" }
-        uid = value("uid")
-        profileId = value("profileId")
-        partnershipId = value("partnershipId")
-        refreshToken = value("refreshToken")
-        apiKey = value("apiKey")
-        projectId = value("projectId")
-        if uid.isEmpty || partnershipId.isEmpty || refreshToken.isEmpty || apiKey.isEmpty || projectId.isEmpty { return nil }
+        uid = json["uid"] as? String ?? ""
+        profileId = json["profileId"] as? String ?? ""
+        partnershipId = json["partnershipId"] as? String ?? ""
+        credential = json["credential"] as? String
+        if uid.isEmpty || profileId.isEmpty || partnershipId.isEmpty { return nil }
     }
 
     func sameAccount(_ other: DoodleWidgetSession?) -> Bool {
@@ -89,11 +84,6 @@ struct DoodleWidgetState: Codable {
     var liveStrokes: [DoodleStroke] = []
     var partnerName = ""
     var partnerDrawingUntil: Date?
-    var lastFetchAt: Date?
-    var idToken: String?
-    var idTokenExpiresAt: Date?
-    var appCheckToken: String?
-    var appCheckExpiresAt: Date?
 
     var strokes: [DoodleStroke] { (doodle?.strokes ?? []) + liveStrokes }
 }
@@ -104,7 +94,7 @@ struct DoodleWidgetPushToken: Codable, Equatable {
     var environment: String
 }
 
-/// File-backed state in the App Group container; the session (Firebase refresh token) lives in its own file.
+/// File-backed state shared by the app and WidgetKit.
 final class DoodleWidgetStore {
     static let shared = DoodleWidgetStore()
 
@@ -139,26 +129,41 @@ final class DoodleWidgetStore {
         }
     }
 
-    /// `nil` signs the widget out and forgets the cached doodle.
+    /// A local session update does not replace an existing read credential for the same nest.
     func setSession(_ next: DoodleWidgetSession?) {
         queue.sync {
             let current = read(DoodleWidgetSession.self, from: sessionURL)
-            guard let next else {
+            guard var next else {
                 remove(sessionURL)
                 remove(stateURL)
                 return
             }
-            if !next.sameAccount(current) { remove(stateURL) }
+            if next.sameAccount(current) {
+                next.credential = next.credential ?? current?.credential
+            } else {
+                remove(stateURL)
+            }
             write(next, to: sessionURL)
         }
     }
 
-    func replaceRefreshToken(for session: DoodleWidgetSession, with token: String) {
+    func applyRefresh(_ doodle: DoodleWidgetDoodle?, session: DoodleWidgetSession, previousID: String?) -> Bool {
         queue.sync {
-            guard var current = read(DoodleWidgetSession.self, from: sessionURL),
-                  current.sameAccount(session), current.refreshToken != token else { return }
-            current.refreshToken = token
-            write(current, to: sessionURL)
+            guard let current = read(DoodleWidgetSession.self, from: sessionURL), current == session else { return false }
+            var state = read(DoodleWidgetState.self, from: stateURL) ?? DoodleWidgetState()
+            guard state.doodle?.id == previousID else { return false }
+            if state.doodle?.id != doodle?.id { state.liveStrokes = [] }
+            state.doodle = doodle
+            write(state, to: stateURL)
+            return true
+        }
+    }
+
+    func invalidateReadAccess(_ session: DoodleWidgetSession) {
+        queue.sync {
+            guard read(DoodleWidgetSession.self, from: sessionURL) == session else { return }
+            remove(sessionURL)
+            remove(stateURL)
         }
     }
 
@@ -236,130 +241,31 @@ extension UIColor {
     }
 }
 
-/// Loads the newest partnership_doodles row with the user's own Firebase session,
-/// so the same Firestore security rules apply as in the web app.
+/// The extension has read-only access to the latest doodle, scoped to its paired account.
 enum DoodleWidgetSync {
-    enum SyncError: Error { case http(Int), invalidResponse }
+    private static let endpoint = URL(string: "https://duonestapp.pl/api/widget/doodle")!
 
-    /// Returns false when there is no session or the request failed.
     @discardableResult
-    static func refresh(appCheckToken: String?) async -> Bool {
+    static func refresh() async -> Bool {
         let store = DoodleWidgetStore.shared
-        guard let session = store.session() else { return false }
+        guard let session = store.session(), let credential = session.credential else { return false }
+        let previousID = store.state().doodle?.id
+        var request = URLRequest(url: endpoint, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 8)
+        request.setValue("Bearer \(credential)", forHTTPHeaderField: "Authorization")
         do {
-            guard let token = try await idToken(for: session) else { return false }
-            let doodle = try await fetchLatestDoodle(session: session, idToken: token, appCheckToken: appCheckToken)
-            guard session.sameAccount(store.session()) else { return false }
-            store.update { state in
-                if state.doodle?.id != doodle?.id || state.doodle?.updatedAt != doodle?.updatedAt { state.liveStrokes = [] }
-                state.doodle = doodle
-                state.lastFetchAt = Date()
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let status = (response as? HTTPURLResponse)?.statusCode
+            if status == 401 || status == 403 || status == 426 {
+                store.invalidateReadAccess(session)
+                return true
             }
-            return true
+            guard status == 200,
+                  let body = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  body.keys.contains("doodle") else { return false }
+            let doodle = DoodleWidgetDoodle(json: body["doodle"] as? [String: Any])
+            return store.applyRefresh(doodle, session: session, previousID: previousID)
         } catch {
-            print("[DuoWidget] refresh failed: \(error)")
             return false
         }
-    }
-
-    private static func idToken(for session: DoodleWidgetSession) async throws -> String? {
-        let store = DoodleWidgetStore.shared
-        let cached = store.state()
-        if let token = cached.idToken, let expiry = cached.idTokenExpiresAt, expiry > Date() { return token }
-
-        var components = URLComponents(string: "https://securetoken.googleapis.com/v1/token")!
-        components.queryItems = [URLQueryItem(name: "key", value: session.apiKey)]
-        var request = URLRequest(url: components.url!, timeoutInterval: 10)
-        request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        var form = URLComponents()
-        form.queryItems = [URLQueryItem(name: "grant_type", value: "refresh_token"),
-                           URLQueryItem(name: "refresh_token", value: session.refreshToken)]
-        request.httpBody = form.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B").data(using: .utf8)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        if status == 400, let message = (json?["error"] as? [String: Any])?["message"] as? String,
-           ["TOKEN_EXPIRED", "USER_DISABLED", "USER_NOT_FOUND", "INVALID_REFRESH_TOKEN"].contains(where: { message.hasPrefix($0) }) {
-            // The app hands over a new session at the next sign-in.
-            if session.sameAccount(store.session()) { store.setSession(nil) }
-            return nil
-        }
-        guard status == 200, let json, json["user_id"] as? String == session.uid,
-              let idToken = json["id_token"] as? String else { throw SyncError.http(status) }
-
-        if let refreshToken = json["refresh_token"] as? String, !refreshToken.isEmpty {
-            store.replaceRefreshToken(for: session, with: refreshToken)
-        }
-        let lifetime = Double(json["expires_in"] as? String ?? "") ?? 3600
-        store.update { state in
-            state.idToken = idToken
-            state.idTokenExpiresAt = Date().addingTimeInterval(max(60, lifetime - 300))
-        }
-        return idToken
-    }
-
-    private static func fetchLatestDoodle(session: DoodleWidgetSession, idToken: String, appCheckToken: String?) async throws -> DoodleWidgetDoodle? {
-        let query: [String: Any] = ["structuredQuery": [
-            "from": [["collectionId": "partnership_doodles"]],
-            "where": ["fieldFilter": [
-                "field": ["fieldPath": "partnership_id"],
-                "op": "EQUAL",
-                "value": ["stringValue": session.partnershipId]
-            ]],
-            "orderBy": [["field": ["fieldPath": "updated_at"], "direction": "DESCENDING"]],
-            "limit": 1
-        ]]
-        let project = session.projectId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? session.projectId
-        var request = URLRequest(
-            url: URL(string: "https://firestore.googleapis.com/v1/projects/\(project)/databases/(default)/documents:runQuery")!,
-            timeoutInterval: 10
-        )
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(idToken)", forHTTPHeaderField: "Authorization")
-        if let appCheckToken { request.setValue(appCheckToken, forHTTPHeaderField: "X-Firebase-AppCheck") }
-        request.httpBody = try JSONSerialization.data(withJSONObject: query)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        guard status == 200 else { throw SyncError.http(status) }
-        guard let rows = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { throw SyncError.invalidResponse }
-        guard let document = rows.compactMap({ $0["document"] as? [String: Any] }).first else { return nil }
-        return DoodleWidgetDoodle(json: plainDoodle(from: document))
-    }
-
-    /// Converts Firestore REST typed values into the row shape used by the web app.
-    private static func plainDoodle(from document: [String: Any]) -> [String: Any] {
-        let fields = document["fields"] as? [String: Any] ?? [:]
-        func string(_ field: Any?) -> String { (field as? [String: Any])?["stringValue"] as? String ?? "" }
-        func number(_ field: Any?) -> Double {
-            guard let field = field as? [String: Any] else { return .nan }
-            if let value = field["doubleValue"] as? NSNumber { return value.doubleValue }
-            if let value = field["integerValue"] as? String { return Double(value) ?? .nan }
-            return .nan
-        }
-        func values(_ field: Any?) -> [Any] {
-            ((field as? [String: Any])?["arrayValue"] as? [String: Any])?["values"] as? [Any] ?? []
-        }
-
-        let strokes: [[String: Any]] = values(fields["strokes"]).compactMap { value in
-            guard let strokeFields = ((value as? [String: Any])?["mapValue"] as? [String: Any])?["fields"] as? [String: Any] else { return nil }
-            return [
-                "points": values(strokeFields["points"]).map { number($0) },
-                "color": string(strokeFields["color"]),
-                "width": number(strokeFields["width"]),
-                "isEraser": (strokeFields["isEraser"] as? [String: Any])?["booleanValue"] as? Bool ?? false
-            ]
-        }
-        let name = document["name"] as? String ?? ""
-        let id = string(fields["id"])
-        return [
-            "id": id.isEmpty ? String(name.split(separator: "/").last ?? "") : id,
-            "updated_at": string(fields["updated_at"]),
-            "author_name": string(fields["author_name"]),
-            "strokes": strokes
-        ]
     }
 }
