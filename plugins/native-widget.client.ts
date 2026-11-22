@@ -130,7 +130,11 @@ export default defineNuxtPlugin(() => {
   watch(partnerLiveStroke, (live) => {
     if (!installedSession || isAuthLoading.value || isLoggingOut.value) return
     // iOS and Android stream live strokes to the widget while the app is active.
-    void (live ? DuoWidget.addLiveStroke({ stroke: live.stroke }) : DuoWidget.clearLiveStrokes()).catch(ignore)
+    if (live?.stroke) {
+      void DuoWidget.addLiveStroke({ stroke: live.stroke }).catch(ignore)
+    } else if (!currentDoodle.value) {
+      void DuoWidget.clearLiveStrokes().catch(ignore)
+    }
   })
   watch(isPartnerDrawing, (isDrawing) => {
     if (!installedSession || isAuthLoading.value || isLoggingOut.value) return

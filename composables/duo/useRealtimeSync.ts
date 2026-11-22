@@ -54,7 +54,7 @@ let partnerDrawingTimeout: any = null
 let lastDrawingPushAt = 0
 const DRAWING_PUSH_INTERVAL_MS = 45_000
 
-const transientActions = new Set(['DOODLE_LIVE_STROKE', 'DOODLE_DRAWING_STATUS'])
+const transientActions = new Set(['DOODLE_LIVE_STROKE', 'DOODLE_DRAWING_STATUS', 'DOODLE_CLEAR'])
 
 export function stopPartnershipRealtime() {
   const channel = activePartnershipChannel
@@ -237,7 +237,7 @@ export function useRealtimeSync(options?: {
     return doodle
   }
 
-  const clearDoodle = async () => {
+  const clearDoodle = async (options?: { silent?: boolean }) => {
     const pid = partnership.value?.id
     if (!pid) return false
     try {
@@ -247,11 +247,17 @@ export function useRealtimeSync(options?: {
       await bridge.commitSharedBatch('partnership_doodles', (data || []).map((row: DuoDoodle) => ({ id: row.id })))
       if (partnership.value?.id !== pid) return false
       setDoodle(null)
+      lastDrawingPushAt = 0
+      void broadcastToPartner('DOODLE_CLEAR', {})
       await sendPartnerPush('DOODLE_CLEAR', {})
-      triggerToast('Wyczyszczono tablicę')
+      if (!options?.silent) {
+        triggerToast('Wyczyszczono tablicę')
+      }
       return true
     } catch {
-      triggerToast('Nie udało się wyczyścić tablicy.', { type: 'warning' })
+      if (!options?.silent) {
+        triggerToast('Nie udało się wyczyścić tablicy.', { type: 'warning' })
+      }
       return false
     }
   }
@@ -451,6 +457,10 @@ export function useRealtimeSync(options?: {
         isPartnerDrawing.value = true
       } else if (payload.action === 'DOODLE_DRAWING_STATUS' && typeof payload.data?.isDrawing === 'boolean') {
         isPartnerDrawing.value = payload.data.isDrawing
+      } else if (payload.action === 'DOODLE_CLEAR') {
+        setDoodle(null)
+        partnerLiveStroke.value = null
+        isPartnerDrawing.value = false
       } else {
         return
       }

@@ -495,7 +495,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { useDuoState, type DuoDoodleStroke } from '~/composables/useDuoState'
+import { useDuoState } from '~/composables/useDuoState'
+import type { DuoDoodleStroke } from '~/types/duo'
+import { isStrokeContinued } from '~/composables/duo/utils'
 import { usePushNotifications } from '~/composables/usePushNotifications'
 import { useMusic } from '~/composables/useMusic'
 import { useConfirm } from '~/composables/useConfirm'
@@ -553,15 +555,6 @@ const {
 const isDoodleModalOpen = ref(false)
 const previewCanvasRef = ref<HTMLCanvasElement | null>(null)
 const partnerLiveStrokes = ref<DuoDoodleStroke[]>([])
-
-const isStrokeContinued = (prev: DuoDoodleStroke, next: DuoDoodleStroke): boolean => {
-  return prev.isEraser === next.isEraser &&
-    prev.width === next.width &&
-    prev.color.toLowerCase() === next.color.toLowerCase() &&
-    next.points.length >= prev.points.length &&
-    prev.points[0] === next.points[0] &&
-    prev.points[1] === next.points[1]
-}
 
 const hasDoodleContent = computed(() => {
   return Boolean(
@@ -647,9 +640,15 @@ const renderPreviewCanvas = () => {
 watch(() => partnerLiveStroke.value, (live) => {
   if (live && live.stroke) {
     const strokeCopy: DuoDoodleStroke = JSON.parse(JSON.stringify(live.stroke))
-    const lastIdx = partnerLiveStrokes.value.length - 1
-    if (lastIdx >= 0 && isStrokeContinued(partnerLiveStrokes.value[lastIdx], strokeCopy)) {
-      partnerLiveStrokes.value[lastIdx] = strokeCopy
+    let foundIdx = -1
+    for (let i = partnerLiveStrokes.value.length - 1; i >= 0; i--) {
+      if (isStrokeContinued(partnerLiveStrokes.value[i], strokeCopy)) {
+        foundIdx = i
+        break
+      }
+    }
+    if (foundIdx >= 0) {
+      partnerLiveStrokes.value[foundIdx] = strokeCopy
     } else {
       partnerLiveStrokes.value.push(strokeCopy)
     }
