@@ -1,3 +1,4 @@
+import { trackDuoEvent } from '~/composables/useDuoAnalytics'
 import { getFirebaseBridge } from '../useFirebaseBridge'
 import { wishlistItems, currentUser, authUser, partnership } from './state'
 import { newDocumentId, saveToStorage } from './utils'
@@ -77,6 +78,7 @@ export function useWishlist(options: {
     syncWishlistToStorage()
     if (item.is_visible_to_partner) options.broadcastToPartner('WISHLIST_ADD', item)
     options.triggerToast(item.is_visible_to_partner ? 'Dodano marzenie' : 'Dodano niespodziankę')
+    trackDuoEvent('duo_wish_added')
     return item
   }
 

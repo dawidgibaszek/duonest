@@ -1,3 +1,4 @@
+import { trackDuoEvent } from '~/composables/useDuoAnalytics'
 import { getFirebaseBridge } from '../useFirebaseBridge'
 import { mealsList, shoppingItems, currentUser, partnership } from './state'
 import { newDocumentId, saveToStorage } from './utils'
@@ -69,6 +70,7 @@ export function useMeals(options: {
       syncMeals()
       options.broadcastToPartner(current ? 'MEAL_UPDATE' : 'MEAL_ADD', meal)
       options.triggerToast(date ? 'Zaplanowano obiad' : 'Zapisano przepis', { type: 'meals' })
+      trackDuoEvent(date ? 'duo_meal_planned' : 'duo_recipe_saved')
       return meal
     } catch {
       notifyFailure()

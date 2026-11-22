@@ -1,3 +1,4 @@
+import { trackDuoEvent } from '~/composables/useDuoAnalytics'
 import { Capacitor } from '@capacitor/core'
 import { getFirebaseBridge } from '../useFirebaseBridge'
 import {
@@ -218,6 +219,7 @@ export function useRealtimeSync(options?: {
       return null
     }
     if (partnership.value?.id !== pid) return null
+    trackDuoEvent('duo_doodle_saved')
     setDoodle(doodle)
     lastDrawingPushAt = 0
     broadcastToPartner('DOODLE_SAVE', {})

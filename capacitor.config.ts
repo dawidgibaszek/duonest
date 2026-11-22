@@ -52,10 +52,12 @@ const config: CapacitorConfig = {
         swiftToolsVersion: '6.1',
         // Google Sign-In SDK only (no Facebook SDK in the binary)
         packageTraits: {
+          '@capacitor-firebase/analytics': ['AnalyticsWithoutAdIdSupport'],
           '@capacitor-firebase/authentication': ['Google']
         },
         // Avoids the SwiftPM package identity collision (capacitor-firebase#959)
         packageOptions: {
+          '@capacitor-firebase/analytics': { symlink: true },
           '@capacitor-firebase/app-check': { symlink: true },
           '@capacitor-firebase/authentication': { symlink: true },
           '@capacitor-firebase/messaging': { symlink: true }

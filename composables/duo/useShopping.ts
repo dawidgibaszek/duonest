@@ -1,3 +1,4 @@
+import { trackDuoEvent } from '~/composables/useDuoAnalytics'
 import { getFirebaseBridge } from '../useFirebaseBridge'
 import { shoppingItems, currentUser, partnership } from './state'
 import { newDocumentId, saveToStorage } from './utils'
@@ -66,6 +67,7 @@ export function useShopping(options: {
       const merged = mergeShoppingQuantities(duplicate.quantity, cleanQty)
       if (merged !== null) {
         if (merged !== (duplicate.quantity || '') && !(await persistUpdate(duplicate, { quantity: merged }))) return null
+        trackDuoEvent('duo_shopping_added')
         options.triggerToast('Połączono z pozycją na liście')
         return duplicate.id
       }
@@ -86,6 +88,7 @@ export function useShopping(options: {
     shoppingItems.value = [item, ...shoppingItems.value.filter(row => row.id !== item.id)]
     syncShoppingToStorage()
     options.broadcastToPartner('SHOPPING_ADD', item)
+    trackDuoEvent('duo_shopping_added')
     options.triggerToast('Dodano produkt do listy zakupów')
     return item.id
   }

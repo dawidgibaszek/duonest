@@ -1,3 +1,4 @@
+import { trackDuoEvent } from '~/composables/useDuoAnalytics'
 import { getFirebaseBridge } from '../useFirebaseBridge'
 import { savingsGoals, savingsContributions, currentUser, partnership } from './state'
 import { newDocumentId, saveToStorage } from './utils'
@@ -42,6 +43,7 @@ export function useSavings(options: {
     const result = await mutate('savings/create', newDocumentId('svg_'), payload)
     if (!result?.goal) return null
     options.broadcastToPartner('SAVINGS_GOAL_ADD', result.goal)
+    trackDuoEvent('duo_savings_created')
     options.triggerToast('Utworzono nową skarbonkę!')
     return result.goal
   }

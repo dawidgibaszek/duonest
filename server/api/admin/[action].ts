@@ -7,7 +7,10 @@ const production = 'https://duonestapp.pl'
 const devCookie = 'duonest_admin_dev'
 const loopbackHost = /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d{1,5})?$/i
 const loopbackPeers = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1'])
-const allowedRequests = new Set(['GET/dashboard', 'GET/ios-settings', 'PUT/ios-settings', 'POST/session', 'DELETE/session'])
+const allowedRequests = new Set([
+  'GET/dashboard', 'GET/ios-settings', 'GET/analytics', 'GET/analytics-live', 'GET/history',
+  'PUT/ios-settings', 'POST/session', 'DELETE/session'
+])
 
 export default defineEventHandler(async event => {
   const action = getRouterParam(event, 'action')
@@ -46,8 +49,18 @@ export default defineEventHandler(async event => {
 
   let upstream: Response
   try {
-    upstream = await fetch(`${production}/api/admin/${action}`, {
-      method, headers, body, redirect: 'error', signal: AbortSignal.timeout(10_000)
+    const search = new URLSearchParams()
+    const incoming = new URL(event.path, localOrigin)
+    if (action === 'analytics' || action === 'analytics-live') {
+      for (const key of (action === 'analytics' ? ['days', 'platform', 'version', 'mode'] : ['platform'])) {
+        const value = incoming.searchParams.get(key)
+        if (value !== null) search.set(key, value)
+      }
+    }
+    const url = new URL(`/api/admin/${action}`, production)
+    url.search = search.toString()
+    upstream = await fetch(url, {
+      method, headers, body, redirect: 'error', signal: AbortSignal.timeout(action === 'analytics' ? 20_000 : 10_000)
     })
   } catch {
     throw createError({ statusCode: 502 })

@@ -551,7 +551,7 @@
           </button>
         </section>
 
-        <section v-if="iosDiagnostics.available" class="rl-section">
+        <section v-if="diagnostics.available" class="rl-section">
           <div class="rl-section-head">
             <h3 class="rl-section-title">Diagnostyka</h3>
           </div>
@@ -563,13 +563,34 @@
               </span>
               <ion-toggle
                 aria-label="Wysyłaj raporty diagnostyczne"
-                :checked="iosDiagnostics.enabled.value"
+                :checked="diagnostics.enabled.value"
                 :disabled="diagnosticsSaving"
                 @ionChange="handleDiagnosticsToggle"
               />
             </div>
           </div>
           <p v-if="diagnosticsError" class="rl-error">{{ diagnosticsError }}</p>
+        </section>
+
+        <section v-if="usageAnalytics.available" class="rl-section">
+          <div class="rl-section-head">
+            <h3 class="rl-section-title">Analityka użycia</h3>
+          </div>
+          <div class="rl-list">
+            <div class="rl-toggle-row">
+              <span class="rl-row-body">
+                <span class="rl-row-title">Udostępniaj statystyki użycia</span>
+                <span class="rl-row-sub">Pomóż nam rozwijać najczęściej używane funkcje. Treści i dane konta nie są przesyłane.</span>
+              </span>
+              <ion-toggle
+                aria-label="Udostępniaj statystyki użycia"
+                :checked="usageAnalytics.enabled.value"
+                :disabled="usageAnalytics.saving.value"
+                @ionChange="handleAnalyticsToggle"
+              />
+            </div>
+          </div>
+          <p v-if="analyticsError" class="rl-error" role="alert">{{ analyticsError }}</p>
         </section>
 
         <!-- PAIR -->
@@ -796,7 +817,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useDuoState } from '~/composables/useDuoState'
-import { useIosDiagnostics } from '~/composables/useIosDiagnostics'
+import { useDuoDiagnostics } from '~/composables/useDuoDiagnostics'
 import { usePushNotifications } from '~/composables/usePushNotifications'
 import { useMusic } from '~/composables/useMusic'
 import { useConfirm } from '~/composables/useConfirm'
@@ -808,7 +829,21 @@ import DuoMusicCard from '~/components/DuoMusicCard.vue'
  * refused (e.g. notification permission denied), Vue does not re-render because the
  * bound value did not change – so we put the toggle back to the real state.
  */
-const iosDiagnostics = useIosDiagnostics()
+const diagnostics = useDuoDiagnostics()
+const usageAnalytics = useDuoAnalytics()
+const analyticsError = ref('')
+
+async function handleAnalyticsToggle(event: CustomEvent<{ checked: boolean }>) {
+  analyticsError.value = ''
+  try {
+    await usageAnalytics.setEnabled(event.detail.checked)
+  } catch {
+    analyticsError.value = 'Nie udało się zapisać ustawienia.'
+    if (event.target instanceof HTMLElement) {
+      (event.target as HTMLIonToggleElement).checked = usageAnalytics.enabled.value
+    }
+  }
+}
 const diagnosticsSaving = ref(false)
 const diagnosticsError = ref('')
 
@@ -816,11 +851,11 @@ async function handleDiagnosticsToggle(event: CustomEvent<{ checked: boolean }>)
   diagnosticsSaving.value = true
   diagnosticsError.value = ''
   try {
-    await iosDiagnostics.setEnabled(event.detail.checked)
+    await diagnostics.setEnabled(event.detail.checked)
   } catch {
     diagnosticsError.value = 'Nie udało się zapisać ustawienia. Spróbuj ponownie.'
     if (event.target instanceof HTMLElement) {
-      (event.target as HTMLIonToggleElement).checked = iosDiagnostics.enabled.value
+      (event.target as HTMLIonToggleElement).checked = diagnostics.enabled.value
     }
   } finally {
     diagnosticsSaving.value = false

@@ -74,6 +74,7 @@ export const requireDuoClient: RequestHandler = async (req, res, next) => {
     : appId.startsWith(ANDROID_APP_PREFIX)
 
   if (!isIosClient && !isAndroidClient) return res.status(403).json({ error: 'unauthorized_app' })
+  res.locals.duoPlatform = isAndroidClient ? 'android' : 'ios'
 
   try {
     const policies = await getClientAccessPolicy()

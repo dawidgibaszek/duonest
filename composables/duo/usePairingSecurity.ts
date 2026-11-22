@@ -1,3 +1,4 @@
+import { trackDuoPairing } from '~/composables/useDuoAnalytics'
 import { getFirebaseBridge } from '../useFirebaseBridge'
 import { stopPartnershipRealtime } from './useRealtimeSync'
 import {
@@ -95,6 +96,7 @@ export function usePairingSecurity(options: {
     partnership.value = { ...nest, nest_level: nestLevel.value }
     saveToStorage('duonest_partner_user', partnerUser.value)
     saveToStorage('duonest_partnership', partnership.value)
+    trackDuoPairing(uid)
     return true
   }
 
@@ -239,6 +241,7 @@ export function usePairingSecurity(options: {
         options.subscribeToPartnershipRealtime(data.partnership.id)
       }
 
+      trackDuoPairing(bridge.auth.currentUser?.uid)
       options.triggerToast('Konta zostały pomyślnie sparowane! Witamy w Waszym Gniazdku! 💖', { type: 'love' })
       return { success: true }
     } catch (err: any) {

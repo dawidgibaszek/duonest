@@ -1,3 +1,4 @@
+import { trackDuoEvent } from '~/composables/useDuoAnalytics'
 import { computed } from 'vue'
 import { getFirebaseBridge } from '../useFirebaseBridge'
 import { nudgesList, currentUser, partnerUser, partnership, lastNudgeSentAt } from './state'
@@ -63,6 +64,7 @@ export function useNudges(options: {
     lastNudgeSentAt.value = Date.now()
     saveToStorage(`duonest_last_nudge_ts_${currentUser.value.id}`, lastNudgeSentAt.value)
     options.broadcastToPartner('NUDGE_SEND', newNudge)
+    trackDuoEvent('duo_gesture_sent')
     options.triggerToast('Przesłano gest partnerowi', { type: 'love' })
     return true
   }
@@ -82,6 +84,7 @@ export function useNudges(options: {
       Object.assign(currentUser.value, updates)
       saveToStorage('duonest_current_user', currentUser.value)
       options.broadcastToPartner('MOOD_UPDATE', { mood, note: updates.mood_note, updated_at: updates.mood_updated_at })
+      trackDuoEvent('duo_mood_saved')
       options.triggerToast('Zaktualizowano nastrój')
       return true
     } catch {

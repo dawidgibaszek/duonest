@@ -1,7 +1,8 @@
 import { Router, type Request, type RequestHandler } from 'express'
 import { getAuth, type DecodedIdToken } from 'firebase-admin/auth'
-import { Timestamp, type Firestore } from 'firebase-admin/firestore'
-import { publishIosSettings, readAdminDashboard, readIosSettings, validateIosSettings } from './adminDashboard'
+import type { Firestore } from 'firebase-admin/firestore'
+import { publishIosSettings, readAdminDashboard, readAdminHistory, readIosSettings, validateIosSettings } from './adminDashboard'
+import { analyticsConfigured, parseAnalyticsFilters, readAnalytics, readRealtimeAnalytics } from './adminAnalytics'
 
 const ADMIN_ORIGIN = 'https://duonestapp.pl'
 const SESSION_COOKIE = '__session'
@@ -17,15 +18,18 @@ function readSessionCookie(req: Request) {
 }
 
 function isAdminIdentity(user: DecodedIdToken) {
-  return user.duoAdmin === true && user.email_verified === true &&
+  return (user.duoAdmin === true || user.duoAdminViewer === true) && user.email_verified === true &&
     ADMIN_PROVIDERS.has(user.firebase.sign_in_provider)
 }
 
-async function hasActiveAdminRole(user: DecodedIdToken) {
-  if (!isAdminIdentity(user)) return false
+async function activeAdminRole(user: DecodedIdToken) {
+  if (!isAdminIdentity(user)) return null
   const account = await getAuth().getUser(user.uid)
-  return account.customClaims?.duoAdmin === true && !account.disabled && account.emailVerified &&
-    account.providerData.some(provider => provider.providerId === user.firebase.sign_in_provider)
+  if (account.disabled || !account.emailVerified ||
+    !account.providerData.some(provider => provider.providerId === user.firebase.sign_in_provider)) return null
+  if (account.customClaims?.duoAdmin === true && user.duoAdmin === true) return 'admin'
+  if (account.customClaims?.duoAdminViewer === true) return 'viewer'
+  return null
 }
 
 export function createAdminRouter(db: Firestore) {
@@ -48,7 +52,7 @@ export function createAdminRouter(db: Firestore) {
       const auth = getAuth()
       const user = await auth.verifyIdToken(bearer[1], true)
       const authAge = Date.now() / 1000 - user.auth_time
-      if (!Number.isFinite(authAge) || authAge < -60 || authAge > 300 || !await hasActiveAdminRole(user)) {
+      if (!Number.isFinite(authAge) || authAge < -60 || authAge > 300 || !await activeAdminRole(user)) {
         return res.status(403).json({ error: 'admin_login_denied' })
       }
 
@@ -72,10 +76,12 @@ export function createAdminRouter(db: Firestore) {
     try {
       const auth = getAuth()
       const user = await auth.verifySessionCookie(cookie, true)
-      if (!await hasActiveAdminRole(user)) {
+      const role = await activeAdminRole(user)
+      if (!role) {
         return res.status(403).json({ error: 'admin_login_denied' })
       }
       res.locals.adminUid = user.uid
+      res.locals.adminRole = role
       res.locals.adminExpiresAt = user.exp * 1000
       return next()
     } catch {
@@ -86,9 +92,45 @@ export function createAdminRouter(db: Firestore) {
 
   admin.get('/dashboard', async (_req, res) => {
     try {
-      return res.json({ ...await readAdminDashboard(db), expiresAt: res.locals.adminExpiresAt })
+      return res.json({
+        ...await readAdminDashboard(db), expiresAt: res.locals.adminExpiresAt,
+        canPublish: res.locals.adminRole === 'admin'
+      })
     } catch {
       return res.status(503).json({ error: 'admin_dashboard_unavailable' })
+    }
+  })
+
+  admin.get('/analytics', async (req, res) => {
+    const filters = parseAnalyticsFilters(req.query)
+    if (!filters) return res.status(400).json({ error: 'invalid_analytics_filters' })
+    if (!analyticsConfigured()) return res.json({ configured: false })
+    try {
+      return res.json({ configured: true, ...await readAnalytics(filters) })
+    } catch (error) {
+      console.warn('[admin] GA4 report unavailable', (error as { code?: unknown })?.code)
+      return res.status(503).json({ error: 'admin_analytics_unavailable' })
+    }
+  })
+
+  admin.get('/analytics-live', async (req, res) => {
+    const { platform = 'all' } = req.query
+    if (typeof platform !== 'string' || !['all', 'iOS', 'Android'].includes(platform)) {
+      return res.status(400).json({ error: 'invalid_analytics_filters' })
+    }
+    if (!analyticsConfigured()) return res.json({ configured: false })
+    try {
+      return res.json({ configured: true, ...await readRealtimeAnalytics(platform) })
+    } catch {
+      return res.status(503).json({ error: 'admin_analytics_unavailable' })
+    }
+  })
+
+  admin.get('/history', async (_req, res) => {
+    try {
+      return res.json(await readAdminHistory(db))
+    } catch {
+      return res.status(503).json({ error: 'admin_history_unavailable' })
     }
   })
 
@@ -101,15 +143,12 @@ export function createAdminRouter(db: Firestore) {
   })
 
   admin.put('/ios-settings', async (req, res) => {
+    if (res.locals.adminRole !== 'admin') return res.status(403).json({ error: 'admin_write_forbidden' })
     const settings = validateIosSettings(req.body)
     if (!settings) return res.status(400).json({ error: 'invalid_ios_settings' })
     try {
-      const updated = await publishIosSettings(settings)
+      const updated = await publishIosSettings(settings, { db, actor: res.locals.adminUid })
       if (!updated) return res.status(409).json({ error: 'ios_settings_changed' })
-      await db.collection('admin_audit').add({
-        actor: res.locals.adminUid, action: 'publish_ios_settings', date: Timestamp.now(),
-        version: updated.version, build: updated.build
-      }).catch(() => console.warn('[admin] Failed to record settings change'))
       return res.json(updated)
     } catch (error) {
       if ((error as { httpErrorCode?: { status?: number } })?.httpErrorCode?.status === 409) {

@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(DuoWidgetPlugin.class);
+        registerPlugin(DuoAndroidDiagnosticsPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

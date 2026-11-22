@@ -1,3 +1,4 @@
+import { trackDuoEmailVerified, trackDuoSignup } from '~/composables/useDuoAnalytics'
 import { getFirebaseBridge } from '../useFirebaseBridge'
 import { stopPartnershipRealtime } from './useRealtimeSync'
 import { detachNativePushOnLogout, isNativeApp } from '../usePushNotifications'
@@ -131,6 +132,7 @@ export function useAuthSession(options: {
   const acceptSession = (session: any, syncProfile: boolean) => {
     const user = session?.user
     if (user && getDb().auth.currentUser?.uid !== user.id) return
+    if (user?.email_confirmed_at) trackDuoEmailVerified(user.id)
     const oldUid = authUser.value?.id
     if (!user) {
       clearTimeout(restoreTimer)
@@ -303,6 +305,7 @@ export function useAuthSession(options: {
         return { data: null, error: new Error(translateAppError(error)) }
       }
 
+      if (data?.user) trackDuoSignup(data.user.id, 'email')
       if (data?.session && data?.user) {
         acceptSession(data.session, true)
       }
@@ -447,6 +450,7 @@ export function useAuthSession(options: {
     if (!bridge?.auth?.reloadUser) return false
     const { data, error } = await bridge.auth.reloadUser()
     if (error || !data?.user) return false
+    if (data.user.email_confirmed_at) trackDuoEmailVerified(data.user.id)
     applyAuthUser(data.user)
     if (data.user.email_confirmed_at && currentUser.value.auth_user_id !== data.user.id) {
       void syncUserProfileWithAuth(data.user)

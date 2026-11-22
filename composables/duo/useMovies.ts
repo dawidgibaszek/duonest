@@ -1,3 +1,4 @@
+import { trackDuoEvent } from '~/composables/useDuoAnalytics'
 import { getFirebaseBridge } from '../useFirebaseBridge'
 import { moviesList, currentUser, partnership } from './state'
 import { saveToStorage, deduplicateMoviesList } from './utils'
@@ -88,6 +89,7 @@ export function useMovies(options: {
     } else {
       options.triggerToast(`Dodano "${title}" do listy do obejrzenia 🎬`, { type: 'movies' })
     }
+    trackDuoEvent('duo_movie_added')
     return newMovie
   }
 

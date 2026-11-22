@@ -22,7 +22,7 @@ import { App } from '@capacitor/app'
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core'
 import { useAppUpdate } from '~/composables/useAppUpdate'
 import { useAppConnection } from '~/composables/useAppConnection'
-import { useIosDiagnosticsUpload } from '~/composables/useIosDiagnostics'
+import { useDuoDiagnosticsUpload } from '~/composables/useDuoDiagnostics'
 import { useConfirm } from '~/composables/useConfirm'
 import { useDuoState } from '~/composables/useDuoState'
 import { usePushNotifications } from '~/composables/usePushNotifications'
@@ -43,7 +43,7 @@ const { checking, requiredUpdate, checkForUpdate } = useAppUpdate()
 const { offline, checkingConnection, checkConnection, setConnectionForeground } = useAppConnection()
 const router = useRouter()
 const foreground = ref(true)
-useIosDiagnosticsUpload(() => foreground.value && !offline.value && !checking.value &&
+useDuoDiagnosticsUpload(() => foreground.value && !offline.value && !checking.value &&
   !requiredUpdate.value && Boolean(authUser.value?.id))
 let appStateListener: PluginListenerHandle | undefined
 let disposed = false

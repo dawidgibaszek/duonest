@@ -14,10 +14,12 @@ import {
   reload,
   signInWithPopup,
   signInWithCredential,
+  getAdditionalUserInfo,
   GoogleAuthProvider,
   OAuthProvider
 } from 'firebase/auth'
 import { Capacitor } from '@capacitor/core'
+import { trackDuoSignup } from '~/composables/useDuoAnalytics'
 import { getDuoFirebase } from '~/utils/firebaseInstance'
 import { createFirebaseOAuthProvider } from '~/utils/firebaseOAuth'
 import type { User as FirebaseUser } from 'firebase/auth'
@@ -384,6 +386,7 @@ export class FirebaseSupabaseBridge {
 
         const token = await cred.user.getIdToken()
         const user = formatUser(cred.user)
+        if (getAdditionalUserInfo(cred)?.isNewUser) trackDuoSignup(cred.user.uid, provider)
         const session: BridgeSession = {
           access_token: token,
           token_type: 'bearer',

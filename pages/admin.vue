@@ -33,27 +33,56 @@
             <button class="dn-button-secondary" type="button" :disabled="busy" @click="refresh">Odśwież</button>
           </div>
           <p v-if="dashboardError" class="admin-error" role="alert">{{ dashboardError }}</p>
-          <section class="admin-totals" aria-label="Statystyki aplikacji">
+          <nav class="admin-nav" aria-label="Sekcje panelu">
+            <button v-for="[key, label] in sections" :key="key" type="button" :aria-pressed="section === key" @click="section = key">{{ label }}</button>
+          </nav>
+          <section v-show="section === 'overview'" class="admin-totals" aria-label="Statystyki aplikacji">
             <div v-for="[key, label] in totalLabels" :key="key" class="admin-card admin-total">
               <span>{{ label }}</span>
               <strong>{{ formatNumber(dashboard.totals[key]) }}</strong>
             </div>
           </section>
 
-          <div class="admin-grid">
-            <section class="admin-card">
-              <h2>Diagnostyka iOS</h2>
-              <p class="admin-note">Do 100 ostatnich raportów MetricKit.</p>
-              <div v-if="dashboard.reports.length" class="admin-filter">
-                <label for="admin-build-filter">Pokaż build</label>
-                <select id="admin-build-filter" v-model="buildFilter">
-                  <option value="">Wszystkie</option>
-                  <option v-for="build in builds" :key="build">{{ build }}</option>
-                </select>
+          <DuoAdminAnalytics
+            v-show="section === 'overview' || section === 'releases'"
+            class="admin-card"
+            :request="adminRequest"
+            :minimum="publishedSettings"
+            :refresh-id="refreshId"
+            :pane="section"
+            @expired="handleExpired"
+          />
+
+          <section v-show="section === 'diagnostics'" class="admin-card">
+              <h2>Diagnostyka</h2>
+              <div class="admin-nav admin-platforms" role="group" aria-label="Platforma raportów">
+                <button type="button" :aria-pressed="diagnosticsPlatform === 'ios'" @click="diagnosticsPlatform = 'ios'">iOS</button>
+                <button type="button" :aria-pressed="diagnosticsPlatform === 'android'" @click="diagnosticsPlatform = 'android'">Android</button>
               </div>
-              <p v-else class="admin-empty">Brak raportów. Pojawią się po zebraniu danych przez iOS i ich przesłaniu z aplikacji.</p>
+              <p class="admin-note">
+                {{ diagnosticsPlatform === 'ios' ? 'Raporty MetricKit' : 'Czas startu, płynność i zakończenia procesu zarejestrowane przez system' }} · ostatnie 30 dni.
+              </p>
+              <p v-if="dashboard.reportsTruncated?.[diagnosticsPlatform]" class="admin-note">Pokazano 500 najnowszych raportów.</p>
+              <div v-if="platformReports.length" class="admin-filter admin-filter-grid">
+                <label>Build
+                  <select v-model="buildFilter">
+                    <option value="">Wszystkie</option>
+                    <option v-for="build in builds" :key="build">{{ build }}</option>
+                  </select>
+                </label>
+                <label>Od dnia <input v-model="diagnosticsFrom" type="date"></label>
+                <label>Do dnia <input v-model="diagnosticsTo" type="date" :min="diagnosticsFrom || undefined"></label>
+              </div>
+              <p v-else class="admin-empty">Brak raportów z tej platformy.</p>
+              <div v-if="diagnosticGroups.length" class="admin-diagnostic-groups">
+                <h3>Problemy według buildu</h3>
+                <div v-for="item in diagnosticGroups" :key="item.build + ':' + item.key">
+                  <span><strong>{{ metricLabels[item.key] }}</strong><small>{{ item.build }} · raporty: {{ formatNumber(item.reports) }}</small></span>
+                  <strong>{{ formatNumber(item.count) }}</strong>
+                </div>
+              </div>
               <div v-if="visibleReports.length" class="admin-report-list">
-                <details v-for="(report, index) in visibleReports" :key="`${report.day}-${report.build}-${index}`">
+                <details v-for="(report, index) in visibleReports" :key="report.id || `${report.day}-${report.build}-${index}`">
                   <summary>
                     <strong>{{ reportBuild(report) }}</strong>
                     <span>{{ report.day }} · {{ report.kind === 'metrics' ? 'Wydajność' : 'Diagnostyka' }}</span>
@@ -66,13 +95,16 @@
                   </dl>
                 </details>
               </div>
+              <p v-else-if="platformReports.length" class="admin-empty">Brak raportów pasujących do filtrów.</p>
             </section>
 
-            <form class="admin-card admin-settings" @submit.prevent="saveSettings">
+            <form v-show="section === 'releases'" class="admin-card admin-settings" @submit.prevent="saveSettings">
               <h2>Aktualizacje iOS</h2>
               <p class="admin-note">Pusta minimalna wersja wyłącza blokadę. Podnoś próg, gdy nowy build jest już dostępny dla użytkowników.</p>
               <p v-if="settingsError" class="admin-error" role="alert">{{ settingsError }}</p>
               <template v-if="settings">
+                <p v-if="!mayPublish" class="admin-note">Masz dostęp do odczytu ustawień.</p>
+                <fieldset class="admin-fields" :disabled="!mayPublish || saving">
                 <label for="admin-version">Minimalna wersja</label>
                 <input id="admin-version" v-model.trim="settings.version" placeholder="np. 1.0" maxlength="32">
                 <label for="admin-build">Minimalny build w tej wersji</label>
@@ -80,12 +112,33 @@
                 <label for="admin-update-url">Link do aktualizacji</label>
                 <input id="admin-update-url" v-model.trim="settings.url" type="url" placeholder="https://…" maxlength="500" aria-describedby="admin-update-url-help">
                 <p id="admin-update-url-help" class="admin-note">App Store, TestFlight lub https://duonestapp.pl. Puste pole otwiera stronę TestFlight w App Store.</p>
-                <button class="dn-button-primary" type="submit" :disabled="saving">{{ saving ? 'Publikowanie…' : 'Opublikuj zmiany' }}</button>
+                <button v-if="mayPublish" class="dn-button-primary" type="submit" :disabled="saving">{{ saving ? 'Publikowanie…' : 'Opublikuj zmiany' }}</button>
+                </fieldset>
                 <p v-if="settingsSaved" class="admin-note" role="status">Ustawienia opublikowane w Firebase.</p>
               </template>
               <button v-else class="dn-button-secondary" type="button" @click="loadSettings">Spróbuj ponownie</button>
             </form>
-          </div>
+
+          <section v-show="section === 'history'" class="admin-card admin-history">
+            <h2>Historia ustawień aktualizacji iOS</h2>
+            <p class="admin-note">Ostatnie zmiany wprowadzone przez panel.</p>
+            <p v-if="historyError" class="admin-error" role="alert">{{ historyError }}</p>
+            <p v-else-if="history === null" class="admin-note" role="status">Wczytywanie historii…</p>
+            <p v-else-if="!history.length" class="admin-empty">Brak zmian w historii.</p>
+            <div v-else class="admin-report-list">
+              <details v-for="entry in history" :key="entry.id">
+                <summary><strong>{{ auditDate.format(entry.date) }}</strong><span>{{ auditStatus[entry.status] ?? entry.status }}</span></summary>
+                <dl>
+                  <dt>Administrator (UID)</dt><dd>{{ entry.actor }}</dd>
+                  <dt>Minimalna wersja</dt><dd>{{ auditChange(entry.previous?.version, entry.version) }}</dd>
+                  <dt>Minimalny build</dt><dd>{{ auditChange(entry.previous?.build, entry.build) }}</dd>
+                  <template v-if="entry.url !== undefined">
+                    <dt>Link do aktualizacji</dt><dd>{{ auditChange(entry.previous?.url, entry.url) }}</dd>
+                  </template>
+                </dl>
+              </details>
+            </div>
+          </section>
         </template>
       </main>
     </ion-content>
@@ -101,9 +154,14 @@ import { useFirebase } from '~/composables/useFirebase'
 import { createFirebaseOAuthProvider } from '~/utils/firebaseOAuth'
 import { compareAppVersions, normalizeIosUpdateUrl } from '~/functions/src/appVersion'
 
-type Report = { day: string; version: string; build: string; kind: string; values: Record<string, number> }
-type Dashboard = { totals: Record<string, number>; reports: Report[]; expiresAt: number }
+type DiagnosticsPlatform = 'ios' | 'android'
+type Report = { id?: string; platform?: DiagnosticsPlatform; day: string; version: string; build: string; kind: string; values: Record<string, number> }
+type Dashboard = { totals: Record<string, number>; reports: Report[]; reportsTruncated?: Record<DiagnosticsPlatform, boolean>; expiresAt: number; canPublish?: boolean }
 type IosSettings = { version: string; build: string; url: string; revision: string }
+type AuditEntry = Pick<IosSettings, 'version' | 'build'> & {
+  id: string; actor: string; date: number; status: string; url?: string
+  previous?: Omit<IosSettings, 'revision'>
+}
 type SignInMethod = 'password' | 'google' | 'apple'
 
 useHead({ title: 'Administracja DuoNest', meta: [{ name: 'robots', content: 'noindex, nofollow' }] })
@@ -121,7 +179,17 @@ const settingsError = ref('')
 const settingsSaved = ref(false)
 const dashboard = ref<Dashboard | null>(null)
 const settings = ref<IosSettings | null>(null)
+const publishedSettings = ref<IosSettings | null>(null)
+const mayPublish = computed(() => dashboard.value?.canPublish !== false)
+const history = ref<AuditEntry[] | null>(null)
+const historyError = ref('')
+const refreshId = ref(0)
+const sections = [['overview', 'Przegląd'], ['releases', 'Wydania'], ['diagnostics', 'Diagnostyka'], ['history', 'Historia zmian']] as const
+const section = ref<typeof sections[number][0]>('overview')
+const diagnosticsPlatform = ref<DiagnosticsPlatform>('ios')
 const buildFilter = ref('')
+const diagnosticsFrom = ref('')
+const diagnosticsTo = ref('')
 let expiryTimer: number | undefined
 
 const totalLabels = [['profiles', 'Profile'], ['partnerships', 'Pary'], ['tasks', 'Zadania'], ['meals', 'Obiady']] as const
@@ -131,12 +199,39 @@ const metricLabels: Record<string, string> = {
   launchSamples: 'Próbki uruchomienia', launchMeanMs: 'Średni czas uruchomienia (ms)',
   hangSamples: 'Próbki zawieszenia', hangMeanMs: 'Średni czas zawieszenia (ms)',
   crashes: 'Awarie', hangs: 'Zawieszenia', cpuExceptions: 'Przeciążenia CPU',
-  diskWriteExceptions: 'Nadmierne zapisy na dysk', launchDiagnostics: 'Problemy z uruchomieniem'
+  diskWriteExceptions: 'Nadmierne zapisy na dysk', launchDiagnostics: 'Problemy z uruchomieniem',
+  anrs: 'Brak odpowiedzi (ANR)', lowMemoryExits: 'Zakończenia z braku pamięci',
+  startupMs: 'Czas startu interfejsu (ms)', frames: 'Zmierzone klatki', slowFrames: 'Klatki ≥ 50 ms',
+  frozenFrames: 'Klatki ≥ 700 ms', missedFrameSamples: 'Pominięte próbki klatek'
 }
 const reportBuild = (report: Report) => `${report.version} (${report.build})`
-const builds = computed(() => [...new Set(dashboard.value?.reports.map(reportBuild))])
-const visibleReports = computed(() => dashboard.value?.reports.filter(report => !buildFilter.value ||
-  reportBuild(report) === buildFilter.value) ?? [])
+const platformReports = computed(() => dashboard.value?.reports.filter(report => (report.platform ?? 'ios') === diagnosticsPlatform.value) ?? [])
+const builds = computed(() => [...new Set(platformReports.value.map(reportBuild))])
+watch(diagnosticsPlatform, () => { buildFilter.value = '' })
+const visibleReports = computed(() => platformReports.value.filter(report =>
+  (!buildFilter.value || reportBuild(report) === buildFilter.value) &&
+  (!diagnosticsFrom.value || report.day >= diagnosticsFrom.value) &&
+  (!diagnosticsTo.value || report.day <= diagnosticsTo.value)))
+const diagnosticGroups = computed(() => {
+  const result = new Map<string, { build: string; key: string; count: number; reports: number }>()
+  for (const report of visibleReports.value) {
+    if (report.kind !== 'diagnostics') continue
+    for (const [key, value] of Object.entries(report.values)) {
+      if (!value || !metricLabels[key]) continue
+      const build = reportBuild(report)
+      const id = build + ':' + key
+      const group = result.get(id) ?? { build, key, count: 0, reports: 0 }
+      group.count += value
+      group.reports++
+      result.set(id, group)
+    }
+  }
+  return [...result.values()].sort((a, b) => b.count - a.count)
+})
+const auditDate = new Intl.DateTimeFormat('pl-PL', { dateStyle: 'medium', timeStyle: 'short' })
+const auditStatus: Record<string, string> = { published: 'Opublikowano', pending: 'Wynik niepotwierdzony', failed: 'Publikacja odrzucona' }
+const auditChange = (previous: string | undefined, value: string) => previous !== undefined && previous !== value
+  ? `${previous || '—'} → ${value || '—'}` : value || '—'
 const numberFormat = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 2 })
 const formatNumber = (value: number) => numberFormat.format(value)
 
@@ -144,6 +239,10 @@ function resetDashboard() {
   window.clearTimeout(expiryTimer)
   dashboard.value = null
   settings.value = null
+  publishedSettings.value = null
+  history.value = null
+  historyError.value = ''
+  section.value = 'overview'
   settingsSaved.value = false
 }
 
@@ -167,9 +266,22 @@ function handleExpired(error: unknown) {
 async function loadSettings() {
   settingsError.value = ''
   try {
-    settings.value = await adminRequest<IosSettings>('/ios-settings')
+    const data = await adminRequest<IosSettings>('/ios-settings')
+    if (!dashboard.value) return
+    settings.value = { ...data }
+    publishedSettings.value = data
   } catch (error) {
     if (!handleExpired(error)) settingsError.value = 'Nie udało się pobrać ustawień Firebase.'
+  }
+}
+
+async function loadHistory() {
+  historyError.value = ''
+  try {
+    const data = await adminRequest<AuditEntry[]>('/history')
+    if (dashboard.value) history.value = data
+  } catch (error) {
+    if (!handleExpired(error)) historyError.value = 'Nie udało się wczytać historii zmian.'
   }
 }
 
@@ -189,6 +301,8 @@ async function refresh() {
   dashboardError.value = ''
   try {
     await loadDashboard()
+    refreshId.value++
+    await Promise.all([loadSettings(), loadHistory()])
   } catch (error) {
     if (!handleExpired(error)) dashboardError.value = 'Nie udało się odświeżyć danych.'
   } finally {
@@ -221,7 +335,7 @@ async function signIn(method: SignInMethod) {
       await signOut(adminAuth)
     }
     await loadDashboard()
-    await loadSettings()
+    await Promise.all([loadSettings(), loadHistory()])
   } catch (error) {
     resetDashboard()
     const code = (error as { code?: string })?.code
@@ -242,7 +356,7 @@ async function signIn(method: SignInMethod) {
 }
 
 async function saveSettings() {
-  if (!settings.value || saving.value) return
+  if (!settings.value || saving.value || !mayPublish.value) return
   settingsError.value = ''
   settingsSaved.value = false
   const { version, build, url } = settings.value
@@ -260,12 +374,16 @@ async function saveSettings() {
   }
   saving.value = true
   try {
-    settings.value = await adminRequest<IosSettings>('/ios-settings', {
+    const data = await adminRequest<IosSettings>('/ios-settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...settings.value, build: version ? build : '' })
     })
+    if (!dashboard.value) return
+    settings.value = { ...data }
+    publishedSettings.value = data
     settingsSaved.value = true
+    await loadHistory()
   } catch (error) {
     if (handleExpired(error)) return
     switch (errorStatus(error)) {
@@ -291,7 +409,7 @@ async function logout() {
 onMounted(async () => {
   try {
     await loadDashboard()
-    await loadSettings()
+    await Promise.all([loadSettings(), loadHistory()])
   } catch (error) {
     if (errorStatus(error) !== 401 && errorStatus(error) !== 403) loginError.value = 'Panel jest chwilowo niedostępny.'
   } finally {
@@ -312,6 +430,10 @@ ion-content { --background: var(--dn-field); }
 .admin h1 { font-size: clamp(30px, 6vw, 44px); }
 .admin h2 { font-size: 25px; }
 .admin-title { margin-bottom: 20px; }
+.admin-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.admin-nav button { background: white; border: 1px solid var(--dn-line); color: var(--dn-ink); border-radius: 999px; min-height: 42px; padding: 8px 15px; font: inherit; font-size: .85rem; font-weight: 700; }
+.admin-nav button[aria-pressed="true"] { background: var(--dn-ink); color: white; border-color: var(--dn-ink); }
+.admin-platforms { margin: 14px 0 8px; }
 .admin-card { background: white; border: 1px solid var(--dn-line); border-radius: 22px; padding: 22px; }
 .admin-login, .admin-settings { display: grid; gap: 10px; align-self: start; }
 .admin-login h1 { margin-bottom: 12px; }
@@ -325,10 +447,19 @@ ion-content { --background: var(--dn-field); }
 .admin-total { display: grid; gap: 8px; background: var(--dn-cream); border-color: var(--dn-cream-deep); }
 .admin-total span, .admin-note { color: var(--dn-muted); font-size: .9rem; }
 .admin-total strong { font-family: var(--dn-serif); font-size: 30px; }
-.admin-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 16px; }
 .admin-note, .admin-empty { margin: 8px 0; line-height: 1.5; }
 .admin-empty { margin-top: 16px; padding: 16px; background: var(--dn-field); border-radius: 14px; }
 .admin-filter { margin: 16px 0; display: grid; gap: 6px; }
+.admin-filter-grid { grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 8px; }
+.admin-filter-grid label { display: grid; gap: 5px; min-width: 0; }
+.admin-diagnostic-groups { margin: 12px 0; background: var(--dn-field); padding: 12px; border-radius: 14px; }
+.admin-diagnostic-groups h3 { font-family: var(--dn-serif); margin: 0 0 8px; font-size: 1.12rem; }
+.admin-diagnostic-groups > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; font-size: .85rem; }
+.admin-diagnostic-groups small { display: block; color: var(--dn-muted); }
+.admin-fields { display: grid; gap: 10px; min-width: 0; border: 0; padding: 0; margin: 0; }
+.admin-history { margin-top: 16px; }
+.admin-history dd { text-align: right; overflow-wrap: anywhere; }
+.admin-history dl { grid-template-columns: minmax(95px, 1fr) minmax(0, 2fr); }
 .admin-report-list { max-height: 480px; overflow-y: auto; }
 .admin-report-list details { border-top: 1px solid var(--dn-line); padding: 12px 4px; }
 .admin-report-list summary { cursor: pointer; }
@@ -337,7 +468,6 @@ ion-content { --background: var(--dn-field); }
 .admin-report-list dd { margin: 0; font-weight: 700; }
 .admin-error { margin: 4px 0; color: var(--dn-danger); font-size: .85rem; }
 @media (max-width: 720px) {
-  .admin-grid { grid-template-columns: 1fr; }
   .admin-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 </style>

@@ -1,3 +1,4 @@
+import { trackDuoEvent } from '~/composables/useDuoAnalytics'
 import { getFirebaseBridge } from '../useFirebaseBridge'
 import { eventsList, currentUser, partnership } from './state'
 import { newDocumentId, saveToStorage } from './utils'
@@ -52,6 +53,7 @@ export function useEvents(options: {
       .sort((a, b) => a.start_time.localeCompare(b.start_time))
     syncEventsToStorage()
     options.broadcastToPartner('EVENT_ADD', event)
+    trackDuoEvent('duo_calendar_added')
     options.triggerToast('Dodano plan')
     return event
   }

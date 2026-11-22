@@ -1,3 +1,4 @@
+import { trackDuoEvent } from '~/composables/useDuoAnalytics'
 import { getFirebaseBridge } from '../useFirebaseBridge'
 import { tasksList, currentUser, partnership } from './state'
 import { newDocumentId, saveToStorage } from './utils'
@@ -45,6 +46,7 @@ export function useTasks(options: {
       syncTasksToStorage()
       options.broadcastToPartner('TASK_ADD', newTask)
       options.triggerToast('Dodano nowe zadanie')
+      trackDuoEvent('duo_task_added')
       return newTask
     } catch {
       options.triggerToast('Nie udało się dodać zadania. Spróbuj ponownie.', { type: 'warning' })
@@ -73,6 +75,7 @@ export function useTasks(options: {
       saveToStorage('duonest_partnership', partnership.value)
 
       options.broadcastToPartner('TASK_TOGGLE', result.task)
+      if (result.task.is_completed) trackDuoEvent('duo_task_completed')
       if (result.task.is_completed) options.triggerToast(`Zadanie ukończone! +${result.task.points_awarded} pkt 🌟`, { type: 'points' })
       return true
     } catch (error) {
@@ -110,6 +113,7 @@ export function useTasks(options: {
       const { error } = await getDb().from('partnerships').update(updates).eq('id', pid)
       if (error) throw error
       if (partnership.value?.id !== pid || currentUser.value.id !== profileId) return false
+      if (!partnership.value.pet_id && petId) trackDuoEvent('duo_pet_created')
       Object.assign(partnership.value, updates)
       saveToStorage('duonest_partnership', partnership.value)
       return true

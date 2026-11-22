@@ -20,7 +20,7 @@ import { handleMoviesTrending, handleMoviesSearch, handleMoviesRandom } from './
 import { handleMealsCategories, handleMealsSearch, handleMealsLookup, handleMealsImport } from './mealsCore'
 import { requireDuoClient } from './clientAccess'
 import { readWidgetDoodle, updateWidgetAccess } from './widgetAccess'
-import { storeIosDiagnosticReports } from './iosDiagnostics'
+import { storeNativeDiagnosticReports } from './nativeDiagnostics'
 import { createAdminRouter } from './adminAccess'
 
 // Inicjalizacja Firebase Admin
@@ -227,7 +227,10 @@ const allowPush = (key: string, max: number) => {
 }
 const PUSH_LIMITS: Record<PushAction, number> = { subscribe: 20, unsubscribe: 20, send: 30, test: 6 }
 
-app.post('/api/diagnostics/ios', requireAuth, async (req: any, res) => {
+app.post('/api/diagnostics/:platform', requireAuth, async (req: any, res) => {
+  const { platform } = req.params
+  if (platform !== 'ios' && platform !== 'android') return res.sendStatus(404)
+  if (res.locals.duoPlatform && res.locals.duoPlatform !== platform) return res.sendStatus(403)
   const reports = req.body?.reports
   if (!Array.isArray(reports) || reports.length === 0 || reports.length > 8) {
     return res.status(400).json({ error: 'invalid_diagnostics_batch' })
@@ -236,7 +239,7 @@ app.post('/api/diagnostics/ios', requireAuth, async (req: any, res) => {
     return res.status(429).json({ error: 'too_many_diagnostics_batches' })
   }
   try {
-    await storeIosDiagnosticReports(db, reports)
+    await storeNativeDiagnosticReports(db, platform, reports)
     return res.json({ success: true })
   } catch {
     return res.status(503).json({ error: 'diagnostics_unavailable' })

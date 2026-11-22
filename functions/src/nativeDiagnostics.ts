@@ -3,7 +3,10 @@ import { compareAppVersions } from './appVersion'
 
 const DAY_MS = 86_400_000
 const UUID = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i
-const LIMITS = {
+export const diagnosticsCollections = { ios: 'ios_diagnostics', android: 'android_diagnostics' } as const
+export type DiagnosticsPlatform = keyof typeof diagnosticsCollections
+
+const IOS_LIMITS = {
   metrics: {
     cpuSeconds: 2_000_000,
     gpuSeconds: 2_000_000,
@@ -24,7 +27,19 @@ const LIMITS = {
   }
 }
 
-export function parseIosDiagnosticReport(input: unknown, now = Date.now()) {
+const ANDROID_LIMITS = {
+  metrics: {
+    foregroundSeconds: 172_800,
+    frames: 1_000_000,
+    slowFrames: 1_000_000,
+    frozenFrames: 1_000_000,
+    missedFrameSamples: 1_000_000,
+    startupMs: 600_000
+  },
+  diagnostics: { crashes: 10_000, anrs: 10_000, lowMemoryExits: 10_000 }
+}
+
+export function parseNativeDiagnosticReport(input: unknown, platform: DiagnosticsPlatform, now = Date.now()) {
   if (typeof input !== 'object' || input === null) return null
   const { id, day, version, build, kind, values } = input as Record<string, unknown>
   if (typeof id !== 'string' || !UUID.test(id) ||
@@ -39,7 +54,7 @@ export function parseIosDiagnosticReport(input: unknown, now = Date.now()) {
     date < now - 8 * DAY_MS || date > now + DAY_MS) return null
 
   const sanitized: Record<string, number> = {}
-  const allowed: Record<string, number> = LIMITS[kind]
+  const allowed: Record<string, number> = (platform === 'ios' ? IOS_LIMITS : ANDROID_LIMITS)[kind]
   for (const [key, value] of Object.entries(values)) {
     if (!Object.hasOwn(allowed, key) || typeof value !== 'number' ||
       !Number.isFinite(value) || value < 0 || value > allowed[key]) continue
@@ -49,17 +64,17 @@ export function parseIosDiagnosticReport(input: unknown, now = Date.now()) {
   return { id: id.toLowerCase(), day, version, build, kind, values: sanitized }
 }
 
-export async function storeIosDiagnosticReports(db: Firestore, reports: unknown[]) {
-  const unique = new Map<string, NonNullable<ReturnType<typeof parseIosDiagnosticReport>>>()
+export async function storeNativeDiagnosticReports(db: Firestore, platform: DiagnosticsPlatform, reports: unknown[]) {
+  const unique = new Map<string, NonNullable<ReturnType<typeof parseNativeDiagnosticReport>>>()
   const now = Date.now()
   for (const input of reports) {
-    const report = parseIosDiagnosticReport(input, now)
+    const report = parseNativeDiagnosticReport(input, platform, now)
     if (report) unique.set(report.id, report)
   }
   if (!unique.size) return
 
   const entries = [...unique.values()].map(({ id, ...data }) => ({
-    ref: db.collection('ios_diagnostics').doc(id),
+    ref: db.collection(diagnosticsCollections[platform]).doc(id),
     data
   }))
   await db.runTransaction(async transaction => {
