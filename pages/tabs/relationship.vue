@@ -156,7 +156,7 @@
         <section class="rl-section">
           <div class="rl-section-head">
             <h3 class="rl-section-title">Drobny gest</h3>
-            <span class="rl-section-meta">{{ hasSentDailyNudge ? 'Wysłano dziś' : 'Raz dziennie · +5 pkt' }}</span>
+            <span v-if="hasSentDailyNudge" class="rl-section-meta">Wysłano</span>
           </div>
 
           <div v-if="hasSentDailyNudge" class="rl-row rl-row--card">
@@ -593,7 +593,7 @@
           <template v-if="!partnership">
             <label class="rl-label">Kod partnera</label>
             <div class="rl-inline-form">
-              <ion-input aria-label="Kod partnera" v-model="inputPartnerCode" placeholder="np. DN-LOVE" class="rl-input" :maxlength="15" />
+              <ion-input aria-label="Kod partnera" v-model="inputPartnerCode" placeholder="np. 8K4P2QZ" class="rl-input" :maxlength="15" />
               <button type="button" class="rl-inline-btn" :disabled="!inputPartnerCode.trim()" @click="handlePairWithCode">
                 Połącz
               </button>
@@ -795,7 +795,6 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import confetti from 'canvas-confetti'
 import { useDuoState } from '~/composables/useDuoState'
 import { useIosDiagnostics } from '~/composables/useIosDiagnostics'
 import { usePushNotifications } from '~/composables/usePushNotifications'
@@ -1037,11 +1036,6 @@ const handleSaveNestSettings = async () => {
     if (!saved) return
     nestNameInput.value = nestName
     triggerToast('Zapisano ustawienia gniazdka')
-    confetti({
-      particleCount: 50,
-      spread: 60,
-      origin: { y: 0.6 }
-    })
   } catch (_) {
     triggerToast('Nie udało się zapisać ustawień gniazdka', { type: 'warning' })
   }
@@ -1179,12 +1173,6 @@ const handleSaveCustomColor = async () => {
   try {
     if (!(await updateMyProfile({ avatar_color: colorToSave }))) return
     triggerToast('Zapisano kolor')
-    confetti({
-      particleCount: 50,
-      spread: 60,
-      origin: { y: 0.6 },
-      colors: [colorToSave, '#ffffff', '#94a3b8', '#0f172a']
-    })
   } catch (err: any) {
     triggerToast('Błąd zapisu koloru', { type: 'warning' })
   } finally {
@@ -1254,12 +1242,6 @@ const handleSaveProfile = async () => {
   try {
     if (!(await updateMyProfile({ ...editProfileForm.value, name }))) return
     isEditProfileModalOpen.value = false
-    confetti({
-      particleCount: 60,
-      spread: 60,
-      origin: { y: 0.6 },
-      colors: [currentUserAccentColor.value, '#1e293b', '#475569', '#94a3b8']
-    })
   } catch {
     triggerToast('Nie udało się zapisać profilu.', { type: 'warning' })
   } finally {
@@ -1322,12 +1304,6 @@ const handleSendNudge = async () => {
   const success = await sendNudge(selectedNudgeType.value, messageToSend)
   if (success) {
     customNudgeMessage.value = ''
-    confetti({
-      particleCount: 50,
-      spread: 60,
-      origin: { y: 0.6 },
-      colors: [currentUserAccentColor.value, '#1e293b', '#475569', '#94a3b8']
-    })
   }
 }
 
@@ -1340,7 +1316,7 @@ const copyPairingCode = async () => {
     }, 2500)
     triggerToast('Skopiowano kod')
   } catch (e) {
-    copyStatus.value = 'DN-CODE'
+    copyStatus.value = 'Skopiuj kod'
   }
 }
 
@@ -1353,11 +1329,6 @@ const handlePairWithCode = async () => {
     pairingError.value = res.error || 'Błąd parowania'
   } else {
     inputPartnerCode.value = ''
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 }
-    })
   }
 }
 
@@ -1434,11 +1405,6 @@ const handleChangePassword = async () => {
     currentPasswordInput.value = ''
     newPasswordInput.value = ''
     confirmNewPasswordInput.value = ''
-    confetti({
-      particleCount: 50,
-      spread: 60,
-      origin: { y: 0.7 }
-    })
     setTimeout(() => {
       isPasswordChangeOpen.value = false
       changePasswordSuccess.value = ''

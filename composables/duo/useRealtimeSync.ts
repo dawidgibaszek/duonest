@@ -21,6 +21,8 @@ import {
   savingsGoals,
   savingsContributions,
   currentDoodle,
+  isAuthLoading,
+  isLoggingOut,
   partnerLiveStroke,
   isPartnerDrawing,
   activeToastItem,
@@ -30,8 +32,6 @@ import {
   saveToStorage,
   newDocumentId,
   deduplicateMoviesList,
-  PROFILE_SELECT_FIELDS,
-  getCleanAccentColor,
   inferToastMetadata
 } from './utils'
 import type { DuoDoodle, DuoDoodleStroke, SavingsContribution, SavingsGoal, WishlistItem, ToastType } from '~/types/duo'
@@ -82,9 +82,8 @@ const byNewest = (a: { created_at?: string }, b: { created_at?: string }) =>
   String(b.created_at || '').localeCompare(String(a.created_at || ''))
 
 export function useRealtimeSync(options?: {
-  loadPartnershipAndPartner?: (partnershipId: string, currentUserId: string) => Promise<void>
-  clearPartnershipData?: () => void
-  signOutUser?: () => Promise<void>
+  loadPartnershipAndPartner?: (partnershipId: string, currentUserId: string) => Promise<boolean>
+  restoreAccount?: () => void
 }) {
   const getDb = () => getFirebaseBridge()
 
@@ -240,6 +239,7 @@ export function useRealtimeSync(options?: {
       await bridge.commitSharedBatch('partnership_doodles', (data || []).map((row: DuoDoodle) => ({ id: row.id })))
       if (partnership.value?.id !== pid) return false
       setDoodle(null)
+      sendPartnerPush('DOODLE_CLEAR', {})
       triggerToast('Wyczyszczono tablicę')
       return true
     } catch {
@@ -287,6 +287,7 @@ export function useRealtimeSync(options?: {
       }
       if (member.profile_id !== profileId || member.partnership_id !== pid) {
         stopPartnershipRealtime()
+        options?.restoreAccount?.()
         return
       }
       startPartnershipListeners(pid, uid, profileId, isCurrent)
@@ -296,6 +297,10 @@ export function useRealtimeSync(options?: {
 
   const startPartnershipListeners = (pid: string, uid: string, profileId: string, isCurrent: () => boolean) => {
     const bridge = getDb()
+    isOnlineWithSupabase.value = true
+    dbSchemaStatus.value = 'ready'
+    setupHeartbeat()
+    void sendHeartbeat()
     const filters = { partnership_id: pid }
     const observe = (table: string, apply: (rows: any[]) => void, order?: { field: string; limit: number }) => {
       partnershipDisposers.push(bridge.observeCollection(table, filters, rows => {
@@ -307,9 +312,7 @@ export function useRealtimeSync(options?: {
     partnershipDisposers.push(bridge.observeDocument('members', uid, member => {
       if (!isCurrent() || (member?.partnership_id === pid && member.profile_id === profileId)) return
       stopPartnershipRealtime()
-      options?.clearPartnershipData?.()
-      triggerToast('Rozłączono Gniazdko', { type: 'warning' })
-      if (window.location.pathname.startsWith('/tabs')) window.location.replace('/pairing')
+      options?.restoreAccount?.()
     }))
 
     partnershipDisposers.push(bridge.observeDocument('profiles', profileId, profile => {
@@ -469,7 +472,7 @@ export function useRealtimeSync(options?: {
     if (suspended) stopPartnershipRealtime()
     getDb().setRealtimeConnectionActive(isActive)
     const pid = currentUser.value.partnership_id
-    if (isActive && authUser.value?.id && pid) {
+    if (isActive && !isAuthLoading.value && !isLoggingOut.value && authUser.value?.id && pid) {
       subscribeToPartnershipRealtime(pid)
       void sendHeartbeat(true)
     }
@@ -515,28 +518,32 @@ export function useRealtimeSync(options?: {
     })
   }
 
-  const loadSupabaseData = async (partnershipId: string) => {
+  const loadSupabaseData = async (partnershipId: string, serverOnly = false): Promise<boolean> => {
     const bridge = getDb()
-    if (!bridge || !partnershipId) return
+    if (!bridge || !partnershipId) return false
     const profileId = currentUser.value.id
     const uid = bridge.auth.currentUser?.uid
     try {
       const [shops, tasks, evts, ndgs, wishes, movs, mls, mlsList, svgGoals, svgContribs, doodles] = await Promise.all([
-        bridge.from('shopping_items').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
-        bridge.from('tasks').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
-        bridge.from('events').select('*').eq('partnership_id', partnershipId).order('start_time', { ascending: true }),
-        bridge.from('nudges').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }).limit(20),
-        readWishlist(partnershipId, profileId, uid).catch(() => null),
-        bridge.from('movies').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
-        bridge.from('milestones').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
-        bridge.from('meals').select('*').eq('partnership_id', partnershipId).order('date', { ascending: true }),
-        bridge.from('savings_goals').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
-        bridge.from('savings_contributions').select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
-        bridge.from('partnership_doodles').select('*').eq('partnership_id', partnershipId).order('updated_at', { ascending: false }).limit(1)
+        bridge.from('shopping_items', serverOnly).select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
+        bridge.from('tasks', serverOnly).select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
+        bridge.from('events', serverOnly).select('*').eq('partnership_id', partnershipId).order('start_time', { ascending: true }),
+        bridge.from('nudges', serverOnly).select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }).limit(20),
+        readWishlist(partnershipId, profileId, uid, serverOnly).catch(error => {
+          if (serverOnly) throw error
+          return null
+        }),
+        bridge.from('movies', serverOnly).select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
+        bridge.from('milestones', serverOnly).select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
+        bridge.from('meals', serverOnly).select('*').eq('partnership_id', partnershipId).order('date', { ascending: true }),
+        bridge.from('savings_goals', serverOnly).select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
+        bridge.from('savings_contributions', serverOnly).select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
+        bridge.from('partnership_doodles', serverOnly).select('*').eq('partnership_id', partnershipId).order('updated_at', { ascending: false }).limit(1)
       ])
 
-      if (bridge.auth.currentUser?.uid !== uid || currentUser.value.id !== profileId ||
-          (partnership.value?.id || currentUser.value.partnership_id) !== partnershipId) return
+      if (serverOnly && [shops, tasks, evts, ndgs, movs, mls, mlsList, svgGoals, svgContribs, doodles].some(result => result.error)) return false
+      if (isLoggingOut.value || bridge.auth.currentUser?.uid !== uid || currentUser.value.id !== profileId ||
+          (partnership.value?.id || currentUser.value.partnership_id) !== partnershipId) return false
       if (shops.data) shoppingItems.value = shops.data
       if (tasks.data) tasksList.value = tasks.data
       if (evts.data) eventsList.value = evts.data.map(normalizeEventRecord).sort((a: any, b: any) => String(a.start_time).localeCompare(String(b.start_time)))
@@ -553,14 +560,16 @@ export function useRealtimeSync(options?: {
       if (doodles?.data) setDoodle(doodles.data[0])
 
       syncAllToStorage()
+      return true
     } catch (e) {
-      console.warn('Błąd ładowania danych partnerstwa:', e)
+      if (import.meta.dev) console.warn('Błąd ładowania danych partnerstwa:', e)
+      return false
     }
   }
 
   const sendHeartbeat = async (force: boolean = false) => {
     if (typeof window === 'undefined') return
-    if (!currentUser.value?.id || !authUser.value?.id) return
+    if (isAuthLoading.value || isLoggingOut.value || !currentUser.value?.id || !authUser.value?.id) return
     const now = Date.now()
     if (!force && now - lastHeartbeatSentAt < 30000) return
     lastHeartbeatSentAt = now
@@ -601,49 +610,19 @@ export function useRealtimeSync(options?: {
 
     activeInitSyncPromise = (async () => {
       const bridge = getDb()
-      if (!bridge || !authUser.value?.id) return
-
+      if (!bridge || isAuthLoading.value || isLoggingOut.value || !authUser.value?.id) return
       isOnlineWithSupabase.value = true
-      dbSchemaStatus.value = 'connected'
+      dbSchemaStatus.value = 'ready'
 
       try {
-        if (currentUser.value?.id && authUser.value?.id) {
-          const { data: dbProfile } = await bridge
-            .from('profiles')
-            .select(PROFILE_SELECT_FIELDS)
-            .eq('id', currentUser.value.id)
-            .maybeSingle()
-
-          if (dbProfile) {
-            currentUser.value = {
-              ...currentUser.value,
-              ...dbProfile,
-              name: dbProfile.name || currentUser.value.name || '',
-              avatar_color: getCleanAccentColor(dbProfile.avatar_color, currentUser.value.avatar_color || '#0f172a'),
-              partnership_id: dbProfile.partnership_id || null,
-              points: Number(dbProfile.points) || 0
-            }
-            saveToStorage('duonest_current_user', currentUser.value)
+        const pid = currentUser.value.partnership_id
+        const profileId = currentUser.value.id
+        if (pid && profileId) {
+          await options?.loadPartnershipAndPartner?.(pid, profileId)
+          await loadSupabaseData(pid)
+          if (currentUser.value.id === profileId && currentUser.value.partnership_id === pid) {
+            subscribeToPartnershipRealtime(pid)
           }
-
-          const effectivePartnershipId = dbProfile?.partnership_id || partnership.value?.id
-          if (effectivePartnershipId) {
-            if (options?.loadPartnershipAndPartner) {
-              await options.loadPartnershipAndPartner(effectivePartnershipId, currentUser.value.id)
-            }
-            await loadSupabaseData(effectivePartnershipId)
-            subscribeToPartnershipRealtime(effectivePartnershipId)
-          }
-
-          if (currentUser.value?.id) {
-            subscribeToSecurityChannel(currentUser.value.id, effectivePartnershipId)
-          }
-        } else if (partnership.value?.id && authUser.value?.id) {
-          if (options?.loadPartnershipAndPartner) {
-            await options.loadPartnershipAndPartner(partnership.value.id, currentUser.value?.id || '')
-          }
-          await loadSupabaseData(partnership.value.id)
-          subscribeToPartnershipRealtime(partnership.value.id)
         }
 
         setupHeartbeat()

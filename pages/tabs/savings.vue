@@ -716,7 +716,6 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import confetti from 'canvas-confetti'
 import {
   useDuoState,
   type SavingsGoal,
@@ -1119,11 +1118,6 @@ const handleSaveDeposit = async () => {
     const success = await addSavingsContribution(goalBefore.id, effectiveAmt, depositNote.value)
     if (success) {
       if (willComplete) {
-        confetti({
-          particleCount: 80,
-          spread: 70,
-          origin: { y: 0.6 }
-        })
         playNotificationChime()
       }
       closeDepositModal()

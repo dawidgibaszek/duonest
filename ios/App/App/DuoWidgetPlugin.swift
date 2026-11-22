@@ -1,5 +1,4 @@
 import Capacitor
-import FirebaseAppCheck
 import Foundation
 import UIKit
 import WidgetKit
@@ -27,15 +26,15 @@ final class DuoWidgetPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func setSession(_ call: CAPPluginCall) {
         let session = DoodleWidgetSession(json: call.options as? [String: Any] ?? [:])
+        let previous = store.session()
         store.setSession(session)
         if session != nil {
             let partnerName = call.getString("partnerName") ?? ""
             store.update { $0.partnerName = partnerName }
-            Task { _ = await DoodleWidgetAppCheck.token() }
         } else {
             liveQueue.sync { liveStrokes = [] }
         }
-        scheduleReload()
+        if store.session() != previous { scheduleReload() }
         call.resolve()
     }
 
@@ -46,10 +45,11 @@ final class DuoWidgetPlugin: CAPPlugin, CAPBridgedPlugin {
             changed = state.doodle?.id != doodle?.id || state.doodle?.updatedAt != doodle?.updatedAt
             if changed { state.liveStrokes = [] }
             state.doodle = doodle
-            state.lastFetchAt = Date()
         }
-        if changed { liveQueue.sync { liveStrokes = [] } }
-        scheduleReload()
+        if changed {
+            liveQueue.sync { liveStrokes = [] }
+            scheduleReload()
+        }
         call.resolve()
     }
 
@@ -125,23 +125,6 @@ enum DoodleWidgetReloader {
     }
 }
 
-enum DoodleWidgetAppCheck {
-    /// Also cached in the App Group so the widget extension can use it until it expires.
-    static func token() async -> String? {
-        await withCheckedContinuation { continuation in
-            AppCheck.appCheck().token(forcingRefresh: false) { token, _ in
-                if let token {
-                    DoodleWidgetStore.shared.update { state in
-                        state.appCheckToken = token.token
-                        state.appCheckExpiresAt = token.expirationDate
-                    }
-                }
-                continuation.resume(returning: token?.token)
-            }
-        }
-    }
-}
-
 /// Silent push sent by pushCore.ts to the partner's devices when they draw or save.
 enum DoodleWidgetPush {
     private static let drawingDuration: TimeInterval = 60
@@ -167,11 +150,10 @@ enum DoodleWidgetPush {
             store.update { $0.partnerDrawingUntil = Date().addingTimeInterval(drawingDuration) }
             WidgetCenter.shared.reloadTimelines(ofKind: DoodleWidgetConfig.kind)
             completion(.newData)
-        case "DOODLE_SAVE":
+        case "DOODLE_SAVE", "DOODLE_CLEAR":
             store.update { $0.partnerDrawingUntil = nil }
             Task {
-                let appCheck = await DoodleWidgetAppCheck.token()
-                let refreshed = await DoodleWidgetSync.refresh(appCheckToken: appCheck)
+                let refreshed = await DoodleWidgetSync.refresh()
                 WidgetCenter.shared.reloadTimelines(ofKind: DoodleWidgetConfig.kind)
                 completion(refreshed ? .newData : .failed)
             }

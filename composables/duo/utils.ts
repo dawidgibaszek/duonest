@@ -59,22 +59,7 @@ export function newDocumentId(prefix: string): string {
   return prefix + Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
-export const generateUniqueCode = (): string => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  let res = 'DN-'
-  for (let i = 0; i < 6; i++) {
-    res += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return res
-}
-
-export const normalizePairingCode = (rawCode?: string | null): string => {
-  if (!rawCode) return ''
-  const trimmed = rawCode.trim().toUpperCase()
-  if (trimmed.startsWith('DN-')) return trimmed
-  if (trimmed.startsWith('DN')) return `DN-${trimmed.substring(2)}`
-  return `DN-${trimmed}`
-}
+export { normalizePairingCode } from '~/functions/src/pairingCode'
 
 export const normalizeMovieTitle = (str?: string | null): string => {
   if (!str) return ''
@@ -185,7 +170,7 @@ export const createInitialProfile = (): Profile => ({
   email: null,
   name: '',
   avatar_color: '#0284c7',
-  pairing_code: generateUniqueCode(),
+  pairing_code: '',
   partnership_id: null,
   current_mood: 'happy',
   mood_note: '',

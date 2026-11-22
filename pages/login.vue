@@ -185,10 +185,6 @@ const {
   signUpWithEmail,
   requestPasswordReset,
   completePasswordReset,
-  syncUserProfileWithAuth,
-  isPaired,
-  currentUser,
-  partnership,
   initializeClientState
 } = useDuoState()
 
@@ -307,11 +303,7 @@ const handleSocialSignIn = async (provider: 'google' | 'apple') => {
       errorMessage.value = translateAuthError(error)
       return
     }
-    if (data?.user) {
-      await syncUserProfileWithAuth(data.user)
-    }
-    const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id) ? '/tabs/nest' : '/pairing'
-    await navigateTo(destination, { replace: true })
+    if (data?.user) await navigateTo('/', { replace: true })
   } catch (error: any) {
     errorMessage.value = translateAuthError(error)
   } finally {
@@ -354,23 +346,6 @@ onMounted(async () => {
   const search = window.location.search || ''
   const urlParams = new URLSearchParams(search)
 
-  // 1. Check if an active authenticated session already exists
-  const supabase = getSupabaseClient()
-  if (supabase) {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user) {
-        const hasProfile = await syncUserProfileWithAuth(session.user)
-        if (hasProfile) {
-          const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id) ? '/tabs/nest' : '/pairing'
-          await navigateTo(destination, { replace: true })
-          return
-        }
-      }
-    } catch (_) {}
-  }
-
-  // 3. Set email from URL if provided
   if (urlParams.get('email')) {
     emailInput.value = sanitizeEmail(urlParams.get('email'))
   }
@@ -394,8 +369,7 @@ const handleSubmit = async () => {
         return
       }
 
-      const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id) ? '/tabs/nest' : '/pairing'
-      await navigateTo(destination, { replace: true })
+      await navigateTo('/', { replace: true })
     } else if (mode.value === 'register') {
       const { data, error } = await signUpWithEmail(
         emailInput.value,
@@ -413,8 +387,7 @@ const handleSubmit = async () => {
         return
       }
 
-      const destination = (isPaired.value || currentUser.value?.partnership_id || partnership.value?.id) ? '/tabs/nest' : '/pairing'
-      await navigateTo(destination, { replace: true })
+      await navigateTo('/', { replace: true })
     } else if (mode.value === 'forgot') {
       const { error } = await requestPasswordReset(emailInput.value)
       if (error) {

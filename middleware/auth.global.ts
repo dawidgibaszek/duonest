@@ -23,8 +23,9 @@ export default defineNuxtRouteMiddleware((to) => {
     return
   }
 
-  const { isAuthenticated, needsEmailVerification, isPaired, currentUser, partnership, initializeClientState } = useDuoState()
+  const { isAuthenticated, needsEmailVerification, isPaired, isAuthLoading, initializeClientState } = useDuoState()
   initializeClientState()
+  if (isAuthLoading.value) return navigateTo('/', { replace: true })
 
   // 2. Unauthenticated users -> welcome screen with separate sign-in and registration routes
   if (!isAuthenticated.value) {
@@ -43,7 +44,7 @@ export default defineNuxtRouteMiddleware((to) => {
   }
 
   // 4. Authenticated users without a partner -> must go to /pairing
-  const hasPartner = Boolean(isPaired.value || currentUser.value?.partnership_id || partnership.value?.id)
+  const hasPartner = isPaired.value
   if (!hasPartner) {
     if (to.path !== '/pairing') {
       return navigateTo('/pairing', { replace: true })

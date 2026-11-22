@@ -27,6 +27,7 @@ export const partnership = ref<Partnership | null>(null)
 export const authUser = ref<any>(null)
 export const authSession = ref<any>(null)
 export const isAuthLoading = ref(true)
+export const authRestoreFailed = ref(false)
 export const isStateInitialized = ref(false)
 export const isLoggingOut = ref(false)
 
@@ -35,7 +36,7 @@ export const isAuthenticated = computed(() => {
 })
 
 export const isPaired = computed(() => {
-  return Boolean(currentUser.value?.partnership_id || partnership.value?.id)
+  return Boolean(partnership.value?.id && currentUser.value.partnership_id === partnership.value.id && partnerUser.value?.id)
 })
 
 // Listy domenowe

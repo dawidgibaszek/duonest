@@ -68,6 +68,7 @@ export {
   activeLeisureSubTab,
   orgTabsScrollLeft,
   isAuthLoading,
+  authRestoreFailed,
   isLoggingOut,
   isOnlineWithSupabase,
   dbSchemaStatus,
@@ -119,6 +120,7 @@ import {
   activeLeisureSubTab,
   orgTabsScrollLeft,
   isAuthLoading,
+  authRestoreFailed,
   isOnlineWithSupabase,
   dbSchemaStatus,
   realtimeStatus,
@@ -150,7 +152,7 @@ import {
 } from './duo/utils'
 
 import { useRealtimeSync } from './duo/useRealtimeSync'
-import { useAuthSession } from './duo/useAuthSession'
+import { requiresVerifiedEmail, useAuthSession } from './duo/useAuthSession'
 import { usePairingSecurity } from './duo/usePairingSecurity'
 import { useShopping } from './duo/useShopping'
 import { useTasks } from './duo/useTasks'
@@ -170,13 +172,18 @@ export const useDuoState = () => {
   // 1. Podsystem synchronizacji w czasie rzeczywistym i powiadomień
   const realtime = useRealtimeSync({
     loadPartnershipAndPartner: (pId, uId) => pairingSecurity.loadPartnershipAndPartner(pId, uId),
-    clearPartnershipData: () => pairingSecurity.clearPartnershipData(),
-    signOutUser: () => auth.signOutUser()
+    restoreAccount: () => {
+      if (!authUser.value) return
+      if (window.location.pathname !== '/') window.location.replace('/')
+      else void auth.syncUserProfileWithAuth(authUser.value)
+    }
   })
 
   // 2. Podsystem sesji i autoryzacji
   const auth = useAuthSession({
-    triggerToast: realtime.triggerToast
+    triggerToast: realtime.triggerToast,
+    loadPartnership: (pid, profileId, serverOnly) => pairingSecurity.loadPartnershipAndPartner(pid, profileId, serverOnly),
+    loadDashboard: realtime.loadSupabaseData
   })
 
   // 3. Podsystem parowania kont i bezpieczeństwa
@@ -241,12 +248,7 @@ export const useDuoState = () => {
 
   // Password accounts stay blocked on /verify-email until the address is confirmed.
   // Google / Apple accounts are verified by the provider (Apple may even hide the e-mail).
-  const needsEmailVerification = computed(() => {
-    const user = authUser.value
-    if (!user || user.email_confirmed_at) return false
-    const providers: string[] | undefined = user.providers
-    return !providers || providers.includes('password')
-  })
+  const needsEmailVerification = computed(() => requiresVerifiedEmail(authUser.value))
 
   return {
     // Stan autoryzacji
@@ -255,6 +257,8 @@ export const useDuoState = () => {
     isAuthenticated,
     needsEmailVerification,
     isAuthLoading,
+    authRestoreFailed,
+    retrySessionRestore: auth.retrySessionRestore,
     signInWithEmail: auth.signInWithEmail,
     signUpWithEmail: auth.signUpWithEmail,
     signOutUser: auth.signOutUser,

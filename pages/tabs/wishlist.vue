@@ -498,7 +498,6 @@ import DuoActionSheet, { type DuoActionSheetButton } from '~/components/DuoActio
 import { useDuoState, type WishlistItem } from '~/composables/useDuoState'
 import { useConfirm } from '~/composables/useConfirm'
 import { formatSiteName, extractTitleFromUrl } from '~/utils/wishlistParser'
-import confetti from 'canvas-confetti'
 
 
 // ---- Bottom action sheet for a wish row ----
@@ -994,11 +993,6 @@ const handleToggleCompleted = async (id: string) => {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate([20, 40, 20])
     }
-    confetti({
-      particleCount: 50,
-      spread: 60,
-      origin: { y: 0.6 }
-    })
     setTimeout(() => {
       completingWishlistIds.value.delete(id)
     }, 450)

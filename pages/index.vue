@@ -28,7 +28,11 @@
           <img src="/logo.svg" alt="DuoNest" class="dn-boot-logo" width="96" height="96" />
           <span class="dn-boot-name">DuoNest</span>
         </div>
-        <div class="dn-boot-spinner" aria-hidden="true">
+        <div v-if="authRestoreFailed" class="dn-boot-retry">
+          <p>Nie udało się wczytać danych. Ponawiamy połączenie.</p>
+          <button type="button" class="dn-button-secondary" @click="retrySessionRestore">Spróbuj ponownie</button>
+        </div>
+        <div v-else class="dn-boot-spinner" aria-hidden="true">
           <span v-for="i in 8" :key="i" :style="{ '--i': i - 1 }"></span>
         </div>
       </div>
@@ -39,50 +43,28 @@
 <script setup lang="ts">
 import { Capacitor } from '@capacitor/core'
 import { logoApple, logoGooglePlaystore } from 'ionicons/icons'
-import { onMounted } from 'vue'
+import { onMounted, onScopeDispose, ref, watch } from 'vue'
 
 const showDownload = !import.meta.dev && !Capacitor.isNativePlatform()
-const { isAuthenticated, isPaired, isAuthLoading, initializeClientState } = useDuoState()
+const { isAuthenticated, needsEmailVerification, isPaired, isAuthLoading, authRestoreFailed,
+  initializeClientState, retrySessionRestore } = useDuoState()
+const router = useRouter()
+const canNavigate = ref(false)
+let timer: ReturnType<typeof setTimeout> | undefined
 
-// Keep the loading screen up long enough not to flash, but never block start-up for long
-const MIN_VISIBLE_MS = 600
-const MAX_AUTH_WAIT_MS = 3000
-
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
-
-const waitForAuthRestore = () => new Promise<void>((resolve) => {
-  if (!isAuthLoading.value) return resolve()
-  const startedAt = Date.now()
-  const timer = setInterval(() => {
-    if (!isAuthLoading.value || Date.now() - startedAt >= MAX_AUTH_WAIT_MS) {
-      clearInterval(timer)
-      resolve()
-    }
-  }, 50)
-})
-
-onMounted(async () => {
+onMounted(() => {
   if (showDownload) return
-  const minVisible = delay(MIN_VISIBLE_MS)
-  try {
-    initializeClientState()
-    // Session cached locally -> route right away; otherwise give Firebase a moment to restore it
-    if (!isAuthenticated.value) {
-      await waitForAuthRestore()
-    }
-    await minVisible
+  initializeClientState()
+  timer = setTimeout(() => { canNavigate.value = true }, 600)
+})
+onScopeDispose(() => clearTimeout(timer))
 
-    if (!isAuthenticated.value) {
-      await navigateTo('/welcome', { replace: true })
-    } else if (!isPaired.value) {
-      await navigateTo('/pairing', { replace: true })
-    } else {
-      await navigateTo('/tabs/nest', { replace: true })
-    }
-  } catch (err) {
-    console.error('Splash navigation error:', err)
-    await navigateTo('/welcome', { replace: true })
-  }
+watch([canNavigate, isAuthLoading], ([visible, loading]) => {
+  if (!visible || loading || router.currentRoute.value.path !== '/') return
+  const next = !isAuthenticated.value ? '/welcome'
+    : needsEmailVerification.value ? '/verify-email'
+      : isPaired.value ? '/tabs/nest' : '/pairing'
+  void navigateTo(next, { replace: true })
 })
 </script>
 
@@ -173,6 +155,13 @@ onMounted(async () => {
   letter-spacing: -0.01em;
   line-height: 1.2;
   color: var(--dn-auth-ink);
+}
+
+.dn-boot-retry {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom) + 32px);
+  padding: 0 24px;
+  text-align: center;
 }
 
 .dn-boot-spinner {

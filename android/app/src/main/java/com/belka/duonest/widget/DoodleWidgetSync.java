@@ -65,7 +65,7 @@ final class DoodleWidgetSync {
             store.setPartnerDrawingUntil(System.currentTimeMillis() + PUSH_DRAWING_MS);
             DoodleWidgetProvider.scheduleDrawingExpiry(context, PUSH_DRAWING_MS);
             DoodleWidgetProvider.requestRender(context);
-        } else if ("DOODLE_SAVE".equals(data.get("action"))) {
+        } else if ("DOODLE_SAVE".equals(data.get("action")) || "DOODLE_CLEAR".equals(data.get("action"))) {
             store.setPartnerDrawingUntil(0);
             refreshAsync(context, null);
         }

@@ -80,7 +80,8 @@ if (Capacitor.getPlatform() === 'android') {
 watch(
   [isAuthLoading, () => authUser.value?.id, () => currentUser.value.id, () => currentUser.value.partnership_id],
   ([loading, uid, profileId, partnershipId]) => {
-    if (appRuntime && !loading && uid && profileId && partnershipId) subscribeToPartnershipRealtime(partnershipId)
+    if (!appRuntime || loading || !uid || !profileId) return
+    if (partnershipId) subscribeToPartnershipRealtime(partnershipId)
   },
   { immediate: true }
 )
@@ -90,7 +91,7 @@ watch([offline, foreground], ([disconnected, active], [wasDisconnected]) => {
   setNativeRealtimeActive(active && !disconnected)
   if (wasDisconnected && !disconnected) {
     checkForUpdate()
-    if (authUser.value && (currentUser.value.auth_user_id !== authUser.value.id || !currentUser.value.pairing_code)) {
+    if (authUser.value && isAuthLoading.value) {
       void syncUserProfileWithAuth(authUser.value)
     }
     void initSupabaseSync()
