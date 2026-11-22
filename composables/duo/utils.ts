@@ -213,21 +213,3 @@ export function isStrokeContinued(prev: DuoDoodleStroke, next: DuoDoodleStroke):
   }
   return true
 }
-
-export function strokesMatch(a: DuoDoodleStroke, b: DuoDoodleStroke): boolean {
-  if (
-    (a.isEraser === true) !== (b.isEraser === true) ||
-    a.width !== b.width ||
-    a.color.toLowerCase() !== b.color.toLowerCase() ||
-    a.points.length !== b.points.length
-  ) {
-    return false
-  }
-  const len = a.points.length
-  for (let i = 0; i < len; i++) {
-    if (Math.abs(a.points[i] - b.points[i]) > 0.0001) {
-      return false
-    }
-  }
-  return true
-}
