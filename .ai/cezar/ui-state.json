@@ -1,0 +1,12 @@
+{
+  "lastTask": {
+    "source": "workflow",
+    "ref": "gemini-codex"
+  },
+  "recentSources": [
+    {
+      "source": "workflow",
+      "ref": "gemini-codex"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "skills": {
+    "om-framework-context": {
+      "source": "open-mercato/skills",
+      "commit": "7e6b9de567a73bcc9373b889231bc0efafe1bb30",
+      "sourceType": "github",
+      "skillPath": "skills/om-framework-context/SKILL.md",
+      "computedHash": "3da1a55647aae53d87cf7fcc296a88bc2c1d4a0f0332ae66fade152329018925"
+    }
+  }
+}
