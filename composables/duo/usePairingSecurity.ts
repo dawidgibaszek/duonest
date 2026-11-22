@@ -44,6 +44,7 @@ export function usePairingSecurity(options: {
     partnerUser.value = null
     partnership.value = null
     currentUser.value.partnership_id = null
+    currentUser.value.points = 0
     shoppingItems.value = []
     tasksList.value = []
     eventsList.value = []
@@ -108,7 +109,7 @@ export function usePairingSecurity(options: {
     try {
       const { data, error } = await bridge
         .from('profiles', true)
-        .select('partnership_id')
+        .select('partnership_id, points')
         .eq('id', myId)
         .maybeSingle()
       if (error || (currentUser.value?.id || authUser.value?.id) !== myId) return Boolean(partnership.value?.id)
@@ -116,6 +117,7 @@ export function usePairingSecurity(options: {
       if (data?.partnership_id) {
         if (!partnership.value?.id || partnership.value.id !== data.partnership_id) {
           currentUser.value.partnership_id = data.partnership_id
+          currentUser.value.points = Number(data.points) || 0
           if (!await loadPartnershipAndPartner(data.partnership_id, myId, true)) {
             return false
           }
@@ -163,6 +165,7 @@ export function usePairingSecurity(options: {
           const newPId = payload.new?.partnership_id
           if (newPId && (!partnership.value?.id || partnership.value?.id !== newPId)) {
             currentUser.value.partnership_id = newPId
+            currentUser.value.points = Number(payload.new?.points) || 0
             if (!await loadPartnershipAndPartner(newPId, myId, true)) return
             saveToStorage('duonest_current_user', currentUser.value)
             options.triggerToast('Połączono z partnerem.', { type: 'love' })
@@ -226,10 +229,12 @@ export function usePairingSecurity(options: {
       }
 
       currentUser.value.partnership_id = data.partnership.id
+      currentUser.value.points = 0
       partnership.value = data.partnership
       partnerUser.value = {
         ...createInitialProfile(),
         ...data.partner,
+        points: Number(data.partner.points) || 0,
         name: data.partner.name || partnerDisplayName || 'Partner'
       }
 
