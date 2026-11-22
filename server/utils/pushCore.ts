@@ -32,6 +32,8 @@ export interface PushCaller {
   profileId: string
   partnershipId: string | null
   name: string | null
+  gender?: string | null
+  grammatical_gender?: string | null
 }
 
 export interface PushResult {
@@ -347,7 +349,7 @@ async function send(db: Db, messaging: Messaging, caller: PushCaller, body: any)
   if (!partnerId) return fail(403, 'Authenticated profile is not a partnership member')
 
   const widgets = WIDGET_ACTIONS.has(action) ? refreshPartnerWidgets(db, messaging, partnerId, action, caller) : Promise.resolve()
-  const formatted = formatPartnerAction(action, body?.payload, caller.name || 'Twój Partner')
+  const formatted = formatPartnerAction(action, body?.payload, caller.name || 'Twój Partner', caller.gender, caller.grammatical_gender)
   if (!formatted) {
     await widgets
     return ok({ success: true, message: 'Action ignored (no notification needed)' })

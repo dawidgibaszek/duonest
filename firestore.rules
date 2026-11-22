@@ -66,7 +66,7 @@ service cloud.firestore {
       allow update: if signedIn() && resource.data.get('auth_user_id', null) == request.auth.uid
         && changedOnly([
           'name', 'avatar_url', 'avatar_color', 'current_mood', 'mood_note', 'mood_updated_at',
-          'love_note', 'favorite_drink', 'favorite_treat', 'last_seen_at', 'updated_at'
+          'love_note', 'favorite_drink', 'favorite_treat', 'gender', 'grammatical_gender', 'last_seen_at', 'updated_at'
         ]);
     }
 

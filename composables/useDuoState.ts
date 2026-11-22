@@ -1,4 +1,20 @@
 import { computed } from 'vue'
+import { useDuoGrammar } from './duo/useGrammar'
+
+// Eksport narzędzi gramatycznych
+export {
+  useDuoGrammar,
+  resolveGrammaticalGender,
+  getPartnerNoun,
+  getPartnerPossessive,
+  getPartnerPronoun,
+  conjugateVerbPast3rd,
+  conjugateVerbPast2nd,
+  inflectAdj,
+  GENDER_OPTIONS,
+  GRAMMAR_OPTIONS
+} from './duo/useGrammar'
+export type { GenderIdentity, GrammaticalGender } from './duo/useGrammar'
 
 // Eksport typów domenowych
 export type {
@@ -242,6 +258,8 @@ export const useDuoState = () => {
     verifyAccess: pairingSecurity.verifyUserAndPartnershipAccess
   })
 
+  const grammar = useDuoGrammar()
+
   const isAuthenticated = computed(() => {
     return Boolean(authUser.value || authSession.value)
   })
@@ -402,6 +420,28 @@ export const useDuoState = () => {
     partnerPointsPct,
     userCompletedTasksCount,
     partnerCompletedTasksCount,
+
+    // Gramatyka i formy językowe
+    userGrammar: grammar.userGrammar,
+    partnerGrammar: grammar.partnerGrammar,
+    partnerTitle: grammar.partnerTitle,
+    partnerDopelniacz: grammar.partnerDopelniacz,
+    partnerCelownik: grammar.partnerCelownik,
+    partnerBiernik: grammar.partnerBiernik,
+    partnerNarzednik: grammar.partnerNarzednik,
+    partnerMiejscownik: grammar.partnerMiejscownik,
+    partnerPossessive: grammar.partnerPossessive,
+    partnerPronoun: grammar.partnerPronoun,
+    partnerDisplayName: grammar.partnerDisplayName,
+    partnerDopelniaczName: grammar.partnerDopelniaczName,
+    partnerNarzednikName: grammar.partnerNarzednikName,
+    formatPartnerVerb: grammar.formatPartnerVerb,
+    formatUserVerb: grammar.formatUserVerb,
+    formatPartnerAdj: grammar.formatPartnerAdj,
+    formatUserAdj: grammar.formatUserAdj,
+    getPartnerNoun: grammar.getPartnerNoun,
+    GENDER_OPTIONS: grammar.GENDER_OPTIONS,
+    GRAMMAR_OPTIONS: grammar.GRAMMAR_OPTIONS,
 
     // Zakładki nawigacyjne
     activeDailySubTab,

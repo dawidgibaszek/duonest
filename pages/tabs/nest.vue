@@ -13,13 +13,13 @@
                 type="button"
                 class="nest-partner-btn"
                 @click="navigateTo('/tabs/relationship')"
-                :aria-label="isPartnerOnline ? `${partnerUser?.name || 'Partner'} jest teraz online` : `${partnerUser?.name || 'Partner'} – ostatnia aktywność: ${partnerLastActiveText}`"
+                :aria-label="isPartnerOnline ? `${partnerUser?.name || partnerTitle} jest teraz online` : `${partnerUser?.name || partnerTitle} – ostatnia aktywność: ${partnerLastActiveText}`"
               >
                 <span class="nest-partner-avatar" :style="{ backgroundColor: partnerUserAccentColor }">
                   <img
                     v-if="partnerUser?.avatar_url"
                     :src="partnerUser.avatar_url"
-                    :alt="partnerUser.name || 'Partner'"
+                    :alt="partnerUser.name || partnerTitle"
                   />
                   <span v-else>{{ (partnerUser?.name || 'P').charAt(0).toUpperCase() }}</span>
                 </span>
@@ -30,7 +30,7 @@
                 type="button"
                 class="dn-header-btn dn-header-btn--icon dn-header-btn--soft"
                 @click="navigateTo('/pairing')"
-                aria-label="Połącz konto z partnerem"
+                :aria-label="'Połącz konto z ' + partnerNarzednik.toLowerCase()"
               >
                 <ion-icon :icon="ioniconsPersonAddOutline" />
               </button>
@@ -70,7 +70,7 @@
                 <span class="nx-avatar-heart"><ion-icon :icon="ioniconsHeart" /></span>
               </span>
               <span class="nx-couple-text">
-                <span class="nx-couple-names">{{ currentUser.name || 'Ty' }} & {{ partnerUser?.name || 'Partner' }}</span>
+                <span class="nx-couple-names">{{ currentUser.name || 'Ty' }} & {{ partnerUser?.name || partnerTitle }}</span>
                 <span class="nx-couple-nest">{{ partnership?.nest_name || 'Nasze Ciepłe Gniazdko' }}</span>
               </span>
             </button>
@@ -116,7 +116,7 @@
             </div>
             <div class="nx-points-col nx-points-col--right">
               <span class="nx-points-num">{{ partnerPoints }}</span>
-              <span class="nx-row-sub">{{ partnerUser?.name || 'Partner' }} · {{ partnerCompletedTasksCount }} zadań</span>
+              <span class="nx-row-sub">{{ partnerUser?.name || partnerTitle }} · {{ partnerCompletedTasksCount }} zadań</span>
             </div>
           </div>
           <div class="nx-split">
@@ -146,7 +146,7 @@
               Dla Ciebie <span class="nx-chip-count">{{ mineCount }}</span>
             </button>
             <button v-if="partnerUser" type="button" class="dn-filter-chip" :class="{ active: activeMilestoneFilter === 'theirs' }" @click="activeMilestoneFilter = 'theirs'">
-              Dla {{ partnerUser.name || 'Partnera' }} <span class="nx-chip-count">{{ theirsCount }}</span>
+              Dla {{ partnerUser.name || partnerDopelniacz }} <span class="nx-chip-count">{{ theirsCount }}</span>
             </button>
           </div>
 
@@ -204,7 +204,7 @@
         <DuoMusicCard
           v-if="partnerPlayback"
           :playback="partnerPlayback"
-          :user-name="partnerUser?.name || 'Partner'"
+          :user-name="partnerUser?.name || partnerTitle"
         />
 
         <!-- ===== 4. GESTURES ===== -->
@@ -219,7 +219,7 @@
               <ion-icon :icon="ioniconsCheckmarkOutline" />
             </div>
             <div class="nx-row-body">
-              <span class="nx-row-title">{{ partnerUser?.name || 'Partner' }} dostał(a) Twój gest</span>
+              <span class="nx-row-title">{{ partnerUser?.name || partnerTitle }} {{ formatPartnerVerb('dostał') }} Twój gest</span>
               <span class="nx-row-sub">Kolejny za {{ formattedNextNudgeTime }}</span>
             </div>
           </div>
@@ -259,7 +259,7 @@
               <span class="nx-row-body">
                 <span class="nx-row-title">{{ task.title }}</span>
                 <span class="nx-row-sub">
-                  {{ task.assigned_to ? (task.assigned_to === currentUser?.id ? 'Dla Ciebie' : ('Dla ' + (partnerUser?.name || 'partnera'))) : 'Wspólne' }}
+                  {{ task.assigned_to ? (task.assigned_to === currentUser?.id ? 'Dla Ciebie' : ('Dla ' + (partnerUser?.name || partnerDopelniacz.toLowerCase()))) : 'Wspólne' }}
                 </span>
               </span>
               <span class="nx-row-trail">+{{ task.points }}</span>
@@ -285,7 +285,7 @@
           <div class="nx-section-head">
             <h3 class="nx-section-title">Wspólny rysunek</h3>
             <span v-if="isPartnerDrawing" class="nx-live">
-              <span class="nx-live-dot"></span>{{ partnerUser?.name || 'Partner' }} rysuje
+              <span class="nx-live-dot"></span>{{ partnerUser?.name || partnerTitle }} rysuje
             </span>
             <span v-else-if="hasDoodleContent" class="nx-section-meta">{{ currentDoodle?.author_name }}</span>
           </div>
@@ -293,7 +293,7 @@
             <canvas v-show="hasDoodleContent" ref="previewCanvasRef" class="nx-doodle-canvas"></canvas>
             <span v-show="!hasDoodleContent" class="nx-doodle-empty">
               <ion-icon :icon="ioniconsBrushOutline" />
-              <span>Narysuj coś dla {{ partnerUser?.name || 'partnera' }}</span>
+              <span>Narysuj coś dla {{ partnerUser?.name || partnerDopelniacz.toLowerCase() }}</span>
             </span>
           </button>
         </section>
@@ -372,7 +372,7 @@
                   <ion-icon :icon="ioniconsHeartOutline" class="scope-btn-icon" />
                   <div class="scope-btn-texts">
                     <span class="scope-btn-title">Dla {{ partnerUser.name }}</span>
-                    <span class="scope-btn-sub">Nagroda za punkty partnera</span>
+                    <span class="scope-btn-sub">Nagroda za punkty {{ partnerDopelniacz.toLowerCase() }}</span>
                   </div>
                 </button>
               </div>
@@ -540,7 +540,11 @@ const {
   initSupabaseSync,
   currentDoodle,
   isPartnerDrawing,
-  partnerLiveStroke
+  partnerLiveStroke,
+  partnerTitle,
+  partnerDopelniacz,
+  partnerNarzednik,
+  formatPartnerVerb
 } = useDuoState()
 
 const { confirm } = useConfirm()

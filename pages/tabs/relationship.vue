@@ -162,7 +162,7 @@
           <div v-if="hasSentDailyNudge" class="rl-row rl-row--card">
             <span class="rl-row-icon rl-row-icon--ink"><ion-icon :icon="ioniconsCheckmarkOutline" /></span>
             <span class="rl-row-body">
-              <span class="rl-row-title">{{ partnerUser?.name || 'Partner' }} dostał(a) Twój gest</span>
+              <span class="rl-row-title">{{ partnerUser?.name || partnerTitle }} {{ formatPartnerVerb('dostał') }} Twój gest</span>
               <span class="rl-row-sub">Kolejny za {{ formattedNextNudgeTime }}</span>
             </span>
           </div>
@@ -484,7 +484,7 @@
             <div class="rl-toggle-row rl-toggle-row--main">
               <span class="rl-row-body">
                 <span class="rl-row-title">Na tym urządzeniu</span>
-                <span class="rl-row-sub">Wiadomości i aktywność partnera</span>
+                <span class="rl-row-sub">Wiadomości i aktywność {{ partnerDopelniacz.toLowerCase() }}</span>
               </span>
               <ion-toggle
                 aria-label="Powiadomienia na tym urządzeniu"
@@ -515,14 +515,14 @@
             <div
               v-for="row in [
                 { key: 'nudges', icon: ioniconsHeartOutline, title: 'Gestach', desc: 'Buziaki, uściski i czułości' },
-                { key: 'mood', icon: ioniconsHappyOutline, title: 'Nastroju partnera', desc: 'Zmiana samopoczucia i notatki' },
+                { key: 'mood', icon: ioniconsHappyOutline, title: `Nastroju ${partnerDopelniacz.toLowerCase()}`, desc: 'Zmiana samopoczucia i notatki' },
                 { key: 'calendar', icon: ioniconsCalendarOutline, title: 'Terminarzu', desc: 'Nowe plany i przypomnienia' },
                 { key: 'shopping', icon: ioniconsCartOutline, title: 'Zakupach', desc: 'Nowe produkty na liście' },
                 { key: 'tasks', icon: ioniconsCheckboxOutline, title: 'Zadaniach', desc: 'Ukończone obowiązki i punkty' },
                 { key: 'meals', icon: ioniconsRestaurantOutline, title: 'Obiadach', desc: 'Menu i nowe propozycje dań' },
                 { key: 'wishlist', icon: ioniconsGiftOutline, title: 'Liście życzeń', desc: 'Nowe marzenia (niespodzianki zostają tajne)' },
                 { key: 'savings', icon: ioniconsWalletOutline, title: 'Skarbonkach', desc: 'Wpłaty, wypłaty i nowe cele' },
-                { key: 'partnerOnline', icon: ioniconsPersonOutline, title: 'Wejściu partnera', desc: 'Gdy partner otwiera DuoNest' },
+                { key: 'partnerOnline', icon: ioniconsPersonOutline, title: `Wejściu ${partnerDopelniacz.toLowerCase()}`, desc: `Gdy ${partnerTitle.toLowerCase()} otwiera DuoNest` },
                 { key: 'sound', icon: ioniconsVolumeMediumOutline, title: 'Dźwięk', desc: 'Sygnał przy powiadomieniu' },
                 { key: 'vibrate', icon: ioniconsPhonePortraitOutline, title: 'Wibracja', desc: 'Impuls haptyczny' }
               ].filter(row => !isPushNativeApp || (row.key !== 'vibrate' && row.key !== 'partnerOnline'))"
@@ -599,8 +599,8 @@
             <h3 class="rl-section-title">Para</h3>
             <span v-if="partnership" class="rl-status is-on">Połączono</span>
           </div>
-          <p v-if="partnership && partnerUser" class="rl-desc">Jesteście połączeni z: <strong>{{ partnerUser.name || 'Partner' }}</strong></p>
-          <p v-else-if="!partnership" class="rl-desc">Przekaż partnerowi swój kod albo wpisz jego.</p>
+          <p v-if="partnership && partnerUser" class="rl-desc">Jesteście połączeni z: <strong>{{ partnerDisplayName }}</strong></p>
+          <p v-else-if="!partnership" class="rl-desc">Przekaż {{ partnerCelownik.toLowerCase() }} swój kod albo wpisz {{ partnerPossessive }}.</p>
 
           <div class="rl-code">
             <span class="rl-code-label">Twój kod</span>
@@ -612,9 +612,9 @@
           </div>
 
           <template v-if="!partnership">
-            <label class="rl-label">Kod partnera</label>
+            <label class="rl-label">Kod {{ partnerDopelniacz.toLowerCase() }}</label>
             <div class="rl-inline-form">
-              <ion-input aria-label="Kod partnera" v-model="inputPartnerCode" placeholder="np. 8K4P2QZ" class="rl-input" :maxlength="15" />
+              <ion-input :aria-label="'Kod ' + partnerDopelniacz.toLowerCase()" v-model="inputPartnerCode" placeholder="np. 8K4P2QZ" class="rl-input" :maxlength="15" />
               <button type="button" class="rl-inline-btn" :disabled="!inputPartnerCode.trim()" @click="handlePairWithCode">
                 Połącz
               </button>
@@ -723,7 +723,7 @@
               <div class="dn-form-sheet-title-row">
                 <div class="dn-form-sheet-title-text">
                   <h3 class="dn-form-sheet-title">Twój profil</h3>
-                  <span class="dn-form-sheet-subtitle">Widoczny dla partnera w Gniazdku</span>
+                  <span class="dn-form-sheet-subtitle">Widoczny dla {{ partnerDopelniacz.toLowerCase() }} w Gniazdku</span>
                 </div>
               </div>
               <button type="button" class="dn-form-sheet-close" @click="closeEditProfileModal" aria-label="Zamknij">
@@ -738,6 +738,44 @@
             <label class="rl-label">Imię lub pseudonim</label>
             <div class="rl-field">
               <ion-input aria-label="Imię lub pseudonim" v-model="editProfileForm.name" placeholder="np. Dawid, Kasia..." class="rl-input" :clear-input="true" />
+            </div>
+
+            <label class="rl-label">Płeć i tożsamość</label>
+            <p class="rl-field-hint">Pomaga dopasować zwroty, zaimki i końcówki w aplikacji</p>
+            <div class="rl-gender-grid" data-no-swipe>
+              <button
+                v-for="g in GENDER_OPTIONS"
+                :key="g.value"
+                type="button"
+                class="rl-gender-btn"
+                :class="{ active: editProfileForm.gender === g.value }"
+                @click="selectGender(g.value)"
+              >
+                <span class="rl-gender-icon">{{ g.icon }}</span>
+                <span class="rl-gender-text">
+                  <span class="rl-gender-title">{{ g.label }}</span>
+                  <span class="rl-gender-desc">{{ g.description }}</span>
+                </span>
+              </button>
+            </div>
+
+            <label class="rl-label">Forma językowa (końcówki gramatyczne)</label>
+            <p class="rl-field-hint">Wybierz, jak aplikacja ma się do Ciebie zwracać i jak określać Twoje akcje</p>
+            <div class="rl-grammar-grid" data-no-swipe>
+              <button
+                v-for="gm in GRAMMAR_OPTIONS"
+                :key="gm.value"
+                type="button"
+                class="rl-grammar-btn"
+                :class="{ active: editProfileForm.grammatical_gender === gm.value }"
+                @click="editProfileForm.grammatical_gender = gm.value"
+              >
+                <div class="rl-grammar-head">
+                  <span class="rl-grammar-title">{{ gm.label }}</span>
+                  <span class="rl-grammar-example">{{ gm.example }}</span>
+                </div>
+                <span class="rl-grammar-desc">{{ gm.description }}</span>
+              </button>
             </div>
 
             <label class="rl-label">Czuła myśl</label>
@@ -907,7 +945,17 @@ const {
   signOutUser,
   changeUserPassword,
   triggerToast,
-  initSupabaseSync
+  initSupabaseSync,
+  partnerTitle,
+  formatPartnerVerb,
+  partnerDopelniacz,
+  partnerCelownik,
+  partnerBiernik,
+  partnerNarzednik,
+  partnerPossessive,
+  partnerDisplayName,
+  GENDER_OPTIONS,
+  GRAMMAR_OPTIONS
 } = useDuoState()
 
 const {
@@ -1226,10 +1274,20 @@ const isEditProfileModalOpen = ref(false)
 const isSavingProfile = ref(false)
 const editProfileForm = ref({
   name: '',
+  gender: '',
+  grammatical_gender: '',
   love_note: '',
   favorite_drink: '',
   favorite_treat: ''
 })
+
+const selectGender = (val: string) => {
+  editProfileForm.value.gender = val
+  const matched = GENDER_OPTIONS.find(o => o.value === val)
+  if (matched) {
+    editProfileForm.value.grammatical_gender = matched.defaultGrammar
+  }
+}
 
 const quickLoveNoteSuggestions = [
   'Zawsze przy Tobie ❤️',
@@ -1259,6 +1317,8 @@ const quickTreatSuggestions = [
 const openEditProfileModal = () => {
   editProfileForm.value = {
     name: currentUser.value?.name || '',
+    gender: currentUser.value?.gender || '',
+    grammatical_gender: currentUser.value?.grammatical_gender || '',
     love_note: currentUser.value?.love_note || '',
     favorite_drink: currentUser.value?.favorite_drink || '',
     favorite_treat: currentUser.value?.favorite_treat || ''
@@ -1370,7 +1430,7 @@ const handlePairWithCode = async () => {
 const handleDisconnect = async () => {
   const confirmed = await confirm({
     title: 'Rozłącz konto pary',
-    message: 'Czy na pewno chcesz rozłączyć połączenie z partnerem? Wspólne dane przestaną być synchronizowane.',
+    message: `Czy na pewno chcesz rozłączyć połączenie z ${partnerNarzednik.value}? Wspólne dane przestaną być synchronizowane.`,
     confirmText: 'Rozłącz parę',
     cancelText: 'Anuluj',
     type: 'danger',
@@ -2469,5 +2529,127 @@ const handleRefresh = async (event: any) => {
   border: 2px solid #1c1b19;
   box-shadow: none;
   cursor: pointer;
+}
+
+.rl-field-hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--dn-ink-dim, #71717a);
+  line-height: 1.4;
+}
+
+.rl-gender-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 360px) {
+  .rl-gender-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rl-gender-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--dn-border, rgba(0, 0, 0, 0.08));
+  background: var(--dn-card, #ffffff);
+  color: var(--dn-ink, #18181b);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.rl-gender-btn.active {
+  border-color: var(--dn-primary, #0284c7);
+  background: rgba(2, 132, 199, 0.08);
+  box-shadow: 0 0 0 1px var(--dn-primary, #0284c7);
+}
+
+.rl-gender-icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.rl-gender-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.rl-gender-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.rl-gender-desc {
+  font-size: 11px;
+  color: var(--dn-ink-dim, #71717a);
+  line-height: 1.2;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rl-grammar-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.rl-grammar-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--dn-border, rgba(0, 0, 0, 0.08));
+  background: var(--dn-card, #ffffff);
+  color: var(--dn-ink, #18181b);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.rl-grammar-btn.active {
+  border-color: var(--dn-primary, #0284c7);
+  background: rgba(2, 132, 199, 0.08);
+  box-shadow: 0 0 0 1px var(--dn-primary, #0284c7);
+}
+
+.rl-grammar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rl-grammar-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rl-grammar-example {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--dn-primary, #0284c7);
+  background: rgba(2, 132, 199, 0.1);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.rl-grammar-desc {
+  font-size: 11px;
+  color: var(--dn-ink-dim, #71717a);
 }
 </style>

@@ -87,7 +87,7 @@
 
           <!-- MODE 2: DOŁĄCZ DO PARTNERA -->
           <section v-else class="pair-panel">
-            <p class="pair-panel-desc">Zeskanuj kod QR z telefonu partnera albo wpisz jego kod ręcznie.</p>
+            <p class="pair-panel-desc">Zeskanuj kod QR z telefonu {{ partnerDopelniacz.toLowerCase() }} albo wpisz {{ partnerPossessive }} kod ręcznie.</p>
 
             <div class="dn-auth-stack">
               <button type="button" class="dn-auth-btn" @click="startScanner">
@@ -113,7 +113,7 @@
             <form class="dn-auth-form" @submit.prevent="submitPairing(partnerCodeInput)">
               <DuoAuthField
                 v-model="partnerCodeInput"
-                label="Kod parowania partnera"
+                :label="'Kod parowania ' + partnerDopelniacz.toLowerCase()"
                 placeholder="np. 8K4P2QZ"
                 maxlength="20"
                 autocomplete="off"
@@ -121,7 +121,7 @@
                 autocapitalize="off"
                 spellcheck="false"
               />
-              <p class="dn-auth-help">Partner znajdzie swój kod na tym samym ekranie w swojej aplikacji.</p>
+              <p class="dn-auth-help">{{ partnerTitle }} znajdzie swój kod na tym samym ekranie w swojej aplikacji.</p>
 
               <div class="dn-auth-alert dn-auth-alert--error" v-if="pairingError" role="alert">
                 <ion-icon :icon="ioniconsAlertCircleOutline" />
@@ -186,7 +186,7 @@
                 <button type="button" class="qrs-round" aria-label="Zamknij skaner" @click="stopScanner">
                   <ion-icon :icon="ioniconsClose" />
                 </button>
-                <span class="qrs-title">Zeskanuj kod partnera</span>
+                <span class="qrs-title">Zeskanuj kod {{ partnerDopelniacz.toLowerCase() }}</span>
                 <button
                   v-if="isTorchSupported && scanState !== 'blocked'"
                   type="button"
@@ -206,7 +206,7 @@
                   <div v-if="scanState === 'detected' || scanState === 'pairing'" key="pairing" class="qrs-card">
                     <span class="qrs-card-label">Znaleziono kod</span>
                     <span class="qrs-card-code">{{ scannedCode }}</span>
-                    <span class="qrs-card-hint">Łączenie z partnerem…</span>
+                    <span class="qrs-card-hint">Łączenie z {{ partnerNarzednik.toLowerCase() }}…</span>
                   </div>
                   <div v-else-if="scanState === 'success'" key="success" class="qrs-card">
                     <span class="qrs-card-label">Gotowe</span>
@@ -303,6 +303,10 @@ const {
   authUser,
   currentUser,
   partnerUser,
+  partnerTitle,
+  partnerDopelniacz,
+  partnerNarzednik,
+  partnerPossessive,
   isPaired,
   updateMyName,
   pairWithCode,
@@ -432,11 +436,11 @@ const submitPairing = async (code: string, opts: { fromScanner?: boolean } = {})
 
 // Scanner & Camera state
 type ScanState = 'starting' | 'scanning' | 'detected' | 'pairing' | 'success' | 'error' | 'blocked'
-const DEFAULT_HINT = 'Skieruj aparat na kod QR w aplikacji partnera'
+const defaultScanHint = computed(() => 'Skieruj aparat na kod QR w aplikacji ' + partnerDopelniacz.value.toLowerCase())
 
 const isScannerOpen = ref(false)
 const scanState = ref<ScanState>('starting')
-const scanHint = ref(DEFAULT_HINT)
+const scanHint = ref(defaultScanHint.value)
 const hintIsWarning = ref(false)
 const scannedCode = ref('')
 const scanError = ref('')
@@ -470,7 +474,7 @@ const flashHint = (text: string) => {
   hintIsWarning.value = true
   if (hintTimer) clearTimeout(hintTimer)
   hintTimer = setTimeout(() => {
-    scanHint.value = DEFAULT_HINT
+    scanHint.value = defaultScanHint.value
     hintIsWarning.value = false
   }, 2600)
 }
@@ -586,14 +590,14 @@ const handleDecoded = async (decodedText: string) => {
     if (lastRejected.text === decodedText && Date.now() - lastRejected.at < 2500) return
     lastRejected = { text: decodedText, at: Date.now() }
     haptic([20, 60, 20])
-    flashHint('To nie jest kod DuoNest. Zeskanuj kod z ekranu parowania partnera.')
+    flashHint('To nie jest kod DuoNest. Zeskanuj kod z ekranu parowania ' + partnerDopelniacz.value.toLowerCase() + '.')
     return
   }
   if (code === currentUser.value?.pairing_code) {
     if (lastRejected.text === code && Date.now() - lastRejected.at < 2500) return
     lastRejected = { text: code, at: Date.now() }
     haptic([20, 60, 20])
-    flashHint('To Twój własny kod – zeskanuj kod z telefonu partnera.')
+    flashHint('To Twój własny kod – zeskanuj kod z telefonu ' + partnerDopelniacz.value.toLowerCase() + '.')
     return
   }
 
@@ -622,7 +626,7 @@ const resumeScanning = () => {
   scanError.value = ''
   scannedCode.value = ''
   lastRejected = { text: '', at: 0 }
-  scanHint.value = lastCameraCode ? 'Odsuń kod z kadru i zeskanuj ponownie.' : DEFAULT_HINT
+  scanHint.value = lastCameraCode ? 'Odsuń kod z kadru i zeskanuj ponownie.' : defaultScanHint.value
   hintIsWarning.value = false
   if (!mediaStream) {
     startScanner()
@@ -704,7 +708,7 @@ const describeCameraError = (err: any) => {
     cameraBlockedMessage.value = 'Inna aplikacja używa teraz aparatu. Zamknij ją i spróbuj ponownie.'
   } else {
     blockedTitle.value = 'Brak dostępu do aparatu'
-    cameraBlockedMessage.value = 'DuoNest potrzebuje aparatu tylko do zeskanowania kodu partnera.'
+    cameraBlockedMessage.value = 'DuoNest potrzebuje aparatu tylko do zeskanowania kodu ' + partnerDopelniacz.value.toLowerCase() + '.'
     blockedSteps.value = isIos
       ? ['Otwórz Ustawienia → Aplikacje → Safari → Aparat', 'Wybierz „Pytaj” lub „Zezwalaj”', 'Wróć tutaj i stuknij „Spróbuj ponownie”']
       : ['Stuknij ikonę kłódki obok adresu strony', 'Wejdź w Uprawnienia → Aparat → Zezwalaj', 'Wróć tutaj i stuknij „Spróbuj ponownie”']
@@ -838,7 +842,7 @@ const startScanner = async () => {
   lastCameraCode = ''
   isScannerOpen.value = true
   scanState.value = 'starting'
-  scanHint.value = DEFAULT_HINT
+  scanHint.value = defaultScanHint.value
   hintIsWarning.value = false
   scannedCode.value = ''
   scanError.value = ''

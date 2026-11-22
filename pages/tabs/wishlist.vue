@@ -318,7 +318,7 @@
                 >
                   <ion-icon :icon="ioniconsGiftOutline" class="target-btn-icon" />
                   <div class="target-btn-texts">
-                    <span class="target-btn-title">Dla Partnera</span>
+                    <span class="target-btn-title">Dla {{ partnerDopelniacz }}</span>
                     <span class="target-btn-sub">Pomysł na prezent</span>
                   </div>
                 </button>
@@ -351,8 +351,8 @@
                 >
                   <ion-icon :icon="ioniconsEyeOutline" class="vis-icon" />
                   <div class="vis-texts">
-                    <span class="vis-title">Widoczne dla partnera</span>
-                    <span class="vis-sub">Partner zobaczy to w liście marzeń</span>
+                    <span class="vis-title">Widoczne dla {{ partnerDopelniacz.toLowerCase() }}</span>
+                    <span class="vis-sub">{{ partnerTitle }} zobaczy to w liście marzeń</span>
                   </div>
                 </button>
 
@@ -365,13 +365,13 @@
                   <ion-icon :icon="ioniconsEyeOffOutline" class="vis-icon" />
                   <div class="vis-texts">
                     <span class="vis-title">Prezent niespodzianka</span>
-                    <span class="vis-sub">Ukryte przed partnerem (tylko Ty to widzisz!)</span>
+                    <span class="vis-sub">Ukryte przed {{ partnerNarzednik.toLowerCase() }} (tylko Ty to widzisz!)</span>
                   </div>
                 </button>
               </div>
 
               <p class="visibility-hint" v-if="!formData.is_visible_to_partner">
-                🎁 <strong>Idealne na urodziny, święta i rocznice!</strong> Partner nie dostanie powiadomienia i nie zobaczy tego przedmiotu w swojej aplikacji.
+                🎁 <strong>Idealne na urodziny, święta i rocznice!</strong> {{ partnerTitle }} nie dostanie powiadomienia i nie zobaczy tego przedmiotu w swojej aplikacji.
               </p>
             </div>
 
@@ -530,6 +530,10 @@ const {
   currentUser,
   partnerUser,
   partnership,
+  partnerTitle,
+  partnerDopelniacz,
+  partnerNarzednik,
+  formatPartnerVerb,
   addWishlistItem,
   updateWishlistItem,
   deleteWishlistItem,
@@ -570,14 +574,14 @@ const partnerId = computed(() => {
 // Filters
 const activeFilter = ref<'all' | 'me' | 'partner' | 'surprise' | 'together' | 'completed'>('all')
 
-const filters = [
+const filters = computed(() => [
   { id: 'all', label: 'Wszystkie', icon: ioniconsSparklesOutline },
   { id: 'me', label: 'Moje', icon: ioniconsPersonOutline },
-  { id: 'partner', label: 'Dla Partnera', icon: ioniconsGiftOutline },
+  { id: 'partner', label: `Dla ${partnerDopelniacz.value}`, icon: ioniconsGiftOutline },
   { id: 'surprise', label: 'Niespodzianki', icon: ioniconsEyeOffOutline },
   { id: 'together', label: 'Wspólne', icon: ioniconsPeopleOutline },
   { id: 'completed', label: 'Kupione', icon: ioniconsCheckmarkDoneOutline }
-] as const
+])
 
 // Form & Modal state
 const isModalOpen = ref(false)
@@ -685,8 +689,8 @@ const getFilterCount = (filterId: string): number => {
 const getSectionTitle = (): string => {
   switch (activeFilter.value) {
     case 'me': return 'MOJE MARZENIA'
-    case 'partner': return 'DLA PARTNERA'
-    case 'surprise': return 'NIESPODZIANKI (UKRYTE PRZED PARTNEREM)'
+    case 'partner': return `DLA ${partnerDopelniacz.value.toUpperCase()}`
+    case 'surprise': return `NIESPODZIANKI (UKRYTE PRZED ${partnerNarzednik.value.toUpperCase()})`
     case 'together': return 'WSPÓLNE DO DOMU'
     case 'completed': return 'SPEŁNIONE MARZENIA'
     case 'all':
@@ -698,7 +702,7 @@ const getSectionTitle = (): string => {
 const getEmptyTitle = (): string => {
   switch (activeFilter.value) {
     case 'me': return 'Brak Twoich osobistych marzeń'
-    case 'partner': return 'Brak propozycji prezentów dla partnera'
+    case 'partner': return `Brak propozycji prezentów dla ${partnerDopelniacz.value.toLowerCase()}`
     case 'surprise': return 'Brak prezentów niespodzianek'
     case 'together': return 'Brak wspólnych marzeń do domu'
     case 'completed': return 'Jeszcze żadne marzenie nie zostało kupione'
@@ -711,7 +715,7 @@ const getEmptyTitle = (): string => {
 const getEmptyDescription = (): string => {
   switch (activeFilter.value) {
     case 'surprise':
-      return 'Możesz dodać pomysł na prezent dla partnera i ukryć go, by nie widział go w aplikacji!'
+      return `Możesz dodać pomysł na prezent dla ${partnerDopelniacz.value.toLowerCase()} i ukryć go, by nie ${formatPartnerVerb('widział')} go w aplikacji!`
     case 'completed':
       return 'Kiedy kupisz marzenie ze swojej listy, zaznacz je jako spełnione!'
     default:
@@ -1076,8 +1080,8 @@ const getTargetLabel = (item: WishlistItem): string => {
   const currentUserId = currentUser.value?.id
   const pId = partnerId.value
   if (item.for_user_id === currentUserId || item.for_user_id === 'me') return 'Dla mnie'
-  if (item.for_user_id === 'partner' || (pId && item.for_user_id === pId)) return `Dla ${partnerUser.value?.name || 'Partnera'}`
-  if (!item.for_user_id && currentUserId && item.created_by !== currentUserId) return `Dla ${partnerUser.value?.name || 'Partnera'}`
+  if (item.for_user_id === 'partner' || (pId && item.for_user_id === pId)) return `Dla ${partnerUser.value?.name || partnerDopelniacz.value}`
+  if (!item.for_user_id && currentUserId && item.created_by !== currentUserId) return `Dla ${partnerUser.value?.name || partnerDopelniacz.value}`
   return 'Wspólne'
 }
 

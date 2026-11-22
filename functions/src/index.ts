@@ -258,7 +258,9 @@ for (const action of PUSH_ACTIONS) {
         uid: req.user.uid,
         profileId: profile.id,
         partnershipId: profile.partnership_id || null,
-        name: profile.name || null
+        name: profile.name || null,
+        gender: profile.gender || null,
+        grammatical_gender: profile.grammatical_gender || null
       }, action, req.body || {})
       res.status(result.status).json(result.body)
     } catch (err: any) {

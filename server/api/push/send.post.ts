@@ -19,7 +19,9 @@ export default defineEventHandler(async (event) => {
     uid: user.uid,
     profileId: profile.id,
     partnershipId: profile.partnership_id || null,
-    name: profile.name || null
+    name: profile.name || null,
+    gender: profile.gender || null,
+    grammatical_gender: profile.grammatical_gender || null
   }, 'send', body || {})
   setResponseStatus(event, result.status)
   return result.body
