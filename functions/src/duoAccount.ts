@@ -148,6 +148,8 @@ export async function syncAccount(db: Db, rtdb: Rtdb | null, user: DecodedUser):
         love_note: '',
         favorite_drink: '',
         favorite_treat: '',
+        gender: null,
+        grammatical_gender: null,
         partnership_id: null,
         points: 0,
         created_at: nowIso(),
@@ -229,6 +231,8 @@ function partnerSummary(p: any, partnershipId: string) {
     avatar_url: p.avatar_url || null,
     avatar_color: p.avatar_color || '#0d9488',
     partnership_id: partnershipId,
+    gender: p.gender || null,
+    grammatical_gender: p.grammatical_gender || null,
     points: Number(p.points) || 0
   }
 }
@@ -392,6 +396,8 @@ export async function resolveCallerProfile(db: Db, user: DecodedUser) {
   return {
     id: profileIdOf(me),
     name: me.name || null,
+    gender: me.gender || null,
+    grammatical_gender: me.grammatical_gender || null,
     partnership_id: await validPartnershipFor(db, me)
   }
 }

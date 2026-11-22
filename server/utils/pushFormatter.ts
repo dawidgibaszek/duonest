@@ -1,10 +1,16 @@
 // Helper to format partner actions into Polish titles, bodies, and URLs
+import { resolveGrammaticalGender, v } from './duoGrammar'
+
 export function formatPartnerAction(
   action: string,
   data: any,
-  senderName: string
+  senderName: string,
+  senderGender?: string | null,
+  senderGrammar?: string | null
 ): { title: string; body: string; url: string; category: string } | null {
-  const name = senderName || 'Twój Partner'
+  const g = resolveGrammaticalGender(senderGender, senderGrammar)
+  const defaultTitle = g === 'female' ? 'Twoja Partnerka' : g === 'neutral' ? 'Twoja Osoba partnerska' : 'Twój Partner'
+  const name = senderName || defaultTitle
 
   switch (action) {
     case 'NUDGE_SEND': {
@@ -39,7 +45,7 @@ export function formatPartnerAction(
       const label = moodLabels[mood] || mood
       const note = data?.note ? ` („${data.note}”)` : ''
       return {
-        title: `${name} zaktualizował(a) nastrój`,
+        title: `${name} ${v('zaktualizował', g)} nastrój`,
         body: `Aktualny nastrój: ${label}${note}`,
         url: '/tabs/nest',
         category: 'mood'
@@ -50,7 +56,7 @@ export function formatPartnerAction(
       const itemName = data?.title || data?.name || 'nową pozycję'
       return {
         title: `Lista zakupów`,
-        body: `${name} dodał(a) do listy: ${itemName}`,
+        body: `${name} ${v('dodał', g)} do listy: ${itemName}`,
         url: '/tabs/shopping',
         category: 'shopping'
       }
@@ -61,7 +67,7 @@ export function formatPartnerAction(
         const itemName = data?.title || data?.name || 'pozycję'
         return {
           title: `Zakupy we dwoje`,
-          body: `${name} kupił(a) i odhaczył(a): ${itemName}`,
+          body: `${name} ${v('kupił', g)} i ${v('odhaczył', g)}: ${itemName}`,
           url: '/tabs/shopping',
           category: 'shopping'
         }
@@ -74,7 +80,7 @@ export function formatPartnerAction(
       const pts = data?.points ? ` (+${data.points} pkt)` : ''
       return {
         title: `Nowy obowiązek domowy`,
-        body: `${name} dodał(a) zadanie: ${taskTitle}${pts}`,
+        body: `${name} ${v('dodał', g)} zadanie: ${taskTitle}${pts}`,
         url: '/tabs/tasks',
         category: 'tasks'
       }
@@ -86,7 +92,7 @@ export function formatPartnerAction(
         const pts = data?.points ? ` (+${data.points} pkt)` : ''
         return {
           title: `Zadanie ukończone!`,
-          body: `${name} zrealizował(a): ${taskTitle}${pts}!`,
+          body: `${name} ${v('zrealizował', g)}: ${taskTitle}${pts}!`,
           url: '/tabs/tasks',
           category: 'tasks'
         }
@@ -98,7 +104,7 @@ export function formatPartnerAction(
       const evtTitle = data?.title || 'wspólne plany'
       return {
         title: `Wspólny terminarz`,
-        body: `${name} zaplanował(a): ${evtTitle}`,
+        body: `${name} ${v('zaplanował', g)}: ${evtTitle}`,
         url: '/tabs/calendar',
         category: 'calendar'
       }
@@ -108,7 +114,7 @@ export function formatPartnerAction(
       const evtTitle = data?.updates?.title || 'wspólny plan'
       return {
         title: `Wspólny terminarz`,
-        body: `${name} zmienił(a) szczegóły planu: ${evtTitle}`,
+        body: `${name} ${v('zmienił', g)} szczegóły planu: ${evtTitle}`,
         url: '/tabs/calendar',
         category: 'calendar'
       }
@@ -119,7 +125,7 @@ export function formatPartnerAction(
         const evtTitle = data?.title || 'plan'
         return {
           title: `Plan zrealizowany!`,
-          body: `${name} oznaczył(a) plan jako zrealizowany: ${evtTitle}`,
+          body: `${name} ${v('oznaczył', g)} plan jako zrealizowany: ${evtTitle}`,
           url: '/tabs/calendar',
           category: 'calendar'
         }
@@ -132,7 +138,7 @@ export function formatPartnerAction(
       const wishTitle = data?.title || 'nowe marzenie'
       return {
         title: `Wishlista i marzenia`,
-        body: `${name} dodał(a) nowe marzenie: ${wishTitle}`,
+        body: `${name} ${v('dodał', g)} nowe marzenie: ${wishTitle}`,
         url: '/tabs/wishlist',
         category: 'wishlist'
       }
@@ -143,7 +149,7 @@ export function formatPartnerAction(
       const wishTitle = data?.updates?.title || data?.item?.title || 'marzenie'
       return {
         title: `Wishlista i marzenia`,
-        body: `${name} zaktualizował(a) marzenie: ${wishTitle}`,
+        body: `${name} ${v('zaktualizował', g)} marzenie: ${wishTitle}`,
         url: '/tabs/wishlist',
         category: 'wishlist'
       }
@@ -156,7 +162,7 @@ export function formatPartnerAction(
         const wishTitle = data?.title || 'marzenie'
         return {
           title: `Marzenie spełnione!`,
-          body: `${name} spełnił(a) Wasze marzenie: ${wishTitle}!`,
+          body: `${name} ${v('spełnił', g)} Wasze marzenie: ${wishTitle}!`,
           url: '/tabs/wishlist',
           category: 'wishlist'
         }
@@ -168,7 +174,7 @@ export function formatPartnerAction(
       const movieTitle = data?.title || 'nowy seans'
       return {
         title: `Kino we dwoje`,
-        body: `${name} dodał(a) do listy filmów: ${movieTitle}`,
+        body: `${name} ${v('dodał', g)} do listy filmów: ${movieTitle}`,
         url: '/tabs/movies',
         category: 'wishlist'
       }
@@ -178,7 +184,7 @@ export function formatPartnerAction(
       const movieTitle = data?.title || 'listę filmów'
       return {
         title: `Kino we dwoje`,
-        body: `${name} zaktualizował(a) film: ${movieTitle}`,
+        body: `${name} ${v('zaktualizował', g)} film: ${movieTitle}`,
         url: '/tabs/movies',
         category: 'wishlist'
       }
@@ -189,7 +195,7 @@ export function formatPartnerAction(
         const movieTitle = data?.title || 'seans'
         return {
           title: `Obejrzane we dwoje!`,
-          body: `${name} oznaczył(a) film jako obejrzany: ${movieTitle}`,
+          body: `${name} ${v('oznaczył', g)} film jako obejrzany: ${movieTitle}`,
           url: '/tabs/movies',
           category: 'wishlist'
         }
@@ -201,7 +207,7 @@ export function formatPartnerAction(
       const milestoneTitle = data?.title || 'wspólny cel'
       return {
         title: `Nagroda odblokowana!`,
-        body: `${name} odebrał(a) Wasz cel: ${milestoneTitle}!`,
+        body: `${name} ${v('odebrał', g)} Wasz cel: ${milestoneTitle}!`,
         url: '/tabs/nest',
         category: 'tasks'
       }
@@ -211,7 +217,7 @@ export function formatPartnerAction(
       const mealTitle = data?.titlePl || data?.title || 'nowy posiłek'
       return {
         title: `Planer obiadów`,
-        body: `${name} zaplanował(a) obiad: ${mealTitle}`,
+        body: `${name} ${v('zaplanował', g)} obiad: ${mealTitle}`,
         url: '/tabs/meals',
         category: 'meals'
       }
@@ -221,7 +227,7 @@ export function formatPartnerAction(
       const mealTitle = data?.titlePl || data?.title || 'posiłek'
       return {
         title: `Planer obiadów`,
-        body: `${name} zaktualizował(a) obiad: ${mealTitle}`,
+        body: `${name} ${v('zaktualizował', g)} obiad: ${mealTitle}`,
         url: '/tabs/meals',
         category: 'meals'
       }
@@ -233,7 +239,7 @@ export function formatPartnerAction(
         const mealTitle = data?.titlePl || data?.title || 'dzisiejszy obiad'
         return {
           title: `Smacznego! Obiad gotowy`,
-          body: `${name} oznaczył(a) obiad „${mealTitle}” jako zjedzony!`,
+          body: `${name} ${v('oznaczył', g)} obiad „${mealTitle}” jako zjedzony!`,
           url: '/tabs/meals',
           category: 'meals'
         }
@@ -246,7 +252,7 @@ export function formatPartnerAction(
       const target = data?.target_amount ? ` (${data.target_amount} zł)` : ''
       return {
         title: `Nowa skarbonka!`,
-        body: `${name} utworzył(a) cel: ${goalTitle}${target}`,
+        body: `${name} ${v('utworzył', g)} cel: ${goalTitle}${target}`,
         url: '/tabs/savings',
         category: 'savings'
       }
@@ -270,14 +276,14 @@ export function formatPartnerAction(
       if (amount > 0) {
         return {
           title: `Wpłata do skarbonki!`,
-          body: `${name} dorzucił(a) +${amount} zł na cel: ${goalTitle}${newCurrent}`,
+          body: `${name} ${v('dorzucił', g)} +${amount} zł na cel: ${goalTitle}${newCurrent}`,
           url: '/tabs/savings',
           category: 'savings'
         }
       } else if (amount < 0) {
         return {
           title: `Wypłata ze skarbonki`,
-          body: `${name} wypłacił(a) ${Math.abs(amount)} zł ze skarbonki: ${goalTitle}`,
+          body: `${name} ${v('wypłacił', g)} ${Math.abs(amount)} zł ze skarbonki: ${goalTitle}`,
           url: '/tabs/savings',
           category: 'savings'
         }
@@ -289,7 +295,7 @@ export function formatPartnerAction(
       const goalTitle = data?.updates?.title || data?.title || 'skarbonkę'
       return {
         title: `Skarbonka zaktualizowana`,
-        body: `${name} zaktualizował(a) cel: ${goalTitle}`,
+        body: `${name} ${v('zaktualizował', g)} cel: ${goalTitle}`,
         url: '/tabs/savings',
         category: 'savings'
       }
@@ -298,7 +304,7 @@ export function formatPartnerAction(
     case 'DOODLE_SAVE':
       return {
         title: 'Wspólny rysunek',
-        body: `${name} zapisał(a) zmiany we wspólnym rysunku.`,
+        body: `${name} ${v('zapisał', g)} zmiany we wspólnym rysunku.`,
         url: '/tabs/nest',
         category: 'nudges'
       }

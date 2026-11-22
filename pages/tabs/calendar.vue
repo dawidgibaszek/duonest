@@ -11,7 +11,7 @@
               <div class="header-status-line" v-if="isPartnerOnline">
                 <span class="partner-online-pill">
                   <span class="pulsing-dot"></span>
-                  <span>{{ partnerUser?.name || 'Partner' }} w aplikacji</span>
+                  <span>{{ partnerUser?.name || partnerTitle }} w aplikacji</span>
                 </span>
               </div>
             </div>
@@ -336,7 +336,7 @@
                   borderColor: hexToRgba(getUserAccentColor(evt.created_by), 0.25)
                 }"
               >
-                Inicjatywa: {{ evt.planner_name || (evt.created_by === currentUser?.id ? 'Ty' : (partnerUser?.name || 'Partner')) }}
+                Inicjatywa: {{ evt.planner_name || (evt.created_by === currentUser?.id ? 'Ty' : (partnerUser?.name || partnerTitle)) }}
               </span>
               <div class="agenda-card-actions" @click.stop>
                 <button
@@ -488,7 +488,7 @@
                     borderColor: hexToRgba(getUserAccentColor(evt.created_by), 0.25)
                   }"
                 >
-                  Inicjatywa: {{ evt.planner_name || (evt.created_by === currentUser?.id ? 'Ty' : (partnerUser?.name || 'Partner')) }}
+                  Inicjatywa: {{ evt.planner_name || (evt.created_by === currentUser?.id ? 'Ty' : (partnerUser?.name || partnerTitle)) }}
                 </span>
                 <div class="agenda-card-actions" @click.stop>
                   <button
@@ -698,11 +698,11 @@
                 <button
                   type="button"
                   class="planner-chip"
-                  :class="{ active: modalForm.plannerName === (partnerUser?.name || 'Partner') }"
-                  :style="modalForm.plannerName === (partnerUser?.name || 'Partner') ? { backgroundColor: partnerUserAccentColor, borderColor: partnerUserAccentColor, color: '#fff' } : {}"
-                  @click="modalForm.plannerName = partnerUser?.name || 'Partner'"
+                  :class="{ active: modalForm.plannerName === (partnerUser?.name || partnerTitle) }"
+                  :style="modalForm.plannerName === (partnerUser?.name || partnerTitle) ? { backgroundColor: partnerUserAccentColor, borderColor: partnerUserAccentColor, color: '#fff' } : {}"
+                  @click="modalForm.plannerName = partnerUser?.name || partnerTitle"
                 >
-                  {{ partnerUser?.name || 'Partner' }}
+                  {{ partnerUser?.name || partnerTitle }}
                 </button>
               </div>
 
@@ -714,7 +714,7 @@
                   </div>
                   <div>
                     <span class="surprise-title">Oznacz jako Niespodziankę</span>
-                    <span class="surprise-sub">Dla uśmiechu partnera!</span>
+                    <span class="surprise-sub">Dla uśmiechu {{ partnerDopelniacz.toLowerCase() }}!</span>
                   </div>
                 </div>
                 <ion-checkbox aria-label="Oznacz jako niespodziankę" :checked="modalForm.isSurprise" @click.stop @ionChange="modalForm.isSurprise = $event.detail.checked" />
@@ -829,6 +829,8 @@ const {
   eventsList,
   currentUser,
   partnerUser,
+  partnerTitle,
+  partnerDopelniacz,
   isPartnerOnline,
   addEvent,
   updateEvent,

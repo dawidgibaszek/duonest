@@ -68,7 +68,7 @@
               </div>
               <div class="benefit-text">
                 <strong>Zakupy i zadania domowe</strong>
-                <span>Wiesz kiedy partner dopisze zakupy lub ukończy zadanie</span>
+                <span>Wiesz kiedy {{ postPairingPartnerName || partnerTitle.toLowerCase() }} dopisze zakupy lub ukończy zadanie</span>
               </div>
             </div>
           </div>
@@ -107,6 +107,7 @@
 
 <script setup lang="ts">
 import { usePushNotifications } from '~/composables/usePushNotifications'
+import { useDuoState } from '~/composables/useDuoState'
 
 const {
   isPostPairingPromptOpen,
@@ -114,6 +115,8 @@ const {
   acceptPostPairingPrompt,
   declinePostPairingPrompt
 } = usePushNotifications()
+
+const { partnerTitle } = useDuoState()
 </script>
 
 <style scoped>

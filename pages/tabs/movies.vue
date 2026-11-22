@@ -679,7 +679,7 @@
             <div class="review-textarea-section">
               <label class="textarea-label">
                 <span>Twoja recenzja & wrażenia</span>
-                <span class="textarea-hint">Będzie widoczna dla {{ partnerUser?.name || 'Twojego partnera' }}</span>
+                <span class="textarea-hint">Będzie widoczna dla {{ partnerUser?.name || partnerDopelniacz.toLowerCase() }}</span>
               </label>
               <textarea
                 v-model="reviewForm.comment"
@@ -692,7 +692,7 @@
             <!-- Partner's Review Preview (If already reviewed) -->
             <div v-if="getPartnerReview(selectedMovieForReview)" class="partner-existing-review-box">
               <span class="partner-rev-title">
-                Recenzja {{ partnerUser?.name || 'partnera' }} ({{ getPartnerReview(selectedMovieForReview)?.rating }}/10 ⭐):
+                Recenzja {{ partnerUser?.name || partnerDopelniacz.toLowerCase() }} ({{ getPartnerReview(selectedMovieForReview)?.rating }}/10 ⭐):
               </span>
               <p class="partner-rev-quote">
                 "{{ getPartnerReview(selectedMovieForReview)?.comment || 'Tylko ocena punktowa' }}"
@@ -1667,6 +1667,7 @@ const {
   saveMovieReview,
   refreshMovies,
   addEvent,
+  partnerDopelniacz,
   currentUserAccentColor,
   partnerUserAccentColor,
   triggerToast

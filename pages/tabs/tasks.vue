@@ -478,7 +478,7 @@
                   @click="newTaskAssignee = partnerUser?.id || 'partner'"
                 >
                   <ion-icon :icon="ioniconsHeartOutline" />
-                  <span>{{ partnerUser?.name || 'Partner' }}</span>
+                  <span>{{ partnerUser?.name || partnerTitle }}</span>
                 </button>
                 <button
                   type="button"
@@ -676,7 +676,9 @@ const {
   toggleTask,
   deleteTask,
   initSupabaseSync,
-  triggerToast
+  triggerToast,
+  partnerTitle,
+  partnerDopelniacz
 } = useDuoState()
 
 const { pillRowRef, onTabsScroll } = useOrgTabsSync('tasks')
@@ -929,7 +931,7 @@ const selectedSegment = ref('all')
 const taskSegments = computed(() => [
   { value: 'all', label: 'Wszystkie' },
   { value: 'mine', label: 'Moje' },
-  { value: 'partner', label: partnerUser.value?.name || 'Partnera' },
+  { value: 'partner', label: partnerUser.value?.name || partnerDopelniacz.value },
   { value: 'shared', label: 'Wspólne' }
 ])
 const showAddModal = ref(false)
@@ -1019,7 +1021,7 @@ const filterBySegment = (task: TaskItem) => {
 const getAssigneeLabel = (assignedTo?: string | null) => {
   if (!assignedTo) return 'Wspólne'
   if (assignedTo === currentUser.value.id) return 'Moje'
-  return partnerUser.value?.name || 'Partnera'
+  return partnerUser.value?.name || partnerDopelniacz.value
 }
 
 const getAssigneeIonicon = (assignedTo?: string | null) => {

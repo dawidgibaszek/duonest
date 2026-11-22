@@ -38,6 +38,7 @@ import {
 import type { DuoDoodle, DuoDoodleStroke, SavingsContribution, SavingsGoal, WishlistItem, ToastType } from '~/types/duo'
 import { normalizeEventRecord } from '~/functions/src/eventRecord'
 import { combineWishlist, readWishlist, wishlistFilters } from './useWishlist'
+import { getPartnerNoun, conjugateVerbPast3rd, resolveGrammaticalGender } from './useGrammar'
 
 let activePartnershipChannel: any = null
 let activePartnershipId: string | null = null
@@ -363,7 +364,10 @@ export function useRealtimeSync(options?: {
           saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
         }
         if (previousMood && profile.mood_updated_at && previousMood !== profile.mood_updated_at) {
-          triggerToast(`${profile.name || 'Partner'} zmienił(a) nastrój`, { type: 'mood' })
+          const partnerGrammar = resolveGrammaticalGender(profile.grammatical_gender, profile.gender)
+          const verb = conjugateVerbPast3rd('zmienił', partnerGrammar)
+          const subject = profile.name || getPartnerNoun(partnerGrammar)
+          triggerToast(`${subject} ${verb} nastrój`, { type: 'mood' })
         }
       })
     }))
@@ -386,7 +390,12 @@ export function useRealtimeSync(options?: {
       nudgesList.value = rows.sort(byNewest)
       previousNudges = new Set(rows.map(row => row.id))
       saveToStorage('duonest_nudges', nudgesList.value)
-      if (newGesture) triggerToast(`${partnerUser.value?.name || 'Partner'} przesłał(a) gest`, { type: 'love' })
+      if (newGesture) {
+        const partnerGrammar = resolveGrammaticalGender(partnerUser.value?.grammatical_gender, partnerUser.value?.gender)
+        const verb = conjugateVerbPast3rd('przesłał', partnerGrammar)
+        const subject = partnerUser.value?.name || getPartnerNoun(partnerGrammar)
+        triggerToast(`${subject} ${verb} gest`, { type: 'love' })
+      }
     }, { field: 'created_at', limit: 20 })
     observe('milestones', rows => {
       milestonesList.value = rows.sort(byNewest)

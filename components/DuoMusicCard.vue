@@ -107,7 +107,7 @@
         </a>
         <span v-else-if="isPreview" class="music-preview-pill">
           <ion-icon :icon="ioniconsEyeOutline" />
-          <span>Podgląd aktywności dla partnera</span>
+          <span>Podgląd aktywności dla {{ partnerDopelniacz.toLowerCase() }}</span>
         </span>
       </div>
     </div>
@@ -118,6 +118,9 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import type { MusicPlayback } from '~/composables/useMusic'
 import DuoMusicLogo from '~/components/DuoMusicLogo.vue'
+import { useDuoState } from '~/composables/useDuoState'
+
+const { partnerDopelniacz, partnerTitle, formatPartnerVerb, formatUserVerb } = useDuoState()
 
 const props = withDefaults(
   defineProps<{
@@ -232,10 +235,10 @@ const isSelf = computed(() => {
 const titleText = computed(() => {
   const isPlaying = props.playback?.is_playing
   if (isSelf.value) {
-    return isPlaying ? 'Ty teraz słuchasz' : 'Ty ostatnio słuchałeś(aś)'
+    return isPlaying ? 'Ty teraz słuchasz' : `Ty ostatnio ${formatUserVerb('słuchałeś')}`
   }
-  const name = props.userName || 'Partner'
-  return isPlaying ? `${name} teraz słucha` : `${name} ostatnio słuchał(a)`
+  const name = props.userName || partnerTitle.value
+  return isPlaying ? `${name} teraz słucha` : `${name} ostatnio ${formatPartnerVerb('słuchał')}`
 })
 
 const trackDurationMs = computed(() => {
