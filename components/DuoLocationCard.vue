@@ -60,20 +60,24 @@ async function stop() {
 </script>
 
 <template>
-  <button type="button" class="location-card" @click="isOpen = true">
-    <span class="location-glyph"><ion-icon :icon="ioniconsLocationOutline" aria-hidden="true" /></span>
-    <span class="location-card-copy">
-      <strong>Lokalizacja</strong>
-      <span v-if="theirPosition">{{ address(theirPosition).join(', ') || 'Adres niedostępny' }}</span>
-      <span v-else>Brak udostępnionej pozycji</span>
-      <small v-if="theirPosition">{{ age(theirPosition) }}</small>
-    </span>
-    <span v-if="distanceLabel" class="location-distance">{{ distanceLabel }}</span>
-    <ion-icon class="location-chevron" :icon="ioniconsChevronForwardOutline" aria-hidden="true" />
-  </button>
+  <div class="location-card">
+    <button type="button" class="location-card-trigger" @click="isOpen = true">
+      <span class="location-glyph"><ion-icon :icon="ioniconsLocationOutline" aria-hidden="true" /></span>
+      <span class="location-card-copy">
+        <strong>Lokalizacja</strong>
+        <span v-if="theirPosition">{{ address(theirPosition).join(', ') || 'Adres niedostępny' }}</span>
+        <span v-else>Brak udostępnionej pozycji</span>
+        <small v-if="theirPosition">{{ age(theirPosition) }}</small>
+      </span>
+      <span v-if="distanceLabel" class="location-distance">{{ distanceLabel }}</span>
+      <ion-icon class="location-chevron" :icon="ioniconsChevronForwardOutline" aria-hidden="true" />
+    </button>
+    <DuoLocationMap v-if="theirPosition" :mine="null" :partner="theirPosition" preview @open="isOpen = true" />
+  </div>
 
   <ion-modal :is-open="isOpen" :breakpoints="[0, 1]" :initial-breakpoint="1" :handle="true"
-    class="dn-form-sheet-modal" :aria-labelledby="titleId" data-no-swipe @didPresent="mapReady = true" @didDismiss="mapReady = false; isOpen = false">
+    class="dn-form-sheet-modal" :aria-labelledby="titleId" data-no-swipe
+    @didPresent="mapReady = true" @willDismiss="mapReady = false" @didDismiss="isOpen = false">
     <ion-header class="ion-no-border">
       <ion-toolbar>
         <div class="location-header">
@@ -86,9 +90,9 @@ async function stop() {
     </ion-header>
     <ion-content>
       <DuoLocationMap v-if="mapReady && (myPosition || theirPosition)" :mine="myPosition" :partner="theirPosition" />
-      <div v-else class="location-empty">
+      <div v-else class="location-empty" :class="{ 'location-empty--map': myPosition || theirPosition }">
         <span class="location-glyph"><ion-icon :icon="ioniconsMapOutline" aria-hidden="true" /></span>
-        <p>Pozycje pojawią się tutaj, gdy telefon je ustali.</p>
+        <p v-if="!myPosition && !theirPosition">Pozycje pojawią się tutaj, gdy telefon je ustali.</p>
       </div>
       <div class="location-details">
         <div v-if="distanceLabel" class="location-summary">
@@ -124,7 +128,8 @@ async function stop() {
 </template>
 
 <style scoped>
-.location-card { width: 100%; text-align: left; display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 20px; border: 1px solid var(--dn-line); background: white; color: var(--dn-ink); }
+.location-card { display: grid; gap: 12px; width: 100%; padding: 12px; border-radius: 20px; border: 1px solid var(--dn-line); background: white; }
+.location-card-trigger { display: flex; align-items: center; gap: 12px; padding: 0; width: 100%; text-align: left; background: transparent; color: var(--dn-ink); }
 .location-glyph { width: 44px; height: 44px; flex: 0 0 44px; border-radius: 14px; display: grid; place-items: center; background: var(--dn-cream); color: var(--dn-ink); font-size: 22px; }
 .location-card-copy { display: grid; gap: 3px; min-width: 0; flex: 1; }
 .location-card-copy > span, .location-details small, .location-note { font-size: .81rem; color: var(--dn-muted); line-height: 1.45; }
@@ -135,6 +140,7 @@ async function stop() {
 .location-header h2 { font: 600 28px/1.1 var(--dn-serif); margin: 0; }
 .location-close { display: grid; place-items: center; width: 44px; height: 44px; font-size: 25px; border-radius: 50%; background: var(--dn-soft); }
 .location-empty { min-height: 195px; padding: 24px; display: grid; justify-items: center; align-content: center; background: var(--dn-soft); text-align: center; font-size: .9rem; color: var(--dn-muted); }
+.location-empty--map { min-height: clamp(260px, 43dvh, 520px); }
 .location-details { display: grid; gap: 12px; max-width: 600px; margin-inline: auto; padding: 18px 20px max(24px, env(safe-area-inset-bottom)); }
 .location-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--dn-cream); border-radius: 16px; padding: 12px 14px; font-size: .84rem; }
 .location-summary strong { font: 600 23px/1.2 var(--dn-serif); white-space: nowrap; }

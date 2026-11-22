@@ -64,5 +64,6 @@ final class DuoBridgeViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(DuoMetricKitPlugin())
         bridge?.registerPluginInstance(DuoWidgetPlugin())
         bridge?.registerPluginInstance(DuoLocationPlugin())
+        bridge?.registerPluginInstance(DuoAppleMapsPlugin())
     }
 }
