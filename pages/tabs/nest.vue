@@ -21,7 +21,7 @@
                     :src="partnerUser.avatar_url"
                     :alt="partnerUser.name || partnerTitle"
                   />
-                  <span v-else>{{ (partnerUser?.name || 'P').charAt(0).toUpperCase() }}</span>
+                  <span v-else>{{ partnerDisplayName.charAt(0).toUpperCase() }}</span>
                 </span>
                 <span class="nest-partner-pip" :class="{ 'is-online': isPartnerOnline }"></span>
               </button>
@@ -30,7 +30,7 @@
                 type="button"
                 class="dn-header-btn dn-header-btn--icon dn-header-btn--soft"
                 @click="navigateTo('/pairing')"
-                :aria-label="'Połącz konto z ' + partnerNarzednik.toLowerCase()"
+                aria-label="Połącz konta"
               >
                 <ion-icon :icon="ioniconsPersonAddOutline" />
               </button>
@@ -65,7 +65,7 @@
                   {{ (currentUser.name || 'T').charAt(0).toUpperCase() }}
                 </span>
                 <span class="nx-avatar nx-avatar--second" :style="{ backgroundColor: partnerUserAccentColor }">
-                  {{ partnerUser ? (partnerUser.name || 'P').charAt(0).toUpperCase() : '?' }}
+                  {{ partnerUser ? partnerDisplayName.charAt(0).toUpperCase() : '?' }}
                 </span>
                 <span class="nx-avatar-heart"><ion-icon :icon="ioniconsHeart" /></span>
               </span>
@@ -194,7 +194,7 @@
               <DuoIcon :name="'mood-' + (partnerUser.current_mood || 'happy')" :size="22" />
             </div>
             <div class="nx-row-body">
-              <span class="nx-row-title">{{ partnerUser.name }} · {{ getMoodLabel(partnerUser.current_mood) }}</span>
+              <span class="nx-row-title">{{ partnerDisplayName }} · {{ getMoodLabel(partnerUser.current_mood) }}</span>
               <span class="nx-row-sub">{{ partnerUser.mood_note ? `„${partnerUser.mood_note}”` : 'Bez notatki na dziś' }}</span>
             </div>
           </div>
@@ -219,7 +219,7 @@
               <ion-icon :icon="ioniconsCheckmarkOutline" />
             </div>
             <div class="nx-row-body">
-              <span class="nx-row-title">{{ partnerUser?.name || partnerTitle }} {{ formatPartnerVerb('dostał') }} Twój gest</span>
+              <span class="nx-row-title">Twój gest dotarł</span>
               <span class="nx-row-sub">Kolejny za {{ formattedNextNudgeTime }}</span>
             </div>
           </div>
@@ -371,7 +371,7 @@
                 >
                   <ion-icon :icon="ioniconsHeartOutline" class="scope-btn-icon" />
                   <div class="scope-btn-texts">
-                    <span class="scope-btn-title">Dla {{ partnerUser.name }}</span>
+                    <span class="scope-btn-title">Dla {{ partnerDisplayName }}</span>
                     <span class="scope-btn-sub">Nagroda za punkty {{ partnerDopelniacz.toLowerCase() }}</span>
                   </div>
                 </button>
@@ -543,8 +543,8 @@ const {
   partnerLiveStroke,
   partnerTitle,
   partnerDopelniacz,
-  partnerNarzednik,
-  formatPartnerVerb
+  partnerDisplayName,
+  partnerDopelniaczName,
 } = useDuoState()
 
 const { confirm } = useConfirm()
@@ -662,8 +662,10 @@ watch(() => partnerLiveStroke.value, (live) => {
   schedulePreviewRender()
 })
 
-watch(() => currentDoodle.value, () => {
-  partnerLiveStrokes.value = []
+watch(() => currentDoodle.value, (doodle) => {
+  partnerLiveStrokes.value = doodle
+    ? partnerLiveStrokes.value.filter(live => !doodle.strokes.some(saved => isStrokeContinued(live, saved)))
+    : []
   schedulePreviewRender()
 }, { deep: true })
 
@@ -719,7 +721,7 @@ onMounted(async () => {
   } catch (_) {}
 
   if (partnership.value) {
-    askPermissionAfterPairing(partnerUser.value?.name || 'Partner')
+    askPermissionAfterPairing()
   }
 
   nextTick(() => {
@@ -887,9 +889,9 @@ const duoHarmonyMessage = computed(() => {
     return 'Idealny balans w związku! Dzielicie się obowiązkami ramię w ramię.'
   }
   if (userPointsPct.value > partnerPointsPct.value) {
-    return `Prowadzisz z wynikiem ${userPoints.value} pkt! ${partnerUser.value?.name || 'Partner'} na pewno to docenia.`
+    return `Prowadzisz z wynikiem ${userPoints.value} pkt! ${partnerDisplayName.value} na pewno to docenia.`
   }
-  return `${partnerUser.value?.name || 'Partner'} ma dziś małą przewagę (${partnerPoints.value} pkt)! Czas wyrównać szanse.`
+  return `${partnerDisplayName.value} ma dziś małą przewagę (${partnerPoints.value} pkt)! Czas wyrównać szanse.`
 })
 
 const completedMilestonesCount = computed(() => {
@@ -945,7 +947,7 @@ const getGoalScopeInfo = (goal: any) => {
   }
   const color = partnerUserAccentColor.value || '#1e293b'
   return {
-    label: `Dla ${partnerUser.value?.name || 'Partnera'}`,
+    label: `Dla ${partnerDopelniaczName.value}`,
     color: color,
     bg: hexToRgba(color, 0.12),
     border: hexToRgba(color, 0.3)
@@ -990,7 +992,7 @@ const milestoneForm = ref({
 
 const textRewardSuggestions = [
   { title: 'Wieczorny seans z ulubioną pizzą', pts: 60 },
-  { title: 'Relaksujący masaż od partnera', pts: 100 },
+  { title: 'Relaksujący masaż', pts: 100 },
   { title: 'Śniadanie do łóżka w weekend', pts: 80 },
   { title: 'Romantyczna kolacja na mieście', pts: 150 },
   { title: 'Dzień relaksu bez domowych obowiązków', pts: 120 },

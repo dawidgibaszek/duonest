@@ -3,7 +3,8 @@
     :is-open="isOpen"
     @willPresent="handleModalWillPresent"
     @didPresent="handleModalPresented"
-    @didDismiss="handleClose"
+    :can-dismiss="canDismissDoodle"
+    @didDismiss="emit('close')"
     class="duo-doodle-modal"
   >
     <div class="doodle-studio-wrapper">
@@ -53,7 +54,7 @@
         <!-- Empty canvas watermark guide -->
         <div v-if="strokes.length === 0 && !isPartnerDrawing" class="doodle-empty-watermark" @click="focusCanvas">
           <ion-icon :icon="ioniconsBrushOutline" class="watermark-icon" />
-          <p>Dotknij i narysuj coś miłego ✨</p>
+          <p>Dotknij i narysuj coś miłego</p>
         </div>
       </div>
 
@@ -113,7 +114,7 @@
             <button
               class="action-icon-btn"
               @click="handleUndo"
-              :disabled="strokes.length === 0"
+              :disabled="isClosing || strokes.length === 0"
               title="Cofnij ostatnią kreskę"
             >
               <ion-icon :icon="ioniconsArrowUndoOutline" />
@@ -121,7 +122,7 @@
             <button
               class="action-icon-btn danger"
               @click="handleClear"
-              :disabled="strokes.length === 0"
+              :disabled="isClosing || strokes.length === 0"
               title="Wyczyść wszystko"
             >
               <ion-icon :icon="ioniconsTrashOutline" />
@@ -165,7 +166,7 @@
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useDuoState } from '~/composables/useDuoState'
 import type { DuoDoodleStroke } from '~/types/duo'
-import { isStrokeContinued } from '~/composables/duo/utils'
+import { isStrokeContinued, newDocumentId } from '~/composables/duo/utils'
 import { trackDuoEvent } from '~/composables/useDuoAnalytics'
 
 const props = defineProps<{
@@ -237,11 +238,11 @@ let lastBroadcastTime = 0
 let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
 let autoSaveMaxTimer: ReturnType<typeof setTimeout> | null = null
 let lastSavedStrokesJson = ''
+let savingStrokesJson: string | null = null
 const hasLocalChanges = ref(false)
 const isSavingDoodle = ref(false)
 let activeSavePromise: Promise<boolean> | null = null
-let pendingAutoSave = false
-let isClosing = false
+const isClosing = ref(false)
 
 const cancelAutoSave = () => {
   if (autoSaveTimer) {
@@ -302,45 +303,35 @@ const performSaveInternal = async (options: { silent?: boolean } = {}): Promise<
   }
 
   const strokesSnapshot = JSON.parse(currentJson)
-  const saved = await saveDoodle(strokesSnapshot, previewDataUrl, { silent: options.silent })
-  if (saved) {
+  savingStrokesJson = currentJson
+  try {
+    const saved = await saveDoodle(strokesSnapshot, previewDataUrl, { silent: options.silent })
+    if (!saved) return false
     lastSavedStrokesJson = currentJson
     hasLocalChanges.value = JSON.stringify(strokes.value) !== lastSavedStrokesJson
     return true
+  } finally {
+    savingStrokesJson = null
   }
-  return false
 }
 
-const performAutoSave = async (): Promise<boolean> => {
-  if (activeSavePromise) {
-    pendingAutoSave = true
-    return activeSavePromise
-  }
-  const currentJson = JSON.stringify(strokes.value)
-  if (currentJson === lastSavedStrokesJson) {
-    hasLocalChanges.value = false
-    return true
-  }
-
+const performAutoSave = async () => {
+  if (!props.isOpen || isClosing.value || activeSavePromise || isDrawingActive) return
   isSavingDoodle.value = true
-  const savePromise = (async () => {
-    try {
-      return await performSaveInternal({ silent: true })
-    } finally {
-      isSavingDoodle.value = false
-      activeSavePromise = null
-      hasLocalChanges.value = JSON.stringify(strokes.value) !== lastSavedStrokesJson
-      if (pendingAutoSave || hasLocalChanges.value) {
-        pendingAutoSave = false
-        if (JSON.stringify(strokes.value) !== lastSavedStrokesJson) {
-          scheduleAutoSave(800, 2000)
-        }
-      }
+  const snapshot = JSON.stringify(strokes.value)
+  const saving = performSaveInternal({ silent: true })
+  activeSavePromise = saving
+  try {
+    await saving
+  } catch {
+    // Keep the draft for the next edit or a manual save.
+  } finally {
+    isSavingDoodle.value = false
+    activeSavePromise = null
+    if (props.isOpen && !isClosing.value && snapshot !== JSON.stringify(strokes.value) && hasLocalChanges.value) {
+      scheduleAutoSave()
     }
-  })()
-
-  activeSavePromise = savePromise
-  return savePromise
+  }
 }
 
 // Populate strokes from currentDoodle
@@ -419,8 +410,8 @@ watch(() => currentDoodle.value, (newDoodle) => {
     return
   }
 
-  if (newDoodle.author_id === currentUser.value?.id) {
-    lastSavedStrokesJson = JSON.stringify(newDoodle.strokes || [])
+  if (newDoodle.author_id === currentUser.value?.id && JSON.stringify(newDoodle.strokes) === savingStrokesJson) {
+    lastSavedStrokesJson = savingStrokesJson
     hasLocalChanges.value = JSON.stringify(strokes.value) !== lastSavedStrokesJson
     return
   }
@@ -440,6 +431,7 @@ watch(() => currentDoodle.value, (newDoodle) => {
       let matched = false
       for (let i = 0; i < strokes.value.length; i++) {
         const s = strokes.value[i]
+        if (!s) continue
         if (isStrokeContinued(s, inc)) {
           matched = true
           if (inc.points.length > s.points.length) {
@@ -457,10 +449,9 @@ watch(() => currentDoodle.value, (newDoodle) => {
         added = true
       }
     }
-    if (added) {
-      redrawFullCanvas()
-      scheduleAutoSave(1500, 3500)
-    }
+    lastSavedStrokesJson = JSON.stringify(incomingStrokes)
+    hasLocalChanges.value = JSON.stringify(strokes.value) !== lastSavedStrokesJson
+    if (added) redrawFullCanvas()
   }
 }, { deep: true })
 
@@ -498,6 +489,7 @@ watch(() => partnerLiveStroke.value, (live) => {
       }
     }
     if (foundIdx >= 0) {
+      if (currentActiveStroke && strokes.value[foundIdx]?.id === currentActiveStroke.id) return
       strokes.value[foundIdx] = strokeCopy
       redrawFullCanvas()
     } else {
@@ -643,6 +635,7 @@ const renderStroke = (stroke: DuoDoodleStroke) => {
 }
 
 const handlePointerDown = (e: PointerEvent) => {
+  if (isClosing.value || isDrawingActive) return
   const canvas = canvasRef.value
   if (!canvas) return
 
@@ -669,6 +662,7 @@ const handlePointerDown = (e: PointerEvent) => {
   const strokeWidth = isEraserMode ? currentEraserSize.value : currentBrushSize.value
 
   currentActiveStroke = {
+    id: newDocumentId('stroke-'),
     color: currentColor.value,
     width: strokeWidth,
     points: [normX, normY],
@@ -704,7 +698,6 @@ const handlePointerMove = (e: PointerEvent) => {
     lastBroadcastTime = now
     broadcastLiveStroke(currentActiveStroke)
   }
-  scheduleAutoSave(1500, 3500)
 }
 
 const handlePointerUp = (e: PointerEvent) => {
@@ -741,82 +734,44 @@ const handleClear = () => {
   scheduleAutoSave(800, 2000)
 }
 
-const handleSave = async () => {
-  cancelAutoSave()
-  if (isDrawingActive) {
-    isDrawingActive = false
-    broadcastDrawingStatus(false)
-  }
-  if (activeSavePromise) {
-    await activeSavePromise
-  }
-  if (!strokes.value.length) {
-    if (lastSavedStrokesJson && lastSavedStrokesJson !== '[]') {
-      isSavingDoodle.value = true
-      try {
-        const cleared = await clearDoodle({ silent: false })
-        if (cleared) {
-          lastSavedStrokesJson = '[]'
-          hasLocalChanges.value = false
-          emit('close')
-        }
-      } finally {
-        isSavingDoodle.value = false
-      }
-    } else {
-      emit('close')
-    }
-    return
-  }
-
-  const currentJson = JSON.stringify(strokes.value)
-  if (currentJson !== lastSavedStrokesJson) {
-    isSavingDoodle.value = true
-    try {
-      const saved = await performSaveInternal({ silent: false })
-      if (saved) {
-        emit('close')
-      }
-    } finally {
-      isSavingDoodle.value = false
-    }
-  } else {
-    trackDuoEvent('duo_doodle_saved')
-    triggerToast('Zapisano rysunek na tablicy', { type: 'love' })
-    emit('close')
-  }
-}
-
-const handleClose = async () => {
-  if (isClosing) return
-  isClosing = true
+const flushBeforeClosing = async () => {
+  if (isClosing.value) return false
+  isClosing.value = true
   try {
     cancelAutoSave()
     if (isDrawingActive) {
       isDrawingActive = false
+      if (currentActiveStroke) broadcastLiveStroke(currentActiveStroke)
+      currentActiveStroke = null
       broadcastDrawingStatus(false)
     }
-    if (activeSavePromise) {
-      await activeSavePromise
-    }
+    await activeSavePromise
+    if (!hasLocalChanges.value) return true
 
-    const currentJson = JSON.stringify(strokes.value)
-    if (currentJson !== lastSavedStrokesJson) {
-      isSavingDoodle.value = true
-      try {
-        const saved = await performSaveInternal({ silent: true })
-        if (!saved) {
-          triggerToast('Nie udało się zapisać zmian przed zamknięciem', { type: 'warning' })
-          return
-        }
-      } finally {
-        isSavingDoodle.value = false
-      }
-    }
-    emit('close')
+    isSavingDoodle.value = true
+    if (await performSaveInternal({ silent: true })) return true
+    triggerToast('Nie udało się zapisać zmian. Spróbuj ponownie.', { type: 'warning' })
+    return false
+  } catch {
+    triggerToast('Nie udało się zapisać zmian. Spróbuj ponownie.', { type: 'warning' })
+    return false
   } finally {
-    isClosing = false
+    isSavingDoodle.value = false
+    isClosing.value = false
   }
+}
+
+const canDismissDoodle = () => !props.isOpen || flushBeforeClosing()
+
+const handleClose = async () => {
+  if (await flushBeforeClosing()) emit('close')
+}
+
+const handleSave = async () => {
+  if (!await flushBeforeClosing()) return
+  trackDuoEvent('duo_doodle_saved')
+  triggerToast('Zapisano rysunek na tablicy', { type: 'love' })
+  emit('close')
 }
 
 onMounted(() => {

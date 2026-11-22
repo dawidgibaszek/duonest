@@ -76,7 +76,7 @@ export function useTasks(options: {
 
       options.broadcastToPartner('TASK_TOGGLE', result.task)
       if (result.task.is_completed) trackDuoEvent('duo_task_completed')
-      if (result.task.is_completed) options.triggerToast(`Zadanie ukończone! +${result.task.points_awarded} pkt 🌟`, { type: 'points' })
+      if (result.task.is_completed) options.triggerToast(`Zadanie ukończone! +${result.task.points_awarded} pkt`, { type: 'points' })
       return true
     } catch (error) {
       options.triggerToast(error instanceof Error ? error.message : 'Nie udało się zapisać zadania.', { type: 'warning' })

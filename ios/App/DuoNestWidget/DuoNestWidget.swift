@@ -109,8 +109,7 @@ struct DoodleWidgetView: View {
     @Environment(\.widgetFamily) private var family
     let entry: DoodleEntry
 
-    private var partnerLabel: String { entry.partnerName.isEmpty ? "Partner" : entry.partnerName }
-    private var partnerDative: String { entry.partnerName.isEmpty ? "partnera" : entry.partnerName }
+    private var partnerLabel: String { entry.partnerName.isEmpty ? "Druga osoba" : entry.partnerName }
 
     var body: some View {
         switch family {
@@ -168,7 +167,7 @@ struct DoodleWidgetView: View {
                     Image(systemName: "paintbrush.pointed")
                         .font(.system(size: 24))
                         .foregroundColor(DuoColor.ink)
-                    Text(entry.connected ? "Narysuj coś dla \(partnerDative)" : "Otwórz DuoNest, aby zobaczyć wspólny rysunek")
+                    Text(entry.connected ? "Dodaj coś do wspólnego rysunku" : "Otwórz DuoNest, aby zobaczyć wspólny rysunek")
                         .font(.system(size: 14))
                         .foregroundColor(DuoColor.muted)
                         .multilineTextAlignment(.center)

@@ -2,7 +2,7 @@ import { ref, reactive, watch, computed } from 'vue'
 import { App } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
 import { FirebaseMessaging } from '@capacitor-firebase/messaging'
-import { activeToastItem, authSession, currentUser, isAuthLoading, isLoggingOut, isPaired, partnerUser } from './duo/state'
+import { activeToastItem, authSession, currentUser, isAuthLoading, isLoggingOut, isPaired } from './duo/state'
 import { useRealtimeSync } from './duo/useRealtimeSync'
 import { getFirebaseBridge } from '~/composables/useFirebaseBridge'
 
@@ -40,7 +40,6 @@ const isSupported = computed(() => isNativeApp() ||
 const permission = ref<NotificationPermission>('default')
 const isPushEnabled = ref(false)
 const isPostPairingPromptOpen = ref(false)
-const postPairingPartnerName = ref('Partner')
 const isSubscribing = ref(false)
 export const pushSettings = reactive<PushCategorySettings>({ ...DEFAULT_PUSH_SETTINGS })
 
@@ -605,7 +604,7 @@ export const usePushNotifications = () => {
         FirebaseMessaging.createChannel({
           id: 'duonest_default',
           name: 'DuoNest – Powiadomienia',
-          description: 'Powiadomienia od partnera i ze wspólnego domu',
+          description: 'Powiadomienia ze wspólnego Gniazdka',
           importance: 4,
           vibration: true,
           visibility: 1
@@ -689,7 +688,7 @@ export const usePushNotifications = () => {
   }
 
   // One-time prompt triggered AFTER pairing
-  const askPermissionAfterPairing = (partnerName?: string) => {
+  const askPermissionAfterPairing = () => {
     if (typeof window === 'undefined') return
     if (!isSupported.value) return
     const hasAlreadyAsked = localStorage.getItem(STORAGE_KEY_PROMPT_SHOWN) === 'true'
@@ -699,12 +698,6 @@ export const usePushNotifications = () => {
     if (permission.value === 'granted') {
       localStorage.setItem(STORAGE_KEY_PROMPT_SHOWN, 'true')
       return
-    }
-
-    if (partnerName) {
-      postPairingPartnerName.value = partnerName
-    } else if (partnerUser.value?.name) {
-      postPairingPartnerName.value = partnerUser.value.name
     }
 
     setTimeout(() => {
@@ -720,8 +713,8 @@ export const usePushNotifications = () => {
       // Send pleasant welcome notification
       setTimeout(() => {
         sendDirectNotification(
-          'DuoNest - Witajcie w Gniazdku! 🕊️',
-          `Powiadomienia od ${postPairingPartnerName.value || 'Partnera'} są aktywne. Bądźcie zawsze na bieżąco!`,
+          'DuoNest - Witajcie w Gniazdku!',
+          'Powiadomienia ze wspólnego Gniazdka są aktywne.',
           '/tabs/nest'
         )
       }, 500)
@@ -950,7 +943,6 @@ export const usePushNotifications = () => {
     isPushEnabled,
     pushSettings,
     isPostPairingPromptOpen,
-    postPairingPartnerName,
     isSubscribing,
     nativeRegistered,
     isTestingPush,

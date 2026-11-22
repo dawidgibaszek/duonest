@@ -352,7 +352,7 @@
                 :class="{ active: searchCategory === cat.id }"
                 @click="selectSearchCategory(cat.id)"
               >
-                <span class="pill-emoji">{{ cat.emoji }}</span>
+                <ion-icon :icon="cat.icon" aria-hidden="true" />
                 <span class="pill-label">{{ cat.label }}</span>
               </button>
             </div>
@@ -536,7 +536,7 @@
                     <!-- Top Glass Tags -->
                     <div class="tr-top-glass-tags">
                       <span v-if="tr.vote_average" class="tr-glass-score">
-                        ⭐ {{ tr.vote_average }}
+                        <ion-icon :icon="ioniconsStar" class="mv-inline-icon" aria-hidden="true" /> {{ tr.vote_average }}
                       </span>
                       <span class="tr-glass-type" :class="'type-' + tr.media_type">
                         {{ getMediaTypeLabel(tr.media_type) }}
@@ -692,7 +692,7 @@
             <!-- Partner's Review Preview (If already reviewed) -->
             <div v-if="getPartnerReview(selectedMovieForReview)" class="partner-existing-review-box">
               <span class="partner-rev-title">
-                Recenzja {{ partnerUser?.name || partnerDopelniacz.toLowerCase() }} ({{ getPartnerReview(selectedMovieForReview)?.rating }}/10 ⭐):
+                Recenzja {{ partnerUser?.name || partnerDopelniacz.toLowerCase() }} ({{ getPartnerReview(selectedMovieForReview)?.rating }}/10 <ion-icon :icon="ioniconsStar" class="mv-inline-icon" aria-hidden="true" />):
               </span>
               <p class="partner-rev-quote">
                 "{{ getPartnerReview(selectedMovieForReview)?.comment || 'Tylko ocena punktowa' }}"
@@ -767,7 +767,7 @@
                 @click="randomSource = 'tmdb'; selectedRandomMovie = null; randomError = ''"
               >
                 <ion-icon :icon="ioniconsGlobeOutline" />
-                <span>Baza TMDB ✨</span>
+                <span>Baza TMDB</span>
               </button>
             </div>
 
@@ -832,7 +832,7 @@
                   :class="{ active: randomGenre === g.id }"
                   @click="randomGenre = g.id; selectedRandomMovie = null"
                 >
-                  <span class="genre-emoji">{{ g.emoji }}</span>
+                  <ion-icon :icon="g.icon" aria-hidden="true" />
                   <span>{{ g.label }}</span>
                 </button>
               </div>
@@ -850,6 +850,7 @@
                   :class="{ active: randomMinRating === r.val }"
                   @click="randomMinRating = r.val; selectedRandomMovie = null"
                 >
+                  <ion-icon :icon="ioniconsStarOutline" aria-hidden="true" />
                   {{ r.label }}
                 </button>
               </div>
@@ -896,7 +897,7 @@
                       {{ selectedRandomMovie.release_year }}
                     </span>
                     <span v-if="selectedRandomMovie.vote_average" class="winner-score">
-                      ⭐ {{ selectedRandomMovie.vote_average }}
+                      <ion-icon :icon="ioniconsStar" class="mv-inline-icon" aria-hidden="true" /> {{ selectedRandomMovie.vote_average }}
                     </span>
                     <span v-if="selectedRandomMovie.genres && selectedRandomMovie.genres.length > 0" class="winner-genre">
                       {{ selectedRandomMovie.genres[0] }}
@@ -1245,7 +1246,7 @@
                       {{ selectedMovieForDetails.release_year }}
                     </span>
                     <span v-if="selectedMovieForDetails.vote_average" class="tmdb-score-tag">
-                      ⭐ {{ selectedMovieForDetails.vote_average }} (TMDB)
+                      <ion-icon :icon="ioniconsStar" class="mv-inline-icon" aria-hidden="true" /> {{ selectedMovieForDetails.vote_average }} (TMDB)
                     </span>
                   </div>
                 </div>
@@ -1275,12 +1276,12 @@
                 <div class="details-reviews-grid">
                   <!-- User review -->
                   <div v-if="getUserReview(savedMovieInList)" class="mini-review-card">
-                    <div class="review-user-name">Ty: ⭐ {{ getUserReview(savedMovieInList)?.rating }}/10</div>
+                    <div class="review-user-name">Ty: <ion-icon :icon="ioniconsStar" class="mv-inline-icon" aria-hidden="true" /> {{ getUserReview(savedMovieInList)?.rating }}/10</div>
                     <p class="review-comment-text">{{ getUserReview(savedMovieInList)?.comment || 'Brak opisu wrażeń' }}</p>
                   </div>
                   <!-- Partner review -->
                   <div v-if="getPartnerReview(savedMovieInList)" class="mini-review-card partner">
-                    <div class="review-user-name">{{ partnerUser?.name || 'Partner' }}: ⭐ {{ getPartnerReview(savedMovieInList)?.rating }}/10</div>
+                    <div class="review-user-name">{{ partnerDisplayName }}: <ion-icon :icon="ioniconsStar" class="mv-inline-icon" aria-hidden="true" /> {{ getPartnerReview(savedMovieInList)?.rating }}/10</div>
                     <p class="review-comment-text">{{ getPartnerReview(savedMovieInList)?.comment || 'Brak opisu wrażeń' }}</p>
                   </div>
                 </div>
@@ -1638,6 +1639,21 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, reactive } from 'vue'
 import {
+  colorPaletteOutline,
+  documentTextOutline,
+  eyeOutline,
+  flashOutline,
+  happyOutline,
+  heartOutline,
+  homeOutline,
+  mapOutline,
+  peopleOutline,
+  rocketOutline,
+  searchOutline,
+  skullOutline,
+  sparklesOutline,
+  tvOutline,
+  videocamOutline,
   calendarOutline as ioniconsCalendarOutline,
   checkmarkCircleOutline as ioniconsCheckmarkCircleOutline,
   filmOutline as ioniconsFilmOutline,
@@ -1655,6 +1671,7 @@ import { useConfirm } from '~/composables/useConfirm'
 const {
   currentUser,
   partnerUser,
+  partnerDisplayName,
   partnership,
   moviesList,
   wishlistItems,
@@ -1703,10 +1720,10 @@ const statusFilters = [
 ] as const
 
 const mediaTypeFilters = [
-  { id: 'all', label: 'Wszystko', emoji: '🍿' },
-  { id: 'movie', label: 'Filmy', emoji: '🎬' },
-  { id: 'tv', label: 'Seriale', emoji: '📺' },
-  { id: 'anime', label: 'Anime', emoji: '⛩️' }
+  { id: 'all', label: 'Wszystko', icon: ioniconsFilmOutline },
+  { id: 'movie', label: 'Filmy', icon: videocamOutline },
+  { id: 'tv', label: 'Seriale', icon: tvOutline },
+  { id: 'anime', label: 'Anime', icon: sparklesOutline }
 ] as const
 
 const movieStatusOrder: Record<MovieItem['status'], number> = {
@@ -1847,12 +1864,7 @@ const getTrendingSubheading = (): string => {
   }
 }
 
-const searchCategoryTabs = [
-  { id: 'all', label: 'Wszystko', emoji: '🍿' },
-  { id: 'movie', label: 'Filmy', emoji: '🎬' },
-  { id: 'tv', label: 'Seriale', emoji: '📺' },
-  { id: 'anime', label: 'Anime', emoji: '⛩️' }
-] as const
+const searchCategoryTabs = mediaTypeFilters
 
 let searchDebounceTimeout: any = null
 
@@ -2144,34 +2156,34 @@ const selectedRandomMovie = ref<any | null>(null)
 const randomError = ref('')
 
 const randomFilterOptions = [
-  { id: 'all', label: 'Wszystko', emoji: '🍿' },
-  { id: 'movie', label: 'Tylko filmy', emoji: '🎬' },
-  { id: 'tv', label: 'Tylko seriale', emoji: '📺' },
-  { id: 'anime', label: 'Tylko anime', emoji: '⛩️' }
+  { id: 'all', label: 'Wszystko' },
+  { id: 'movie', label: 'Tylko filmy' },
+  { id: 'tv', label: 'Tylko seriale' },
+  { id: 'anime', label: 'Tylko anime' }
 ] as const
 
 const randomGenreOptions = [
-  { id: 'all', label: 'Dowolny gatunek', emoji: '🍿' },
-  { id: 'action', label: 'Akcja', emoji: '💥' },
-  { id: 'comedy', label: 'Komedia', emoji: '😂' },
-  { id: 'horror', label: 'Horror', emoji: '👻' },
-  { id: 'romance', label: 'Romans', emoji: '❤️' },
-  { id: 'scifi', label: 'Sci-Fi', emoji: '🚀' },
-  { id: 'drama', label: 'Dramat', emoji: '🎭' },
-  { id: 'thriller', label: 'Thriller', emoji: '🕵️‍♂️' },
-  { id: 'animation', label: 'Animacja', emoji: '🎨' },
-  { id: 'adventure', label: 'Przygoda', emoji: '🗺️' },
-  { id: 'crime', label: 'Kryminał', emoji: '🔍' },
-  { id: 'fantasy', label: 'Fantasy', emoji: '🧙‍♂️' },
-  { id: 'family', label: 'Familijny', emoji: '🧸' },
-  { id: 'documentary', label: 'Dokument', emoji: '🎥' }
+  { id: 'all', label: 'Dowolny gatunek', icon: ioniconsFilmOutline },
+  { id: 'action', label: 'Akcja', icon: flashOutline },
+  { id: 'comedy', label: 'Komedia', icon: happyOutline },
+  { id: 'horror', label: 'Horror', icon: skullOutline },
+  { id: 'romance', label: 'Romans', icon: heartOutline },
+  { id: 'scifi', label: 'Sci-Fi', icon: rocketOutline },
+  { id: 'drama', label: 'Dramat', icon: peopleOutline },
+  { id: 'thriller', label: 'Thriller', icon: eyeOutline },
+  { id: 'animation', label: 'Animacja', icon: colorPaletteOutline },
+  { id: 'adventure', label: 'Przygoda', icon: mapOutline },
+  { id: 'crime', label: 'Kryminał', icon: searchOutline },
+  { id: 'fantasy', label: 'Fantasy', icon: sparklesOutline },
+  { id: 'family', label: 'Familijny', icon: homeOutline },
+  { id: 'documentary', label: 'Dokument', icon: documentTextOutline }
 ] as const
 
 const randomRatingOptions = [
-  { val: 0, label: '⭐ Dowolna ocena' },
-  { val: 6.5, label: '⭐ 6.5+ (Dobre)' },
-  { val: 7.5, label: '⭐ 7.5+ (Bardzo dobre)' },
-  { val: 8.0, label: '⭐ 8.0+ (Hity & Klasyki)' }
+  { val: 0, label: 'Dowolna ocena' },
+  { val: 6.5, label: '6.5+ (Dobre)' },
+  { val: 7.5, label: '7.5+ (Bardzo dobre)' },
+  { val: 8.0, label: '8.0+ (Hity & Klasyki)' }
 ] as const
 
 const plannedCandidatesAll = computed(() => {
@@ -2607,7 +2619,7 @@ const scheduleMovieDate = async (movie: any) => {
     `Randka filmowa: ${movie.title}`,
     'date',
     startTime,
-    `Wspólny seans: ${movie.title} (${getMediaTypeLabel(movie.media_type)}). Nie zapomnijcie o przekąskach! 🍿✨`,
+    `Wspólny seans: ${movie.title} (${getMediaTypeLabel(movie.media_type)}). Nie zapomnijcie o przekąskach!`,
     'Domowy seans / Kanapa',
     new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString(),
     false,
@@ -3899,11 +3911,6 @@ ion-modal.dn-movies-search-modal {
   white-space: nowrap;
   touch-action: manipulation;
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.search-tab-pill .pill-emoji {
-  font-size: 13px;
-  line-height: 1;
 }
 
 .search-tab-pill:hover {
@@ -6533,9 +6540,8 @@ ion-modal.dn-movies-episode-modal {
   margin-top: 6px;
 }
 
-.pill-emoji,
-.genre-emoji {
-  display: none;
+.mv-inline-icon {
+  vertical-align: -0.125em;
 }
 
 /* ===== Beige accent: empty states ===== */

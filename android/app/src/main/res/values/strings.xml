@@ -7,8 +7,7 @@
     <string name="widget_doodle_title">Wspólny rysunek</string>
     <string name="widget_doodle_description">Wasz wspólny rysunek, aktualizowany na żywo</string>
     <string name="widget_doodle_drawing">%1$s rysuje</string>
-    <string name="widget_doodle_partner">Partner</string>
-    <string name="widget_doodle_partner_dative">partnera</string>
-    <string name="widget_doodle_empty">Narysuj coś dla %1$s</string>
+    <string name="widget_doodle_partner">Druga osoba</string>
+    <string name="widget_doodle_empty">Dodaj coś do wspólnego rysunku</string>
     <string name="widget_doodle_signed_out">Otwórz DuoNest, aby zobaczyć wspólny rysunek</string>
 </resources>

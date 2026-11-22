@@ -371,7 +371,7 @@
               </div>
 
               <p class="visibility-hint" v-if="!formData.is_visible_to_partner">
-                🎁 <strong>Idealne na urodziny, święta i rocznice!</strong> {{ partnerTitle }} nie dostanie powiadomienia i nie zobaczy tego przedmiotu w swojej aplikacji.
+                <ion-icon :icon="ioniconsGiftOutline" aria-hidden="true" /> <strong>Idealne na urodziny, święta i rocznice!</strong> {{ partnerTitle }} nie dostanie powiadomienia i nie zobaczy tego przedmiotu w swojej aplikacji.
               </p>
             </div>
 
@@ -533,7 +533,6 @@ const {
   partnerTitle,
   partnerDopelniacz,
   partnerNarzednik,
-  formatPartnerVerb,
   addWishlistItem,
   updateWishlistItem,
   deleteWishlistItem,
@@ -715,7 +714,7 @@ const getEmptyTitle = (): string => {
 const getEmptyDescription = (): string => {
   switch (activeFilter.value) {
     case 'surprise':
-      return `Możesz dodać pomysł na prezent dla ${partnerDopelniacz.value.toLowerCase()} i ukryć go, by nie ${formatPartnerVerb('widział')} go w aplikacji!`
+      return `Możesz dodać pomysł na prezent dla ${partnerDopelniacz.value.toLowerCase()} i zachować go jako niespodziankę.`
     case 'completed':
       return 'Kiedy kupisz marzenie ze swojej listy, zaznacz je jako spełnione!'
     default:
@@ -1863,6 +1862,10 @@ ion-modal.dn-wishlist-modal {
   color: #737373;
   margin: 8px 0 0;
   line-height: 1.3;
+}
+
+.visibility-hint ion-icon {
+  vertical-align: -0.125em;
 }
 
 /* INPUT STYLES */

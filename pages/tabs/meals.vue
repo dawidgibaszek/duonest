@@ -1099,7 +1099,7 @@
                 @click="assignCook = 'partner'"
               >
                 <ion-icon :icon="ioniconsHeartOutline" />
-                <span>{{ partnerUser?.name || 'Partner' }}</span>
+                <span>{{ partnerDisplayName }}</span>
               </button>
 
               <button
@@ -1326,7 +1326,7 @@
                 @click="customCook = 'partner'"
               >
                 <ion-icon :icon="ioniconsHeartOutline" />
-                <span>{{ partnerUser?.name || 'Partner' }}</span>
+                <span>{{ partnerDisplayName }}</span>
               </button>
               <button
                 type="button"
@@ -1505,7 +1505,7 @@
                 @click="pickModalCook = 'partner'"
               >
                 <ion-icon :icon="ioniconsHeartOutline" />
-                <span>{{ partnerUser?.name || 'Partner' }}</span>
+                <span>{{ partnerDisplayName }}</span>
               </button>
               <button
                 type="button"
@@ -1907,6 +1907,7 @@ const {
   mealsList,
   currentUser,
   partnerUser,
+  partnerDisplayName,
   currentUserAccentColor,
   partnerUserAccentColor,
   getUserAccentColor,
@@ -2344,7 +2345,7 @@ const weekRangeLabel = computed(() => {
 
 // Cook badge helpers
 const getCookLabel = (cookId?: string): string => {
-  if (cookId === 'partner') return partnerUser.value?.name || 'Partner'
+  if (cookId === 'partner') return partnerDisplayName.value
   if (cookId === 'both') return 'Gotujemy razem'
   if (cookId === 'restaurant') return 'Restauracja'
   if (cookId === 'takeout') return 'Dostawa na wynos'

@@ -9,7 +9,7 @@
       <div class="header-left">
         <span class="section-badge">
           <DuoMusicLogo :service="currentService" size="xs" />
-          <span>{{ isSelf ? 'TWOJA MUZYKA' : 'MUZYKA PARTNERA' }}</span>
+          <span>{{ isSelf ? 'TWOJA MUZYKA' : `MUZYKA · ${partnerDisplayName}` }}</span>
         </span>
         <h4 class="card-title">{{ titleText }}</h4>
       </div>
@@ -120,7 +120,7 @@ import type { MusicPlayback } from '~/composables/useMusic'
 import DuoMusicLogo from '~/components/DuoMusicLogo.vue'
 import { useDuoState } from '~/composables/useDuoState'
 
-const { partnerDopelniacz, partnerTitle, formatPartnerVerb, formatUserVerb } = useDuoState()
+const { partnerDopelniacz, partnerDisplayName, partnerGrammar, userGrammar, formatPartnerVerb, formatUserVerb } = useDuoState()
 
 const props = withDefaults(
   defineProps<{
@@ -131,8 +131,7 @@ const props = withDefaults(
   }>(),
   {
     playback: null,
-    userName: 'Partner',
-    isPreview: false,
+      isPreview: false,
     service: null
   }
 )
@@ -235,10 +234,10 @@ const isSelf = computed(() => {
 const titleText = computed(() => {
   const isPlaying = props.playback?.is_playing
   if (isSelf.value) {
-    return isPlaying ? 'Ty teraz słuchasz' : `Ty ostatnio ${formatUserVerb('słuchałeś')}`
+    return isPlaying ? 'Ty teraz słuchasz' : (userGrammar.value === 'impersonal' ? 'Ostatnio odtwarzane u Ciebie' : `Ty ostatnio ${formatUserVerb('słuchałeś')}`)
   }
-  const name = props.userName || partnerTitle.value
-  return isPlaying ? `${name} teraz słucha` : `${name} ostatnio ${formatPartnerVerb('słuchał')}`
+  const name = props.userName || partnerDisplayName.value
+  return isPlaying ? `${name} teraz słucha` : (partnerGrammar.value === 'impersonal' ? `${name} · ostatnio odtwarzane` : `${name} ostatnio ${formatPartnerVerb('słuchał')}`)
 })
 
 const trackDurationMs = computed(() => {

@@ -26,7 +26,7 @@
           <div class="duo-push-header">
                         <h3 class="duo-push-title">Bądźcie w kontakcie</h3>
             <p class="duo-push-desc">
-              Chcesz wiedzieć od razu, gdy <strong>{{ postPairingPartnerName || 'Twój Partner' }}</strong> przyśle Ci gest bliskości, zmieni nastrój lub dopisze coś do listy zakupów?
+              Chcesz wiedzieć od razu, gdy <strong>{{ partnerDisplayName }}</strong> przyśle Ci gest bliskości, zmieni nastrój lub dopisze coś do listy zakupów?
             </p>
           </div>
 
@@ -68,7 +68,7 @@
               </div>
               <div class="benefit-text">
                 <strong>Zakupy i zadania domowe</strong>
-                <span>Wiesz kiedy {{ postPairingPartnerName || partnerTitle.toLowerCase() }} dopisze zakupy lub ukończy zadanie</span>
+                <span>Wiesz, kiedy {{ partnerDisplayName }} dopisze zakupy lub ukończy zadanie</span>
               </div>
             </div>
           </div>
@@ -107,16 +107,15 @@
 
 <script setup lang="ts">
 import { usePushNotifications } from '~/composables/usePushNotifications'
-import { useDuoState } from '~/composables/useDuoState'
+import { useDuoGrammar } from '~/composables/duo/useGrammar'
 
 const {
   isPostPairingPromptOpen,
-  postPairingPartnerName,
   acceptPostPairingPrompt,
   declinePostPairingPrompt
 } = usePushNotifications()
 
-const { partnerTitle } = useDuoState()
+const { partnerDisplayName } = useDuoGrammar()
 </script>
 
 <style scoped>

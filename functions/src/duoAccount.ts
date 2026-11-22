@@ -227,7 +227,7 @@ async function findPairingOwner(db: Db, code: string) {
 function partnerSummary(p: any, partnershipId: string) {
   return {
     id: profileIdOf(p),
-    name: p.name || 'Partner',
+    name: p.name || '',
     avatar_url: p.avatar_url || null,
     avatar_color: p.avatar_color || '#0d9488',
     partnership_id: partnershipId,
@@ -243,7 +243,7 @@ export async function pairWithCode(
   user: DecodedUser,
   rawInput: string,
   displayName?: string | null
-): Promise<{ error?: string; partnership?: any; partner?: any }> {
+): Promise<{ error?: string; partnership?: any; partner?: any; points?: number }> {
   const input = String(rawInput || '').trim().slice(0, 200)
   if (!input) return { error: 'invalid_pairing_input' }
 
@@ -307,7 +307,9 @@ export async function pairWithCode(
     ])
     const mine = myDocs.filter(doc => doc.data()?.auth_user_id === user.uid)
     const theirs = partnerDocs.filter(doc => doc.data()?.auth_user_id === partner.auth_user_id)
-    if (!mine.some(doc => doc.id === myId) || !theirs.some(doc => doc.id === partnerId && hasPairingCode(doc.data(), code))) return null
+    const myProfile = mine.find(doc => doc.id === myId)?.data()
+    const partnerProfile = theirs.find(doc => doc.id === partnerId)?.data()
+    if (!myProfile || !hasPairingCode(partnerProfile, code)) return null
 
     const existingPids = new Set<string>()
     for (const doc of [...mine, ...theirs]) {
@@ -322,7 +324,11 @@ export async function pairWithCode(
       if (ids.includes(myId) && ids.includes(partnerId)) {
         tx.set(db.collection('members').doc(user.uid), membership(myId, doc.id))
         tx.set(db.collection('members').doc(partner.auth_user_id), membership(partnerId, doc.id))
-        return { ...candidate, id: doc.id }
+        return {
+          partnership: { ...candidate, id: doc.id },
+          points: Number(myProfile.points) || 0,
+          partner: partnerSummary({ ...partnerProfile, docId: partnerId }, doc.id)
+        }
       }
       if (ids.includes(myId) || ids.includes(partnerId)) return null
     }
@@ -331,17 +337,13 @@ export async function pairWithCode(
     for (const doc of theirs) tx.update(doc.ref, { partnership_id: partnershipId, points: 0, updated_at: created })
     tx.set(db.collection('members').doc(user.uid), membership(myId, partnershipId))
     tx.set(db.collection('members').doc(partner.auth_user_id), membership(partnerId, partnershipId))
-    return partnership
+    return { partnership, points: 0, partner: partnerSummary({ ...partnerProfile, docId: partnerId, points: 0 }, partnershipId) }
   })
   if (!paired) return { error: 'already paired' }
 
   await Promise.all([mirrorMembership(db, rtdb, user.uid), mirrorMembership(db, rtdb, partner.auth_user_id)])
 
-  const isNew = paired.id === partnershipId
-  return {
-    partnership: paired,
-    partner: partnerSummary(isNew ? { ...partner, points: 0 } : partner, paired.id)
-  }
+  return paired
 }
 
 export async function disconnectPartnership(db: Db, rtdb: Rtdb | null, user: DecodedUser): Promise<{ success: boolean }> {

@@ -68,10 +68,10 @@
 
             <div v-if="partnerUser" class="rl-person">
               <span class="rl-avatar" :style="{ backgroundColor: partnerUserAccentColor }">
-                {{ (partnerUser.name || 'P').charAt(0).toUpperCase() }}
+                {{ (partnerDisplayName).charAt(0).toUpperCase() }}
                 <span class="rl-online-pip" :class="{ 'is-online': isPartnerOnline }"></span>
               </span>
-              <span class="rl-person-name">{{ partnerUser.name || 'Partner' }}</span>
+              <span class="rl-person-name">{{ partnerDisplayName }}</span>
               <span class="rl-person-meta">{{ isPartnerOnline ? 'Online' : 'Offline' }}</span>
             </div>
             <button v-else type="button" class="rl-person rl-person--empty" @click="currentCategory = 'nest_settings'">
@@ -96,7 +96,7 @@
               <p class="rl-note-text">„{{ currentUser.love_note }}”</p>
             </div>
             <div v-if="partnerUser?.love_note && partnerUser.love_note.trim()" class="rl-note">
-              <span class="rl-note-author">{{ partnerUser.name || 'Partner' }}</span>
+              <span class="rl-note-author">{{ partnerDisplayName }}</span>
               <p class="rl-note-text">„{{ partnerUser.love_note }}”</p>
             </div>
           </div>
@@ -119,7 +119,7 @@
               <DuoIcon :name="'mood-' + (partnerUser.current_mood || 'happy')" :size="22" />
             </span>
             <span class="rl-row-body">
-              <span class="rl-row-title">{{ partnerUser.name }} · {{ getMoodLabel(partnerUser.current_mood) }}</span>
+              <span class="rl-row-title">{{ partnerDisplayName }} · {{ getMoodLabel(partnerUser.current_mood) }}</span>
               <span class="rl-row-sub">{{ partnerUser.mood_note ? `„${partnerUser.mood_note}”` : 'Bez notatki na dziś' }}</span>
             </span>
           </div>
@@ -142,7 +142,7 @@
           <div class="rl-field">
             <ion-input aria-label="Notatka do nastroju"
               v-model="moodNote"
-              placeholder="Krótka notatka dla partnera (opcjonalnie)"
+              placeholder="Dodaj krótką notatkę (opcjonalnie)"
               class="rl-input"
               :clear-input="true"
             />
@@ -162,7 +162,7 @@
           <div v-if="hasSentDailyNudge" class="rl-row rl-row--card">
             <span class="rl-row-icon rl-row-icon--ink"><ion-icon :icon="ioniconsCheckmarkOutline" /></span>
             <span class="rl-row-body">
-              <span class="rl-row-title">{{ partnerUser?.name || partnerTitle }} {{ formatPartnerVerb('dostał') }} Twój gest</span>
+              <span class="rl-row-title">Twój gest dotarł</span>
               <span class="rl-row-sub">Kolejny za {{ formattedNextNudgeTime }}</span>
             </span>
           </div>
@@ -200,7 +200,7 @@
               <span class="rl-row-icon rl-row-icon--sm"><DuoIcon :name="'nudge-' + ndg.nudge_type" :size="16" /></span>
               <span class="rl-row-body">
                 <span class="rl-row-title">{{ ndg.message || getNudgeTitle(ndg.nudge_type) }}</span>
-                <span class="rl-row-sub">{{ ndg.sender_id === currentUser?.id ? 'Od Ciebie' : ('Od ' + (partnerUser?.name || 'partnera')) }}</span>
+                <span class="rl-row-sub">{{ ndg.sender_id === currentUser?.id ? 'Od Ciebie' : ('Od ' + partnerDopelniaczName) }}</span>
               </span>
             </div>
           </div>
@@ -216,12 +216,12 @@
             <div class="rl-cheat">
               <span class="rl-cheat-head"><DuoIcon name="drink" :size="16" /> Ulubiony napój</span>
               <span class="rl-cheat-row"><span class="rl-cheat-who">Ty</span>{{ currentUser.favorite_drink || '—' }}</span>
-              <span v-if="partnerUser" class="rl-cheat-row"><span class="rl-cheat-who">{{ partnerUser.name || 'Partner' }}</span>{{ partnerUser.favorite_drink || '—' }}</span>
+              <span v-if="partnerUser" class="rl-cheat-row"><span class="rl-cheat-who">{{ partnerDisplayName }}</span>{{ partnerUser.favorite_drink || '—' }}</span>
             </div>
             <div class="rl-cheat">
               <span class="rl-cheat-head"><DuoIcon name="treat" :size="16" /> Ulubiona przekąska</span>
               <span class="rl-cheat-row"><span class="rl-cheat-who">Ty</span>{{ currentUser.favorite_treat || '—' }}</span>
-              <span v-if="partnerUser" class="rl-cheat-row"><span class="rl-cheat-who">{{ partnerUser.name || 'Partner' }}</span>{{ partnerUser.favorite_treat || '—' }}</span>
+              <span v-if="partnerUser" class="rl-cheat-row"><span class="rl-cheat-who">{{ partnerDisplayName }}</span>{{ partnerUser.favorite_treat || '—' }}</span>
             </div>
           </div>
         </section>
@@ -368,7 +368,7 @@
           <div v-if="musicErrorMessage" class="rl-banner rl-banner--error">{{ musicErrorMessage }}</div>
 
           <template v-if="!musicConnection.connected">
-            <p class="rl-desc">Partner zobaczy na żywo, czego słuchasz – przez Last.fm, z każdej aplikacji.</p>
+            <p class="rl-desc">Przez Last.fm możesz udostępniać na żywo to, czego słuchasz w innych aplikacjach.</p>
             <div class="rl-platforms">
               <span v-for="sv in ['spotify', 'apple_music', 'youtube_music', 'tidal', 'lastfm']" :key="sv" class="rl-platform">
                 <DuoMusicLogo :service="sv" size="xs" />
@@ -436,10 +436,10 @@
             <div class="rl-list">
               <div class="rl-toggle-row">
                 <span class="rl-row-body">
-                  <span class="rl-row-title">Pokazuj partnerowi</span>
-                  <span class="rl-row-sub">Twoja muzyka w Gniazdku partnera</span>
+                  <span class="rl-row-title">Pokazuj {{ partnerCelownik.toLowerCase() }}</span>
+                  <span class="rl-row-sub">Twoja muzyka we wspólnym Gniazdku</span>
                 </span>
-                <ion-toggle aria-label="Pokazuj muzykę partnerowi"
+                <ion-toggle :aria-label="'Udostępniaj muzykę ' + partnerCelownik.toLowerCase()"
                   :checked="musicConnection.visible_to_partner"
                   @ionChange="runToggle($event, () => setMusicVisibility($event.detail.checked), () => musicConnection.visible_to_partner)"
                 />
@@ -599,8 +599,8 @@
             <h3 class="rl-section-title">Para</h3>
             <span v-if="partnership" class="rl-status is-on">Połączono</span>
           </div>
-          <p v-if="partnership && partnerUser" class="rl-desc">Jesteście połączeni z: <strong>{{ partnerDisplayName }}</strong></p>
-          <p v-else-if="!partnership" class="rl-desc">Przekaż {{ partnerCelownik.toLowerCase() }} swój kod albo wpisz {{ partnerPossessive }}.</p>
+          <p v-if="partnership && partnerUser" class="rl-desc">Połączone konto · <strong>{{ partnerDisplayName }}</strong></p>
+          <p v-else-if="!partnership" class="rl-desc">Udostępnij swój kod lub wpisz kod z drugiego konta.</p>
 
           <div class="rl-code">
             <span class="rl-code-label">Twój kod</span>
@@ -612,9 +612,9 @@
           </div>
 
           <template v-if="!partnership">
-            <label class="rl-label">Kod {{ partnerDopelniacz.toLowerCase() }}</label>
+            <label class="rl-label">Kod parowania</label>
             <div class="rl-inline-form">
-              <ion-input :aria-label="'Kod ' + partnerDopelniacz.toLowerCase()" v-model="inputPartnerCode" placeholder="np. 8K4P2QZ" class="rl-input" :maxlength="15" />
+              <ion-input aria-label="Kod parowania" v-model="inputPartnerCode" placeholder="np. 8K4P2QZ" class="rl-input" :maxlength="15" />
               <button type="button" class="rl-inline-btn" :disabled="!inputPartnerCode.trim()" @click="handlePairWithCode">
                 Połącz
               </button>
@@ -723,7 +723,7 @@
               <div class="dn-form-sheet-title-row">
                 <div class="dn-form-sheet-title-text">
                   <h3 class="dn-form-sheet-title">Twój profil</h3>
-                  <span class="dn-form-sheet-subtitle">Widoczny dla {{ partnerDopelniacz.toLowerCase() }} w Gniazdku</span>
+                  <span class="dn-form-sheet-subtitle">Widoczny we wspólnym Gniazdku</span>
                 </div>
               </div>
               <button type="button" class="dn-form-sheet-close" @click="closeEditProfileModal" aria-label="Zamknij">
@@ -740,43 +740,66 @@
               <ion-input aria-label="Imię lub pseudonim" v-model="editProfileForm.name" placeholder="np. Dawid, Kasia..." class="rl-input" :clear-input="true" />
             </div>
 
-            <label class="rl-label">Płeć i tożsamość</label>
-            <p class="rl-field-hint">Pomaga dopasować zwroty, zaimki i końcówki w aplikacji</p>
-            <div class="rl-gender-grid" data-no-swipe>
-              <button
-                v-for="g in GENDER_OPTIONS"
-                :key="g.value"
-                type="button"
-                class="rl-gender-btn"
-                :class="{ active: editProfileForm.gender === g.value }"
-                @click="selectGender(g.value)"
-              >
-                <span class="rl-gender-icon">{{ g.icon }}</span>
-                <span class="rl-gender-text">
-                  <span class="rl-gender-title">{{ g.label }}</span>
-                  <span class="rl-gender-desc">{{ g.description }}</span>
+            <details class="rl-language">
+              <summary class="rl-language-summary">
+                <span class="rl-language-tile"><ion-icon :icon="ioniconsPersonOutline" aria-hidden="true" /></span>
+                <span class="rl-language-labels">
+                  <strong>Płeć i forma językowa</strong>
+                  <span>{{ selectedGenderOption?.label || 'Płeć niepodana' }} · {{ selectedProfileGrammarLabel }}</span>
                 </span>
-              </button>
-            </div>
+                <ion-icon :icon="ioniconsChevronDownOutline" class="rl-language-chevron" aria-hidden="true" />
+              </summary>
+              <div class="rl-language-body" data-no-swipe>
+                <fieldset class="rl-language-group">
+                  <legend>Płeć <span>(opcjonalnie)</span></legend>
+                  <div class="rl-gender-grid">
+                    <button
+                      v-for="option in GENDER_OPTIONS"
+                      :key="option.value"
+                      type="button"
+                      class="rl-language-option rl-gender-btn"
+                      :aria-pressed="editProfileForm.gender === option.value"
+                      @click="editProfileForm.gender = editProfileForm.gender === option.value ? '' : option.value"
+                    >
+                      <ion-icon :icon="option.icon" class="rl-gender-icon" aria-hidden="true" />
+                      <span>{{ option.label }}</span>
+                    </button>
+                  </div>
+                </fieldset>
 
-            <label class="rl-label">Forma językowa (końcówki gramatyczne)</label>
-            <p class="rl-field-hint">Wybierz, jak aplikacja ma się do Ciebie zwracać i jak określać Twoje akcje</p>
-            <div class="rl-grammar-grid" data-no-swipe>
-              <button
-                v-for="gm in GRAMMAR_OPTIONS"
-                :key="gm.value"
-                type="button"
-                class="rl-grammar-btn"
-                :class="{ active: editProfileForm.grammatical_gender === gm.value }"
-                @click="editProfileForm.grammatical_gender = gm.value"
-              >
-                <div class="rl-grammar-head">
-                  <span class="rl-grammar-title">{{ gm.label }}</span>
-                  <span class="rl-grammar-example">{{ gm.example }}</span>
-                </div>
-                <span class="rl-grammar-desc">{{ gm.description }}</span>
-              </button>
-            </div>
+                <fieldset class="rl-language-group">
+                  <legend>Forma językowa</legend>
+                  <div class="rl-grammar-grid">
+                    <button
+                      type="button"
+                      class="rl-language-option rl-grammar-btn"
+                      :aria-pressed="!editProfileForm.grammatical_gender"
+                      @click="editProfileForm.grammatical_gender = ''"
+                    >
+                      <span class="rl-language-labels">
+                        <strong>Automatyczna</strong>
+                        <span>Dopasowana do wybranej płci</span>
+                      </span>
+                      <ion-icon v-if="!editProfileForm.grammatical_gender" :icon="ioniconsCheckmarkCircle" aria-hidden="true" />
+                    </button>
+                    <button
+                      v-for="option in GRAMMAR_OPTIONS"
+                      :key="option.value"
+                      type="button"
+                      class="rl-language-option rl-grammar-btn"
+                      :aria-pressed="editProfileForm.grammatical_gender === option.value"
+                      @click="editProfileForm.grammatical_gender = option.value"
+                    >
+                      <span class="rl-language-labels">
+                        <strong>{{ option.label }}</strong>
+                        <span>{{ option.example }}</span>
+                      </span>
+                      <ion-icon v-if="editProfileForm.grammatical_gender === option.value" :icon="ioniconsCheckmarkCircle" aria-hidden="true" />
+                    </button>
+                  </div>
+                </fieldset>
+              </div>
+            </details>
 
             <label class="rl-label">Czuła myśl</label>
             <div class="rl-field">
@@ -797,6 +820,7 @@
                 :class="{ active: editProfileForm.love_note === note }"
                 @click="editProfileForm.love_note = note"
               >
+                <ion-icon :icon="ioniconsHeartOutline" aria-hidden="true" />
                 {{ note }}
               </button>
             </div>
@@ -814,6 +838,7 @@
                 :class="{ active: editProfileForm.favorite_drink === drink }"
                 @click="editProfileForm.favorite_drink = drink"
               >
+                <ion-icon :icon="ioniconsCafeOutline" aria-hidden="true" />
                 {{ drink }}
               </button>
             </div>
@@ -831,17 +856,20 @@
                 :class="{ active: editProfileForm.favorite_treat === treat }"
                 @click="editProfileForm.favorite_treat = treat"
               >
+                <ion-icon :icon="ioniconsRestaurantOutline" aria-hidden="true" />
                 {{ treat }}
               </button>
             </div>
 
+            <p v-if="profileSaveError" class="rl-profile-error" role="alert">{{ profileSaveError }}</p>
             <button
               type="button"
               class="dn-button-primary rl-full-btn rl-sheet-save"
               :disabled="isSavingProfile || !editProfileForm.name.trim()"
+              :aria-busy="isSavingProfile"
               @click="handleSaveProfile"
             >
-              Zapisz profil
+              {{ isSavingProfile ? 'Zapisywanie…' : 'Zapisz profil' }}
             </button>
           </div>
         </ion-content>
@@ -859,6 +887,8 @@ import { useDuoDiagnostics } from '~/composables/useDuoDiagnostics'
 import { usePushNotifications } from '~/composables/usePushNotifications'
 import { useMusic } from '~/composables/useMusic'
 import { useConfirm } from '~/composables/useConfirm'
+import { normalizeGenderIdentity } from '~/functions/src/duoGrammar'
+import { translateAppError } from '~/utils/errorTranslator'
 import DuoIcon from '~/components/DuoIcon.vue'
 import DuoMusicCard from '~/components/DuoMusicCard.vue'
 
@@ -947,12 +977,11 @@ const {
   triggerToast,
   initSupabaseSync,
   partnerTitle,
-  formatPartnerVerb,
   partnerDopelniacz,
   partnerCelownik,
   partnerBiernik,
   partnerNarzednik,
-  partnerPossessive,
+  partnerDopelniaczName,
   partnerDisplayName,
   GENDER_OPTIONS,
   GRAMMAR_OPTIONS
@@ -1272,6 +1301,7 @@ watch(currentUserAccentColor, (newColor) => {
 // Personal Profile Modal
 const isEditProfileModalOpen = ref(false)
 const isSavingProfile = ref(false)
+const profileSaveError = ref('')
 const editProfileForm = ref({
   name: '',
   gender: '',
@@ -1280,44 +1310,41 @@ const editProfileForm = ref({
   favorite_drink: '',
   favorite_treat: ''
 })
-
-const selectGender = (val: string) => {
-  editProfileForm.value.gender = val
-  const matched = GENDER_OPTIONS.find(o => o.value === val)
-  if (matched) {
-    editProfileForm.value.grammatical_gender = matched.defaultGrammar
-  }
-}
+const selectedGenderOption = computed(() => GENDER_OPTIONS.find(option => option.value === editProfileForm.value.gender))
+const selectedProfileGrammarLabel = computed(() =>
+  GRAMMAR_OPTIONS.find(option => option.value === editProfileForm.value.grammatical_gender)?.label || 'Forma automatyczna'
+)
 
 const quickLoveNoteSuggestions = [
-  'Zawsze przy Tobie ❤️',
-  'Mój ulubiony człowiek! 🥰',
-  'Dziękuję, że jesteś ✨',
-  'Tęsknię za Tobą! 💌',
-  'Najlepsze chwile to te z Tobą 💫'
+  'Zawsze przy Tobie',
+  'Mój ulubiony człowiek!',
+  'Dziękuję, że jesteś',
+  'Tęsknię za Tobą!',
+  'Najlepsze chwile to te z Tobą'
 ]
 
 const quickDrinkSuggestions = [
-  '☕ Kawa z mlekiem',
-  '🥛 Kawa owsiana',
-  '🍵 Matcha latte',
-  '🍋 Woda z cytryną',
-  '🥤 Świeży sok'
+  'Kawa z mlekiem',
+  'Kawa owsiana',
+  'Matcha latte',
+  'Woda z cytryną',
+  'Świeży sok'
 ]
 
 const quickTreatSuggestions = [
-  '🍫 Czekolada pistacjowa',
-  '🥜 Solone pistacje',
-  '🥐 Ciepły rogalik',
-  '🍰 Kremowy sernik',
-  '🍓 Świeże truskawki',
-  '🍬 Malinowe żelki'
+  'Czekolada pistacjowa',
+  'Solone pistacje',
+  'Ciepły rogalik',
+  'Kremowy sernik',
+  'Świeże truskawki',
+  'Malinowe żelki'
 ]
 
 const openEditProfileModal = () => {
+  profileSaveError.value = ''
   editProfileForm.value = {
     name: currentUser.value?.name || '',
-    gender: currentUser.value?.gender || '',
+    gender: normalizeGenderIdentity(currentUser.value?.gender) || '',
     grammatical_gender: currentUser.value?.grammatical_gender || '',
     love_note: currentUser.value?.love_note || '',
     favorite_drink: currentUser.value?.favorite_drink || '',
@@ -1334,11 +1361,26 @@ const handleSaveProfile = async () => {
   const name = editProfileForm.value.name.trim()
   if (isSavingProfile.value || !name) return
   isSavingProfile.value = true
+  profileSaveError.value = ''
   try {
-    if (!(await updateMyProfile({ ...editProfileForm.value, name }))) return
+    const { gender, grammatical_gender, ...fields } = editProfileForm.value
+    const desired = {
+      ...fields, name, gender: gender || null, grammatical_gender: grammatical_gender || null
+    }
+    const existing = currentUser.value
+    const updates = Object.fromEntries(
+      Object.entries(desired).filter(([key, value]) => {
+        const previous = key === 'gender' ? normalizeGenderIdentity(existing.gender) : existing[key as keyof typeof desired]
+        return (previous ?? (value === null ? null : '')) !== value
+      })
+    )
+    if (Object.keys(updates).length > 0 && !await updateMyProfile(updates)) {
+      profileSaveError.value = 'Sesja się zmieniła. Otwórz profil ponownie.'
+      return
+    }
     isEditProfileModalOpen.value = false
-  } catch {
-    triggerToast('Nie udało się zapisać profilu.', { type: 'warning' })
+  } catch (error) {
+    profileSaveError.value = translateAppError(error)
   } finally {
     isSavingProfile.value = false
   }
@@ -2531,125 +2573,127 @@ const handleRefresh = async (event: any) => {
   cursor: pointer;
 }
 
-.rl-field-hint {
-  margin: 0 0 10px;
+.rl-language {
+  margin: 14px 0 20px;
+  border: 1px solid var(--dn-line);
+  border-radius: 16px;
+}
+
+.rl-language-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 10px 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.rl-language-summary::-webkit-details-marker {
+  display: none;
+}
+
+.rl-language-tile {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  background: var(--dn-cream);
+  color: var(--dn-ink);
+  border-radius: 11px;
+  font-size: 18px;
+}
+
+.rl-language-labels {
+  display: grid;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+  color: var(--dn-ink);
+  font-size: 13px;
+}
+
+.rl-language-labels > span,
+.rl-language-group legend span {
+  color: var(--dn-muted);
   font-size: 12px;
-  color: var(--dn-ink-dim, #71717a);
-  line-height: 1.4;
+  font-weight: 400;
+}
+
+.rl-language-chevron {
+  flex-shrink: 0;
+  color: var(--dn-muted);
+}
+
+.rl-language[open] .rl-language-chevron {
+  transform: rotate(180deg);
+}
+
+.rl-language-body {
+  display: grid;
+  gap: 16px;
+  padding: 12px;
+  border-top: 1px solid var(--dn-line);
+}
+
+.rl-language-group {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.rl-language-group legend {
+  margin-bottom: 8px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rl-gender-grid,
+.rl-grammar-grid {
+  display: grid;
+  gap: 6px;
 }
 
 .rl-gender-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  margin-bottom: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 142px), 1fr));
 }
 
-@media (max-width: 360px) {
-  .rl-gender-grid {
-    grid-template-columns: 1fr;
-  }
+.rl-gender-btn:last-child {
+  grid-column: 1 / -1;
 }
 
-.rl-gender-btn {
+.rl-language-option {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid var(--dn-border, rgba(0, 0, 0, 0.08));
-  background: var(--dn-card, #ffffff);
-  color: var(--dn-ink, #18181b);
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--dn-line);
+  border-radius: 12px;
+  background: var(--dn-field);
+  color: var(--dn-ink);
   cursor: pointer;
   text-align: left;
-  transition: all 0.15s ease;
+  font-size: 13px;
 }
 
-.rl-gender-btn.active {
-  border-color: var(--dn-primary, #0284c7);
-  background: rgba(2, 132, 199, 0.08);
-  box-shadow: 0 0 0 1px var(--dn-primary, #0284c7);
+.rl-language-option[aria-pressed="true"] {
+  border-color: var(--dn-ink);
+  background: var(--dn-cream);
 }
 
-.rl-gender-icon {
-  font-size: 20px;
-  line-height: 1;
+.rl-language-option ion-icon {
   flex-shrink: 0;
+  font-size: 17px;
 }
 
-.rl-gender-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.rl-gender-title {
+.rl-profile-error {
+  margin: 12px 0;
+  color: var(--dn-danger);
   font-size: 13px;
-  font-weight: 600;
-  line-height: 1.25;
-}
-
-.rl-gender-desc {
-  font-size: 11px;
-  color: var(--dn-ink-dim, #71717a);
-  line-height: 1.2;
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.rl-grammar-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-
-.rl-grammar-btn {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 14px;
-  border-radius: 14px;
-  border: 1px solid var(--dn-border, rgba(0, 0, 0, 0.08));
-  background: var(--dn-card, #ffffff);
-  color: var(--dn-ink, #18181b);
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.15s ease;
-}
-
-.rl-grammar-btn.active {
-  border-color: var(--dn-primary, #0284c7);
-  background: rgba(2, 132, 199, 0.08);
-  box-shadow: 0 0 0 1px var(--dn-primary, #0284c7);
-}
-
-.rl-grammar-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.rl-grammar-title {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.rl-grammar-example {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--dn-primary, #0284c7);
-  background: rgba(2, 132, 199, 0.1);
-  padding: 2px 8px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-.rl-grammar-desc {
-  font-size: 11px;
-  color: var(--dn-ink-dim, #71717a);
 }
 </style>

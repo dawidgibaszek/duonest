@@ -5,7 +5,6 @@ export interface PetDefinition {
   id: string
   name: string
   polishName: string
-  emoji: string
   theme: string
   description: string
   fps: {
@@ -17,18 +16,18 @@ export interface PetDefinition {
 }
 
 export const PET_CATALOG: PetDefinition[] = [
-  { id: 'Cat', name: 'Cat', polishName: 'Kotek', emoji: '🐱', theme: 'Forest', description: 'Ciekawski i mruczący towarzysz czystego domu', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
-  { id: 'Dog', name: 'Dog', polishName: 'Piesek', emoji: '🐶', theme: 'Loyal', description: 'Wierny przyjaciel pełen energii do pomocy', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
-  { id: 'Bear', name: 'Bear', polishName: 'Niedźwiadek', emoji: '🐻', theme: 'Cuddly', description: 'Ciepły, milusiński i opiekuńczy strażnik spokoju', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
-  { id: 'Bunny', name: 'Bunny', polishName: 'Króliczek', emoji: '🐰', theme: 'Spring', description: 'Puchaty i skoczny promyk domowego słońca', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
-  { id: 'Chick', name: 'Chick', polishName: 'Kurczaczek', emoji: '🐥', theme: 'Sunny', description: 'Radosny i zawsze ciekawy wspólnych planów', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
-  { id: 'Dragon', name: 'Dragon', polishName: 'Smoczek', emoji: '🐲', theme: 'Mythic', description: 'Dzielny strażnik Waszego domowego ogniska', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
-  { id: 'Fox', name: 'Fox', polishName: 'Lisek', emoji: '🦊', theme: 'Sly', description: 'Bystry i sprytny pomocnik w codziennych obowiązkach', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
-  { id: 'Frog', name: 'Frog', polishName: 'Żabka', emoji: '🐸', theme: 'Pond', description: 'Wesoło kumkający mistrz domowego porządku', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
-  { id: 'Ghost', name: 'Ghost', polishName: 'Duszek', emoji: '👻', theme: 'Spooky', description: 'Przeuroczy duszek dbający o magię Waszego gniazdka', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
-  { id: 'Panda', name: 'Panda', polishName: 'Panda', emoji: '🐼', theme: 'Bamboo', description: 'Spokojna, kochająca drzemki i przytulasy po pracy', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
-  { id: 'Penguin', name: 'Penguin', polishName: 'Pingwinek', emoji: '🐧', theme: 'Frosty', description: 'Elegancki i zawsze chętny do wspólnego działania', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
-  { id: 'Slime', name: 'Slime', polishName: 'Glutek', emoji: '🟢', theme: 'Gooey', description: 'Milutki, elastyczny i super słodki towarzysz', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
+  { id: 'Cat', name: 'Cat', polishName: 'Kotek', theme: 'Forest', description: 'Ciekawski i mruczący towarzysz czystego domu', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
+  { id: 'Dog', name: 'Dog', polishName: 'Piesek', theme: 'Loyal', description: 'Wierny przyjaciel pełen energii do pomocy', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
+  { id: 'Bear', name: 'Bear', polishName: 'Niedźwiadek', theme: 'Cuddly', description: 'Ciepły, milusiński i opiekuńczy strażnik spokoju', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
+  { id: 'Bunny', name: 'Bunny', polishName: 'Króliczek', theme: 'Spring', description: 'Puchaty i skoczny promyk domowego słońca', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
+  { id: 'Chick', name: 'Chick', polishName: 'Kurczaczek', theme: 'Sunny', description: 'Radosny i zawsze ciekawy wspólnych planów', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
+  { id: 'Dragon', name: 'Dragon', polishName: 'Smoczek', theme: 'Mythic', description: 'Dzielny strażnik Waszego domowego ogniska', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
+  { id: 'Fox', name: 'Fox', polishName: 'Lisek', theme: 'Sly', description: 'Bystry i sprytny pomocnik w codziennych obowiązkach', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
+  { id: 'Frog', name: 'Frog', polishName: 'Żabka', theme: 'Pond', description: 'Wesoło kumkający mistrz domowego porządku', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
+  { id: 'Ghost', name: 'Ghost', polishName: 'Duszek', theme: 'Spooky', description: 'Przeuroczy duszek dbający o magię Waszego gniazdka', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
+  { id: 'Panda', name: 'Panda', polishName: 'Panda', theme: 'Bamboo', description: 'Spokojna, kochająca drzemki i przytulasy po pracy', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
+  { id: 'Penguin', name: 'Penguin', polishName: 'Pingwinek', theme: 'Frosty', description: 'Elegancki i zawsze chętny do wspólnego działania', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
+  { id: 'Slime', name: 'Slime', polishName: 'Glutek', theme: 'Gooey', description: 'Milutki, elastyczny i super słodki towarzysz', fps: { idle: 8, jump: 12, sleep: 6, happy: 10 } },
 ]
 
 export const getPetDefinition = (id: string): PetDefinition => {
@@ -97,22 +96,6 @@ export const usePetState = () => {
     const completed = tasksList.value.filter(t => t.is_completed).length
     const ratio = completed / total
     return Math.max(15, Math.min(100, Math.round(ratio * 100)))
-  })
-
-  const happinessLabel = computed<string>(() => {
-    const h = petHappiness.value
-    if (h >= 90) return 'Przeszczęśliwy! 💖'
-    if (h >= 70) return 'Zadowolony 😊'
-    if (h >= 40) return 'Czeka na Ciebie 🐾'
-    return 'Potrzebuje uwagi 🥺'
-  })
-
-  const happinessEmoji = computed<string>(() => {
-    const h = petHappiness.value
-    if (h >= 90) return '💖'
-    if (h >= 70) return '😊'
-    if (h >= 40) return '🐾'
-    return '🥺'
   })
 
   // Trigger one-shot animations ('happy' or 'jump') with automatic return
@@ -186,8 +169,6 @@ export const usePetState = () => {
     petXpToNextLevel,
     petLevelProgressPct,
     petHappiness,
-    happinessLabel,
-    happinessEmoji,
     triggerPetAnimation,
     onEnterPetView,
     selectPet,

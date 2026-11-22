@@ -90,7 +90,7 @@ export function usePairingSecurity(options: {
     partnerUser.value = {
       ...createInitialProfile(),
       ...profile,
-      name: profile.name || 'Partner',
+      name: profile.name || '',
       avatar_color: getCleanAccentColor(profile.avatar_color, '#0d9488'),
       points: Number(profile.points) || 0
     }
@@ -168,7 +168,7 @@ export function usePairingSecurity(options: {
             currentUser.value.points = Number(payload.new?.points) || 0
             if (!await loadPartnershipAndPartner(newPId, myId, true)) return
             saveToStorage('duonest_current_user', currentUser.value)
-            options.triggerToast('Połączono z partnerem.', { type: 'love' })
+            options.triggerToast('Konta zostały połączone.', { type: 'love' })
             setTimeout(() => {
               try { bridge.removeChannel(pairChan) } catch (_) {}
               activePairingChannel = null
@@ -185,9 +185,9 @@ export function usePairingSecurity(options: {
     pairChan.subscribe()
   }
 
-  const pairWithCode = async (rawInput: string, partnerDisplayName: string = 'Partner'): Promise<{ success: boolean; error?: string }> => {
+  const pairWithCode = async (rawInput: string): Promise<{ success: boolean; error?: string }> => {
     if (!rawInput || !rawInput.trim()) {
-      return { success: false, error: 'Wprowadź kod parowania partnera.' }
+      return { success: false, error: 'Wprowadź kod parowania.' }
     }
     if (rawInput.includes('@')) {
       return { success: false, error: translateAppError('pairing_code_required') }
@@ -229,13 +229,13 @@ export function usePairingSecurity(options: {
       }
 
       currentUser.value.partnership_id = data.partnership.id
-      currentUser.value.points = 0
+      if (typeof data.points === 'number') currentUser.value.points = data.points
       partnership.value = data.partnership
       partnerUser.value = {
         ...createInitialProfile(),
         ...data.partner,
         points: Number(data.partner.points) || 0,
-        name: data.partner.name || partnerDisplayName || 'Partner'
+        name: data.partner.name || ''
       }
 
       saveToStorage('duonest_current_user', currentUser.value)
@@ -247,7 +247,7 @@ export function usePairingSecurity(options: {
       }
 
       trackDuoPairing(bridge.auth.currentUser?.uid)
-      options.triggerToast('Konta zostały pomyślnie sparowane! Witamy w Waszym Gniazdku! 💖', { type: 'love' })
+      options.triggerToast('Konta zostały pomyślnie sparowane! Witamy w Waszym Gniazdku!', { type: 'love' })
       return { success: true }
     } catch (err: any) {
       return { success: false, error: translateAppError(err) }
@@ -272,7 +272,7 @@ export function usePairingSecurity(options: {
     }
 
     clearPartnershipData()
-    options.triggerToast('Rozłączono konto z partnerem.', { type: 'warning' })
+    options.triggerToast('Konta zostały rozłączone.', { type: 'warning' })
 
     if (typeof window !== 'undefined') {
       navigateTo('/pairing', { replace: true })

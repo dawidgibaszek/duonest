@@ -1,28 +1,15 @@
 import { computed } from 'vue'
+import { femaleOutline, maleOutline, personOutline } from 'ionicons/icons'
 import { currentUser, partnerUser } from './state'
+import { resolveGrammaticalGender as resolveGender, v as conjugateSharedVerb, type GenderIdentity, type GrammaticalGender } from '~/functions/src/duoGrammar'
 import type { Profile } from '~/types/duo'
 
-export type GenderIdentity =
-  | 'female'
-  | 'male'
-  | 'nonbinary'
-  | 'trans_female'
-  | 'trans_male'
-  | 'transgender'
-  | 'genderfluid'
-  | 'agender'
-  | 'queer'
-  | 'other'
-  | 'unspecified'
-
-export type GrammaticalGender = 'female' | 'male' | 'neutral' | 'impersonal'
+export type { GenderIdentity, GrammaticalGender } from '~/functions/src/duoGrammar'
 
 export interface GenderOption {
   value: GenderIdentity
   label: string
   icon: string
-  defaultGrammar: GrammaticalGender
-  description: string
 }
 
 export interface GrammarOption {
@@ -33,18 +20,10 @@ export interface GrammarOption {
 }
 
 export const GENDER_OPTIONS: readonly GenderOption[] = [
-  { value: 'female', label: 'Kobieta', icon: '👩', defaultGrammar: 'female', description: 'Kobieta cispłciowa' },
-  { value: 'male', label: 'Mężczyzna', icon: '👨', defaultGrammar: 'male', description: 'Mężczyzna cispłciowy' },
-  { value: 'nonbinary', label: 'Osoba niebinarna', icon: '⚧️', defaultGrammar: 'neutral', description: 'Tożsamość poza binarnym podziałem' },
-  { value: 'trans_female', label: 'Transpłciowa kobieta', icon: '🏳️‍⚧️', defaultGrammar: 'female', description: 'Kobieta transpłciowa' },
-  { value: 'trans_male', label: 'Transpłciowy mężczyzna', icon: '🏳️‍⚧️', defaultGrammar: 'male', description: 'Mężczyzna transpłciowy' },
-  { value: 'transgender', label: 'Osoba transpłciowa', icon: '🏳️‍⚧️', defaultGrammar: 'neutral', description: 'Tożsamość transpłciowa' },
-  { value: 'genderfluid', label: 'Genderfluid', icon: '🌊', defaultGrammar: 'neutral', description: 'Płynna ekspresja i tożsamość płciowa' },
-  { value: 'agender', label: 'Agender', icon: '⚪', defaultGrammar: 'neutral', description: 'Tożsamość neutralna / bezpłciowa' },
-  { value: 'queer', label: 'Queer', icon: '💜', defaultGrammar: 'neutral', description: 'Tożsamość queer / nieheteronormatywna' },
-  { value: 'other', label: 'Inna tożsamość', icon: '✨', defaultGrammar: 'neutral', description: 'Indywidualna tożsamość płciowa' },
-  { value: 'unspecified', label: 'Wolę nie podawać', icon: '👤', defaultGrammar: 'male', description: 'Standardowe formy językowe' }
-] as const
+  { value: 'male', label: 'Mężczyzna', icon: maleOutline },
+  { value: 'female', label: 'Kobieta', icon: femaleOutline },
+  { value: 'nonbinary', label: 'Osoba poza binarnym podziałem płci', icon: personOutline }
+]
 
 export const GRAMMAR_OPTIONS: readonly GrammarOption[] = [
   {
@@ -74,17 +53,7 @@ export const GRAMMAR_OPTIONS: readonly GrammarOption[] = [
 ] as const
 
 export function resolveGrammaticalGender(profile?: Partial<Profile> | null): GrammaticalGender {
-  if (!profile) return 'male'
-  const explicit = profile.grammatical_gender
-  if (explicit && ['female', 'male', 'neutral', 'impersonal'].includes(explicit)) {
-    return explicit as GrammaticalGender
-  }
-  const gender = profile.gender
-  if (gender) {
-    const matched = GENDER_OPTIONS.find(opt => opt.value === gender)
-    if (matched) return matched.defaultGrammar
-  }
-  return 'male'
+  return resolveGender(profile?.gender, profile?.grammatical_gender)
 }
 
 export type CaseName = 'mianownik' | 'dopelniacz' | 'celownik' | 'biernik' | 'narzednik' | 'miejscownik'
@@ -147,38 +116,7 @@ export function getPartnerPronoun(grammar: GrammaticalGender): string {
   }
 }
 
-const VERBS_3RD_PAST: Record<string, { male: string; female: string; neutral: string; impersonal: string }> = {
-  'dodał': { male: 'dodał', female: 'dodała', neutral: 'dodało', impersonal: 'dodano' },
-  'zaktualizował': { male: 'zaktualizował', female: 'zaktualizowała', neutral: 'zaktualizowało', impersonal: 'zaktualizowano' },
-  'zmienił': { male: 'zmienił', female: 'zmieniła', neutral: 'zmieniło', impersonal: 'zmieniono' },
-  'przesłał': { male: 'przesłał', female: 'przesłała', neutral: 'przesłało', impersonal: 'przesłano' },
-  'dostał': { male: 'dostał', female: 'dostała', neutral: 'dostało', impersonal: 'otrzymało' },
-  'ukończył': { male: 'ukończył', female: 'ukończyła', neutral: 'ukończyło', impersonal: 'ukończono' },
-  'zrealizował': { male: 'zrealizował', female: 'zrealizowała', neutral: 'zrealizowało', impersonal: 'zrealizowano' },
-  'kupił': { male: 'kupił', female: 'kupiła', neutral: 'kupiło', impersonal: 'kupiono' },
-  'odhaczył': { male: 'odhaczył', female: 'odhaczyła', neutral: 'odhaczyło', impersonal: 'odhaczono' },
-  'oznaczył': { male: 'oznaczył', female: 'oznaczyła', neutral: 'oznaczyło', impersonal: 'oznaczono' },
-  'narysował': { male: 'narysował', female: 'narysowała', neutral: 'narysowało', impersonal: 'narysowano' },
-  'wyczyścił': { male: 'wyczyścił', female: 'wyczyściła', neutral: 'wyczyściło', impersonal: 'wyczyszczono' },
-  'zapisał': { male: 'zapisał', female: 'zapisała', neutral: 'zapisało', impersonal: 'zapisano' },
-  'zaplanował': { male: 'zaplanował', female: 'zaplanowała', neutral: 'zaplanowało', impersonal: 'zaplanowano' },
-  'spełnił': { male: 'spełnił', female: 'spełniła', neutral: 'spełniło', impersonal: 'spełniono' },
-  'odebrał': { male: 'odebrał', female: 'odebrała', neutral: 'odebrało', impersonal: 'odebrano' },
-  'utworzył': { male: 'utworzył', female: 'utworzyła', neutral: 'utworzyło', impersonal: 'utworzono' },
-  'dorzucił': { male: 'dorzucił', female: 'dorzuciła', neutral: 'dorzuciło', impersonal: 'dorzucono' },
-  'wypłacił': { male: 'wypłacił', female: 'wypłaciła', neutral: 'wypłaciło', impersonal: 'wypłacono' },
-  'widział': { male: 'widział', female: 'widziała', neutral: 'widziało', impersonal: 'widziano' },
-  'słuchał': { male: 'słuchał', female: 'słuchała', neutral: 'słuchało', impersonal: 'słuchano' },
-  'był': { male: 'był', female: 'była', neutral: 'było', impersonal: 'było' }
-}
-
-export function conjugateVerbPast3rd(verb: string, grammar: GrammaticalGender): string {
-  const match = VERBS_3RD_PAST[verb]
-  if (match) return match[grammar]
-  if (grammar === 'female') return verb.endsWith('ł') ? verb.slice(0, -1) + 'ła' : verb + 'a'
-  if (grammar === 'neutral') return verb.endsWith('ł') ? verb.slice(0, -1) + 'ło' : verb + 'o'
-  return verb
-}
+export const conjugateVerbPast3rd = conjugateSharedVerb
 
 const VERBS_2ND_PAST: Record<string, { male: string; female: string; neutral: string; impersonal: string }> = {
   'zrobiłeś': { male: 'zrobiłeś', female: 'zrobiłaś', neutral: 'zrobiłoś', impersonal: 'zrobiono' },
@@ -232,7 +170,7 @@ export function useDuoGrammar() {
   const partnerPronoun = computed(() => getPartnerPronoun(partnerGrammar.value))
 
   const partnerDisplayName = computed(() => partnerUser.value?.name || partnerTitle.value)
-  const partnerDopelniaczName = computed(() => partnerUser.value?.name || partnerDopelniacz.value)
+  const partnerDopelniaczName = computed(() => partnerUser.value?.name || partnerDopelniacz.value.toLowerCase())
   const partnerNarzednikName = computed(() => {
     if (partnerUser.value?.name) return `z ${partnerUser.value.name}`
     return `z ${partnerNarzednik.value}`

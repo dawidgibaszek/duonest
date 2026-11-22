@@ -767,6 +767,7 @@ const {
   activeTasksMainTab,
   currentUser,
   partnerUser,
+  partnerDisplayName,
   addSavingsGoal,
   updateSavingsGoal,
   deleteSavingsGoal,
@@ -945,8 +946,8 @@ const getIconComponent = (iconKey: string) => {
 const getUserName = (userId: string | null | undefined) => {
   if (!userId) return 'DuoNest'
   if (userId === currentUser.value?.id) return currentUser.value.name || 'Ty'
-  if (userId === partnerUser.value?.id) return partnerUser.value?.name || 'Partner'
-  return 'Partner'
+  if (userId === partnerUser.value?.id) return partnerDisplayName.value
+  return 'Nieznane konto'
 }
 
 const getUserColor = (userId: string | null | undefined) => {

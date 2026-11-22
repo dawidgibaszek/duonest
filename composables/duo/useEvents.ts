@@ -41,7 +41,7 @@ export function useEvents(options: {
       completed_at: null,
       completed_by: null,
       is_surprise: isSurprise,
-      planner_name: plannerName || currentUser.value.name || 'Partner',
+      planner_name: plannerName || currentUser.value.name || '',
       created_by: currentUser.value.id,
       created_at: new Date().toISOString()
     }

@@ -58,7 +58,7 @@
 
     <transition name="bounce-heart">
       <div v-if="showHeart" class="click-heart-fx">
-        <span>💖</span>
+        <ion-icon :icon="ioniconsHeart" aria-hidden="true" />
       </div>
     </transition>
   </div>
@@ -394,6 +394,7 @@ onUnmounted(() => {
 
 /* Bounce Heart Effect on Click */
 .click-heart-fx {
+  color: var(--dn-ink);
   position: absolute;
   top: -16px;
   left: 50%;

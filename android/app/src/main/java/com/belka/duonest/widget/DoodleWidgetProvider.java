@@ -169,7 +169,7 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
             views.setViewVisibility(R.id.widget_empty, View.VISIBLE);
             views.setTextViewText(R.id.widget_empty_text, !snapshot.connected
                 ? context.getString(R.string.widget_doodle_signed_out)
-                : context.getString(R.string.widget_doodle_empty, partner != null ? partner : context.getString(R.string.widget_doodle_partner_dative)));
+                : context.getString(R.string.widget_doodle_empty));
         }
         return views;
     }

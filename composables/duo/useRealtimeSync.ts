@@ -55,7 +55,7 @@ let partnerDrawingTimeout: any = null
 let lastDrawingPushAt = 0
 const DRAWING_PUSH_INTERVAL_MS = 45_000
 
-const transientActions = new Set(['DOODLE_LIVE_STROKE', 'DOODLE_DRAWING_STATUS', 'DOODLE_CLEAR'])
+const transientActions = new Set(['DOODLE_LIVE_STROKE', 'DOODLE_DRAWING_STATUS'])
 
 export function stopPartnershipRealtime() {
   const channel = activePartnershipChannel
@@ -77,7 +77,8 @@ function normalizeStroke(raw: any, maxPoints = 100_000): DuoDoodleStroke | null 
       !raw.points.every((n: unknown) => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1) ||
       typeof raw.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(raw.color) ||
       typeof width !== 'number' || !Number.isFinite(width) || width <= 0 || width > 100) return null
-  return { points: raw.points, color: raw.color, width, isEraser: raw.isEraser === true }
+  const id = typeof raw.id === 'string' && /^[a-z0-9-]{1,64}$/i.test(raw.id) ? raw.id : undefined
+  return { ...(id ? { id } : {}), points: raw.points, color: raw.color, width, isEraser: raw.isEraser === true }
 }
 
 const byNewest = (a: { created_at?: string }, b: { created_at?: string }) =>
@@ -230,9 +231,8 @@ export function useRealtimeSync(options?: {
       trackDuoEvent('duo_doodle_saved')
     }
     setDoodle(doodle)
-    lastDrawingPushAt = 0
-    broadcastToPartner('DOODLE_SAVE', {})
     if (!options?.silent) {
+      void broadcastToPartner('DOODLE_SAVE', {})
       triggerToast('Zapisano rysunek na tablicy', { type: 'love' })
     }
     return doodle
@@ -249,7 +249,6 @@ export function useRealtimeSync(options?: {
       if (partnership.value?.id !== pid) return false
       setDoodle(null)
       lastDrawingPushAt = 0
-      void broadcastToPartner('DOODLE_CLEAR', {})
       await sendPartnerPush('DOODLE_CLEAR', {})
       if (!options?.silent) {
         triggerToast('Wyczyszczono tablicę')
@@ -264,6 +263,10 @@ export function useRealtimeSync(options?: {
   }
 
   const setDoodle = (doc: any) => {
+    if (!doc && currentDoodle.value) {
+      partnerLiveStroke.value = null
+      isPartnerDrawing.value = false
+    }
     currentDoodle.value = doc ? {
       ...doc,
       strokes: Array.isArray(doc.strokes) ? doc.strokes.map((stroke: unknown) => normalizeStroke(stroke)).filter(Boolean) : []
@@ -364,10 +367,10 @@ export function useRealtimeSync(options?: {
           saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
         }
         if (previousMood && profile.mood_updated_at && previousMood !== profile.mood_updated_at) {
-          const partnerGrammar = resolveGrammaticalGender(profile.grammatical_gender, profile.gender)
+          const partnerGrammar = resolveGrammaticalGender(profile)
           const verb = conjugateVerbPast3rd('zmienił', partnerGrammar)
-          const subject = profile.name || getPartnerNoun(partnerGrammar)
-          triggerToast(`${subject} ${verb} nastrój`, { type: 'mood' })
+          const subject = profile.name || getPartnerNoun('mianownik', partnerGrammar)
+          triggerToast(partnerGrammar === 'impersonal' || !profile.name && partnerGrammar === 'neutral' ? 'Zmieniono nastrój' : `${subject} ${verb} nastrój`, { type: 'mood' })
         }
       })
     }))
@@ -391,10 +394,10 @@ export function useRealtimeSync(options?: {
       previousNudges = new Set(rows.map(row => row.id))
       saveToStorage('duonest_nudges', nudgesList.value)
       if (newGesture) {
-        const partnerGrammar = resolveGrammaticalGender(partnerUser.value?.grammatical_gender, partnerUser.value?.gender)
+        const partnerGrammar = resolveGrammaticalGender(partnerUser.value)
         const verb = conjugateVerbPast3rd('przesłał', partnerGrammar)
-        const subject = partnerUser.value?.name || getPartnerNoun(partnerGrammar)
-        triggerToast(`${subject} ${verb} gest`, { type: 'love' })
+        const subject = partnerUser.value?.name || getPartnerNoun('mianownik', partnerGrammar)
+        triggerToast(partnerGrammar === 'impersonal' || !partnerUser.value?.name && partnerGrammar === 'neutral' ? 'Przesłano gest' : `${subject} ${verb} gest`, { type: 'love' })
       }
     }, { field: 'created_at', limit: 20 })
     observe('milestones', rows => {
@@ -452,7 +455,10 @@ export function useRealtimeSync(options?: {
         partnerLastSeenAt.value = new Date().toISOString()
         saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
       }
-      if (isPartnerOnline.value && !wasOnline) triggerToast(`${partnerUser.value?.name || 'Partner'} jest online`)
+      if (isPartnerOnline.value && !wasOnline) {
+        const profile = partnerUser.value
+        triggerToast(`${profile?.name || getPartnerNoun('mianownik', resolveGrammaticalGender(profile))} jest online`)
+      }
     }
     // Account sync has published membership before we attach either set of listeners.
     channel.on('presence', { event: 'sync' }, syncPresence)
@@ -466,10 +472,6 @@ export function useRealtimeSync(options?: {
         isPartnerDrawing.value = true
       } else if (payload.action === 'DOODLE_DRAWING_STATUS' && typeof payload.data?.isDrawing === 'boolean') {
         isPartnerDrawing.value = payload.data.isDrawing
-      } else if (payload.action === 'DOODLE_CLEAR') {
-        setDoodle(null)
-        partnerLiveStroke.value = null
-        isPartnerDrawing.value = false
       } else {
         return
       }

@@ -200,7 +200,9 @@ export const toRealtimeProfileSnapshot = (profile: Profile) => ({
   last_seen_at: profile.last_seen_at
 })
 
-export function isStrokeContinued(prev: DuoDoodleStroke, next: DuoDoodleStroke): boolean {
+export function isStrokeContinued(prev: DuoDoodleStroke | undefined, next: DuoDoodleStroke): boolean {
+  if (!prev) return false
+  if (prev.id && next.id) return prev.id === next.id && prev.points.length <= next.points.length
   if (
     (prev.isEraser === true) !== (next.isEraser === true) ||
     prev.width !== next.width ||
@@ -209,11 +211,8 @@ export function isStrokeContinued(prev: DuoDoodleStroke, next: DuoDoodleStroke):
   ) {
     return false
   }
-  const len = prev.points.length
-  for (let i = 0; i < len; i++) {
-    if (Math.abs(prev.points[i] - next.points[i]) > 0.0001) {
-      return false
-    }
-  }
-  return true
+  return prev.points.every((point, index) => {
+    const other = next.points[index]
+    return other !== undefined && Math.abs(point - other) <= 0.0001
+  })
 }

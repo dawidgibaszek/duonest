@@ -83,11 +83,11 @@ export function useMovies(options: {
     options.broadcastToPartner('MOVIE_ADD', newMovie)
 
     if (statusVal === 'watched') {
-      options.triggerToast(`Dodano "${title}" jako obejrzane! 🎉`, { type: 'movies' })
+      options.triggerToast(`Dodano "${title}" jako obejrzane!`, { type: 'movies' })
     } else if (statusVal === 'watching') {
-      options.triggerToast(`Rozpoczęto seans "${title}"! 🍿`, { type: 'movies' })
+      options.triggerToast(`Rozpoczęto seans "${title}"!`, { type: 'movies' })
     } else {
-      options.triggerToast(`Dodano "${title}" do listy do obejrzenia 🎬`, { type: 'movies' })
+      options.triggerToast(`Dodano "${title}" do listy do obejrzenia`, { type: 'movies' })
     }
     trackDuoEvent('duo_movie_added')
     return newMovie

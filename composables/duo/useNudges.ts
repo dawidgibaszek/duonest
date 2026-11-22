@@ -39,7 +39,7 @@ export function useNudges(options: {
     if (!partnership.value?.id) return false
     const partnerId = partnerUser.value?.id
     if (!partnerId) {
-      options.triggerToast('Partner nie jest jeszcze połączony.', { type: 'warning' })
+      options.triggerToast('Najpierw połącz konta.', { type: 'warning' })
       return false
     }
 
@@ -65,7 +65,7 @@ export function useNudges(options: {
     saveToStorage(`duonest_last_nudge_ts_${currentUser.value.id}`, lastNudgeSentAt.value)
     options.broadcastToPartner('NUDGE_SEND', newNudge)
     trackDuoEvent('duo_gesture_sent')
-    options.triggerToast('Przesłano gest partnerowi', { type: 'love' })
+    options.triggerToast('Gest został wysłany', { type: 'love' })
     return true
   }
 

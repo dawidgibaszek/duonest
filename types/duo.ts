@@ -234,6 +234,7 @@ export interface SavingsContribution {
 }
 
 export interface DuoDoodleStroke {
+  id?: string
   points: number[]
   color: string
   width: number
@@ -259,6 +260,7 @@ export type ToastType =
   | 'shopping'
   | 'tasks'
   | 'meals'
+  | 'movies'
   | 'mood'
   | 'wishlist'
   | 'savings'

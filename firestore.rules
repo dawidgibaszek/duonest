@@ -67,7 +67,13 @@ service cloud.firestore {
         && changedOnly([
           'name', 'avatar_url', 'avatar_color', 'current_mood', 'mood_note', 'mood_updated_at',
           'love_note', 'favorite_drink', 'favorite_treat', 'gender', 'grammatical_gender', 'last_seen_at', 'updated_at'
-        ]);
+        ])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['gender'])
+          || request.resource.data.get('gender', null) in [null, 'male', 'female', 'nonbinary'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['grammatical_gender'])
+          || request.resource.data.get('grammatical_gender', null) in [
+            null, 'female', 'male', 'neutral', 'impersonal'
+          ]);
     }
 
     match /partnerships/{pid} {

@@ -106,11 +106,11 @@ export function translateAppError(err: any): string {
     return 'Link jest nieprawidłowy, został już użyty albo wygasł. Poproś o nowy.'
   }
   if (msg.includes('pairing_code_required')) {
-    return 'Wpisz kod parowania partnera (np. DN-8K4P2Q). Znajdzie go w swojej aplikacji na ekranie parowania.'
+    return 'Wpisz kod widoczny na ekranie parowania na drugim koncie (np. 8K4P2QZ).'
   }
 
   if (msg.includes('partner_unavailable') || msg.includes('partner not found') || msg.includes('nie znaleziono partnera')) {
-    return 'Nie znaleziono partnera o podanym kodzie. Upewnij się, że partner założył już konto w aplikacji i wpisujesz właściwy kod.'
+    return 'Nie znaleziono konta o podanym kodzie. Sprawdź, czy wpisujesz aktualny kod z drugiego konta.'
   }
 
   if (msg.includes('already paired') || msg.includes('w innym gniazdku')) {

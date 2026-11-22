@@ -19,12 +19,14 @@ final class DoodleStroke {
     final String color;
     final float width;
     final boolean isEraser;
+    final String id;
 
-    private DoodleStroke(float[] points, String color, float width, boolean isEraser) {
+    private DoodleStroke(float[] points, String color, float width, boolean isEraser, String id) {
         this.points = points;
         this.color = color;
         this.width = width;
         this.isEraser = isEraser;
+        this.id = id;
     }
 
     /** Mirrors normalizeStroke() in useRealtimeSync.ts. */
@@ -43,7 +45,7 @@ final class DoodleStroke {
             if (Double.isNaN(value) || value < 0 || value > 1) return null;
             points[i] = (float) value;
         }
-        return new DoodleStroke(points, color, (float) width, raw.optBoolean("isEraser", false));
+        return new DoodleStroke(points, color, (float) width, raw.optBoolean("isEraser", false), raw.optString("id", ""));
     }
 
     JSONObject toJson() throws JSONException {
@@ -53,6 +55,7 @@ final class DoodleStroke {
             .put("points", jsonPoints)
             .put("color", color)
             .put("width", (double) width)
+            .put("id", id)
             .put("isEraser", isEraser);
     }
 
@@ -76,11 +79,12 @@ final class DoodleStroke {
 
     /** Partner broadcasts resend the same stroke while it grows; true when {@code next} continues this one. */
     boolean isContinuedBy(DoodleStroke next) {
-        return next.isEraser == isEraser &&
-            next.width == width &&
-            next.color.equalsIgnoreCase(color) &&
-            next.points.length >= points.length &&
-            next.points[0] == points[0] &&
-            next.points[1] == points[1];
+        if (next.points.length < points.length) return false;
+        if (!id.isEmpty() && !next.id.isEmpty()) return id.equals(next.id);
+        if (next.isEraser != isEraser || next.width != width || !next.color.equalsIgnoreCase(color)) return false;
+        for (int i = 0; i < points.length; i++) {
+            if (Math.abs(points[i] - next.points[i]) > 0.0001f) return false;
+        }
+        return true;
     }
 }

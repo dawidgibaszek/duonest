@@ -178,7 +178,7 @@
                     class="item-author-badge"
                     v-if="item.added_by"
                   >
-                    {{ item.added_by === currentUser?.id ? 'Ty' : (partnerUser?.name || 'Partner') }}
+                    {{ item.added_by === currentUser?.id ? 'Ty' : (partnerDisplayName) }}
                   </span>
                 </div>
               </div>
@@ -493,6 +493,7 @@ const {
   activeTasksMainTab,
   currentUser,
   partnerUser,
+  partnerDisplayName,
   addShoppingItem,
   updateShoppingItem,
   toggleShoppingItem,

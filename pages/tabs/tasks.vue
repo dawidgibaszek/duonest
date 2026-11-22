@@ -699,8 +699,6 @@ const {
   petXpToNextLevel,
   petLevelProgressPct,
   petHappiness,
-  happinessLabel,
-  happinessEmoji,
   triggerPetAnimation,
   onEnterPetView,
   selectPet,
@@ -788,7 +786,6 @@ const handlePetClick = () => {
   triggerPetAnimation('jump', 1400)
 }
 
-// Clean happiness text without emojis
 const cleanHappinessLabel = computed(() => {
   const h = petHappiness.value
   if (h >= 90) return 'Przeszczęśliwy'

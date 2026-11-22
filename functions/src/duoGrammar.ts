@@ -1,9 +1,7 @@
 export type GrammaticalGender = 'female' | 'male' | 'neutral' | 'impersonal'
+export type GenderIdentity = 'male' | 'female' | 'nonbinary'
 
-export function resolveGrammaticalGender(gender?: string | null, grammaticalGender?: string | null): GrammaticalGender {
-  if (grammaticalGender && ['female', 'male', 'neutral', 'impersonal'].includes(grammaticalGender)) {
-    return grammaticalGender as GrammaticalGender
-  }
+export function normalizeGenderIdentity(gender?: string | null): GenderIdentity | null {
   switch (gender) {
     case 'female':
     case 'trans_female':
@@ -17,10 +15,18 @@ export function resolveGrammaticalGender(gender?: string | null, grammaticalGend
     case 'agender':
     case 'queer':
     case 'other':
-      return 'neutral'
+      return 'nonbinary'
     default:
-      return 'male'
+      return null
   }
+}
+
+export function resolveGrammaticalGender(gender?: string | null, grammaticalGender?: string | null): GrammaticalGender {
+  if (grammaticalGender && ['female', 'male', 'neutral', 'impersonal'].includes(grammaticalGender)) {
+    return grammaticalGender as GrammaticalGender
+  }
+  const identity = normalizeGenderIdentity(gender)
+  return identity === 'nonbinary' ? 'neutral' : identity || 'impersonal'
 }
 
 const VERBS: Record<string, { male: string; female: string; neutral: string; impersonal: string }> = {
@@ -28,7 +34,7 @@ const VERBS: Record<string, { male: string; female: string; neutral: string; imp
   'zaktualizował': { male: 'zaktualizował', female: 'zaktualizowała', neutral: 'zaktualizowało', impersonal: 'zaktualizowano' },
   'zmienił': { male: 'zmienił', female: 'zmieniła', neutral: 'zmieniło', impersonal: 'zmieniono' },
   'przesłał': { male: 'przesłał', female: 'przesłała', neutral: 'przesłało', impersonal: 'przesłano' },
-  'dostał': { male: 'dostał', female: 'dostała', neutral: 'dostało', impersonal: 'otrzymało' },
+  'dostał': { male: 'dostał', female: 'dostała', neutral: 'dostało', impersonal: 'otrzymano' },
   'ukończył': { male: 'ukończył', female: 'ukończyła', neutral: 'ukończyło', impersonal: 'ukończono' },
   'zrealizował': { male: 'zrealizował', female: 'zrealizowała', neutral: 'zrealizowało', impersonal: 'zrealizowano' },
   'kupił': { male: 'kupił', female: 'kupiła', neutral: 'kupiło', impersonal: 'kupiono' },

@@ -15,7 +15,6 @@ withDefaults(
   }>(),
   {
     playback: null,
-    userName: 'Partner',
     isPreview: false,
     service: null
   }

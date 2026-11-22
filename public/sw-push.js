@@ -74,7 +74,7 @@ self.addEventListener('message', (event) => {
 self.addEventListener('push', (event) => {
   let payload = {
     title: 'DuoNest',
-    body: 'Nowa wiadomość w Waszym Gniazdku! 💌',
+    body: 'Nowa wiadomość w Waszym Gniazdku!',
     icon: '/pwa-192x192.png',
     badge: '/badge-96.png',
     data: { url: '/tabs/nest' }

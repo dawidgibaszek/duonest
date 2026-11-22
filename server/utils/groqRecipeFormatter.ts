@@ -148,6 +148,7 @@ Zasady formatowania:
    - Jeśli składniki były sklejone w jeden ciąg, bezwzględnie rozbij je na osobne pozycje.
    - Usuń reklamy marek, odnośniki i zbędne uwagi.
 2. Kroki przygotowania (instructionsSteps oraz instructions):
+   - Zwracaj się w trybie rozkazującym lub używaj form bezosobowych. Unikaj określania płci osoby gotującej.
    - Podziel proces na 3 do 7 ponumerowanych, logicznych i chronologicznych kroków (np. przygotowanie/krojenie, smażenie/gotowanie, sos, łączenie składników, podanie).
    - W 'instructionsSteps' podaj czyste opisy czynności (bez 'Krok 1:' czy '1.').
    - W 'instructions' każdy krok MUSI być ponumerowany (1., 2., 3...) i oddzielony podwójnym znakiem nowej linii (\\n\\n).
