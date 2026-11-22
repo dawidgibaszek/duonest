@@ -19,6 +19,7 @@ import { handleMusicAction, isMusicAction } from './musicCore'
 import { handleMoviesTrending, handleMoviesSearch, handleMoviesRandom } from './moviesCore'
 import { handleMealsCategories, handleMealsSearch, handleMealsLookup, handleMealsImport } from './mealsCore'
 import { requireDuoClient } from './clientAccess'
+import { readWidgetDoodle, updateWidgetAccess } from './widgetAccess'
 import { storeIosDiagnosticReports } from './iosDiagnostics'
 import { createAdminRouter } from './adminAccess'
 
@@ -268,6 +269,9 @@ app.post('/api/wishlist/preview', requireAuth, async (req: any, res) => {
 // -----------------------------------------------------------------------------
 // 4b. KONTO, CZŁONKOSTWO I PAROWANIE (wymaga uprawnień administratora)
 // -----------------------------------------------------------------------------
+app.post('/api/widget/session', requireAuth, updateWidgetAccess(db))
+app.get('/api/widget/doodle', readWidgetDoodle(db, auth))
+
 app.post('/api/account/sync', requireAuth, async (req: any, res) => {
   try {
     res.json(await syncAccount(db, getRtdb(), decodedUser(req)))

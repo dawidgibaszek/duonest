@@ -40,11 +40,21 @@ function getClientAccessPolicy() {
   return policyFetch
 }
 
+export async function isIosWidgetVersionAllowed(version: string, build: string) {
+  if (process.env.DUO_APP_CHECK_ENFORCE !== 'true') return true
+  const minimum = (await getClientAccessPolicy()).ios
+  return !minimum.version || (
+    compareAppVersions(version, version) !== null &&
+    (!minimum.build || compareAppVersions(build, build) !== null) &&
+    !needsAppUpdate({ version, build }, minimum.version, minimum.build)
+  )
+}
+
 export const requireDuoClient: RequestHandler = async (req, res, next) => {
   // The browser-only admin router validates its own password session and role.
   if (/^\/api\/admin(?:\/|$)/i.test(req.path)) return next()
   // Calendar apps authenticate with the feed's own opaque subscription token.
-  if (req.method === 'GET' && req.path === '/api/calendar/feed') return next()
+  if (req.method === 'GET' && ['/api/calendar/feed', '/api/widget/doodle'].includes(req.path)) return next()
   if (process.env.DUO_APP_CHECK_ENFORCE !== 'true') return next()
 
   let appId: string
