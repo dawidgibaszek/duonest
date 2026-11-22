@@ -199,7 +199,11 @@ export function useRealtimeSync(options?: {
     }
   }
 
-  const saveDoodle = async (strokes: DuoDoodleStroke[], previewSvg?: string): Promise<DuoDoodle | null> => {
+  const saveDoodle = async (
+    strokes: DuoDoodleStroke[],
+    previewSvg?: string,
+    options?: { silent?: boolean }
+  ): Promise<DuoDoodle | null> => {
     const pid = partnership.value?.id
     if (!pid) return null
     const now = new Date().toISOString()
@@ -215,15 +219,21 @@ export function useRealtimeSync(options?: {
     }
     const { error } = await getDb().from('partnership_doodles').insert(doodle)
     if (error) {
-      triggerToast('Nie udało się zapisać rysunku. Spróbuj ponownie.', { type: 'warning' })
+      if (!options?.silent) {
+        triggerToast('Nie udało się zapisać rysunku. Spróbuj ponownie.', { type: 'warning' })
+      }
       return null
     }
     if (partnership.value?.id !== pid) return null
-    trackDuoEvent('duo_doodle_saved')
+    if (!options?.silent) {
+      trackDuoEvent('duo_doodle_saved')
+    }
     setDoodle(doodle)
     lastDrawingPushAt = 0
     broadcastToPartner('DOODLE_SAVE', {})
-    triggerToast('Zapisano rysunek na tablicy', { type: 'love' })
+    if (!options?.silent) {
+      triggerToast('Zapisano rysunek na tablicy', { type: 'love' })
+    }
     return doodle
   }
 

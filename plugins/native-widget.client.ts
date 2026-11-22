@@ -129,11 +129,11 @@ export default defineNuxtPlugin(() => {
   watch(currentDoodle, () => { void pushDoodle() })
   watch(partnerLiveStroke, (live) => {
     if (!installedSession || isAuthLoading.value || isLoggingOut.value) return
-    // WidgetKit budgets refreshes. iOS reloads the saved drawing, while the app shows live strokes.
-    if (!isIos) void (live ? DuoWidget.addLiveStroke({ stroke: live.stroke }) : DuoWidget.clearLiveStrokes()).catch(ignore)
+    // iOS and Android stream live strokes to the widget while the app is active.
+    void (live ? DuoWidget.addLiveStroke({ stroke: live.stroke }) : DuoWidget.clearLiveStrokes()).catch(ignore)
   })
   watch(isPartnerDrawing, (isDrawing) => {
-    if (isIos || !installedSession || isAuthLoading.value || isLoggingOut.value) return
+    if (!installedSession || isAuthLoading.value || isLoggingOut.value) return
     void DuoWidget.setPartnerDrawing({ isDrawing }).catch(ignore)
   })
 })

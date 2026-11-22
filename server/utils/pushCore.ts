@@ -401,7 +401,6 @@ async function wakePartnerApps(db: Db, messaging: Messaging, partnerId: string, 
   await Promise.all(subs.docs.map(async (doc: any) => {
     const sub = doc.data() || {}
     if (typeof sub.fcm_token !== 'string') return
-    if (action === 'DOODLE_DRAWING_STATUS' && sub.platform !== 'android') return
     const data = { widget: 'doodle', action, senderName: senderName.slice(0, 60), recipientProfileId: partnerId }
     try {
       await messaging.send(sub.platform === 'android'

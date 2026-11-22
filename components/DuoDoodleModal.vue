@@ -232,14 +232,56 @@ let currentActiveStroke: DuoDoodleStroke | null = null
 let isDrawingActive = false
 let resizeObserver: ResizeObserver | null = null
 let lastBroadcastTime = 0
+let autoSaveTimer: ReturnType<typeof setTimeout> | null = null
+let lastSavedStrokesJson = ''
+
+const cancelAutoSave = () => {
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer)
+    autoSaveTimer = null
+  }
+}
+
+const scheduleAutoSave = (delayMs = 5000) => {
+  cancelAutoSave()
+  autoSaveTimer = setTimeout(() => {
+    void performAutoSave()
+  }, delayMs)
+}
+
+const performAutoSave = async () => {
+  if (isSavingDoodle.value || isDrawingActive || !strokes.value.length) return
+  const currentJson = JSON.stringify(strokes.value)
+  if (currentJson === lastSavedStrokesJson) return
+
+  const canvas = canvasRef.value
+  let previewDataUrl: string | undefined = undefined
+  if (canvas) {
+    try {
+      previewDataUrl = canvas.toDataURL('image/png', 0.92)
+    } catch (_) {}
+  }
+
+  isSavingDoodle.value = true
+  try {
+    const saved = await saveDoodle(strokes.value, previewDataUrl, { silent: true })
+    if (saved) {
+      lastSavedStrokesJson = currentJson
+    }
+  } finally {
+    isSavingDoodle.value = false
+  }
+}
 
 // Populate strokes from currentDoodle
 const loadStrokesFromDoodle = () => {
+  cancelAutoSave()
   if (currentDoodle.value && Array.isArray(currentDoodle.value.strokes)) {
     strokes.value = JSON.parse(JSON.stringify(currentDoodle.value.strokes))
   } else {
     strokes.value = []
   }
+  lastSavedStrokesJson = JSON.stringify(strokes.value)
 }
 
 // Ensure canvas is resized and drawn immediately across animation frames
@@ -317,11 +359,27 @@ watch(containerRef, (el) => {
   }
 })
 
+const isStrokeContinued = (prev: DuoDoodleStroke, next: DuoDoodleStroke): boolean => {
+  return prev.isEraser === next.isEraser &&
+    prev.width === next.width &&
+    prev.color.toLowerCase() === next.color.toLowerCase() &&
+    next.points.length >= prev.points.length &&
+    prev.points[0] === next.points[0] &&
+    prev.points[1] === next.points[1]
+}
+
 // Listen to real-time strokes drawn by partner
 watch(() => partnerLiveStroke.value, (live) => {
   if (live && live.stroke && props.isOpen) {
-    strokes.value.push(JSON.parse(JSON.stringify(live.stroke)))
-    renderStroke(live.stroke)
+    const strokeCopy: DuoDoodleStroke = JSON.parse(JSON.stringify(live.stroke))
+    const lastIdx = strokes.value.length - 1
+    if (lastIdx >= 0 && isStrokeContinued(strokes.value[lastIdx], strokeCopy)) {
+      strokes.value[lastIdx] = strokeCopy
+      redrawFullCanvas()
+    } else {
+      strokes.value.push(strokeCopy)
+      renderStroke(strokeCopy)
+    }
   }
 })
 
@@ -464,6 +522,8 @@ const handlePointerDown = (e: PointerEvent) => {
   const canvas = canvasRef.value
   if (!canvas) return
 
+  cancelAutoSave()
+
   // Ensure canvas is correctly sized prior to drawing
   if (canvas.width <= 300 || canvas.height <= 150) {
     initCanvas()
@@ -537,21 +597,25 @@ const handlePointerUp = (e: PointerEvent) => {
     broadcastLiveStroke(currentActiveStroke)
     currentActiveStroke = null
   }
+  scheduleAutoSave(5000)
 }
 
 const handleUndo = () => {
   if (strokes.value.length === 0) return
   strokes.value.pop()
   redrawFullCanvas()
+  scheduleAutoSave(3000)
 }
 
 const handleClear = () => {
   strokes.value = []
   redrawFullCanvas()
+  cancelAutoSave()
 }
 
 const isSavingDoodle = ref(false)
 const handleSave = async () => {
+  cancelAutoSave()
   if (isSavingDoodle.value) return
   if (!strokes.value.length) {
     isSavingDoodle.value = true
@@ -572,16 +636,36 @@ const handleSave = async () => {
 
   isSavingDoodle.value = true
   try {
-    if (await saveDoodle(strokes.value, previewDataUrl)) emit('close')
+    if (await saveDoodle(strokes.value, previewDataUrl, { silent: false })) {
+      lastSavedStrokesJson = JSON.stringify(strokes.value)
+      emit('close')
+    }
   } finally {
     isSavingDoodle.value = false
   }
 }
 
-const handleClose = () => {
+const handleClose = async () => {
+  cancelAutoSave()
   if (isDrawingActive) {
     isDrawingActive = false
     broadcastDrawingStatus(false)
+  }
+  const currentJson = JSON.stringify(strokes.value)
+  if (strokes.value.length > 0 && currentJson !== lastSavedStrokesJson && !isSavingDoodle.value) {
+    const canvas = canvasRef.value
+    let previewDataUrl: string | undefined = undefined
+    if (canvas) {
+      try {
+        previewDataUrl = canvas.toDataURL('image/png', 0.92)
+      } catch (_) {}
+    }
+    isSavingDoodle.value = true
+    try {
+      await saveDoodle(strokes.value, previewDataUrl, { silent: true })
+    } finally {
+      isSavingDoodle.value = false
+    }
   }
   emit('close')
 }
@@ -593,6 +677,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  cancelAutoSave()
   if (resizeObserver) {
     resizeObserver.disconnect()
     resizeObserver = null
