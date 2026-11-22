@@ -158,6 +158,7 @@ export async function syncAccount(db: Db, rtdb: Rtdb | null, user: DecodedUser):
       if (stored.id !== profileRef.id) updates.id = profileRef.id
       if (!stored.auth_user_id) updates.auth_user_id = user.uid
       if (stored.partnership_id && !partnershipId) updates.partnership_id = null
+      if (!partnershipId && stored.points) updates.points = 0
       if (nextCode) {
         updates.pairing_code = nextCode.code
         if (typeof stored.pairing_code === 'string' && stored.pairing_code) {
@@ -289,7 +290,7 @@ export async function pairWithCode(
     created_at: created
   }
 
-  const myUpdates: any = { partnership_id: partnershipId, updated_at: created }
+  const myUpdates: any = { partnership_id: partnershipId, points: 0, updated_at: created }
   const cleanName = String(displayName || '').trim().slice(0, 60)
   if (cleanName) myUpdates.name = cleanName
 
@@ -323,7 +324,7 @@ export async function pairWithCode(
     }
     tx.create(db.collection('partnerships').doc(partnershipId), partnership)
     for (const doc of mine) tx.update(doc.ref, myUpdates)
-    for (const doc of theirs) tx.update(doc.ref, { partnership_id: partnershipId, updated_at: created })
+    for (const doc of theirs) tx.update(doc.ref, { partnership_id: partnershipId, points: 0, updated_at: created })
     tx.set(db.collection('members').doc(user.uid), membership(myId, partnershipId))
     tx.set(db.collection('members').doc(partner.auth_user_id), membership(partnerId, partnershipId))
     return partnership
@@ -332,9 +333,10 @@ export async function pairWithCode(
 
   await Promise.all([mirrorMembership(db, rtdb, user.uid), mirrorMembership(db, rtdb, partner.auth_user_id)])
 
+  const isNew = paired.id === partnershipId
   return {
     partnership: paired,
-    partner: partnerSummary(partner, paired.id)
+    partner: partnerSummary(isNew ? { ...partner, points: 0 } : partner, paired.id)
   }
 }
 
@@ -369,7 +371,7 @@ export async function disconnectPartnership(db: Db, rtdb: Rtdb | null, user: Dec
     for (const doc of profiles.docs) {
       const next = freshCodes.get(doc.data()?.auth_user_id)
       if (next) tx.update(doc.ref, {
-        partnership_id: null, pairing_code: next.code, legacy_pairing_code: null, updated_at: nowIso()
+        partnership_id: null, points: 0, pairing_code: next.code, legacy_pairing_code: null, updated_at: nowIso()
       })
     }
     tx.delete(nestRef)
