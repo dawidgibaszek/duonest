@@ -181,15 +181,19 @@ export function useRealtimeSync(options?: {
 
   const broadcastLiveStroke = (stroke: DuoDoodleStroke) => {
     const valid = normalizeStroke(stroke, 4096)
+    notifyDrawingWidget()
     if (valid) void broadcastToPartner('DOODLE_LIVE_STROKE', { stroke: valid })
   }
 
   const broadcastDrawingStatus = (isDrawing: boolean) => {
     broadcastToPartner('DOODLE_DRAWING_STATUS', { isDrawing })
-    // Wakes the partner's widget ("rysuje") when their app is closed; one ping per drawing session.
-    if (isDrawing && Date.now() - lastDrawingPushAt > DRAWING_PUSH_INTERVAL_MS) {
+    if (isDrawing) notifyDrawingWidget()
+  }
+
+  function notifyDrawingWidget() {
+    if (Date.now() - lastDrawingPushAt > DRAWING_PUSH_INTERVAL_MS) {
       lastDrawingPushAt = Date.now()
-      sendPartnerPush('DOODLE_DRAWING_STATUS', { isDrawing })
+      sendPartnerPush('DOODLE_DRAWING_STATUS', { isDrawing: true })
     }
   }
 
@@ -214,6 +218,7 @@ export function useRealtimeSync(options?: {
     }
     if (partnership.value?.id !== pid) return null
     setDoodle(doodle)
+    lastDrawingPushAt = 0
     broadcastToPartner('DOODLE_SAVE', {})
     triggerToast('Zapisano rysunek na tablicy', { type: 'love' })
     return doodle

@@ -53,8 +53,8 @@ public class DuoWidgetPlugin extends Plugin {
     @PluginMethod
     public void setPartnerDrawing(PluginCall call) {
         boolean isDrawing = Boolean.TRUE.equals(call.getBoolean("isDrawing", false));
-        DoodleWidgetStore.get(getContext()).setPartnerDrawingUntil(isDrawing ? System.currentTimeMillis() + LIVE_DRAWING_MS : 0);
-        if (isDrawing) DoodleWidgetProvider.scheduleDrawingExpiry(getContext(), LIVE_DRAWING_MS);
+        DoodleWidgetStore.get(getContext()).setPartnerDrawingUntil(System.currentTimeMillis() + (isDrawing ? LIVE_DRAWING_MS : 2500));
+        DoodleWidgetProvider.scheduleDrawingExpiry(getContext(), isDrawing ? LIVE_DRAWING_MS : 2500);
         DoodleWidgetProvider.requestRender(getContext());
         call.resolve();
     }

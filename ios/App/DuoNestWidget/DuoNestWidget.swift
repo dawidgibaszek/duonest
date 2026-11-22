@@ -23,7 +23,7 @@ struct DoodleWidget: Widget {
         }
         .configurationDisplayName("Wspólny rysunek")
         .description("Wasz wspólny rysunek, odświeżany po zapisaniu zmian")
-        .supportedFamilies([.systemMedium, .systemLarge])
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .systemExtraLarge, .accessoryInline, .accessoryCircular, .accessoryRectangular])
     }
 }
 
@@ -84,8 +84,8 @@ struct DoodleProvider: TimelineProvider {
         let connected = DoodleWidgetStore.shared.session() != nil
         let strokes = connected ? state.strokes : []
         let board = CGSize(
-            width: max(80, context.displaySize.width - 2 * Self.margin),
-            height: max(60, context.displaySize.height - 2 * Self.margin - Self.header - Self.gap)
+            width: max(1, context.displaySize.width - 2 * Self.margin),
+            height: max(1, context.displaySize.height - 2 * Self.margin - ([WidgetFamily.systemMedium, .systemLarge, .systemExtraLarge].contains(context.family) ? Self.header + Self.gap : 0))
         )
         return DoodleEntry(
             date: date,
@@ -107,12 +107,32 @@ private enum DuoColor {
 }
 
 struct DoodleWidgetView: View {
+    @Environment(\.widgetFamily) private var family
     let entry: DoodleEntry
 
     private var partnerLabel: String { entry.partnerName.isEmpty ? "Partner" : entry.partnerName }
     private var partnerDative: String { entry.partnerName.isEmpty ? "partnera" : entry.partnerName }
 
     var body: some View {
+        switch family {
+        case .accessoryInline:
+            Label(entry.authorName.isEmpty ? "Wspólny rysunek" : "Rysunek · \(entry.authorName)", systemImage: "paintbrush")
+        case .systemSmall, .accessoryCircular, .accessoryRectangular:
+            Group {
+                if let image = entry.image {
+                    Image(uiImage: image).resizable().scaledToFit()
+                } else {
+                    Image(systemName: "paintbrush.pointed")
+                }
+            }
+            .accessibilityLabel("Wspólny rysunek")
+            .containerBackground(for: .widget) { Color.white }
+        default:
+            fullBoard
+        }
+    }
+
+    private var fullBoard: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
                 Text("Wspólny rysunek")

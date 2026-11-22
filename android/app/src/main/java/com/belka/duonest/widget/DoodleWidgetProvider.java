@@ -35,14 +35,27 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
     private static boolean renderPending;
     private static long lastRenderAt;
 
+    private static final android.util.SparseArray<DoodleWidgetStore.Snapshot> displayed = new android.util.SparseArray<>();
+
+    @Override
+    public void onDeleted(Context context, int[] ids) {
+        synchronized (DoodleWidgetProvider.class) {
+            for (int id : ids) displayed.remove(id);
+        }
+    }
+
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
+        synchronized (DoodleWidgetProvider.class) {
+            for (int id : appWidgetIds) displayed.remove(id);
+        }
         requestRender(context);
         DoodleRefreshWorker.enqueue(context);
     }
 
     @Override
     public void onAppWidgetOptionsChanged(Context context, AppWidgetManager manager, int appWidgetId, Bundle newOptions) {
+        synchronized (DoodleWidgetProvider.class) { displayed.remove(appWidgetId); }
         requestRender(context);
     }
 
@@ -91,21 +104,29 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
         alarms.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + delayMs + 500, pending);
     }
 
-    static void renderAll(Context context) {
+    static synchronized void renderAll(Context context) {
         AppWidgetManager manager = AppWidgetManager.getInstance(context);
         int[] ids = manager.getAppWidgetIds(new ComponentName(context, DoodleWidgetProvider.class));
         if (ids.length == 0) return;
         DoodleWidgetStore.Snapshot snapshot = DoodleWidgetStore.get(context).snapshot();
         for (int id : ids) {
             try {
-                manager.updateAppWidget(id, buildViews(context, manager, id, snapshot));
+                DoodleWidgetStore.Snapshot previous = displayed.get(id);
+                boolean sameBoard = previous != null && previous.connected == snapshot.connected &&
+                    previous.strokes.equals(snapshot.strokes) && previous.partnerName.equals(snapshot.partnerName);
+                if (sameBoard && previous.partnerDrawing == snapshot.partnerDrawing &&
+                    previous.authorName.equals(snapshot.authorName)) continue;
+                RemoteViews views = buildViews(context, manager, id, snapshot, !sameBoard);
+                if (previous == null) manager.updateAppWidget(id, views);
+                else manager.partiallyUpdateAppWidget(id, views);
+                displayed.put(id, snapshot);
             } catch (RuntimeException e) {
                 Log.w("DuoWidget", "Widget update failed", e);
             }
         }
     }
 
-    private static RemoteViews buildViews(Context context, AppWidgetManager manager, int id, DoodleWidgetStore.Snapshot snapshot) {
+    private static RemoteViews buildViews(Context context, AppWidgetManager manager, int id, DoodleWidgetStore.Snapshot snapshot, boolean updateBoard) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_doodle);
         PendingIntent open = launchIntent(context);
         if (open != null) views.setOnClickPendingIntent(R.id.widget_root, open);
@@ -124,6 +145,18 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
             if (showAuthor) views.setTextViewText(R.id.widget_meta, snapshot.authorName);
         }
 
+        Bundle options = manager.getAppWidgetOptions(id);
+        int width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 320);
+        int height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 180);
+        boolean compact = width < 150 || height < 100;
+        views.setViewVisibility(R.id.widget_title, compact ? View.GONE : View.VISIBLE);
+        views.setViewVisibility(R.id.widget_header, compact && !snapshot.partnerDrawing ? View.GONE : View.VISIBLE);
+        int padding = Math.round((compact ? 3 : PADDING_DP) * context.getResources().getDisplayMetrics().density);
+        views.setViewPadding(R.id.widget_root, padding, padding, padding, padding);
+        if (compact && snapshot.partnerDrawing) {
+            views.setTextViewText(R.id.widget_live_text, "Rysuje…");
+        }
+        if (!updateBoard) return views;
         if (hasContent) {
             Bitmap bitmap = renderBoard(context, manager, id, snapshot);
             views.setImageViewBitmap(R.id.widget_doodle, bitmap);
