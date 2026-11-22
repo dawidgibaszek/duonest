@@ -1,10 +1,12 @@
 package com.belka.duonest;
 
 import android.Manifest;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import androidx.core.content.ContextCompat;
@@ -34,6 +36,33 @@ public final class DuoLocationPlugin extends Plugin {
     @PluginMethod public void stop(PluginCall call) {
         getContext().stopService(new Intent(getContext(), DuoLocationService.class));
         call.resolve();
+    }
+
+    @PluginMethod public void navigate(PluginCall call) {
+        Double latitude = call.getDouble("latitude");
+        Double longitude = call.getDouble("longitude");
+        if (latitude == null || longitude == null || !Double.isFinite(latitude) || !Double.isFinite(longitude)
+            || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+            call.reject("Brak celu nawigacji.");
+            return;
+        }
+        String destination = latitude + "," + longitude;
+        getActivity().runOnUiThread(() -> {
+            try {
+                try {
+                    getActivity().startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=" + destination)));
+                } catch (ActivityNotFoundException error) {
+                    Uri route = Uri.parse("https://www.google.com/maps/dir/").buildUpon()
+                        .appendQueryParameter("api", "1")
+                        .appendQueryParameter("destination", destination)
+                        .build();
+                    getActivity().startActivity(new Intent(Intent.ACTION_VIEW, route));
+                }
+                call.resolve();
+            } catch (ActivityNotFoundException error) {
+                call.reject("Nie udało się otworzyć aplikacji z mapami.");
+            }
+        });
     }
 
     private void withPermission(PluginCall call) {

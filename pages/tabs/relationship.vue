@@ -107,7 +107,7 @@
           </button>
         </section>
 
-        <DuoLocationCard v-if="currentUser.show_location_widget && partnership" :partner-name="partnerDisplayName" />
+        <DuoLocationCard v-if="partnership" :partner-name="partnerDisplayName" />
 
         <!-- MOOD -->
         <section class="rl-section">
@@ -240,19 +240,21 @@
           <button type="button" class="dn-button-secondary rl-full-btn" @click="isFeatureSettingsOpen = true">
             <ion-icon :icon="ioniconsAppsOutline" aria-hidden="true" /> Twoje zakładki
           </button>
-          <div class="rl-row rl-row--card">
-            <span class="rl-row-icon rl-row-icon--cream">
-              <ion-icon :icon="ioniconsLocationOutline" aria-hidden="true" />
-            </span>
-            <ion-toggle class="rl-row-main" :checked="Boolean(currentUser.show_location_widget)"
-              :disabled="locationWidgetSaving" @ionChange="toggleLocationWidget">
-              Karta lokalizacji
-            </ion-toggle>
+        </section>
+        <section v-if="partnership" class="rl-section">
+          <div class="rl-section-head">
+            <h3 class="rl-section-title">Lokalizacja</h3>
           </div>
-          <button v-if="isLocationSharing || hasSharedPosition || locationSharingError.startsWith('Telefon przestał')"
-            type="button" class="dn-button-secondary rl-full-btn" :disabled="locationWidgetSaving"
-            @click="stopLocationFromSettings">
-            Zatrzymaj udostępnianie lokalizacji
+          <p class="rl-desc">Udostępnij swoją pozycję drugiej osobie z pary.</p>
+          <p v-if="locationSharingError" class="rl-banner rl-banner--error" role="status">{{ locationSharingError }}</p>
+          <button v-if="canStopLocationSharing" type="button" class="dn-button-secondary rl-full-btn"
+            :disabled="locationSharingStopping || locationSharingStarting" @click="stopLocationFromSettings">
+            {{ locationSharingStopping ? 'Zatrzymywanie…' : 'Zatrzymaj udostępnianie lokalizacji' }}
+          </button>
+          <button v-else type="button" class="dn-button-secondary rl-full-btn"
+            :disabled="locationSharingStarting" @click="startSharing">
+            <ion-icon :icon="ioniconsLocationOutline" aria-hidden="true" />
+            {{ locationSharingStarting ? 'Włączanie…' : 'Udostępnij moją pozycję' }}
           </button>
         </section>
         <!-- NEST -->
@@ -1013,31 +1015,23 @@ const {
   GRAMMAR_OPTIONS
 } = useDuoState()
 
-const locationWidgetSaving = ref(false)
-const { sharing: isLocationSharing, ownShared: hasSharedPosition, sharingError: locationSharingError, stopSharing } = useDuoLocation()
-
-async function toggleLocationWidget(event: CustomEvent<{ checked: boolean }>) {
-  locationWidgetSaving.value = true
-  try {
-    await runToggle(event,
-      () => updateMyProfile({ show_location_widget: event.detail.checked }),
-      () => currentUser.value.show_location_widget)
-  } catch {
-    triggerToast('Nie udało się zapisać ustawienia lokalizacji.', { type: 'warning' })
-  } finally {
-    locationWidgetSaving.value = false
-  }
-}
+const locationSharingStopping = ref(false)
+const {
+  sharing: isLocationSharing, ownShared: hasSharedPosition, updatingSharing: locationSharingStarting,
+  sharingError: locationSharingError, startSharing, stopSharing
+} = useDuoLocation()
+const canStopLocationSharing = computed(() => isLocationSharing.value || hasSharedPosition.value
+  || locationSharingError.value.startsWith('Telefon przestał'))
 
 async function stopLocationFromSettings() {
-  locationWidgetSaving.value = true
+  locationSharingStopping.value = true
   try {
     await stopSharing()
     triggerToast('Udostępnianie lokalizacji zatrzymane.', { type: 'success' })
   } catch {
     triggerToast(locationSharingError.value, { type: 'warning' })
   } finally {
-    locationWidgetSaving.value = false
+    locationSharingStopping.value = false
   }
 }
 

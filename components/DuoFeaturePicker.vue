@@ -29,11 +29,11 @@ function toggle(id: DuoFeature) {
 </script>
 
 <style scoped>
-.feature-picker { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); }
+.feature-picker { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); }
 .feature-choice {
-  display: grid; grid-template-columns: 34px 1fr 17px; align-items: center; gap: 9px; text-align: left;
+  display: grid; grid-template-columns: 34px minmax(0, 1fr) 17px; align-items: center; gap: 9px; text-align: left;
   width: 100%; min-height: 55px; padding: 8px; background: var(--dn-field); border: 1px solid var(--dn-line);
-  border-radius: 14px; color: var(--dn-ink); font-size: 13px; font-weight: 600;
+  border-radius: 14px; color: var(--dn-ink); font-size: 13px; font-weight: 600; line-height: 1.25;
 }
 .feature-choice[aria-pressed="true"] { background: var(--dn-cream); border-color: var(--dn-cream-deep); }
 .feature-icon {

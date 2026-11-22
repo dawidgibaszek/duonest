@@ -15,12 +15,10 @@ const nativeLocation = registerPlugin<{
   start(options: { token: string; requestBackground: boolean }): Promise<void>
   stop(): Promise<void>
   status(): Promise<{ active: boolean }>
-  locate(): Promise<DuoPosition>
 }>('DuoLocation')
 
 const STORAGE_KEY = 'duonest_location_sharing_device'
 const ownShared = ref<DuoPosition | null>(null)
-const ownPreview = ref<DuoPosition | null>(null)
 const partnerPosition = ref<DuoPosition | null>(null)
 const sharing = ref(false)
 const updatingSharing = ref(false)
@@ -41,12 +39,7 @@ const deviceKey = computed(() => {
   return uid && pid ? `${uid}:${pid}` : ''
 })
 const validPosition = (point: DuoPosition | null) => point && clock.value - point.captured_at < 24 * 60 * 60_000 ? point : null
-const myPosition = computed(() => {
-  if (!activePair.value) return null
-  const preview = validPosition(ownPreview.value)
-  const shared = validPosition(ownShared.value)
-  return preview && (!shared || preview.captured_at > shared.captured_at) ? preview : shared
-})
+const myPosition = computed(() => activePair.value ? validPosition(ownShared.value) : null)
 const theirPosition = computed(() => activePair.value ? validPosition(partnerPosition.value) : null)
 const distance = computed(() => {
   const a = myPosition.value
@@ -161,7 +154,7 @@ async function startSharing(action: 'start' | 'resume') {
 }
 
 export function observeDuoLocation(pair: typeof activePair.value) {
-  ownPreview.value = ownShared.value = partnerPosition.value = null
+  ownShared.value = partnerPosition.value = null
   if (!pair?.pid || !pair.own || !pair.partner) return
   const collection = `partnership_locations/${pair.pid}/location_fixes`
   const bridge = getFirebaseBridge()
@@ -207,13 +200,6 @@ export function useDuoLocation() {
         sharingError.value = 'Telefon przestał wysyłać pozycję. Połącz się z internetem, aby usunąć ostatni odczyt.'
         throw new Error(sharingError.value)
       }
-    },
-    locate: async () => {
-      const key = deviceKey.value
-      const position = isNative() ? await nativeLocation.locate() : await new Promise<DuoPosition>((resolve, reject) => {
-        browserGeolocation().getCurrentPosition(position => resolve(fromBrowser(position)), error => reject(geoError(error)), browserOptions)
-      })
-      if (key && key === deviceKey.value) ownPreview.value = position
     }
   }
 }

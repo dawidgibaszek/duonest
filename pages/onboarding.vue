@@ -33,7 +33,7 @@
           <button type="button" class="setup-option setup-location" :aria-pressed="locationSelected"
             :disabled="saving" @click="locationSelected = !locationSelected">
             <ion-icon :icon="ioniconsLocationOutline" aria-hidden="true" />
-            <span><strong>Karta lokalizacji</strong><small>Udostępnianie pozycji włączysz osobno.</small></span>
+            <span><strong>Lokalizacja w Gniazdku</strong><small>Udostępnianie pozycji włączysz osobno.</small></span>
             <ion-icon :icon="locationSelected ? ioniconsCheckmarkCircle : ioniconsEllipseOutline" aria-hidden="true" />
           </button>
           <p class="setup-footnote">Gniazdko i Relacja są zawsze dostępne.</p>
@@ -64,7 +64,7 @@ const grammar = ref<GrammaticalGender | null>(
   GRAMMAR_OPTIONS.find(option => option.value === currentUser.value.grammatical_gender)?.value ?? null
 )
 const features = ref([...enabledFeatures.value])
-const initialLocation = Boolean(currentUser.value.show_location_widget || currentUser.value.nest_cards?.includes('location'))
+const initialLocation = Boolean(currentUser.value.nest_cards?.includes('location'))
 const locationSelected = ref(initialLocation)
 const saving = ref(false)
 const error = ref('')
@@ -93,7 +93,6 @@ async function save() {
       if (!await updateMyProfile({
         enabled_features: features.value,
         nest_cards: cards,
-        ...(locationChanged ? { show_location_widget: locationSelected.value } : {}),
         onboarding_stage: 'complete',
         onboarding_partnership_id: partnershipId
       })) return
