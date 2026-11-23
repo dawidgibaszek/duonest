@@ -441,6 +441,33 @@ export async function notifySavedDoodle(
   ))
 }
 
+/** iOS only: use WidgetKit pushes on iOS 26 and silent FCM as an older-OS fallback. */
+export async function notifyLocationWidgets(db: Db, messaging: Messaging, pid: string, senderId: string) {
+  const nest = (await db.collection('partnerships').doc(pid).get()).data()
+  if (!nest || ![nest.partner1_id, nest.partner2_id].includes(senderId)) return
+  const recipient = nest.partner1_id === senderId ? nest.partner2_id : nest.partner1_id
+  if (typeof recipient !== 'string' || !recipient) return
+  const subs = await db.collection(COLLECTION).where('user_id', '==', recipient).get()
+  await Promise.all([
+    pushWidgetReloads(db, recipient),
+    ...subs.docs.map(async (doc: any) => {
+      const sub = doc.data() || {}
+      if (sub.platform !== 'ios' || typeof sub.fcm_token !== 'string') return
+      try {
+        await messaging.send({ token: sub.fcm_token,
+          data: { widget: 'location', recipientProfileId: recipient },
+          apns: { headers: { 'apns-push-type': 'background', 'apns-priority': '5',
+            'apns-collapse-id': 'partner-location', 'apns-expiration': String(Math.floor(Date.now() / 1000) + 300) },
+            payload: { aps: { contentAvailable: true } } }
+        })
+      } catch (error: any) {
+        if (DEAD_FCM_CODES.has(error?.code)) await removeDeadDevice(doc)
+        else throw error
+      }
+    })
+  ])
+}
+
 async function wakePartnerApps(
   db: Db,
   messaging: Messaging,

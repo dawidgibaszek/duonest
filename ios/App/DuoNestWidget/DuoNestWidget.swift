@@ -5,6 +5,7 @@ import WidgetKit
 struct DuoNestWidgetBundle: WidgetBundle {
     var body: some Widget {
         DoodleWidget()
+        PartnerLocationWidget()
     }
 }
 

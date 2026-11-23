@@ -20,26 +20,34 @@ final class DuoAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDelegate {
     private var container: MapSurface?
     private var map: MKMapView?
     private var fitButton: UIButton?
+    private var bottomOcclusion: CGFloat = 0
     private var annotations: [String: PersonAnnotation] = [:]
     private let avatars = NSCache<NSURL, UIImage>()
 
     private final class MapSurface: UIView {
         private var coveredArea: CGRect?
+        private var visibleArea = CGRect.zero
+        private let viewportMask = CAShapeLayer()
 
-        func protectControls(_ area: CGRect?) {
-            let local = area?.intersection(frame).offsetBy(dx: -frame.minX, dy: -frame.minY)
-            coveredArea = local?.isEmpty == false ? local : nil
-            guard let coveredArea else { layer.mask = nil; return }
-            let path = UIBezierPath(rect: bounds)
-            path.append(UIBezierPath(roundedRect: coveredArea, cornerRadius: 24))
-            let mask = CAShapeLayer()
-            mask.fillRule = .evenOdd
-            mask.path = path.cgPath
-            layer.mask = mask
+        // Crop the surface without changing MapKit's viewport or camera margins.
+        func updateViewport(_ viewport: CGRect, controls: CGRect?) {
+            visibleArea = viewport.intersection(frame).offsetBy(dx: -frame.minX, dy: -frame.minY)
+            let localControls = controls?.intersection(viewport).offsetBy(dx: -frame.minX, dy: -frame.minY)
+            coveredArea = localControls?.isEmpty == false ? localControls : nil
+            let path = UIBezierPath(rect: visibleArea)
+            if let coveredArea {
+                path.append(UIBezierPath(roundedRect: coveredArea, cornerRadius: 24))
+            }
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            viewportMask.fillRule = .evenOdd
+            viewportMask.path = path.cgPath
+            layer.mask = viewportMask
+            CATransaction.commit()
         }
 
         override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-            coveredArea?.contains(point) != true && super.point(inside: point, with: event)
+            visibleArea.contains(point) && coveredArea?.contains(point) != true && super.point(inside: point, with: event)
         }
     }
 
@@ -136,13 +144,13 @@ final class DuoAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDelegate {
 
             if self.mapId != id { self.installMap(id: id, webView: webView) }
             let cover = self.rect(call.getObject("cover"))
-            self.container?.frame = visible
-            self.container?.protectControls(cover)
+            // Keep the map and its surface stable while only the sheet's mask moves.
+            let surface = frame.intersection(webView.bounds)
+            self.container?.frame = surface
+            self.container?.updateViewport(visible, controls: cover)
             self.container?.isHidden = false
-            self.map?.frame = frame.offsetBy(dx: -visible.minX, dy: -visible.minY)
-            if let map = self.map {
-                map.layoutMargins = UIEdgeInsets(top: 0, left: 0, bottom: max(0, frame.maxY - visible.maxY), right: 0)
-            }
+            self.map?.frame = frame.offsetBy(dx: -surface.minX, dy: -surface.minY)
+            self.bottomOcclusion = max(0, frame.maxY - visible.maxY)
             let controlsTop = max(12, (cover?.minY ?? 12) - visible.minY)
             self.fitButton?.frame = CGRect(x: max(0, visible.width - 56), y: controlsTop + 2, width: 44, height: 44)
             self.setPoint("mine", call.getObject("mine"))
@@ -205,6 +213,7 @@ final class DuoAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDelegate {
         map = nil
         fitButton = nil
         mapId = nil
+        bottomOcclusion = 0
         annotations.removeAll()
     }
 
@@ -353,7 +362,7 @@ final class DuoAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDelegate {
         }
         let minimum = 400 * MKMapPointsPerMeterAtLatitude(first.coordinate.latitude)
         bounds = bounds.insetBy(dx: -max(0, minimum - bounds.size.width) / 2, dy: -max(0, minimum - bounds.size.height) / 2)
-        let sheet = min(map.layoutMargins.bottom, map.bounds.height * 0.53)
+        let sheet = min(bottomOcclusion, map.bounds.height * 0.53)
         let top = (fitButton?.frame.maxY ?? 60) + 23
         map.setVisibleMapRect(bounds, edgePadding: UIEdgeInsets(top: top, left: 40, bottom: 40 + sheet, right: 40), animated: false)
     }

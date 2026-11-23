@@ -10,6 +10,7 @@ final class DuoWidgetPlugin: CAPPlugin, CAPBridgedPlugin {
     let jsName = "DuoWidget"
     let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "setSession", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setPartnerLocation", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setDoodle", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "addLiveStroke", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clearLiveStrokes", returnType: CAPPluginReturnPromise),
@@ -35,8 +36,48 @@ final class DuoWidgetPlugin: CAPPlugin, CAPBridgedPlugin {
         } else {
             liveQueue.sync { liveStrokes = [] }
         }
-        if store.session() != previous { scheduleReload() }
+        if store.session() != previous {
+            scheduleReload()
+            WidgetCenter.shared.reloadTimelines(ofKind: LocationWidgetConfig.kind)
+            if session != nil {
+                Task {
+                    _ = await LocationWidgetSync.refresh()
+                    WidgetCenter.shared.reloadTimelines(ofKind: LocationWidgetConfig.kind)
+                }
+            }
+        }
         call.resolve()
+    }
+
+    @objc func setPartnerLocation(_ call: CAPPluginCall) {
+        guard let session = store.session(),
+              session.uid == call.getString("uid"), session.partnershipId == call.getString("partnershipId") else {
+            call.reject("Sesja widgetu zmieniła się.")
+            return
+        }
+        if let input = call.getObject("location"),
+           let data = try? JSONSerialization.data(withJSONObject: input),
+           let location = try? JSONDecoder().decode(PartnerLocation.self, from: data),
+           location.latitude.isFinite, abs(location.latitude) <= 90,
+           location.longitude.isFinite, abs(location.longitude) <= 180,
+           location.accuracy.isFinite, location.accuracy >= 0,
+           location.captured_at.isFinite, location.expires > Date() {
+            let previous = store.state()
+            // A delayed WebView callback cannot overwrite a more recent background fix.
+            if (previous.location?.captured_at ?? 0) <= location.captured_at {
+                _ = store.applyLocation(location, name: previous.partnerName, session: session,
+                                        previousCapturedAt: previous.location?.captured_at)
+                WidgetCenter.shared.reloadTimelines(ofKind: LocationWidgetConfig.kind)
+            }
+            call.resolve()
+        } else {
+            // An unresolved Firestore listener also starts with nil; verify absence on the server.
+            Task {
+                _ = await LocationWidgetSync.refresh()
+                WidgetCenter.shared.reloadTimelines(ofKind: LocationWidgetConfig.kind)
+                call.resolve()
+            }
+        }
     }
 
     @objc func setDoodle(_ call: CAPPluginCall) {

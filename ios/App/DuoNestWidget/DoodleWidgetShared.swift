@@ -93,6 +93,8 @@ struct DoodleWidgetSession: Codable, Equatable {
 struct DoodleWidgetState: Codable {
     var doodle: DoodleWidgetDoodle?
     var liveStrokes: [DoodleStroke] = []
+    var location: PartnerLocation?
+    var locationStatus: String?
     var partnerName = ""
     var partnerDrawingUntil: Date?
 
@@ -175,6 +177,29 @@ final class DoodleWidgetStore {
             state.doodle = doodle
             write(state, to: stateURL)
             return state
+        }
+    }
+
+    func applyLocation(_ location: PartnerLocation?, name: String, session: DoodleWidgetSession, previousCapturedAt: Double?) -> DoodleWidgetState? {
+        withSharedLock {
+            guard read(DoodleWidgetSession.self, from: sessionURL) == session else { return nil }
+            var state = read(DoodleWidgetState.self, from: stateURL) ?? DoodleWidgetState()
+            // A newer request in either process may have already applied a fix or a revocation.
+            guard state.location?.captured_at == previousCapturedAt else { return state }
+            state.location = location
+            state.locationStatus = location == nil ? "unavailable" : "available"
+            state.partnerName = name
+            write(state, to: stateURL)
+            return state
+        }
+    }
+
+    func markLocationRefreshFailed(session: DoodleWidgetSession) {
+        withSharedLock {
+            guard read(DoodleWidgetSession.self, from: sessionURL) == session else { return }
+            var state = read(DoodleWidgetState.self, from: stateURL) ?? DoodleWidgetState()
+            state.locationStatus = "failed"
+            write(state, to: stateURL)
         }
     }
 

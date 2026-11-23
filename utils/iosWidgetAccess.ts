@@ -1,5 +1,6 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import { getFirebaseBridge } from '~/composables/useFirebaseBridge'
+import type { DuoPosition } from '~/composables/useDuoLocation'
 import type { DuoDoodle, DuoDoodleStroke } from '~/types/duo'
 
 export interface DuoWidgetSession {
@@ -15,6 +16,7 @@ export interface DuoWidgetSession {
 
 interface DuoWidgetPlugin {
   setSession(session: DuoWidgetSession): Promise<void>
+  setPartnerLocation(options: { uid: string; partnershipId: string; location: DuoPosition | null }): Promise<void>
   setDoodle(options: { doodle: Pick<DuoDoodle, 'id' | 'updated_at' | 'author_name' | 'strokes'> | null; verifyEmpty?: boolean }): Promise<void>
   addLiveStroke(options: { stroke: DuoDoodleStroke }): Promise<void>
   clearLiveStrokes(): Promise<void>

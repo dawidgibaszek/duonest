@@ -1,9 +1,13 @@
 import Capacitor
 import CoreLocation
 import UIKit
+import Security
+import WidgetKit
 
 @objc(DuoLocationPlugin)
 final class DuoLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDelegate {
+    static let shared = DuoLocationPlugin()
+
     let identifier = "DuoLocationPlugin"
     let jsName = "DuoLocation"
     let pluginMethods: [CAPPluginMethod] = [
@@ -28,6 +32,47 @@ final class DuoLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
     private var upload: URLSessionDataTask?
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
 
+    // Significant-change delivery can relaunch the process after system termination.
+    // iOS does not promise delivery after the user force-quits the app.
+    func restoreSharing() {
+        guard UserDefaults.standard.bool(forKey: "duonest.location.opted-in"),
+              manager.authorizationStatus == .authorizedAlways,
+              let data = savedToken(), let saved = String(data: data, encoding: .utf8), !saved.isEmpty else { return }
+        token = saved
+        manager.allowsBackgroundLocationUpdates = true
+        manager.showsBackgroundLocationIndicator = true
+        manager.pausesLocationUpdatesAutomatically = false
+        manager.startMonitoringSignificantLocationChanges()
+        manager.startUpdatingLocation()
+    }
+
+    private var tokenQuery: [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword,
+         kSecAttrService as String: "com.belka.duonest.location",
+         kSecAttrAccount as String: "sharing-grant"]
+    }
+
+    private func savedToken() -> Data? {
+        var query = tokenQuery
+        query[kSecReturnData as String] = true
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess else { return nil }
+        return item as? Data
+    }
+
+    private func saveToken(_ value: String?) {
+        SecItemDelete(tokenQuery as CFDictionary)
+        UserDefaults.standard.set(false, forKey: "duonest.location.opted-in")
+        guard let value else { return }
+        var query = tokenQuery
+        query[kSecValueData as String] = Data(value.utf8)
+        query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        if SecItemAdd(query as CFDictionary, nil) == errSecSuccess {
+            UserDefaults.standard.set(true, forKey: "duonest.location.opted-in")
+        }
+    }
+
     @objc func start(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             guard let token = call.getString("token"), !token.isEmpty else {
@@ -37,10 +82,13 @@ final class DuoLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             self.withPermission(call) {
                 if self.token != token { self.stopSharing() }
                 self.token = token
+                self.saveToken(token)
                 self.lastSent = .distantPast
                 self.manager.allowsBackgroundLocationUpdates = true
                 self.manager.showsBackgroundLocationIndicator = true
+                self.manager.pausesLocationUpdatesAutomatically = false
                 self.manager.startUpdatingLocation()
+                if self.manager.authorizationStatus == .authorizedAlways { self.manager.startMonitoringSignificantLocationChanges() }
                 if self.manager.authorizationStatus == .authorizedWhenInUse && call.getBool("requestBackground") == true {
                     self.manager.requestAlwaysAuthorization()
                 }
@@ -105,6 +153,7 @@ final class DuoLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         permissionCall = nil
         permissionAction = nil
         if manager.authorizationStatus == .authorizedAlways || manager.authorizationStatus == .authorizedWhenInUse {
+            if token != nil && manager.authorizationStatus == .authorizedAlways { manager.startMonitoringSignificantLocationChanges() }
             action?()
         } else {
             stopSharing()
@@ -172,6 +221,12 @@ final class DuoLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
                 self.upload = nil
                 self.endBackgroundTask()
                 if (response as? HTTPURLResponse)?.statusCode == 401 { self.stopSharing() }
+                else if (response as? HTTPURLResponse)?.statusCode == 200 {
+                    Task {
+                        _ = await LocationWidgetSync.refresh()
+                        WidgetCenter.shared.reloadTimelines(ofKind: LocationWidgetConfig.kind)
+                    }
+                }
             }
         }
         upload?.resume()
@@ -186,6 +241,8 @@ final class DuoLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
 
     private func stopSharing() {
         token = nil
+        saveToken(nil)
+        manager.stopMonitoringSignificantLocationChanges()
         manager.stopUpdatingLocation()
         manager.allowsBackgroundLocationUpdates = false
         geocoder.cancelGeocode()

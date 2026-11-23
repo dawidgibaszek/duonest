@@ -14,12 +14,12 @@ import { mutateDuoData } from './duoMutations'
 import { DuoDataError } from './partnershipAccess'
 import { processScrape } from './wishlistScraper'
 import { syncAccount, pairWithCode, disconnectPartnership, resolveCallerProfile } from './duoAccount'
-import { handlePushAction, notifySavedDoodle, PUSH_ACTIONS, type PushAction } from './pushCore'
+import { handlePushAction, notifySavedDoodle, notifyLocationWidgets, PUSH_ACTIONS, type PushAction } from './pushCore'
 import { handleMusicAction, isMusicAction } from './musicCore'
 import { handleMoviesTrending, handleMoviesSearch, handleMoviesRandom } from './moviesCore'
 import { handleMealsCategories, handleMealsSearch, handleMealsLookup, handleMealsImport } from './mealsCore'
 import { requireDuoClient } from './clientAccess'
-import { readWidgetDoodle, updateWidgetAccess } from './widgetAccess'
+import { readWidgetDoodle, readWidgetLocation, updateWidgetAccess } from './widgetAccess'
 import { storeNativeDiagnosticReports } from './nativeDiagnostics'
 import { createAdminRouter } from './adminAccess'
 import { locationSession, publishDuoLocation } from './duoLocation'
@@ -82,6 +82,14 @@ export const refreshSavedDoodleWidgets = region('europe-west1')
         authorName: typeof authorName === 'string' ? authorName : ''
       })
     }
+  })
+
+// Updates and revocations both invalidate the partner's iOS widget. No coordinates in pushes.
+export const refreshPartnerLocationWidgets = region('europe-west1')
+  .runWith({ secrets: ['APNS_KEY_PRODUCTION', 'APNS_KEY_SANDBOX'], failurePolicy: true })
+  .firestore.document('partnership_locations/{pid}/location_fixes/{profileId}').onWrite(async (_, context) => {
+    if (Date.now() - Date.parse(context.timestamp) > 5 * 60_000) return
+    await notifyLocationWidgets(db, getMessaging(), context.params.pid, context.params.profileId)
   })
 
 const app = express()
@@ -302,6 +310,7 @@ app.post('/api/wishlist/preview', requireAuth, async (req: any, res) => {
 // -----------------------------------------------------------------------------
 app.post('/api/widget/session', requireAuth, updateWidgetAccess(db))
 app.get('/api/widget/doodle', readWidgetDoodle(db, auth))
+app.get('/api/widget/location', readWidgetLocation(db, auth))
 
 app.post('/api/location/session', requireAuth, async (req: any, res) => {
   res.set('Cache-Control', 'no-store')

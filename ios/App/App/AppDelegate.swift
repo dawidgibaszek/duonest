@@ -21,6 +21,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         AppCheck.setAppCheckProviderFactory(DuoAppCheckProviderFactory())
         FirebaseApp.configure()
         MetricKitDiagnostics.shared.start()
+        DuoLocationPlugin.shared.restoreSharing()
         DispatchQueue.main.async {
             application.registerForRemoteNotifications()
         }
@@ -67,6 +68,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      didReceiveRemoteNotification userInfo: [AnyHashable: Any],
                      fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        if LocationWidgetPush.handle(userInfo, completion: completionHandler) { return }
         if DoodleWidgetPush.handle(userInfo, completion: completionHandler) { return }
         NotificationCenter.default.post(name: Notification.Name("didReceiveRemoteNotification"), object: nil, userInfo: userInfo)
         completionHandler(.noData)

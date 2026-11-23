@@ -4,6 +4,7 @@ import { watch } from 'vue'
 import { authSession, currentDoodle, currentUser, isAuthLoading, isLoggingOut, isPartnerDrawing, partnerLiveStroke, partnerUser, partnership } from '~/composables/duo/state'
 import { isPartnershipRealtimeSuspended } from '~/composables/duo/useRealtimeSync'
 import { getFirebaseBridge } from '~/composables/useFirebaseBridge'
+import { useDuoLocation } from '~/composables/useDuoLocation'
 import { DuoWidget, getWidgetCredential, UPLOADED_WIDGET_PUSH_KEY, type DuoWidgetSession } from '~/utils/iosWidgetAccess'
 
 const ignore = () => {}
@@ -11,6 +12,7 @@ const ignore = () => {}
 export default defineNuxtPlugin(() => {
   if (!Capacitor.isNativePlatform()) return
   const isIos = Capacitor.getPlatform() === 'ios'
+  const { theirPosition } = useDuoLocation()
   const bridge = getFirebaseBridge()
   let active = true
   let installedSession: string | null = null
@@ -34,9 +36,20 @@ export default defineNuxtPlugin(() => {
       if (key && (isLoggingOut.value || key !== `${bridge.auth.currentUser?.uid}:${partnership.value?.id}`)) return
       await DuoWidget.setSession(session)
       installedSession = key
-      if (key) await pushDoodle(true)
+      if (key) {
+        await pushDoodle(true)
+        await pushLocation()
+      }
     })
     void sessionQueue.catch(ignore)
+  }
+
+  function pushLocation() {
+    const user = bridge.auth.currentUser
+    const pid = partnership.value?.id
+    if (!isIos || !user || !pid || isAuthLoading.value || isLoggingOut.value ||
+        installedSession !== `${user.uid}:${pid}`) return
+    return DuoWidget.setPartnerLocation({ uid: user.uid, partnershipId: pid, location: theirPosition.value }).catch(ignore)
   }
 
   function pushDoodle(verifyEmpty = false) {
@@ -127,6 +140,8 @@ export default defineNuxtPlugin(() => {
     monitor(true)
     void App.addListener('appStateChange', ({ isActive }) => monitor(isActive)).catch(ignore)
   }
+
+  if (isIos) watch(theirPosition, () => { void pushLocation() })
 
   watch(currentDoodle, () => { void pushDoodle(false) })
   watch(partnerLiveStroke, (live) => {

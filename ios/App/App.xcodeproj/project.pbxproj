@@ -20,6 +20,9 @@
 		80294CDAAD3D47B4A8A20305 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 80294CDAAD3D47B4A8A20306 /* PrivacyInfo.xcprivacy */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
 		D0A1B2C3D4E5F60718293A02 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = D0A1B2C3D4E5F60718293A01 /* GoogleService-Info.plist */; };
+		DA10CA000000000000000001 /* LocationWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA10CA000000000000000003 /* LocationWidgetShared.swift */; };
+		DA10CA000000000000000002 /* LocationWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA10CA000000000000000003 /* LocationWidgetShared.swift */; };
+		DA10CA000000000000000004 /* PartnerLocationWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA10CA000000000000000005 /* PartnerLocationWidget.swift */; };
 		DA1D0E000000000000000010 /* DuoNestWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D0E000000000000000002 /* DuoNestWidget.swift */; };
 		DA1D0E000000000000000011 /* DoodleWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D0E000000000000000003 /* DoodleWidgetShared.swift */; };
 		DA1D0E000000000000000012 /* DoodleWidgetShared.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1D0E000000000000000003 /* DoodleWidgetShared.swift */; };
@@ -73,6 +76,8 @@
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		D0A1B2C3D4E5F60718293A01 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		D0A1B2C3D4E5F60718293A03 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
+		DA10CA000000000000000003 /* LocationWidgetShared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationWidgetShared.swift; sourceTree = "<group>"; };
+		DA10CA000000000000000005 /* PartnerLocationWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PartnerLocationWidget.swift; sourceTree = "<group>"; };
 		DA1D0E000000000000000001 /* DuoNestWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DuoNestWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA1D0E000000000000000002 /* DuoNestWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuoNestWidget.swift; sourceTree = "<group>"; };
 		DA1D0E000000000000000003 /* DoodleWidgetShared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoodleWidgetShared.swift; sourceTree = "<group>"; };
@@ -153,6 +158,8 @@
 			isa = PBXGroup;
 			children = (
 				DA1D0E000000000000000002 /* DuoNestWidget.swift */,
+				DA10CA000000000000000003 /* LocationWidgetShared.swift */,
+				DA10CA000000000000000005 /* PartnerLocationWidget.swift */,
 				DA1D0E000000000000000003 /* DoodleWidgetShared.swift */,
 				DA1D0E000000000000000004 /* Info.plist */,
 				DA1D0E000000000000000005 /* DuoNestWidget.entitlements */,
@@ -294,6 +301,7 @@
 				DA1D0E000000000000000037 /* DuoLocationPlugin.swift in Sources */,
 				DA1D0E000000000000000039 /* DuoAppleMapsPlugin.swift in Sources */,
 				DA1D0E000000000000000012 /* DoodleWidgetShared.swift in Sources */,
+				DA10CA000000000000000001 /* LocationWidgetShared.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -303,6 +311,8 @@
 			files = (
 				DA1D0E000000000000000010 /* DuoNestWidget.swift in Sources */,
 				DA1D0E000000000000000011 /* DoodleWidgetShared.swift in Sources */,
+				DA10CA000000000000000002 /* LocationWidgetShared.swift in Sources */,
+				DA10CA000000000000000004 /* PartnerLocationWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -456,7 +466,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/AppDebug.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = RJ378D5P3C;
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = DuoNest;
@@ -483,7 +493,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 19;
+				CURRENT_PROJECT_VERSION = 20;
 				DEVELOPMENT_TEAM = RJ378D5P3C;
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = DuoNest;
