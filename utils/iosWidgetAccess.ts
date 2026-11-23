@@ -17,7 +17,7 @@ export interface DuoWidgetSession {
 interface DuoWidgetPlugin {
   setSession(session: DuoWidgetSession): Promise<void>
   setPartnerLocation(options: { uid: string; partnershipId: string; location: DuoPosition | null }): Promise<void>
-  setDoodle(options: { doodle: Pick<DuoDoodle, 'id' | 'updated_at' | 'author_name' | 'strokes'> | null; verifyEmpty?: boolean }): Promise<void>
+  setDoodle(options: { doodle: Pick<DuoDoodle, 'id' | 'updated_at' | 'author_name' | 'strokes'> | null; verifyEmpty?: boolean; finishDrawing?: boolean }): Promise<void>
   addLiveStroke(options: { stroke: DuoDoodleStroke }): Promise<void>
   clearLiveStrokes(): Promise<void>
   setPartnerDrawing(options: { isDrawing: boolean }): Promise<void>

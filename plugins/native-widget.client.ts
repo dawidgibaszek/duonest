@@ -62,7 +62,8 @@ export default defineNuxtPlugin(() => {
       doodle: doodle
         ? { id: doodle.id, updated_at: doodle.updated_at, author_name: doodle.author_name, strokes: doodle.strokes }
         : null,
-      ...(!doodle && verifyEmpty ? { verifyEmpty: true } : {})
+      ...(!doodle && verifyEmpty ? { verifyEmpty: true } : {}),
+      ...(!isIos && doodle && !verifyEmpty ? { finishDrawing: true } : {})
     }).catch(ignore)
   }
 
@@ -139,6 +140,10 @@ export default defineNuxtPlugin(() => {
     }
     monitor(true)
     void App.addListener('appStateChange', ({ isActive }) => monitor(isActive)).catch(ignore)
+  } else {
+    void App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive && activeWidgetSession()) void DuoWidget.refresh?.().catch(ignore)
+    }).catch(ignore)
   }
 
   if (isIos) watch(theirPosition, () => { void pushLocation() })

@@ -278,9 +278,18 @@ export function useRealtimeSync(options?: {
   }
 
   const setDoodle = (doc: any) => {
+    const previousId = currentDoodle.value?.id
     if (!doc && currentDoodle.value) {
+      clearTimeout(partnerDrawingTimeout)
       partnerLiveStroke.value = null
       isPartnerDrawing.value = false
+    } else if (doc && doc.id !== previousId && isPartnerDrawing.value) {
+      const updatedMs = typeof doc.updated_at === 'string' ? Date.parse(doc.updated_at) : NaN
+      if (Number.isFinite(updatedMs) && Math.abs(Date.now() - updatedMs) < 20_000) {
+        clearTimeout(partnerDrawingTimeout)
+        partnerLiveStroke.value = null
+        isPartnerDrawing.value = false
+      }
     }
     currentDoodle.value = doc ? {
       ...doc,
@@ -381,7 +390,8 @@ export function useRealtimeSync(options?: {
           partnerLastSeenAt.value = profile.last_seen_at
           saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
         }
-        if (previousMood && profile.mood_updated_at && previousMood !== profile.mood_updated_at) {
+        if (previousMood && profile.mood_updated_at && previousMood !== profile.mood_updated_at &&
+            (typeof document === 'undefined' || document.visibilityState === 'visible')) {
           const partnerGrammar = resolveGrammaticalGender(profile)
           const verb = conjugateVerbPast3rd('zmienił', partnerGrammar)
           const subject = profile.name || getPartnerNoun('mianownik', partnerGrammar)
@@ -408,7 +418,7 @@ export function useRealtimeSync(options?: {
       nudgesList.value = rows.sort(byNewest)
       previousNudges = new Set(rows.map(row => row.id))
       saveToStorage('duonest_nudges', nudgesList.value)
-      if (newGesture) {
+      if (newGesture && (typeof document === 'undefined' || document.visibilityState === 'visible')) {
         const partnerGrammar = resolveGrammaticalGender(partnerUser.value)
         const verb = conjugateVerbPast3rd('przesłał', partnerGrammar)
         const subject = partnerUser.value?.name || getPartnerNoun('mianownik', partnerGrammar)
@@ -470,7 +480,7 @@ export function useRealtimeSync(options?: {
         partnerLastSeenAt.value = new Date().toISOString()
         saveToStorage('duonest_partner_last_seen', partnerLastSeenAt.value)
       }
-      if (isPartnerOnline.value && !wasOnline) {
+      if (isPartnerOnline.value && !wasOnline && (typeof document === 'undefined' || document.visibilityState === 'visible')) {
         const profile = partnerUser.value
         triggerToast(`${profile?.name || getPartnerNoun('mianownik', resolveGrammaticalGender(profile))} jest online`)
       }

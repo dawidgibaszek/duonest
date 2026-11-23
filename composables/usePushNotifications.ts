@@ -62,7 +62,9 @@ const isTestingPush = ref(false)
 let nativeSyncTimer: ReturnType<typeof setTimeout> | undefined
 let registerInFlight: Promise<boolean> | undefined
 let nativeWork: Promise<unknown> = Promise.resolve()
-let nativeDevice: { uid: string; token: string } | null = null
+let nativeDevice: { uid: string; token: string; enabled?: boolean } | null = null
+let androidSilentSyncedKey: string | null = null
+const isAndroidNative = () => Capacitor.getPlatform() === 'android'
 
 const mapNativePermission = (state: string): NotificationPermission =>
   state === 'granted' ? 'granted' : state === 'denied' ? 'denied' : 'default'
@@ -109,6 +111,7 @@ async function forgetNativeDevice() {
   ])
   await FirebaseMessaging.removeAllDeliveredNotifications().catch(() => {})
   if (removed || invalidated) rememberNativeDevice(null)
+  androidSilentSyncedKey = null
   nativeRegistered.value = false
   return removed || invalidated
 }
@@ -503,26 +506,60 @@ export const usePushNotifications = () => {
       : undefined
   }
 
-  const saveNativeToken = async (token: string, account: NonNullable<ReturnType<typeof activeNativeAccount>>) => {
+  const saveNativeToken = async (
+    token: string,
+    account: NonNullable<ReturnType<typeof activeNativeAccount>>,
+    alertsEnabled = true
+  ) => {
     const authToken = await account.getIdToken()
-    if (!isPushEnabled.value || permission.value !== 'granted' || activeNativeAccount()?.uid !== account.uid) return false
+    const wantAlerts = isPushEnabled.value && permission.value === 'granted'
+    if (alertsEnabled ? !wantAlerts : (!isAndroidNative() || !currentUser.value?.partnership_id || wantAlerts)) return false
+    if (activeNativeAccount()?.uid !== account.uid) return false
     const response = await $fetch<{ success: boolean }>('/api/push/subscribe', {
       method: 'POST',
       headers: { Authorization: `Bearer ${authToken}` },
       body: {
         fcmToken: token,
         previousFcmToken: nativeDevice?.uid === account.uid ? nativeDevice.token : undefined,
-        platform: Capacitor.getPlatform() === 'android' ? 'android' : 'ios',
-        enabled: true,
+        platform: isAndroidNative() ? 'android' : 'ios',
+        enabled: alertsEnabled,
         settings: { ...pushSettings },
         userAgent: navigator.userAgent
       },
       timeout: 8000
     })
     if (!response?.success) return false
-    rememberNativeDevice({ uid: account.uid, token })
-    nativeRegistered.value = true
+    rememberNativeDevice({ uid: account.uid, token, enabled: alertsEnabled })
+    if (alertsEnabled) androidSilentSyncedKey = null
+    nativeRegistered.value = alertsEnabled
     return true
+  }
+
+  // Android home-screen widgets wake via data-only FCM messages even when tray alerts are off.
+  const registerAndroidSilentDevice = (force = false): Promise<boolean> => {
+    if (!isAndroidNative() || !currentUser.value?.partnership_id || !activeNativeAccount()) return Promise.resolve(false)
+    return queueNativeWork(async () => {
+      const account = activeNativeAccount()
+      const pid = currentUser.value?.partnership_id
+      if (!account || !pid || (isPushEnabled.value && permission.value === 'granted')) return false
+      for (const delay of [0, 500, 1500]) {
+        if (delay) await new Promise(resolve => setTimeout(resolve, delay))
+        if (activeNativeAccount()?.uid !== account.uid || currentUser.value?.partnership_id !== pid) return false
+        if (isPushEnabled.value && permission.value === 'granted') return false
+        const result = await FirebaseMessaging.getToken().catch(() => null)
+        if (!result?.token) continue
+        const key = `${account.uid}:${pid}:${result.token}`
+        if (!force && androidSilentSyncedKey === key &&
+            nativeDevice?.uid === account.uid && nativeDevice.token === result.token && nativeDevice.enabled === false) {
+          nativeRegistered.value = false
+          return true
+        }
+        const saved = await saveNativeToken(result.token, account, false)
+        if (saved) androidSilentSyncedKey = key
+        return saved
+      }
+      return false
+    }).catch(() => false)
   }
 
   const registerNativeDevice = (): Promise<boolean> => {
@@ -640,7 +677,8 @@ export const usePushNotifications = () => {
       }).catch(() => console.warn('[Push] Notification tap listener unavailable'))
 
       void FirebaseMessaging.addListener('tokenReceived', () => {
-        if (!isSubscribing.value) void registerNativeDevice()
+        androidSilentSyncedKey = null
+        if (!isSubscribing.value) refresh()
       }).catch(() => console.warn('[Push] Token refresh listener unavailable'))
 
       void FirebaseMessaging.addListener('notificationReceived', ({ notification }) => {
@@ -654,13 +692,15 @@ export const usePushNotifications = () => {
         if (permission.value !== 'granted') nativeRegistered.value = false
         if (isPushEnabled.value && permission.value === 'granted') {
           await registerNativeDevice()
+        } else if (isAndroidNative() && currentUser.value?.partnership_id && activeNativeAccount()) {
+          await registerAndroidSilentDevice()
         } else if (nativeDevice?.uid && nativeDevice.uid === activeNativeAccount()?.uid) {
           await queueNativeWork(forgetNativeDevice)
         }
       }
       const refresh = () => { void refreshNativePush().catch(() => console.warn('[Push] Native refresh failed')) }
 
-      watch([isAuthLoading, () => authSession.value?.user?.id, () => currentUser.value?.id], () => {
+      watch([isAuthLoading, () => authSession.value?.user?.id, () => currentUser.value?.id, () => currentUser.value?.partnership_id], () => {
         refresh()
         openPendingRoute()
       })
@@ -737,11 +777,20 @@ export const usePushNotifications = () => {
         isPushEnabled.value = false
         persistSettings(false)
         clearTimeout(nativeSyncTimer)
-        const detached = await queueNativeWork(forgetNativeDevice).catch(() => false)
-        triggerToast(
-          detached ? 'Wyłączono powiadomienia' : 'Nie udało się odpiąć urządzenia. Ponowimy próbę po połączeniu.',
-          { type: detached ? 'info' : 'warning' }
-        )
+        if (isAndroidNative() && currentUser.value?.partnership_id && activeNativeAccount()) {
+          await FirebaseMessaging.removeAllDeliveredNotifications().catch(() => {})
+          const updated = await registerAndroidSilentDevice(true)
+          triggerToast(
+            updated ? 'Wyłączono powiadomienia' : 'Nie udało się zapisać ustawień powiadomień. Ponowimy próbę po połączeniu.',
+            { type: updated ? 'info' : 'warning' }
+          )
+        } else {
+          const detached = await queueNativeWork(forgetNativeDevice).catch(() => false)
+          triggerToast(
+            detached ? 'Wyłączono powiadomienia' : 'Nie udało się odpiąć urządzenia. Ponowimy próbę po połączeniu.',
+            { type: detached ? 'info' : 'warning' }
+          )
+        }
       }
       return
     }

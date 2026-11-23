@@ -45,7 +45,11 @@ public class DuoWidgetPlugin extends Plugin {
             call.resolve();
             return;
         }
-        store.setDoodle(doodle);
+        boolean changed = store.setDoodle(doodle);
+        if (changed && Boolean.TRUE.equals(call.getBoolean("finishDrawing", false))) {
+            store.finishPartnerDrawing();
+            DoodleWidgetProvider.cancelDrawingExpiry(getContext());
+        }
         DoodleWidgetProvider.requestRender(getContext());
         call.resolve();
     }

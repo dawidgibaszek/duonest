@@ -86,9 +86,11 @@ watch(
   { immediate: true }
 )
 
+const isIosNative = Capacitor.getPlatform() === 'ios'
+
 watch([offline, foreground], ([disconnected, active], [wasDisconnected]) => {
   if (!appRuntime) return
-  setNativeRealtimeActive(active && !disconnected)
+  setNativeRealtimeActive(isIosNative ? (active && !disconnected) : !disconnected)
   if (wasDisconnected && !disconnected) {
     checkForUpdate()
     if (authUser.value && isAuthLoading.value) {

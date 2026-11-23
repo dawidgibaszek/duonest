@@ -191,19 +191,20 @@ final class DoodleWidgetStore {
     }
 
     /** Accepts a partnership_doodles row ({@code null} when the board is empty). */
-    synchronized void setDoodle(@Nullable JSONObject doodle) {
+    synchronized boolean setDoodle(@Nullable JSONObject doodle) {
         if (doodle != null) {
             String incomingUpdatedAt = doodle.optString("updated_at");
             if (!updatedAt.isEmpty() && !incomingUpdatedAt.isEmpty() && incomingUpdatedAt.compareTo(updatedAt) < 0) {
-                return;
+                return false;
             }
         }
-        applyDoodle(doodle);
+        boolean changed = applyDoodle(doodle);
         if (doodle == null) {
             doodleFile().delete();
         } else {
             writeJson(doodleFile(), () -> serializeDoodle());
         }
+        return changed;
     }
 
     synchronized void addLiveStroke(DoodleStroke stroke) {
@@ -241,7 +242,7 @@ final class DoodleWidgetStore {
         );
     }
 
-    private void applyDoodle(@Nullable JSONObject doodle) {
+    private boolean applyDoodle(@Nullable JSONObject doodle) {
         String nextUpdatedAt = doodle == null ? "" : doodle.optString("updated_at");
         String nextKey = doodle == null ? "" : doodle.optString("id") + "@" + nextUpdatedAt;
         boolean keyChanged = !nextKey.equals(doodleKey);
@@ -269,6 +270,7 @@ final class DoodleWidgetStore {
                 return false;
             });
         }
+        return keyChanged;
     }
 
     private static boolean isNewerTimestamp(String incoming, String existing) {

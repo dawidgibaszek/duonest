@@ -24,7 +24,7 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
 
     static final String ACTION_REFRESH = "com.belka.duonest.widget.DOODLE_REFRESH";
 
-    private static final long MIN_RENDER_INTERVAL_MS = 150;
+    private static final long MIN_RENDER_INTERVAL_MS = 120;
     // RGB_565 bitmap of at most ~600 KB stays below the RemoteViews transaction limit.
     private static final int MAX_BITMAP_PIXELS = 300_000;
     private static final int PADDING_DP = 16;
@@ -46,6 +46,8 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
         final int widthDp;
         final int heightDp;
         final boolean compact;
+        final boolean headerVisible;
+        @Nullable final Bitmap bitmap;
 
         DisplayedState(
             boolean connected,
@@ -55,7 +57,9 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
             String authorName,
             int widthDp,
             int heightDp,
-            boolean compact
+            boolean compact,
+            boolean headerVisible,
+            @Nullable Bitmap bitmap
         ) {
             this.connected = connected;
             this.strokes = strokes;
@@ -65,6 +69,8 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
             this.widthDp = widthDp;
             this.heightDp = heightDp;
             this.compact = compact;
+            this.headerVisible = headerVisible;
+            this.bitmap = bitmap;
         }
     }
 
@@ -164,6 +170,7 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
                 if (heightDp <= 0) heightDp = 180;
                 boolean compact = widthDp < 150 || heightDp < 100;
                 boolean partnerDrawing = snapshot.connected && snapshot.partnerDrawing;
+                boolean headerVisible = !compact || partnerDrawing;
                 String liveLabel = partnerDrawing ? resolveLiveLabel(context, snapshot, compact) : "";
                 String authorLabel = (!partnerDrawing && snapshot.connected && !snapshot.strokes.isEmpty())
                     ? snapshot.authorName
@@ -175,7 +182,7 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
                     previous.widthDp == widthDp &&
                     previous.heightDp == heightDp &&
                     previous.compact == compact &&
-                    (!compact || previous.partnerDrawing == partnerDrawing) &&
+                    previous.headerVisible == headerVisible &&
                     previous.strokes.equals(snapshot.strokes);
                 boolean sameHeader = previous != null &&
                     previous.partnerDrawing == partnerDrawing &&
@@ -184,18 +191,21 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
 
                 if (sameBoard && sameHeader) continue;
 
-                if (sameBoard && !compact) {
-                    // Header-only change ("<Partner> rysuje" <-> author): touch ONLY the badge views
-                    // so the launcher never re-applies root padding or flashes the board ImageView.
-                    manager.partiallyUpdateAppWidget(id, buildHeaderViews(context, partnerDrawing, liveLabel, authorLabel));
-                } else {
-                    RemoteViews views = buildFullViews(
-                        context, snapshot, widthDp, heightDp, compact, partnerDrawing, liveLabel, authorLabel, previous
-                    );
-                    manager.updateAppWidget(id, views);
+                boolean hasContent = snapshot.connected && !snapshot.strokes.isEmpty();
+                Bitmap bitmap = null;
+                if (hasContent) {
+                    bitmap = (sameBoard && previous.bitmap != null)
+                        ? previous.bitmap
+                        : renderBoard(context, snapshot, widthDp, heightDp, compact, headerVisible);
                 }
+
+                RemoteViews views = buildFullViews(
+                    context, snapshot, compact, partnerDrawing, headerVisible, liveLabel, authorLabel, bitmap
+                );
+                manager.updateAppWidget(id, views);
                 displayed.put(id, new DisplayedState(
-                    snapshot.connected, snapshot.strokes, partnerDrawing, liveLabel, authorLabel, widthDp, heightDp, compact
+                    snapshot.connected, snapshot.strokes, partnerDrawing, liveLabel, authorLabel,
+                    widthDp, heightDp, compact, headerVisible, bitmap
                 ));
             } catch (RuntimeException e) {
                 Log.w("DuoWidget", "Widget update failed", e);
@@ -209,17 +219,6 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
             ? context.getString(R.string.widget_doodle_partner)
             : snapshot.partnerName;
         return context.getString(R.string.widget_doodle_drawing, partner);
-    }
-
-    private static RemoteViews buildHeaderViews(
-        Context context,
-        boolean partnerDrawing,
-        String liveLabel,
-        String authorLabel
-    ) {
-        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_doodle);
-        applyHeaderState(views, partnerDrawing, liveLabel, authorLabel);
-        return views;
     }
 
     private static void applyHeaderState(
@@ -243,13 +242,12 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
     private static RemoteViews buildFullViews(
         Context context,
         DoodleWidgetStore.Snapshot snapshot,
-        int widthDp,
-        int heightDp,
         boolean compact,
         boolean partnerDrawing,
+        boolean headerVisible,
         String liveLabel,
         String authorLabel,
-        @Nullable DisplayedState previous
+        @Nullable Bitmap bitmap
     ) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_doodle);
         PendingIntent open = launchIntent(context);
@@ -257,18 +255,14 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
 
         applyHeaderState(views, partnerDrawing, liveLabel, authorLabel);
 
-        boolean headerVisible = !compact || partnerDrawing;
         views.setViewVisibility(R.id.widget_title, compact ? View.GONE : View.VISIBLE);
         views.setViewVisibility(R.id.widget_header, headerVisible ? View.VISIBLE : View.GONE);
-        if (compact || (previous != null && previous.compact)) {
-            int padDp = compact ? COMPACT_PADDING_DP : PADDING_DP;
-            int padding = Math.round(padDp * context.getResources().getDisplayMetrics().density);
+        if (compact) {
+            int padding = Math.round(COMPACT_PADDING_DP * context.getResources().getDisplayMetrics().density);
             views.setViewPadding(R.id.widget_root, padding, padding, padding, padding);
         }
 
-        boolean hasContent = snapshot.connected && !snapshot.strokes.isEmpty();
-        if (hasContent) {
-            Bitmap bitmap = renderBoard(context, snapshot, widthDp, heightDp, compact, headerVisible);
+        if (bitmap != null) {
             views.setImageViewBitmap(R.id.widget_doodle, bitmap);
             views.setViewVisibility(R.id.widget_doodle, View.VISIBLE);
             views.setViewVisibility(R.id.widget_empty, View.GONE);

@@ -19,7 +19,9 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -31,13 +33,18 @@ import org.json.JSONObject;
 final class DoodleWidgetSync {
 
     private static final String TAG = "DuoWidget";
-    private static final int TIMEOUT_MS = 6000;
+    private static final int TIMEOUT_MS = 4000;
+    private static final int APP_CHECK_TIMEOUT_MS = 1200;
+    private static final long APP_CHECK_BACKOFF_MS = 5 * 60_000L;
+    private static final long PUSH_WAIT_MS = 6500;
     private static final long PUSH_DRAWING_MS = 60_000;
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
 
     private static String idToken;
     private static String idTokenUid;
     private static long idTokenExpiresAt;
+    private static volatile boolean appCheckProviderInstalled;
+    private static volatile long appCheckBackoffUntil;
 
     private DoodleWidgetSync() {}
 
@@ -98,12 +105,19 @@ final class DoodleWidgetSync {
                 DoodleWidgetProvider.cancelDrawingExpiry(app);
                 DoodleWidgetProvider.requestRender(app);
             };
-            if (Looper.myLooper() == Looper.getMainLooper()) {
-                EXECUTOR.execute(syncTask);
-            } else {
-                // FirebaseMessagingService invokes onMessageReceived on its own worker thread
-                // and keeps the service alive until this method returns.
-                syncTask.run();
+            Future<?> future = EXECUTOR.submit(syncTask);
+            if (Looper.myLooper() != Looper.getMainLooper()) {
+                // Keep FCM's worker alive long enough for a cold-start HTTP fetch,
+                // while staying safely below Android's 10 s BroadcastReceiver limit.
+                try {
+                    future.get(PUSH_WAIT_MS, TimeUnit.MILLISECONDS);
+                } catch (TimeoutException e) {
+                    DoodleRefreshWorker.enqueue(app);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } catch (ExecutionException e) {
+                    Log.w(TAG, "Widget push sync failed", e);
+                }
             }
         }
     }
@@ -120,13 +134,12 @@ final class DoodleWidgetSync {
         }
         try {
             String previousKey = store.currentDoodleKey();
-            String appCheck = appCheckToken();
-            String token = idToken(store, session, appCheck);
+            String token = idToken(store, session);
             if (token == null) {
                 if (clearDrawing) store.finishPartnerDrawing();
                 return true;
             }
-            JSONObject doodle = fetchLatestDoodle(session, token, appCheck);
+            JSONObject doodle = fetchLatestDoodle(session, token, appCheckToken());
             store.applyRefresh(session, previousKey, doodle, clearDrawing);
             return true;
         } catch (IOException | JSONException e) {
@@ -136,13 +149,12 @@ final class DoodleWidgetSync {
     }
 
     @Nullable
-    private static String idToken(DoodleWidgetStore store, DoodleWidgetStore.Session session, @Nullable String appCheck) throws IOException, JSONException {
+    private static String idToken(DoodleWidgetStore store, DoodleWidgetStore.Session session) throws IOException, JSONException {
         if (idToken != null && session.uid.equals(idTokenUid) && System.currentTimeMillis() < idTokenExpiresAt) return idToken;
 
         String body = "grant_type=refresh_token&refresh_token=" + URLEncoder.encode(session.refreshToken, "UTF-8");
         HttpURLConnection connection = open("https://securetoken.googleapis.com/v1/token?key=" + URLEncoder.encode(session.apiKey, "UTF-8"));
         connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-        if (appCheck != null) connection.setRequestProperty("X-Firebase-AppCheck", appCheck);
         Response response = send(connection, body);
         if (response.status == 400 && isRevokedSession(response.body)) {
             // The app hands over a new session at the next sign-in.
@@ -280,16 +292,23 @@ final class DoodleWidgetSync {
     /** Firestore may enforce App Check; without a token the request is still sent. */
     @Nullable
     private static String appCheckToken() {
+        if (System.currentTimeMillis() < appCheckBackoffUntil) return null;
         try {
             FirebaseAppCheck appCheck = FirebaseAppCheck.getInstance();
             try {
-                return Tasks.await(appCheck.getAppCheckToken(false), TIMEOUT_MS, TimeUnit.MILLISECONDS).getToken();
-            } catch (ExecutionException noProvider) {
-                // Process started by FCM or the widget: the web app has not installed a provider yet.
+                return Tasks.await(appCheck.getAppCheckToken(false), APP_CHECK_TIMEOUT_MS, TimeUnit.MILLISECONDS).getToken();
+            } catch (ExecutionException firstError) {
+                String detail = firstError.getCause() != null ? firstError.getCause().getMessage() : firstError.getMessage();
+                if (appCheckProviderInstalled || detail == null || !detail.contains("No AppCheckProvider")) {
+                    throw firstError;
+                }
+                // Cold process started by FCM or the widget before the web app installed a provider.
+                appCheckProviderInstalled = true;
                 appCheck.installAppCheckProviderFactory(PlayIntegrityAppCheckProviderFactory.getInstance());
-                return Tasks.await(appCheck.getAppCheckToken(false), TIMEOUT_MS, TimeUnit.MILLISECONDS).getToken();
+                return Tasks.await(appCheck.getAppCheckToken(false), APP_CHECK_TIMEOUT_MS, TimeUnit.MILLISECONDS).getToken();
             }
         } catch (Exception e) {
+            appCheckBackoffUntil = System.currentTimeMillis() + APP_CHECK_BACKOFF_MS;
             Log.w(TAG, "App Check token unavailable for the widget", e);
             return null;
         }
