@@ -19,6 +19,7 @@ let visibilityObserver: IntersectionObserver | undefined
 let scrollHost: HTMLElement | undefined
 let overlay: HTMLElement | null = null
 let animation = 0
+let transitionFrame = 0
 let visible = false
 let stopped = false
 let requestVersion = 0
@@ -80,6 +81,16 @@ function update() {
   })
 }
 
+// The native map sits above the web view, so CSS modal transforms do not move it.
+function trackDismiss() {
+  update()
+  transitionFrame = requestAnimationFrame(trackDismiss)
+}
+
+function stopTrackingDismiss() {
+  cancelAnimationFrame(transitionFrame)
+}
+
 onMounted(async () => {
   const surface = host.value
   if (!surface) return
@@ -89,6 +100,8 @@ onMounted(async () => {
     if (stopped) return
     scrollHost?.addEventListener('scroll', update, { passive: true })
     overlay?.addEventListener('touchmove', update, { passive: true })
+    overlay?.addEventListener('ionModalWillDismiss', trackDismiss)
+    overlay?.addEventListener('ionModalDidDismiss', stopTrackingDismiss)
     window.addEventListener('resize', update)
     document.addEventListener('visibilitychange', update)
   }
@@ -106,10 +119,13 @@ onBeforeUnmount(() => {
   stopped = true
   ++requestVersion
   cancelAnimationFrame(animation)
+  stopTrackingDismiss()
   resizeObserver?.disconnect()
   visibilityObserver?.disconnect()
   scrollHost?.removeEventListener('scroll', update)
   overlay?.removeEventListener('touchmove', update)
+  overlay?.removeEventListener('ionModalWillDismiss', trackDismiss)
+  overlay?.removeEventListener('ionModalDidDismiss', stopTrackingDismiss)
   window.removeEventListener('resize', update)
   document.removeEventListener('visibilitychange', update)
   if (!props.preview) void maps.remove({ id }).catch(() => {})

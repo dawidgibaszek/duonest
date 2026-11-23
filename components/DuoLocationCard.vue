@@ -7,6 +7,7 @@ const { currentUser, partnerUser, currentUserAccentColor, partnerUserAccentColor
 const props = defineProps<{ partnerName: string }>()
 const { ownShared, myPosition, theirPosition, distance, sharing, sharingError, updatingSharing, clock, startSharing, stopSharing } = useDuoLocation()
 const isOpen = ref(false)
+const closing = ref(false)
 const mapReady = ref(false)
 const detailsOpen = ref(false)
 const detailsTop = ref<number>()
@@ -51,16 +52,27 @@ function showMap() {
   showDetails()
 }
 
-async function closeMap() {
-  if (detailsOpen.value) {
-    await (document.getElementById(detailsId) as HTMLIonModalElement | null)?.dismiss()
-  }
+function closeMap() {
+  if (closing.value) return
+  beginMapDismiss()
   isOpen.value = false
+}
+
+function beginMapDismiss() {
+  closing.value = true
+  detailsOpen.value = false
+}
+
+function finishMapDismiss() {
+  mapReady.value = false
+  isOpen.value = false
+  closing.value = false
+  closeDetails()
 }
 
 function closeDetails() {
   detailsOpen.value = false
-  detailsTop.value = undefined
+  if (!closing.value) detailsTop.value = undefined
   unwatchDetails()
 }
 
@@ -171,13 +183,13 @@ async function stop() {
   <ion-modal :is-open="isOpen" mode="ios" class="location-map-modal"
     :class="{ 'location-map-modal--ios': native && platform === 'ios', 'location-map-modal--android': native && platform === 'android' }"
     :aria-labelledby="titleId" data-no-swipe
-    @didPresent="showMap" @willDismiss="mapReady = false; detailsOpen = false" @didDismiss="isOpen = false">
+    @didPresent="showMap" @willDismiss="beginMapDismiss" @didDismiss="finishMapDismiss">
     <div class="location-map-screen">
       <DuoLocationMap v-if="mapReady" class="location-map-full" :mine="ownMarker" :partner="partnerMarker"
         :details-top="detailsTop" :controls="mapControls" />
       <header ref="mapControls" class="location-header">
         <h2 :id="titleId">Lokalizacja</h2>
-        <button v-if="mapReady && !detailsOpen" type="button" class="location-close" aria-label="Pokaż szczegóły" @click="showDetails">
+        <button v-if="mapReady && !detailsOpen && !closing" type="button" class="location-close" aria-label="Pokaż szczegóły" @click="showDetails">
           <ion-icon :icon="ioniconsListOutline" aria-hidden="true" />
         </button>
         <button type="button" class="location-close" aria-label="Zamknij mapę" @click="closeMap">
@@ -194,7 +206,7 @@ async function stop() {
     @willPresent="watchDetails" @didPresent="trackDetails" @ionDragMove="trackDetails"
     @ionDragEnd="trackDetails"
     @willDismiss="trackDetails" @didDismiss="closeDetails">
-    <ion-content>
+    <ion-content :scroll-y="false" :force-overscroll="false">
       <div class="location-details">
         <div class="location-details-heading">
           <h3 :id="detailsTitleId">Wasze pozycje</h3>
