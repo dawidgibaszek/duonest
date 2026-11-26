@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(DuoWidgetPlugin.class);
         registerPlugin(DuoLocationPlugin.class);
+        registerPlugin(DuoGoogleMapPreviewPlugin.class);
         registerPlugin(DuoAndroidDiagnosticsPlugin.class);
         super.onCreate(savedInstanceState);
     }

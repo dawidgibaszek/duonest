@@ -1,120 +1,20 @@
 <template>
   <ion-page>
     <ion-header :translucent="true">
+      <DuoOrganizationNav />
       <ion-toolbar>
         <div class="dn-page-header">
           <div class="header-action-row">
-            <div>
-              <div class="dn-header-title">
-                <span>Skarbonki</span>
-                <span class="count-chip" v-if="activeGoalsCount > 0">{{ activeGoalsCount }}</span>
-              </div>
-              <p class="dn-header-subtitle">Wspólne cele, wyjazdy i oszczędności</p>
-            </div>
+            <div class="dn-header-title">Skarbonki</div>
             <button
               type="button"
-              class="dn-header-btn dn-header-btn--icon"
+              class="dn-header-btn"
               @click="openAddModal"
-              aria-label="Dodaj nową skarbonkę"
             >
-              <ion-icon :icon="ioniconsAddOutline" />
+              <ion-icon :icon="ioniconsAddOutline" aria-hidden="true" />
+              <span>Nowy cel</span>
             </button>
           </div>
-        </div>
-      </ion-toolbar>
-
-      <!-- MAIN TABS: Zakupy vs Zadania vs Obiady vs Skarbonki vs Zwierzak -->
-      <ion-toolbar class="main-tabs-toolbar" data-no-swipe>
-        <div ref="pillRowRef" class="main-tabs-pill-row" @scroll.passive="onTabsScroll">
-          <button
-            v-if="isFeatureEnabled('shopping')"
-            type="button"
-            class="main-tab-pill"
-            @click="switchToShopping"
-          >
-            <ion-icon :icon="ioniconsCartOutline" />
-            <span>Zakupy</span>
-            <span class="pill-count-chip" v-if="uncompletedShoppingCount > 0">{{ uncompletedShoppingCount }}</span>
-          </button>
-
-          <button
-            v-if="isFeatureEnabled('tasks')"
-            type="button"
-            class="main-tab-pill"
-            @click="switchToTasks"
-          >
-            <ion-icon :icon="ioniconsCheckboxOutline" />
-            <span>Zadania</span>
-            <span class="pill-count-chip" v-if="uncompletedTasksCount > 0">{{ uncompletedTasksCount }}</span>
-          </button>
-
-          <button
-            v-if="isFeatureEnabled('meals')"
-            type="button"
-            class="main-tab-pill"
-            @click="switchToMeals"
-          >
-            <ion-icon :icon="ioniconsRestaurantOutline" />
-            <span>Obiady</span>
-          </button>
-
-          <button
-            v-if="isFeatureEnabled('savings')"
-            type="button"
-            class="main-tab-pill active"
-          >
-            <ion-icon :icon="ioniconsWalletOutline" />
-            <span>Skarbonki</span>
-          </button>
-
-          <button
-            v-if="isFeatureEnabled('pet')"
-            type="button"
-            class="main-tab-pill pet-tab-pill"
-            @click="switchToPet"
-          >
-            <ion-icon :icon="ioniconsPawOutline" />
-            <span>Zwierzak</span>
-            <span class="tab-pet-lvl" v-if="hasPet">lvl {{ petLevel }}</span>
-          </button>
-        </div>
-      </ion-toolbar>
-
-      <!-- SUB-VIEW SEGMENT: W trakcie vs Zrealizowane vs Wszystkie -->
-      <ion-toolbar class="dn-subtabs-toolbar" data-no-swipe>
-        <div class="dn-subtabs">
-          <button
-            type="button"
-            class="dn-subtab"
-            :class="{ active: statusFilter === 'active' }"
-            @click="statusFilter = 'active'"
-          >
-            <ion-icon :icon="ioniconsTrendingUpOutline" />
-            <span>W trakcie</span>
-            <span class="dn-subtab-count" v-if="activeGoalsCount > 0">{{ activeGoalsCount }}</span>
-          </button>
-
-          <button
-            type="button"
-            class="dn-subtab"
-            :class="{ active: statusFilter === 'completed' }"
-            @click="statusFilter = 'completed'"
-          >
-            <ion-icon :icon="ioniconsCheckmarkDoneOutline" />
-            <span>Zrealizowane</span>
-            <span class="dn-subtab-count" v-if="completedGoalsCount > 0">{{ completedGoalsCount }}</span>
-          </button>
-
-          <button
-            type="button"
-            class="dn-subtab"
-            :class="{ active: statusFilter === 'all' }"
-            @click="statusFilter = 'all'"
-          >
-            <ion-icon :icon="ioniconsLayersOutline" />
-            <span>Wszystkie</span>
-            <span class="dn-subtab-count" v-if="savingsGoals.length > 0">{{ savingsGoals.length }}</span>
-          </button>
         </div>
       </ion-toolbar>
     </ion-header>
@@ -152,17 +52,41 @@
               ></div>
             </div>
           </div>
+        </div>
 
-          <div class="hero-stats-footer">
-            <div class="hero-stat-pill">
-              <ion-icon :icon="ioniconsTrendingUpOutline" />
-              <span><strong>{{ activeGoalsCount }}</strong> w trakcie</span>
-            </div>
-            <div class="hero-stat-pill" v-if="completedGoalsCount > 0">
-              <ion-icon :icon="ioniconsCheckmarkCircle" class="text-emerald" />
-              <span><strong>{{ completedGoalsCount }}</strong> zrealizowanych</span>
-            </div>
-          </div>
+        <div class="dn-subtabs savings-status" role="group" aria-label="Status skarbonek" data-no-swipe>
+          <button
+            type="button"
+            class="dn-subtab"
+            :class="{ active: statusFilter === 'active' }"
+            :aria-pressed="statusFilter === 'active'"
+            @click="statusFilter = 'active'"
+          >
+            <span>W trakcie</span>
+            <span class="dn-subtab-count" v-if="activeGoalsCount > 0">{{ activeGoalsCount }}</span>
+          </button>
+
+          <button
+            type="button"
+            class="dn-subtab"
+            :class="{ active: statusFilter === 'completed' }"
+            :aria-pressed="statusFilter === 'completed'"
+            @click="statusFilter = 'completed'"
+          >
+            <span>Zrealizowane</span>
+            <span class="dn-subtab-count" v-if="completedGoalsCount > 0">{{ completedGoalsCount }}</span>
+          </button>
+
+          <button
+            type="button"
+            class="dn-subtab"
+            :class="{ active: statusFilter === 'all' }"
+            :aria-pressed="statusFilter === 'all'"
+            @click="statusFilter = 'all'"
+          >
+            <span>Wszystkie</span>
+            <span class="dn-subtab-count" v-if="savingsGoals.length > 0">{{ savingsGoals.length }}</span>
+          </button>
         </div>
 
         <!-- CATEGORY FILTER CHIPS -->
@@ -721,11 +645,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import {
-  useDuoState,
-  type SavingsGoal,
-  type SavingsContribution
-} from '~/composables/useDuoState'
+import { useDuoState } from '~/composables/useDuoState'
+import type { SavingsGoal, SavingsContribution } from '~/types/duo'
 import { usePetState } from '~/composables/usePetState'
 import { useConfirm } from '~/composables/useConfirm'
 import { playNotificationChime } from '~/composables/usePushNotifications'
@@ -738,10 +659,7 @@ import {
   restaurantOutline as ioniconsRestaurantOutline,
   walletOutline as ioniconsWalletOutline,
   pawOutline as ioniconsPawOutline,
-  trendingUpOutline as ioniconsTrendingUpOutline,
   checkmarkCircle as ioniconsCheckmarkCircle,
-  checkmarkDoneOutline as ioniconsCheckmarkDoneOutline,
-  layersOutline as ioniconsLayersOutline,
   timeOutline as ioniconsTimeOutline,
   ellipsisHorizontalOutline as ioniconsEllipsisHorizontalOutline,
   createOutline as ioniconsCreateOutline,
@@ -766,10 +684,6 @@ import {
 const {
   savingsGoals,
   savingsContributions,
-  shoppingItems,
-  tasksList,
-  activeDailySubTab,
-  activeTasksMainTab,
   currentUser,
   partnerUser,
   partnerDisplayName,
@@ -782,41 +696,10 @@ const {
   hexToRgba,
   triggerToast
 } = useDuoState()
-const { isFeatureEnabled } = useDuoPersonalization()
 
 const deletingGoalIds = ref<Set<string>>(new Set())
 
 const { confirm } = useConfirm()
-const { pillRowRef, onTabsScroll } = useOrgTabsSync('savings')
-const { hasPet, petLevel, onEnterPetView } = usePetState()
-
-// Subtab navigation helpers
-const switchToShopping = () => {
-  activeDailySubTab.value = 'shopping'
-}
-const switchToTasks = () => {
-  activeDailySubTab.value = 'tasks'
-  activeTasksMainTab.value = 'tasks'
-}
-const switchToMeals = () => {
-  activeDailySubTab.value = 'meals'
-}
-const switchToPet = () => {
-  activeDailySubTab.value = 'tasks'
-  activeTasksMainTab.value = 'pet'
-  try {
-    onEnterPetView()
-  } catch (_) {}
-}
-
-const uncompletedShoppingCount = computed(() => {
-  return shoppingItems.value.filter(i => !i.is_completed).length
-})
-
-const uncompletedTasksCount = computed(() => {
-  return tasksList.value.filter(t => !t.is_completed).length
-})
-
 // Categories definition
 const categoryFilters = [
   { key: 'all', label: 'Wszystkie', icon: ioniconsWalletOutline },
@@ -1296,10 +1179,10 @@ const handleRefresh = async (event: any) => {
   background: linear-gradient(135deg, #1c1b19 0%, #1c1b19 45%, #1c1b19 100%);
   color: #ffffff;
   border-radius: 20px;
-  padding: 20px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: none;
   margin: 0;
@@ -1400,31 +1283,10 @@ const handleRefresh = async (event: any) => {
   transition: width 0.4s ease;
 }
 
-.hero-stats-footer {
-  display: flex;
-  gap: 8px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.hero-stat-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11.5px;
-  color: #e5e6e8;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 4px 10px;
-  border-radius: 999px;
-}
-
-.hero-stat-pill ion-icon {
-  font-size: 13px;
-}
-
-.text-emerald {
-  color: #bbbbbb !important;
+.savings-status {
+  flex-wrap: wrap;
+  gap: 0 clamp(8px, 2vw, 22px);
+  margin: 0;
 }
 
 /* FILTER PILLS (Matching shopping.vue) */
@@ -2267,7 +2129,6 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
 }
 
 .savings-summary-hero .hero-icon-circle,
-.savings-summary-hero .hero-stat-pill,
 .savings-summary-hero .hero-pct-pill {
   background: #ffffff !important;
   border: none !important;
@@ -2280,10 +2141,6 @@ ion-input[type="date"] :deep(input::-webkit-date-and-time-value) {
 
 .savings-summary-hero .hero-progress-fill {
   background: var(--dn-ink) !important;
-}
-
-.savings-summary-hero .hero-stats-footer {
-  border-top-color: var(--dn-cream-deep) !important;
 }
 
 .empty-icon-wrap {

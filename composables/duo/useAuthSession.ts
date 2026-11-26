@@ -25,6 +25,7 @@ import {
   savingsContributions,
   currentDoodle,
   lastNudgeSentAt,
+  recentNudgeTimestamps,
   partnerLastSeenAt,
   loginFailures,
   loginLockoutUntil
@@ -36,7 +37,7 @@ import {
   getCleanAccentColor,
   createInitialProfile
 } from './utils'
-import { revokeIosWidgetAccess } from '~/utils/iosWidgetAccess'
+import { revokeWidgetAccess } from '~/utils/iosWidgetAccess'
 import { translateAppError } from '~/utils/errorTranslator'
 
 let hasAttachedAuthListener = false
@@ -84,6 +85,7 @@ export function useAuthSession(options: {
     savingsContributions.value = []
     currentDoodle.value = null
     lastNudgeSentAt.value = null
+    recentNudgeTimestamps.value = []
     partnerLastSeenAt.value = null
 
     if (typeof window !== 'undefined') {
@@ -360,7 +362,7 @@ export function useAuthSession(options: {
     try {
       // Network cleanup must not prevent the local Firebase session from signing out.
       await Promise.race([
-        Promise.allSettled([unsubscribeDevicePush(), revokeIosWidgetAccess(), stopDuoLocation(true)]),
+        Promise.allSettled([unsubscribeDevicePush(), revokeWidgetAccess(), stopDuoLocation(true)]),
         new Promise<void>(resolve => { pushTimeout = setTimeout(resolve, 2500) })
       ])
       const bridge = getDb()

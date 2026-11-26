@@ -133,6 +133,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { DAILY_FEATURES, LEISURE_FEATURES, featurePath } from '~/utils/duoPersonalization'
 import { FEATURE_DETAILS } from '~/utils/duoPersonalizationUi'
 import { useDuoState } from '~/composables/useDuoState'
+import { dailyFeature, selectDaily } from '~/composables/duo/state'
 
 import TabNest from '~/pages/tabs/nest.vue'
 import TabShopping from '~/pages/tabs/shopping.vue'
@@ -153,7 +154,6 @@ const {
   wishlistItems,
   moviesList,
   activeDailySubTab,
-  activeTasksMainTab,
   activeLeisureSubTab
 } = useDuoState()
 
@@ -191,13 +191,6 @@ const visibleTabs = computed(() => [
   ...(leisureFeatures.value.length ? [3] : []), 4
 ])
 const slideWidth = computed(() => ({ width: `${100 / visibleTabs.value.length}%` }))
-const dailyFeature = computed(() => activeDailySubTab.value === 'tasks' ? activeTasksMainTab.value : activeDailySubTab.value)
-
-function selectDaily(feature: typeof DAILY_FEATURES[number]) {
-  if (feature === 'tasks' || feature === 'pet') activeTasksMainTab.value = feature
-  activeDailySubTab.value = feature === 'pet' ? 'tasks' : feature
-}
-
 function normalizeSubTabs() {
   const firstDaily = dailyFeatures.value[0]
   if (firstDaily && !isFeatureEnabled(dailyFeature.value)) selectDaily(firstDaily)
@@ -569,16 +562,16 @@ const syncTabFromRoute = (animate: boolean = false) => {
     idx = 0
   } else if (path.includes('shopping')) {
     idx = 1
-    activeDailySubTab.value = 'shopping'
+    selectDaily('shopping')
   } else if (path.includes('tasks')) {
     idx = 1
     selectDaily(route.query.view === 'pet' ? 'pet' : 'tasks')
   } else if (path.includes('meals') || path.includes('dinner')) {
     idx = 1
-    activeDailySubTab.value = 'meals'
+    selectDaily('meals')
   } else if (path.includes('savings') || path.includes('budget') || path.includes('skarbonki')) {
     idx = 1
-    activeDailySubTab.value = 'savings'
+    selectDaily('savings')
   } else if (path.includes('daily') || path.includes('organization') || path.includes('organizacja')) {
     idx = 1
   } else if (path.includes('calendar')) {
@@ -662,7 +655,7 @@ watch(enabledFeatures, () => {
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  background-color: #f8f9fb;
+  background-color: var(--dn-bg);
 }
 
 .tabs-touch-container {

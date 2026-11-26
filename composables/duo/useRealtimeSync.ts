@@ -412,19 +412,10 @@ export function useRealtimeSync(options?: {
       eventsList.value = rows.map(normalizeEventRecord).sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)))
       saveToStorage('duonest_events', eventsList.value)
     })
-    let previousNudges: Set<string> | undefined
     observe('nudges', rows => {
-      const newGesture = previousNudges && rows.find(row => row.sender_id !== profileId && !previousNudges!.has(row.id))
       nudgesList.value = rows.sort(byNewest)
-      previousNudges = new Set(rows.map(row => row.id))
       saveToStorage('duonest_nudges', nudgesList.value)
-      if (newGesture && (typeof document === 'undefined' || document.visibilityState === 'visible')) {
-        const partnerGrammar = resolveGrammaticalGender(partnerUser.value)
-        const verb = conjugateVerbPast3rd('przesłał', partnerGrammar)
-        const subject = partnerUser.value?.name || getPartnerNoun('mianownik', partnerGrammar)
-        triggerToast(partnerGrammar === 'impersonal' || !partnerUser.value?.name && partnerGrammar === 'neutral' ? 'Przesłano gest' : `${subject} ${verb} gest`, { type: 'love' })
-      }
-    }, { field: 'created_at', limit: 20 })
+    }, { field: 'created_at', limit: 40 })
     observe('milestones', rows => {
       milestonesList.value = rows.sort(byNewest)
       saveToStorage('duonest_milestones', milestonesList.value)
@@ -585,7 +576,7 @@ export function useRealtimeSync(options?: {
         bridge.from('shopping_items', serverOnly).select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         bridge.from('tasks', serverOnly).select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),
         bridge.from('events', serverOnly).select('*').eq('partnership_id', partnershipId).order('start_time', { ascending: true }),
-        bridge.from('nudges', serverOnly).select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }).limit(20),
+        bridge.from('nudges', serverOnly).select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }).limit(40),
         readWishlist(partnershipId, profileId, uid, serverOnly).catch(error => {
           if (serverOnly) throw error
           return null
@@ -604,7 +595,7 @@ export function useRealtimeSync(options?: {
       if (shops.data) shoppingItems.value = shops.data
       if (tasks.data) tasksList.value = tasks.data
       if (evts.data) eventsList.value = evts.data.map(normalizeEventRecord).sort((a: any, b: any) => String(a.start_time).localeCompare(String(b.start_time)))
-      if (ndgs.data) nudgesList.value = ndgs.data
+      if (ndgs.data) nudgesList.value = [...ndgs.data].sort(byNewest)
       if (wishes) wishlistItems.value = wishes
       if (movs?.data) moviesList.value = deduplicateMoviesList(movs.data)
       if (mls?.data) milestonesList.value = mls.data

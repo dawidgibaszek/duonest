@@ -1,13 +1,6 @@
 <script setup lang="ts">
-import { registerPlugin } from '@capacitor/core'
+import { appleMaps as maps, type MapFrame } from '~/utils/duoAppleMaps'
 import type { DuoMapPin } from '~/utils/duoMapPin'
-type MapFrame = { x: number; y: number; width: number; height: number }
-
-const maps = registerPlugin<{
-  snapshot(options: { partner: DuoMapPin; width: number; height: number }): Promise<{ image: string }>
-  render(options: { id: string; frame: MapFrame; clip: MapFrame; cover?: MapFrame; mine: DuoMapPin | null; partner: DuoMapPin | null; fit: boolean }): Promise<void>
-  remove(options: { id: string }): Promise<void>
-}>('DuoAppleMaps')
 
 const props = defineProps<{ mine: DuoMapPin | null; partner: DuoMapPin | null; preview: boolean; detailsTop?: number; controls?: HTMLElement }>()
 const host = ref<HTMLElement>()

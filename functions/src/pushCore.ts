@@ -441,7 +441,7 @@ export async function notifySavedDoodle(
   ))
 }
 
-/** iOS only: use WidgetKit pushes on iOS 26 and silent FCM as an older-OS fallback. */
+/** Deliver only a refresh signal. The widget fetches the position with its read credential. */
 export async function notifyLocationWidgets(db: Db, messaging: Messaging, pid: string, senderId: string) {
   const nest = (await db.collection('partnerships').doc(pid).get()).data()
   if (!nest || ![nest.partner1_id, nest.partner2_id].includes(senderId)) return
@@ -452,10 +452,12 @@ export async function notifyLocationWidgets(db: Db, messaging: Messaging, pid: s
     pushWidgetReloads(db, recipient),
     ...subs.docs.map(async (doc: any) => {
       const sub = doc.data() || {}
-      if (sub.platform !== 'ios' || typeof sub.fcm_token !== 'string') return
+      if ((sub.platform !== 'ios' && sub.platform !== 'android') || typeof sub.fcm_token !== 'string') return
       try {
-        await messaging.send({ token: sub.fcm_token,
-          data: { widget: 'location', recipientProfileId: recipient },
+        const data = { widget: 'location', recipientProfileId: recipient }
+        await messaging.send(sub.platform === 'android'
+          ? { token: sub.fcm_token, data, android: { collapseKey: 'partner-location', ttl: 300_000 } }
+          : { token: sub.fcm_token, data,
           apns: { headers: { 'apns-push-type': 'background', 'apns-priority': '5',
             'apns-collapse-id': 'partner-location', 'apns-expiration': String(Math.floor(Date.now() / 1000) + 300) },
             payload: { aps: { contentAvailable: true } } }

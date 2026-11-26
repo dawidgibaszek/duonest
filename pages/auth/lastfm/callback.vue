@@ -24,7 +24,7 @@
               Zalogowano jako <strong>{{ username }}</strong>. Wracamy do aplikacji...
             </p>
 
-            <button type="button" class="primary-btn" @click="goToNestSettings">
+            <button type="button" class="primary-btn" @click="goToMusicSettings">
               Przejdź do aplikacji
             </button>
           </template>
@@ -64,16 +64,20 @@ const status = ref<'loading' | 'success' | 'error'>('loading')
 const username = ref('')
 const errorMessage = ref('')
 
-const goToNestSettings = () => {
+const goToMusicSettings = () => {
   if (typeof window !== 'undefined') {
-    window.location.replace('/tabs/relationship?category=nest_settings&music=connected')
+    window.location.replace('/tabs/relationship?music=connected')
   } else {
-    navigateTo('/tabs/relationship?category=nest_settings&music=connected')
+    navigateTo('/tabs/relationship?music=connected')
   }
 }
 
 const handleReturn = () => {
-  goToNestSettings()
+  if (typeof window !== 'undefined') {
+    window.location.replace('/tabs/relationship')
+  } else {
+    navigateTo('/tabs/relationship')
+  }
 }
 
 const resolveToken = (): string => {
@@ -166,7 +170,7 @@ const executeExchange = async () => {
 
     // Wait 1 second then redirect smoothly
     await new Promise((resolve) => setTimeout(resolve, 1000))
-    goToNestSettings()
+    goToMusicSettings()
   } catch (err: any) {
     status.value = 'error'
     errorMessage.value = err?.data?.error || err?.message || 'Wystąpił błąd podczas autoryzacji z Last.fm'

@@ -173,7 +173,6 @@ import {
 import { useDuoState, getSupabaseClient, sanitizeEmail } from '~/composables/useDuoState'
 import type { DuoAuthHeroTile } from '~/components/DuoAuthHero.vue'
 
-import { translateAppError } from '~/utils/errorTranslator'
 import { useRoute, useRouter } from 'vue-router'
 
 definePageMeta({ alias: ['/register'] })
@@ -289,7 +288,7 @@ const handleSocialSignIn = async (provider: 'google' | 'apple') => {
 
   const bridge = getSupabaseClient()
   if (!bridge) {
-    errorMessage.value = 'Brak połączenia z systemem logowania. Spróbuj ponownie.'
+    errorMessage.value = 'Nie udało się połączyć. Sprawdź internet i spróbuj ponownie.'
     return
   }
 
@@ -312,33 +311,47 @@ const handleSocialSignIn = async (provider: 'google' | 'apple') => {
 }
 
 const translateAuthError = (err: any): string => {
-  const msg = err?.message || err?.error_description || String(err)
-  if (msg.includes('Invalid login credentials') || msg.includes('Nieprawidłowe hasło')) {
-    return 'Nieprawidłowy adres e-mail lub hasło. Upewnij się, że wpisujesz poprawne hasło lub wybierz „Nie pamiętasz hasła?”, aby ustawić nowe.'
+  const details = `${err?.code || ''} ${err?.message || err?.error_description || ''}`.toLowerCase()
+
+  if (details.includes('invalid-email') || details.includes('nieprawidłowy format') || details.includes('prawidłowy adres e-mail')) {
+    return 'Sprawdź adres e-mail i spróbuj ponownie.'
   }
-  if (msg.includes('User already registered') || msg.includes('już istnieje')) {
-    return 'Konto z tym adresem e-mail już istnieje. Zaloguj się powyżej lub skorzystaj z „Nie pamiętasz hasła?”.'
-  }
-  if (msg.includes('Password should be at least 6 characters') || msg.includes('co najmniej 6')) {
+  if (details.includes('weak-password') || details.includes('co najmniej 6') || details.includes('at least 6 characters')) {
     return 'Hasło musi mieć co najmniej 6 znaków.'
   }
-  if (msg.includes('Nie znaleziono konta') || msg.includes('Nie znaleziono profilu')) {
-    return 'Nie znaleziono konta z tym adresem e-mail. Sprawdź e-mail lub przełącz na rejestrację.'
+  if (details.includes('too-many-requests') || details.includes('rate_limit') || details.includes('zbyt wiele') || details.includes('for security purposes')) {
+    return 'Zbyt wiele prób. Odczekaj chwilę i spróbuj ponownie.'
   }
-  if (msg.includes('For security purposes') || msg.includes('over_email_send_rate_limit')) {
-    const secondsMatch = msg.match(/after (\d+) seconds/i)
-    if (secondsMatch && secondsMatch[1]) {
-      return `Zbyt częste próby. Ze względów bezpieczeństwa odczekaj jeszcze ${secondsMatch[1]} sekund przed ponownym wysłaniem.`
-    }
-    return 'Zbyt wiele prób w krótkim czasie. Odczekaj około minuty przed kolejną prośbą o reset hasła.'
+  if (details.includes('network') || details.includes('failed to fetch') || details.includes('brak połączenia')) {
+    return 'Sprawdź połączenie z internetem i spróbuj ponownie.'
   }
-  if (msg.includes('Error sending') || msg.includes('email provider')) {
-    return 'Problem z wysyłką wiadomości e-mail. Sprawdź konfigurację SMTP w Supabase lub spróbuj ponownie za chwilę.'
+  if (details.includes('popup-closed-by-user') || details.includes('logowanie zostało przerwane') || details.includes('cancel') || details.includes('12501')) {
+    return 'Logowanie zostało przerwane. Spróbuj ponownie.'
   }
-  if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
-    return 'Brak połączenia z siecią. Sprawdź swoje połączenie internetowe.'
+  if (details.includes('popup-blocked') || details.includes('wyskakujące okno')) {
+    return 'Przeglądarka zablokowała okno logowania. Zezwól na jego otwarcie i spróbuj ponownie.'
   }
-  return translateAppError(err)
+  if (details.includes('cancelled-popup-request') || details.includes('okno logowania jest już otwarte')) {
+    return 'Dokończ logowanie w otwartym oknie lub spróbuj ponownie.'
+  }
+  if (details.includes('account-exists-with-different-credential') || details.includes('inną metodą logowania')) {
+    return 'Spróbuj zalogować się w ten sam sposób co wcześniej.'
+  }
+  if (mode.value === 'login' && (
+    details.includes('invalid-credential') || details.includes('invalid login credentials') ||
+    details.includes('user-not-found') || details.includes('wrong-password') ||
+    details.includes('nieprawidłowy adres e-mail lub hasło') || details.includes('nie znaleziono konta') ||
+    details.includes('wprowadzone hasło jest niepoprawne') || details.includes('nieprawidłowy login lub hasło')
+  )) {
+    return 'Nieprawidłowy adres e-mail lub hasło. Sprawdź dane lub wybierz „Nie pamiętasz hasła?”.'
+  }
+  if (mode.value === 'register' && (details.includes('email-already-in-use') || details.includes('user already registered') || details.includes('konto z tym adresem e-mail już istnieje'))) {
+    return 'Nie udało się utworzyć konta z tym adresem. Spróbuj się zalogować lub odzyskaj hasło.'
+  }
+
+  if (mode.value === 'forgot') return 'Nie udało się wysłać linku. Spróbuj ponownie za chwilę.'
+  if (mode.value === 'register') return 'Nie udało się utworzyć konta. Spróbuj ponownie za chwilę.'
+  return 'Nie udało się zalogować. Spróbuj ponownie za chwilę.'
 }
 
 onMounted(async () => {

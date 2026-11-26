@@ -1,30 +1,24 @@
 <template>
   <ion-page>
     <ion-header :translucent="true">
+      <DuoOrganizationNav />
       <ion-toolbar>
         <div class="dn-page-header">
           <div class="header-action-row">
-            <div>
-              <div class="dn-header-title">
-                <span>{{ activeMainTab === 'tasks' ? 'Zadania' : (hasPet ? 'Pupil' : 'Zwierzak') }}</span>
-                <span class="count-chip" v-if="activeMainTab === 'tasks' && uncompletedTasksCount > 0">{{ uncompletedTasksCount }}</span>
-                <span class="count-chip pet-header-lvl" v-else-if="hasPet">lvl {{ petLevel }}</span>
-              </div>
-              <p class="dn-header-subtitle">
-                {{ activeMainTab === 'tasks' ? 'Wspólne dbanie o czysty i ciepły dom' : (hasPet ? 'Twój wirtualny towarzysz domowych obowiązków' : 'Wybierzcie pupila do Waszego Gniazdka') }}
-              </p>
-            </div>
+            <div class="dn-header-title">{{ activeMainTab === 'tasks' ? 'Zadania' : 'Zwierzak' }}</div>
             <button
               v-if="activeMainTab === 'tasks'"
               type="button"
-              class="dn-header-btn dn-header-btn--icon"
+              class="dn-header-btn"
               aria-label="Nowe zadanie"
               @click="showAddModal = true"
             >
-              <ion-icon :icon="ioniconsAddOutline" />
+              <ion-icon :icon="ioniconsAddOutline" aria-hidden="true" />
+              <span>Zadanie</span>
             </button>
             <button
               v-else-if="hasPet"
+              type="button"
               class="dn-header-btn dn-header-btn--icon dn-header-btn--soft"
               @click="openPetSettingsModal"
               aria-label="Ustawienia zwierzaka"
@@ -32,82 +26,6 @@
               <ion-icon :icon="ioniconsSettingsOutline" />
             </button>
           </div>
-        </div>
-      </ion-toolbar>
-
-      <!-- MAIN TABS: Zakupy vs Zadania vs Obiady vs Zwierzak -->
-      <ion-toolbar class="main-tabs-toolbar" data-no-swipe>
-        <div ref="pillRowRef" class="main-tabs-pill-row" @scroll.passive="onTabsScroll">
-          <button
-            v-if="isFeatureEnabled('shopping')"
-            type="button"
-            class="main-tab-pill"
-            @click="handleSwitchToShopping"
-          >
-            <ion-icon :icon="ioniconsCartOutline" />
-            <span>Zakupy</span>
-            <span class="pill-count-chip" v-if="uncompletedShoppingCount > 0">{{ uncompletedShoppingCount }}</span>
-          </button>
-
-          <button
-            v-if="isFeatureEnabled('tasks')"
-            type="button"
-            class="main-tab-pill"
-            :class="{ active: activeDailySubTab === 'tasks' && activeMainTab === 'tasks' }"
-            @click="handleSwitchToTasks"
-          >
-            <ion-icon :icon="ioniconsCheckboxOutline" />
-            <span>Zadania</span>
-            <span class="pill-count-chip" v-if="uncompletedTasksCount > 0">{{ uncompletedTasksCount }}</span>
-          </button>
-
-          <button
-            v-if="isFeatureEnabled('meals')"
-            type="button"
-            class="main-tab-pill"
-            @click="handleSwitchToMeals"
-          >
-            <ion-icon :icon="ioniconsRestaurantOutline" />
-            <span>Obiady</span>
-          </button>
-
-          <button
-            v-if="isFeatureEnabled('savings')"
-            type="button"
-            class="main-tab-pill"
-            @click="handleSwitchToSavings"
-          >
-            <ion-icon :icon="ioniconsWalletOutline" />
-            <span>Skarbonki</span>
-          </button>
-
-          <button
-            v-if="isFeatureEnabled('pet')"
-            type="button"
-            class="main-tab-pill pet-tab-pill"
-            :class="{ active: activeDailySubTab === 'tasks' && activeMainTab === 'pet' }"
-            @click="handleSwitchToPet"
-          >
-            <ion-icon :icon="ioniconsPawOutline" />
-            <span>Zwierzak</span>
-            <span class="tab-pet-lvl" v-if="hasPet">lvl {{ petLevel }}</span>
-          </button>
-        </div>
-      </ion-toolbar>
-
-      <!-- SEGMENTS: Podział obowiązków (Wszystkie, Moje, Partnera, Wspólne) - tylko w widoku Zadań -->
-      <ion-toolbar class="dn-subtabs-toolbar" v-if="activeMainTab === 'tasks'">
-        <div class="dn-subtabs">
-          <button
-            v-for="seg in taskSegments"
-            :key="seg.value"
-            type="button"
-            class="dn-subtab"
-            :class="{ active: selectedSegment === seg.value }"
-            @click="selectedSegment = seg.value"
-          >
-            <span>{{ seg.label }}</span>
-          </button>
         </div>
       </ion-toolbar>
     </ion-header>
@@ -122,26 +40,23 @@
       <!-- TAB 1: LISTA ZADAŃ DOMOWYCH                    -->
       <!-- ============================================== -->
       <div v-if="activeMainTab === 'tasks'" class="tasks-tab-content">
-        <!-- Companion pet mini-bar -->
-        <button v-if="isFeatureEnabled('pet')" type="button" class="pt-mini" :class="{ 'pt-mini--invite': !hasPet }" @click="handleSwitchToPet">
-          <span class="pt-mini-sprite">
-            <PetSprite v-if="hasPet" :pet="petId" :animation="currentAnimation" :scale="1.3" :interactive="false" />
-            <ion-icon v-else :icon="ioniconsPawOutline" />
-          </span>
-          <span class="pt-mini-text">
-            <span class="pt-mini-title">{{ hasPet ? petName : 'Odbierzcie pupila' }}</span>
-            <span class="pt-mini-sub">
-              <template v-if="hasPet">Poziom {{ petLevel }} · {{ uncompletedTasksCount === 0 ? 'wszystko zrobione' : `${uncompletedTasksCount} do zrobienia` }}</template>
-              <template v-else>Wybierzcie go w zakładce Zwierzak.</template>
-            </span>
-          </span>
-          <span v-if="hasPet" class="pt-mini-bar"><span :style="{ width: Math.max(petLevelProgressPct, 4) + '%' }" /></span>
-          <ion-icon :icon="ioniconsChevronForwardOutline" class="pt-mini-arrow" />
-        </button>
+        <div class="dn-subtabs tasks-assignee-filter" role="group" aria-label="Filtruj zadania według osoby" data-no-swipe>
+          <button
+            v-for="seg in taskSegments"
+            :key="seg.value"
+            type="button"
+            class="dn-subtab"
+            :class="{ active: selectedSegment === seg.value }"
+            :aria-pressed="selectedSegment === seg.value"
+            @click="selectedSegment = seg.value"
+          >
+            {{ seg.label }}
+          </button>
+        </div>
 
         <!-- ACTIVE TASKS LIST -->
         <div class="tasks-section-header" v-if="filteredActiveTasks.length > 0">
-          <span>DO ZROBIENIA ({{ filteredActiveTasks.length }})</span>
+          <span>Do zrobienia · {{ filteredActiveTasks.length }}</span>
         </div>
 
         <div class="tasks-list-wrapper" v-if="filteredActiveTasks.length > 0">
@@ -219,10 +134,27 @@
           <p>Możecie odpocząć lub dodać nowe wspólne obowiązki.</p>
         </div>
 
+        <!-- Companion pet mini-bar -->
+        <button v-if="isFeatureEnabled('pet')" type="button" class="pt-mini" :class="{ 'pt-mini--invite': !hasPet }" @click="selectDaily('pet')">
+          <span class="pt-mini-sprite">
+            <PetSprite v-if="hasPet" :pet="petId" :animation="currentAnimation" :scale="1.3" :interactive="false" />
+            <ion-icon v-else :icon="ioniconsPawOutline" />
+          </span>
+          <span class="pt-mini-text">
+            <span class="pt-mini-title">{{ hasPet ? petName : 'Odbierzcie pupila' }}</span>
+            <span class="pt-mini-sub">
+              <template v-if="hasPet">Poziom {{ petLevel }} · {{ uncompletedTasksCount === 0 ? 'wszystko zrobione' : `${uncompletedTasksCount} do zrobienia` }}</template>
+              <template v-else>Wybierzcie go w zakładce Zwierzak.</template>
+            </span>
+          </span>
+          <span v-if="hasPet" class="pt-mini-bar"><span :style="{ width: Math.max(petLevelProgressPct, 4) + '%' }" /></span>
+          <ion-icon :icon="ioniconsChevronForwardOutline" class="pt-mini-arrow" />
+        </button>
+
         <!-- COMPLETED TASKS -->
         <div class="completed-tasks-wrapper" v-if="filteredCompletedTasks.length > 0">
           <div class="tasks-section-header">
-            <span>UKOŃCZONE ({{ filteredCompletedTasks.length }})</span>
+          <span>Ukończone · {{ filteredCompletedTasks.length }}</span>
           </div>
 
           <div class="tasks-list-wrapper completed-list-wrapper">
@@ -375,7 +307,7 @@
           <section class="pt-section">
             <div class="pt-section-head">
               <h2 class="pt-section-title">Misje domowe</h2>
-              <button type="button" class="pt-link" @click="handleSwitchToTasks">Wszystkie</button>
+              <button type="button" class="pt-link" @click="selectDaily('tasks')">Wszystkie</button>
             </div>
             <p class="pt-hint">Za ukończone zadania {{ petName }} zdobywa XP.</p>
 
@@ -660,15 +592,16 @@
 </template>
 
 <script setup lang="ts">
+import { selectDaily } from '~/composables/duo/state'
 import { ref, computed, watch, onMounted } from 'vue'
-import { useDuoState, type TaskItem } from '~/composables/useDuoState'
+import { useDuoState } from '~/composables/useDuoState'
+import type { TaskItem } from '~/types/duo'
 import { usePetState } from '~/composables/usePetState'
 import DuoIcon from '~/components/DuoIcon.vue'
 import PetSprite from '~/components/PetSprite.vue'
 
 const {
   tasksList,
-  shoppingItems,
   activeDailySubTab,
   activeTasksMainTab,
   currentUser,
@@ -687,7 +620,6 @@ const {
 } = useDuoState()
 const { isFeatureEnabled } = useDuoPersonalization()
 
-const { pillRowRef, onTabsScroll } = useOrgTabsSync('tasks')
 
 const completingTaskIds = ref<Set<string>>(new Set())
 
@@ -714,37 +646,11 @@ const {
 // Main Tab Navigation: 'tasks' | 'pet' (synced with global activeTasksMainTab)
 const activeMainTab = activeTasksMainTab
 
-const uncompletedShoppingCount = computed(() => {
-  return shoppingItems.value.filter(i => !i.is_completed).length
-})
-
-const handleSwitchToShopping = () => {
-  activeDailySubTab.value = 'shopping'
-}
-
-const handleSwitchToMeals = () => {
-  activeDailySubTab.value = 'meals'
-}
-
-const handleSwitchToSavings = () => {
-  activeDailySubTab.value = 'savings'
-}
-
 onMounted(async () => {
   try {
     await initSupabaseSync()
   } catch (_) {}
 })
-
-const handleSwitchToTasks = () => {
-  activeDailySubTab.value = 'tasks'
-  activeTasksMainTab.value = 'tasks'
-}
-
-const handleSwitchToPet = () => {
-  activeDailySubTab.value = 'tasks'
-  activeTasksMainTab.value = 'pet'
-}
 
 watch([activeDailySubTab, activeMainTab], ([tab, view]) => {
   if (tab === 'tasks' && view === 'pet' && isFeatureEnabled('pet')) onEnterPetView()
@@ -1217,6 +1123,17 @@ const handleRefresh = async (event: any) => {
 }
 
 /* TASKS LIST */
+.tasks-assignee-filter {
+  flex-wrap: wrap;
+  gap: 0 clamp(8px, 4vw, 22px);
+}
+
+.tasks-assignee-filter .dn-subtab {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .tasks-section-header {
   font-size: 11px;
   font-weight: 700;
@@ -1527,12 +1444,6 @@ const handleRefresh = async (event: any) => {
 /* ============================================= */
 /* PET & COMPANION STYLES                        */
 /* ============================================= */
-
-/* PET HEADER CONTROLS */
-.pet-header-lvl {
-  background: #f3f4f6;
-  color: #757575;
-}
 
 .pet-header-new {
   background: #f2f3f5;

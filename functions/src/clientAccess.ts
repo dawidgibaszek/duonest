@@ -50,11 +50,11 @@ export async function isNativeVersionAllowed(platform: 'ios' | 'android', versio
   )
 }
 
-export async function isIosWidgetVersionAllowed(version: string, build: string) {
+export async function isWidgetVersionAllowed(platform: 'ios' | 'android', version: string, build: string) {
   if (process.env.DUO_APP_CHECK_ENFORCE !== 'true') return true
-  const { ios } = await getClientAccessPolicy()
-  return (!ios.version || !ios.build || compareAppVersions(build, build) !== null)
-    && isNativeVersionAllowed('ios', version, build)
+  const minimum = (await getClientAccessPolicy())[platform]
+  return (!minimum.version || !minimum.build || compareAppVersions(build, build) !== null)
+    && isNativeVersionAllowed(platform, version, build)
 }
 
 export const requireDuoClient: RequestHandler = async (req, res, next) => {

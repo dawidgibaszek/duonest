@@ -16,28 +16,6 @@ export {
 } from './duo/useGrammar'
 export type { GenderIdentity, GrammaticalGender } from './duo/useGrammar'
 
-// Eksport typów domenowych
-export type {
-  Profile,
-  Partnership,
-  ShoppingItem,
-  TaskItem,
-  EventItem,
-  NudgeItem,
-  NestMilestone,
-  WishlistItem,
-  MovieReview,
-  MovieItem,
-  MealIngredient,
-  MealItem,
-  SavingsGoal,
-  SavingsContribution,
-  DuoDoodleStroke,
-  DuoDoodle,
-  ToastType,
-  DuoToastItem
-} from '~/types/duo'
-
 // Eksport narzędzi i funkcji pomocniczych
 export {
   getCleanAccentColor,
@@ -82,7 +60,6 @@ export {
   activeOrgSubTab,
   activeTasksMainTab,
   activeLeisureSubTab,
-  orgTabsScrollLeft,
   isAuthLoading,
   authRestoreFailed,
   isLoggingOut,
@@ -93,6 +70,8 @@ export {
   partnerLastSeenAt,
   activeToastMessage,
   activeToastItem,
+  activeGestureAnimations,
+  activeGestureAnimation,
   isPaired,
   userPoints,
   partnerPoints,
@@ -134,9 +113,9 @@ import {
   activeOrgSubTab,
   activeTasksMainTab,
   activeLeisureSubTab,
-  orgTabsScrollLeft,
   isAuthLoading,
   authRestoreFailed,
+  isLoggingOut,
   isOnlineWithSupabase,
   dbSchemaStatus,
   realtimeStatus,
@@ -144,6 +123,8 @@ import {
   partnerLastSeenAt,
   activeToastMessage,
   activeToastItem,
+  activeGestureAnimations,
+  activeGestureAnimation,
   isPaired,
   userPoints,
   partnerPoints,
@@ -173,7 +154,12 @@ import { usePairingSecurity } from './duo/usePairingSecurity'
 import { useShopping } from './duo/useShopping'
 import { useTasks } from './duo/useTasks'
 import { useEvents } from './duo/useEvents'
-import { useNudges } from './duo/useNudges'
+import {
+  useNudges,
+  playGestureAnimation,
+  dismissGestureAnimation,
+  consumePendingPartnerGesture
+} from './duo/useNudges'
 import { useWishlist } from './duo/useWishlist'
 import { useMovies } from './duo/useMovies'
 import { useMeals } from './duo/useMeals'
@@ -276,6 +262,7 @@ export const useDuoState = () => {
     needsEmailVerification,
     isAuthLoading,
     authRestoreFailed,
+    isLoggingOut,
     retrySessionRestore: auth.retrySessionRestore,
     signInWithEmail: auth.signInWithEmail,
     signUpWithEmail: auth.signUpWithEmail,
@@ -295,6 +282,8 @@ export const useDuoState = () => {
     isPaired,
     updateMyName: pairingSecurity.updateMyName,
     updateMyProfile: pairingSecurity.updateMyProfile,
+    uploadMyAvatar: pairingSecurity.uploadMyAvatar,
+    removeMyAvatar: pairingSecurity.removeMyAvatar,
     updatePartnershipSettings: pairingSecurity.updatePartnershipSettings,
     pairWithCode: pairingSecurity.pairWithCode,
     disconnectPartnership: pairingSecurity.disconnectPartnership,
@@ -328,8 +317,14 @@ export const useDuoState = () => {
 
     // Gesty i nastrój
     nudgesList,
+    activeGestureAnimations,
+    activeGestureAnimation,
+    playGestureAnimation,
+    dismissGestureAnimation,
+    consumePendingPartnerGesture,
     updateMood: nudges.updateMood,
     sendNudge: nudges.sendNudge,
+    isNudgeRateLimited: nudges.isNudgeRateLimited,
     hasSentDailyNudge: nudges.hasSentDailyNudge,
     formattedNextNudgeTime: nudges.formattedNextNudgeTime,
     nextNudgeRemainingMs: nudges.nextNudgeRemainingMs,
@@ -448,7 +443,6 @@ export const useDuoState = () => {
     activeDailySubTab,
     activeOrgSubTab,
     activeTasksMainTab,
-    activeLeisureSubTab,
-    orgTabsScrollLeft
+    activeLeisureSubTab
   }
 }

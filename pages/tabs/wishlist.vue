@@ -497,7 +497,8 @@ import {
   trashOutline as ioniconsTrashOutline
 } from 'ionicons/icons'
 import DuoActionSheet, { type DuoActionSheetButton } from '~/components/DuoActionSheet.vue'
-import { useDuoState, type WishlistItem } from '~/composables/useDuoState'
+import { useDuoState } from '~/composables/useDuoState'
+import type { WishlistItem } from '~/types/duo'
 import { useConfirm } from '~/composables/useConfirm'
 import { formatSiteName, extractTitleFromUrl } from '~/utils/wishlistParser'
 

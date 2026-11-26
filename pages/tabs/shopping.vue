@@ -1,79 +1,21 @@
 <template>
   <ion-page>
     <ion-header :translucent="true">
+      <DuoOrganizationNav />
       <ion-toolbar>
         <div class="dn-page-header">
           <div class="header-action-row">
-            <div class="dn-header-title">
-              <span>Zakupy</span>
-              <span class="count-chip" v-if="uncompletedCount > 0">{{ uncompletedCount }}</span>
-            </div>
+            <div class="dn-header-title">Zakupy</div>
             <button
               type="button"
-              class="dn-header-btn dn-header-btn--icon"
+              class="dn-header-btn"
               aria-label="Dodaj produkt"
               @click="isAddSheetOpen = true"
             >
-              <ion-icon :icon="ioniconsAddOutline" />
+              <ion-icon :icon="ioniconsAddOutline" aria-hidden="true" />
+              <span>Produkt</span>
             </button>
           </div>
-        </div>
-      </ion-toolbar>
-
-      <!-- MAIN TABS: Zakupy vs Zadania vs Obiady vs Zwierzak -->
-      <ion-toolbar class="main-tabs-toolbar" data-no-swipe>
-        <div ref="pillRowRef" class="main-tabs-pill-row" @scroll.passive="onTabsScroll">
-          <button
-            v-if="isFeatureEnabled('shopping')"
-            type="button"
-            class="main-tab-pill active"
-          >
-            <ion-icon :icon="ioniconsCartOutline" />
-            <span>Zakupy</span>
-            <span class="pill-count-chip" v-if="uncompletedCount > 0">{{ uncompletedCount }}</span>
-          </button>
-
-          <button
-            v-if="isFeatureEnabled('tasks')"
-            type="button"
-            class="main-tab-pill"
-            @click="switchToTasks"
-          >
-            <ion-icon :icon="ioniconsCheckboxOutline" />
-            <span>Zadania</span>
-            <span class="pill-count-chip" v-if="uncompletedTasksCount > 0">{{ uncompletedTasksCount }}</span>
-          </button>
-
-          <button
-            v-if="isFeatureEnabled('meals')"
-            type="button"
-            class="main-tab-pill"
-            @click="switchToMeals"
-          >
-            <ion-icon :icon="ioniconsRestaurantOutline" />
-            <span>Obiady</span>
-          </button>
-
-          <button
-            v-if="isFeatureEnabled('savings')"
-            type="button"
-            class="main-tab-pill"
-            @click="switchToSavings"
-          >
-            <ion-icon :icon="ioniconsWalletOutline" />
-            <span>Skarbonki</span>
-          </button>
-
-          <button
-            v-if="isFeatureEnabled('pet')"
-            type="button"
-            class="main-tab-pill pet-tab-pill"
-            @click="switchToPet"
-          >
-            <ion-icon :icon="ioniconsPawOutline" />
-            <span>Zwierzak</span>
-            <span class="tab-pet-lvl" v-if="hasPet">lvl {{ petLevel }}</span>
-          </button>
         </div>
       </ion-toolbar>
     </ion-header>
@@ -84,45 +26,44 @@
         <ion-refresher-content pulling-text="Przeciągnij, aby odświeżyć..." refreshing-spinner="crescent" />
       </ion-refresher>
 
-      <!-- CATEGORY FILTER CHIPS -->
-      <div class="filter-scroll">
-        <button
-          v-for="cat in categories"
-          :key="cat.name"
-          class="filter-pill"
-          :class="{ active: activeFilter === cat.name }"
-          @click="activeFilter = cat.name"
+      <div class="shopping-controls" data-no-swipe>
+        <div class="shopping-search-row">
+          <ion-icon :icon="ioniconsSearchOutline" aria-hidden="true" />
+          <input
+            v-model="searchQuery"
+            type="search"
+            placeholder="Szukaj produktów..."
+            aria-label="Szukaj produktów na liście zakupów"
+          />
+          <button
+            v-if="searchQuery"
+            type="button"
+            class="search-clear-btn"
+            aria-label="Wyczyść wyszukiwanie"
+            @click="searchQuery = ''"
+          >
+            <ion-icon :icon="ioniconsCloseOutline" />
+          </button>
+        </div>
+        <ion-select
+          class="shopping-category-select"
+          v-model="activeFilter"
+          interface="alert"
+          :interface-options="{ header: 'Kategoria produktów' }"
+          :selected-text="activeFilter === 'Wszystkie' ? 'Kategorie' : activeFilter"
+          aria-label="Kategoria produktów"
+          ok-text="Zastosuj"
+          cancel-text="Anuluj"
         >
-          <DuoIcon :name="'cat-' + cat.key" :size="15" />
-          <span>{{ cat.name }}</span>
-          <span class="filter-badge" v-if="getCategoryCount(cat.name) > 0">
-            {{ getCategoryCount(cat.name) }}
-          </span>
-        </button>
-      </div>
-
-      <div class="shopping-search-row">
-        <ion-icon :icon="ioniconsSearchOutline" aria-hidden="true" />
-        <input
-          v-model="searchQuery"
-          type="search"
-          placeholder="Szukaj produktów..."
-          aria-label="Szukaj produktów na liście zakupów"
-        />
-        <button
-          v-if="searchQuery"
-          type="button"
-          class="search-clear-btn"
-          aria-label="Wyczyść wyszukiwanie"
-          @click="searchQuery = ''"
-        >
-          <ion-icon :icon="ioniconsCloseOutline" />
-        </button>
+          <ion-select-option v-for="cat in categories" :key="cat.key" :value="cat.name">
+            {{ cat.name }}
+          </ion-select-option>
+        </ion-select>
       </div>
 
       <!-- ACTIVE SHOPPING LIST WITH SWIPE TO COMPLETE & DELETE -->
       <div class="items-section-header" v-if="filteredActiveItems.length > 0">
-        <span>DO KUPIENIA ({{ filteredActiveItems.length }})</span>
+        <span>Do kupienia · {{ filteredActiveItems.length }}</span>
       </div>
 
       <div class="shopping-list-wrapper" v-if="filteredActiveItems.length > 0">
@@ -235,7 +176,7 @@
             :aria-expanded="showCompletedItems"
             @click="showCompletedItems = !showCompletedItems"
           >
-            <span>KUPIONE ({{ filteredCompletedItems.length }})</span>
+            <span>Kupione · {{ filteredCompletedItems.length }}</span>
             <ion-icon :icon="showCompletedItems ? ioniconsChevronUpOutline : ioniconsChevronDownOutline" />
           </button>
           <button type="button" class="clear-btn" @click="handleClearCompleted">
@@ -486,16 +427,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useDuoState, type ShoppingItem } from '~/composables/useDuoState'
+import { useDuoState } from '~/composables/useDuoState'
+import type { ShoppingItem } from '~/types/duo'
 import { usePetState } from '~/composables/usePetState'
 import { useConfirm } from '~/composables/useConfirm'
 import DuoIcon from '~/components/DuoIcon.vue'
 
 const {
   shoppingItems,
-  tasksList,
-  activeDailySubTab,
-  activeTasksMainTab,
   currentUser,
   partnerUser,
   partnerDisplayName,
@@ -509,42 +448,8 @@ const {
   initSupabaseSync,
   triggerToast
 } = useDuoState()
-const { isFeatureEnabled } = useDuoPersonalization()
 
 const { confirm } = useConfirm()
-const { pillRowRef, onTabsScroll } = useOrgTabsSync('shopping')
-
-const {
-  hasPet,
-  petLevel,
-  currentPetDef,
-  onEnterPetView
-} = usePetState()
-
-const uncompletedTasksCount = computed(() => {
-  return tasksList.value.filter(t => !t.is_completed).length
-})
-
-const switchToTasks = () => {
-  activeDailySubTab.value = 'tasks'
-  activeTasksMainTab.value = 'tasks'
-}
-
-const switchToMeals = () => {
-  activeDailySubTab.value = 'meals'
-}
-
-const switchToSavings = () => {
-  activeDailySubTab.value = 'savings'
-}
-
-const switchToPet = () => {
-  activeDailySubTab.value = 'tasks'
-  activeTasksMainTab.value = 'pet'
-  try {
-    onEnterPetView()
-  } catch (_) {}
-}
 
 const newItemTitle = ref('')
 const newItemQty = ref('')
@@ -623,10 +528,6 @@ const categories = [
   { name: 'Inne', key: 'other' }
 ]
 
-const uncompletedCount = computed(() => {
-  return shoppingItems.value.filter(i => !i.is_completed).length
-})
-
 const completingItemIds = ref<Set<string>>(new Set())
 
 const filteredActiveItems = computed(() => {
@@ -650,13 +551,6 @@ const filteredCompletedItems = computed(() => {
 const matchesSearch = (item: ShoppingItem, query: string) => {
   if (!query) return true
   return `${item.title} ${item.category} ${item.quantity || ''}`.toLocaleLowerCase().includes(query)
-}
-
-const getCategoryCount = (categoryName: string) => {
-  if (categoryName === 'Wszystkie') {
-    return shoppingItems.value.filter(i => !i.is_completed).length
-  }
-  return shoppingItems.value.filter(i => !i.is_completed && i.category === categoryName).length
 }
 
 const isSubmitting = ref(false)
@@ -962,56 +856,25 @@ const handleRefresh = async (event: any) => {
   border-color: #e0e0e0;
 }
 
-/* FILTER PILLS */
-.filter-scroll {
+.shopping-controls {
   display: flex;
-  gap: 8px;
-  padding: 6px 16px 12px 16px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.filter-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-.filter-pill {
-  display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 500;
+  gap: 8px;
+  margin: 6px 16px 8px;
+}
+
+.shopping-category-select {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 100%;
+  min-height: 46px;
+  border-radius: 12px;
+  --padding-start: 12px;
+  --padding-end: 12px;
   background: var(--dn-soft);
-  border: none;
   color: var(--dn-ink);
-  cursor: pointer;
-  white-space: nowrap;
-  box-shadow: none;
-  transition: all 0.15s ease;
-}
-
-.filter-pill:active {
-  transform: scale(0.96);
-}
-
-.filter-pill.active {
-  background: #1c1b19;
-  color: #ffffff;
-  border-color: #1c1b19;
-  box-shadow: none;
-}
-
-.filter-badge {
-  background: rgba(28, 27, 25, 0.08);
-  padding: 1px 6px;
-  border-radius: 999px;
-  font-size: 11px;
-}
-
-.filter-pill.active .filter-badge {
-  background: rgba(255, 255, 255, 0.25);
-  color: #ffffff;
+  font-size: 0.875rem;
 }
 
 .shopping-search-row {
@@ -1019,7 +882,8 @@ const handleRefresh = async (event: any) => {
   align-items: center;
   gap: 10px;
   min-height: 46px;
-  margin: 0 16px 8px;
+  flex: 1 1 9rem;
+  min-width: 0;
   padding: 0 12px;
   border: 1px solid var(--dn-line);
   border-radius: 12px;

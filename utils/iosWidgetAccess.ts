@@ -22,6 +22,7 @@ interface DuoWidgetPlugin {
   clearLiveStrokes(): Promise<void>
   setPartnerDrawing(options: { isDrawing: boolean }): Promise<void>
   refresh?(): Promise<void>
+  refreshLocation(): Promise<void>
   hasReadAccess(options: { uid: string; partnershipId: string }): Promise<{ valid: boolean }>
   getPushToken(): Promise<{ token?: string; environment?: 'production' | 'development' }>
 }
@@ -39,18 +40,18 @@ export function getWidgetCredential(uid: string): string {
   return token
 }
 
-export async function revokeIosWidgetAccess() {
-  if (Capacitor.getPlatform() !== 'ios') return
+export async function revokeWidgetAccess() {
+  if (!Capacitor.isNativePlatform()) return
   const bridge = getFirebaseBridge()
   const token = localStorage.getItem(IOS_WIDGET_CREDENTIAL_KEY)?.split(':')[1]
   localStorage.removeItem(IOS_WIDGET_CREDENTIAL_KEY)
   localStorage.removeItem(UPLOADED_WIDGET_PUSH_KEY)
   const clear = DuoWidget.setSession({})
   const remote = async () => {
-    const { token: widgetPushToken } = await DuoWidget.getPushToken()
     await Promise.allSettled([
       token ? bridge.callApi('/api/widget/session', { token, revoke: true }) : null,
-      widgetPushToken ? bridge.callApi('/api/push/unsubscribe', { widgetPushToken }) : null
+      Capacitor.getPlatform() === 'ios' ? DuoWidget.getPushToken().then(({ token: widgetPushToken }) =>
+        widgetPushToken ? bridge.callApi('/api/push/unsubscribe', { widgetPushToken }) : null) : null
     ])
   }
   await Promise.allSettled([clear, remote()])

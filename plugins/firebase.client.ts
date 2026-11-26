@@ -7,7 +7,7 @@ import { installDuoApiFetch } from '~/utils/duoApiClient'
 let nativeAppCheckReady: Promise<void> | undefined
 
 export default defineNuxtPlugin(() => {
-  const { app, auth, db, rtdb } = useFirebase()
+  const { app, auth, db, rtdb, storage } = useFirebase()
   const siteKey = useRuntimeConfig().public.appCheckRecaptchaSiteKey
   const provider = Capacitor.isNativePlatform()
     ? new CustomProvider({
@@ -32,7 +32,8 @@ export default defineNuxtPlugin(() => {
       firebaseApp: app,
       firebaseAuth: auth,
       firestore: db,
-      firebaseRtdb: rtdb
+      firebaseRtdb: rtdb,
+      firebaseStorage: storage
     }
   }
 })

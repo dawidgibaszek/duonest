@@ -147,8 +147,6 @@ export async function syncAccount(db: Db, rtdb: Rtdb | null, user: DecodedUser):
         current_mood: 'happy',
         mood_note: '',
         love_note: '',
-        favorite_drink: '',
-        favorite_treat: '',
         gender: null,
         grammatical_gender: null,
         onboarding_stage: 'profile',

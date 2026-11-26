@@ -1,0 +1,9 @@
+{
+  "alwaysUpdateLinks": true,
+  "useMarkdownLinks": false,
+  "newFileLocation": "folder",
+  "newFileFolderPath": "",
+  "attachmentFolderPath": "attachments",
+  "strictLineBreaks": false,
+  "showUnsupportedFiles": false
+}

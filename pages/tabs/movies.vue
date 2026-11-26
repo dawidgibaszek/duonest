@@ -1667,7 +1667,8 @@ import {
   trashOutline as ioniconsTrashOutline
 } from 'ionicons/icons'
 import DuoActionSheet, { type DuoActionSheetButton } from '~/components/DuoActionSheet.vue'
-import { useDuoState, type MovieItem } from '~/composables/useDuoState'
+import { useDuoState } from '~/composables/useDuoState'
+import type { MovieItem } from '~/types/duo'
 import { useConfirm } from '~/composables/useConfirm'
 
 const {
@@ -3680,7 +3681,9 @@ onMounted(() => {
 
 .modal-scrollable-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 14px 18px;
   display: flex;
   flex-direction: column;

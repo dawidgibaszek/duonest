@@ -1,4 +1,5 @@
 import { ref, computed } from 'vue'
+import type { DAILY_FEATURES } from '~/utils/duoPersonalization'
 import type {
   Profile,
   Partnership,
@@ -57,14 +58,39 @@ export const isPartnerDrawing = ref(false)
 export const partnerLiveStroke = ref<{ stroke: DuoDoodleStroke; timestamp: number } | null>(null)
 
 // Stan gestów (Nudge)
+export interface ActiveGestureAnimation {
+  instanceId: string
+  id: string
+  nudge_type: string
+  message?: string | null
+  created_at?: string | null
+  isOwn: boolean
+  senderName: string
+  senderAvatarUrl?: string | null
+  accentColor: string
+}
+
 export const lastNudgeSentAt = ref<number | null>(null)
+export const recentNudgeTimestamps = ref<number[]>([])
+export const activeGestureAnimations = ref<ActiveGestureAnimation[]>([])
+export const activeGestureAnimation = computed(() => {
+  const list = activeGestureAnimations.value
+  return list[list.length - 1] ?? null
+})
 
 // Aktywne podkarty i nawigacja
 export const activeDailySubTab = ref<'shopping' | 'tasks' | 'meals' | 'savings'>('shopping')
 export const activeOrgSubTab = activeDailySubTab
 export const activeTasksMainTab = ref<'tasks' | 'pet'>('tasks')
 export const activeLeisureSubTab = ref<'movies' | 'wishlist'>('movies')
-export const orgTabsScrollLeft = ref(0)
+export const dailyFeature = computed(() =>
+  activeDailySubTab.value === 'tasks' ? activeTasksMainTab.value : activeDailySubTab.value
+)
+
+export function selectDaily(feature: typeof DAILY_FEATURES[number]) {
+  if (feature === 'tasks' || feature === 'pet') activeTasksMainTab.value = feature
+  activeDailySubTab.value = feature === 'pet' ? 'tasks' : feature
+}
 
 // Status połączenia i obecności
 export const isOnlineWithSupabase = ref(true)

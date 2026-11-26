@@ -1,5 +1,6 @@
 import { trackDuoPairing } from '~/composables/useDuoAnalytics'
 import { getFirebaseBridge } from '../useFirebaseBridge'
+import { removeProfileAvatar, uploadProfileAvatar } from '~/utils/avatarStorage'
 import { stopPartnershipRealtime } from './useRealtimeSync'
 import {
   currentUser,
@@ -298,6 +299,35 @@ export function usePairingSecurity(options: {
     return true
   }
 
+  const uploadMyAvatar = async (file: File) => {
+    const bridge = getDb()
+    const uid = bridge.auth.currentUser?.uid
+    if (!uid || !currentUser.value.id) {
+      throw new Error('Sesja wygasła. Zaloguj się ponownie.')
+    }
+    return uploadProfileAvatar({
+      storage: bridge.storage,
+      uid,
+      file,
+      previousAvatarUrl: currentUser.value.avatar_url || null,
+      saveAvatarUrl: avatar_url => updateMyProfile({ avatar_url })
+    })
+  }
+
+  const removeMyAvatar = async () => {
+    const bridge = getDb()
+    const uid = bridge.auth.currentUser?.uid
+    if (!uid || !currentUser.value.id) {
+      throw new Error('Sesja wygasła. Zaloguj się ponownie.')
+    }
+    return removeProfileAvatar({
+      storage: bridge.storage,
+      uid,
+      currentAvatarUrl: currentUser.value.avatar_url || null,
+      saveAvatarUrl: avatar_url => updateMyProfile({ avatar_url })
+    })
+  }
+
   const updatePartnershipSettings = async (updates: Partial<Partnership>) => {
     const pid = partnership.value?.id
     if (!pid) return false
@@ -367,6 +397,8 @@ export function usePairingSecurity(options: {
     disconnectPartnership,
     updateMyName,
     updateMyProfile,
+    uploadMyAvatar,
+    removeMyAvatar,
     updatePartnershipSettings,
     verifyUserAndPartnershipAccess,
     normalizePairingCode

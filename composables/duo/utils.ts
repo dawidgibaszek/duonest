@@ -163,7 +163,7 @@ export const clearSupabaseSessionStorage = () => {
   }
 }
 
-export const PROFILE_SELECT_FIELDS = 'id, name, email, pairing_code, auth_user_id, avatar_url, avatar_color, partnership_id, current_mood, mood_note, mood_updated_at, love_note, favorite_drink, favorite_treat, gender, grammatical_gender, enabled_features, nest_cards, onboarding_stage, onboarding_partnership_id, show_location_widget, points, last_seen_at, created_at, updated_at'
+export const PROFILE_SELECT_FIELDS = 'id, name, email, pairing_code, auth_user_id, avatar_url, avatar_color, partnership_id, current_mood, mood_note, mood_updated_at, love_note, gender, grammatical_gender, enabled_features, nest_cards, onboarding_stage, onboarding_partnership_id, show_location_widget, points, last_seen_at, created_at, updated_at'
 
 export const createInitialProfile = (): Profile => ({
   id: 'usr_' + Math.random().toString(36).substring(2, 11),
@@ -176,8 +176,6 @@ export const createInitialProfile = (): Profile => ({
   mood_note: '',
   mood_updated_at: new Date().toISOString(),
   love_note: '',
-  favorite_drink: '',
-  favorite_treat: '',
   gender: null,
   grammatical_gender: null,
   points: 0
@@ -193,8 +191,6 @@ export const toRealtimeProfileSnapshot = (profile: Profile) => ({
   mood_note: profile.mood_note,
   mood_updated_at: profile.mood_updated_at,
   love_note: profile.love_note,
-  favorite_drink: profile.favorite_drink,
-  favorite_treat: profile.favorite_treat,
   gender: profile.gender,
   grammatical_gender: profile.grammatical_gender,
   last_seen_at: profile.last_seen_at

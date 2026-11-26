@@ -18,8 +18,6 @@ create table if not exists public.profiles (
   mood_note text,
   mood_updated_at timestamptz default now(),
   love_note text default 'Budujemy nasze wspólne gniazdko!',
-  favorite_drink text default 'Kawa z mlekiem',
-  favorite_treat text default 'Czekolada',
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

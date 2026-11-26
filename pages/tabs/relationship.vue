@@ -54,36 +54,49 @@
           <div class="rl-couple-people">
             <div class="rl-person">
               <span class="rl-avatar" :style="{ backgroundColor: currentUserAccentColor }">
-                {{ (currentUser.name || 'T').charAt(0).toUpperCase() }}
+                <img
+                  v-if="currentUser.avatar_url && !myAvatarImgError"
+                  :src="currentUser.avatar_url"
+                  alt=""
+                  class="rl-avatar-img"
+                  @error="myAvatarImgError = true"
+                />
+                <span v-else>{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
               </span>
               <span class="rl-person-name">{{ currentUser.name || 'Ty' }}</span>
               <span class="rl-person-meta">Ty</span>
             </div>
 
-            <div class="rl-couple-bridge">
-              <span class="rl-bridge-line"></span>
-              <span class="rl-bridge-heart"><ion-icon :icon="ioniconsHeart" /></span>
-              <span class="rl-bridge-line"></span>
+            <div class="rl-couple-days">
+              <span class="rl-days-heart" aria-hidden="true"><ion-icon :icon="ioniconsHeart" /></span>
+              <template v-if="partnership?.anniversary_date">
+                <span class="rl-days-num">{{ daysTogether }}</span>
+                <span class="rl-days-label">{{ daysTogether === 1 ? 'dzień razem' : 'dni razem' }}</span>
+              </template>
             </div>
 
             <div v-if="partnerUser" class="rl-person">
               <span class="rl-avatar" :style="{ backgroundColor: partnerUserAccentColor }">
-                {{ (partnerDisplayName).charAt(0).toUpperCase() }}
-                <span class="rl-online-pip" :class="{ 'is-online': isPartnerOnline }"></span>
+                <img
+                  v-if="partnerUser.avatar_url && !partnerAvatarImgError"
+                  :src="partnerUser.avatar_url"
+                  alt=""
+                  class="rl-avatar-img"
+                  @error="partnerAvatarImgError = true"
+                />
+                <span v-else>{{ partnerDisplayName.charAt(0).toUpperCase() }}</span>
               </span>
               <span class="rl-person-name">{{ partnerDisplayName }}</span>
-              <span class="rl-person-meta">{{ isPartnerOnline ? 'Online' : 'Offline' }}</span>
+              <span class="rl-person-meta">
+                <span class="rl-online-pip" :class="{ 'is-online': isPartnerOnline }" aria-hidden="true"></span>
+                {{ isPartnerOnline ? 'Online' : 'Offline' }}
+              </span>
             </div>
             <button v-else type="button" class="rl-person rl-person--empty" @click="currentCategory = 'nest_settings'">
               <span class="rl-avatar rl-avatar--empty"><ion-icon :icon="ioniconsPersonAddOutline" /></span>
               <span class="rl-person-name">Brak pary</span>
               <span class="rl-person-meta">Połącz teraz</span>
             </button>
-          </div>
-
-          <div class="rl-couple-days">
-            <span class="rl-days-num">{{ daysTogether }}</span>
-            <span class="rl-days-label">dni razem</span>
           </div>
 
           <!-- Love notes -->
@@ -93,11 +106,11 @@
           >
             <div v-if="currentUser.love_note && currentUser.love_note.trim()" class="rl-note">
               <span class="rl-note-author">{{ currentUser.name || 'Ty' }}</span>
-              <p class="rl-note-text">„{{ currentUser.love_note }}”</p>
+              <blockquote class="rl-note-text">„{{ currentUser.love_note }}”</blockquote>
             </div>
             <div v-if="partnerUser?.love_note && partnerUser.love_note.trim()" class="rl-note">
               <span class="rl-note-author">{{ partnerDisplayName }}</span>
-              <p class="rl-note-text">„{{ partnerUser.love_note }}”</p>
+              <blockquote class="rl-note-text">„{{ partnerUser.love_note }}”</blockquote>
             </div>
           </div>
           <button v-else type="button" class="rl-note rl-note--invite" @click="openEditProfileModal">
@@ -158,75 +171,49 @@
         <section class="rl-section">
           <div class="rl-section-head">
             <h3 class="rl-section-title">Drobny gest</h3>
-            <span v-if="hasSentDailyNudge" class="rl-section-meta">Wysłano</span>
+            <span v-if="isNudgeRateLimited" class="rl-section-meta">Kolejny za {{ formattedNextNudgeTime }}</span>
           </div>
 
-          <div v-if="hasSentDailyNudge" class="rl-row rl-row--card">
-            <span class="rl-row-icon rl-row-icon--ink"><ion-icon :icon="ioniconsCheckmarkOutline" /></span>
-            <span class="rl-row-body">
-              <span class="rl-row-title">Twój gest dotarł</span>
-              <span class="rl-row-sub">Kolejny za {{ formattedNextNudgeTime }}</span>
-            </span>
-          </div>
-
-          <template v-else>
-            <div class="rl-gestures" data-no-swipe>
-              <button
-                v-for="n in nudgePresets"
-                :key="n.id"
-                type="button"
-                class="rl-gesture"
-                :class="{ active: selectedNudgeType === n.id }"
-                @click="selectedNudgeType = n.id"
-              >
-                <span class="rl-gesture-icon"><DuoIcon :name="'nudge-' + n.id" :size="22" /></span>
-                <span class="rl-gesture-label">{{ n.title }}</span>
-              </button>
-            </div>
-            <div class="rl-field">
-              <ion-input aria-label="Czuła wiadomość"
-                v-model="customNudgeMessage"
-                placeholder="Czuła wiadomość (opcjonalnie)"
-                class="rl-input"
-                :clear-input="true"
-              />
-            </div>
-            <button type="button" class="dn-button-primary rl-full-btn" @click="handleSendNudge">
-              Wyślij gest
+          <div class="rl-gestures" data-no-swipe>
+            <button
+              v-for="n in nudgePresets"
+              :key="n.id"
+              type="button"
+              class="rl-gesture"
+              :class="{ active: selectedNudgeType === n.id }"
+              :disabled="isNudgeRateLimited"
+              @click="selectedNudgeType = n.id"
+            >
+              <span class="rl-gesture-icon"><DuoIcon :name="'nudge-' + n.id" :size="22" /></span>
+              <span class="rl-gesture-label">{{ n.title }}</span>
             </button>
-          </template>
+          </div>
+          <div class="rl-field">
+            <ion-input aria-label="Czuła wiadomość"
+              v-model="customNudgeMessage"
+              placeholder="Czuła wiadomość (opcjonalnie)"
+              class="rl-input"
+              :clear-input="true"
+            />
+          </div>
+          <button type="button" class="dn-button-primary rl-full-btn" :disabled="isNudgeRateLimited" @click="handleSendNudge">
+            {{ isNudgeRateLimited ? `Limit 5/min · za ${formattedNextNudgeTime}` : 'Wyślij gest' }}
+          </button>
 
           <div v-if="nudgesList.length > 0" class="rl-history">
             <p class="rl-label">Ostatnie</p>
-            <div v-for="ndg in nudgesList.slice(0, 3)" :key="ndg.id" class="rl-row rl-row--list">
+            <div v-for="ndg in nudgesList.slice(0, 4)" :key="ndg.id" class="rl-row rl-row--list">
               <span class="rl-row-icon rl-row-icon--sm"><DuoIcon :name="'nudge-' + ndg.nudge_type" :size="16" /></span>
               <span class="rl-row-body">
                 <span class="rl-row-title">{{ ndg.message || getNudgeTitle(ndg.nudge_type) }}</span>
-                <span class="rl-row-sub">{{ ndg.sender_id === currentUser?.id ? 'Od Ciebie' : ('Od ' + partnerDopelniaczName) }}</span>
+                <span class="rl-row-sub">
+                  {{ ndg.sender_id === currentUser?.id ? 'Od Ciebie' : ('Od ' + partnerDopelniaczName) }}<template v-if="formatNudgeDateTime(ndg.created_at)"> · {{ formatNudgeDateTime(ndg.created_at) }}</template>
+                </span>
               </span>
             </div>
           </div>
         </section>
 
-        <!-- CHEATSHEET -->
-        <section class="rl-section">
-          <div class="rl-section-head">
-            <h3 class="rl-section-title">Ściągawka</h3>
-            <button type="button" class="rl-link" @click="openEditProfileModal">Uzupełnij</button>
-          </div>
-          <div class="rl-cheats">
-            <div class="rl-cheat">
-              <span class="rl-cheat-head"><DuoIcon name="drink" :size="16" /> Ulubiony napój</span>
-              <span class="rl-cheat-row"><span class="rl-cheat-who">Ty</span>{{ currentUser.favorite_drink || '—' }}</span>
-              <span v-if="partnerUser" class="rl-cheat-row"><span class="rl-cheat-who">{{ partnerDisplayName }}</span>{{ partnerUser.favorite_drink || '—' }}</span>
-            </div>
-            <div class="rl-cheat">
-              <span class="rl-cheat-head"><DuoIcon name="treat" :size="16" /> Ulubiona przekąska</span>
-              <span class="rl-cheat-row"><span class="rl-cheat-who">Ty</span>{{ currentUser.favorite_treat || '—' }}</span>
-              <span v-if="partnerUser" class="rl-cheat-row"><span class="rl-cheat-who">{{ partnerDisplayName }}</span>{{ partnerUser.favorite_treat || '—' }}</span>
-            </div>
-          </div>
-        </section>
       </div>
 
       <!-- ============================================== -->
@@ -244,18 +231,38 @@
         <section v-if="partnership" class="rl-section">
           <div class="rl-section-head">
             <h3 class="rl-section-title">Lokalizacja</h3>
+            <span class="rl-status" :class="{ 'is-on': isLocationStatusOn }">{{ locationStatusLabel }}</span>
           </div>
-          <p class="rl-desc">Udostępnij swoją pozycję drugiej osobie z pary.</p>
+          <p class="rl-desc">Udostępnij swoją pozycję {{ partnerCelownik.toLowerCase() }}.</p>
           <p v-if="locationSharingError" class="rl-banner rl-banner--error" role="status">{{ locationSharingError }}</p>
-          <button v-if="canStopLocationSharing" type="button" class="dn-button-secondary rl-full-btn"
-            :disabled="locationSharingStopping || locationSharingStarting" @click="stopLocationFromSettings">
-            {{ locationSharingStopping ? 'Zatrzymywanie…' : 'Zatrzymaj udostępnianie lokalizacji' }}
-          </button>
-          <button v-else type="button" class="dn-button-secondary rl-full-btn"
-            :disabled="locationSharingStarting" @click="startSharing">
-            <ion-icon :icon="ioniconsLocationOutline" aria-hidden="true" />
-            {{ locationSharingStarting ? 'Włączanie…' : 'Udostępnij moją pozycję' }}
-          </button>
+
+          <div class="rl-row rl-row--card rl-loc-card" :class="{ 'rl-loc-card--cream': isLocationAttentionNeeded }">
+            <span class="rl-row-icon" :class="isLocationAttentionNeeded ? 'rl-row-icon--plain' : 'rl-row-icon--cream'">
+              <ion-icon :icon="isLocationAttentionNeeded ? ioniconsAlertCircleOutline : ioniconsCheckmarkCircleOutline" aria-hidden="true" />
+            </span>
+            <span class="rl-loc-copy">
+              <span class="rl-loc-title">{{ locationModeInfo.title }}</span>
+              <span class="rl-loc-sub">{{ locationModeInfo.sub }}</span>
+            </span>
+          </div>
+
+          <div class="rl-loc-actions">
+            <button v-if="canStopLocationSharing" type="button" class="dn-button-secondary rl-full-btn"
+              :disabled="locationSharingStopping || locationSharingStarting" @click="stopLocationFromSettings">
+              {{ locationSharingStopping ? 'Zatrzymywanie…' : 'Zatrzymaj udostępnianie lokalizacji' }}
+            </button>
+            <button v-else type="button" class="dn-button-primary rl-full-btn"
+              :disabled="locationSharingStarting" @click="startSharing">
+              <ion-icon :icon="ioniconsLocationOutline" aria-hidden="true" />
+              {{ locationSharingStarting ? 'Włączanie…' : 'Udostępnij moją pozycję' }}
+            </button>
+
+            <button v-if="isLocationNativeApp" type="button" class="dn-button-secondary rl-full-btn"
+              @click="openSystemLocationSettings">
+              <ion-icon :icon="ioniconsSettingsOutline" aria-hidden="true" />
+              {{ locationSettingsButtonLabel }}
+            </button>
+          </div>
         </section>
         <!-- NEST -->
         <section class="rl-section">
@@ -297,199 +304,6 @@
           <button type="button" class="dn-button-primary rl-full-btn" @click="handleSaveNestSettings">
             Zapisz
           </button>
-        </section>
-
-        <!-- ACCENT COLOUR -->
-        <section class="rl-section">
-          <div class="rl-section-head">
-            <h3 class="rl-section-title">Twój kolor</h3>
-            <span class="rl-section-meta">{{ selectedCustomColor.toUpperCase() }}</span>
-          </div>
-          <p class="rl-desc">Wyróżnia Twój awatar i wszystko, co przypisane do Ciebie.</p>
-
-          <div class="rl-color-top">
-            <button
-              type="button"
-              class="rl-swatch"
-              :style="{ backgroundColor: selectedCustomColor }"
-              @click="openNativeColorPicker"
-              aria-label="Otwórz koło kolorów"
-            >
-              <span>{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
-              <input
-                type="color"
-                ref="nativeColorInputRef"
-                class="native-color-hidden-input"
-                :value="selectedCustomColor"
-                @input="onNativeColorChange"
-              />
-            </button>
-            <div class="rl-hex">
-              <span class="rl-hex-hash">#</span>
-              <input
-                type="text"
-                class="rl-hex-input"
-                :value="selectedCustomColor.replace('#', '').toUpperCase()"
-                @input="handleHexInput"
-                placeholder="HEX"
-                maxlength="6"
-              />
-            </div>
-            <button
-              type="button"
-              class="rl-color-save"
-              :disabled="isSavingColor"
-              @click="handleSaveCustomColor"
-            >
-              <ion-spinner v-if="isSavingColor" name="crescent" />
-              <span v-else>Zapisz</span>
-            </button>
-          </div>
-
-          <div class="rl-swatches" data-no-swipe>
-            <button
-              v-for="c in quickColorInspirations"
-              :key="c.hex"
-              type="button"
-              class="rl-swatch-dot"
-              :class="{ active: selectedCustomColor.toLowerCase() === c.hex.toLowerCase() }"
-              :style="{ backgroundColor: c.hex }"
-              :aria-label="c.label"
-              @click="handleSelectInspiration(c.hex)"
-            ></button>
-          </div>
-
-          <div class="rl-slider">
-            <div class="rl-slider-head"><span>Odcień</span><span>{{ pickerHue }}°</span></div>
-            <input type="range" min="0" max="360" step="1" v-model.number="pickerHue" class="duo-color-range hue-range" />
-          </div>
-          <div class="rl-slider">
-            <div class="rl-slider-head"><span>Nasycenie</span><span>{{ pickerSaturation }}%</span></div>
-            <input
-              type="range" min="5" max="100" step="1" v-model.number="pickerSaturation"
-              class="duo-color-range"
-              :style="{ background: `linear-gradient(to right, hsl(${pickerHue}, 5%, ${pickerLightness}%), hsl(${pickerHue}, 100%, ${pickerLightness}%))` }"
-            />
-          </div>
-          <div class="rl-slider">
-            <div class="rl-slider-head"><span>Jasność</span><span>{{ pickerLightness }}%</span></div>
-            <input
-              type="range" min="10" max="90" step="1" v-model.number="pickerLightness"
-              class="duo-color-range"
-              :style="{ background: `linear-gradient(to right, #000000 0%, hsl(${pickerHue}, ${pickerSaturation}%, 50%) 50%, #ffffff 100%)` }"
-            />
-          </div>
-        </section>
-
-        <!-- MUSIC -->
-        <section class="rl-section">
-          <div class="rl-section-head">
-            <h3 class="rl-section-title">Muzyka</h3>
-            <span class="rl-status" :class="{ 'is-on': musicConnection.connected }">
-              {{ musicConnection.connected ? 'Połączone' : 'Niepołączone' }}
-            </span>
-          </div>
-
-          <div v-if="musicSuccessMessage" class="rl-banner">{{ musicSuccessMessage }}</div>
-          <div v-if="musicErrorMessage" class="rl-banner rl-banner--error">{{ musicErrorMessage }}</div>
-
-          <template v-if="!musicConnection.connected">
-            <p class="rl-desc">Przez Last.fm możesz udostępniać na żywo to, czego słuchasz w innych aplikacjach.</p>
-            <div class="rl-platforms">
-              <span v-for="sv in ['spotify', 'apple_music', 'youtube_music', 'tidal', 'lastfm']" :key="sv" class="rl-platform">
-                <DuoMusicLogo :service="sv" size="xs" />
-              </span>
-            </div>
-            <ol class="rl-steps">
-              <li>Włącz scrobblowanie w aplikacji muzycznej (Spotify: <a href="https://www.last.fm/settings/applications" target="_blank" rel="noopener noreferrer">last.fm/settings/applications</a> → <em>Connect</em>).</li>
-              <li>Zaloguj konto Last.fm poniżej.</li>
-            </ol>
-            <button type="button" class="dn-button-primary rl-full-btn" :disabled="musicLoading" @click="connectMusic">
-              <ion-spinner v-if="musicLoading" name="crescent" />
-              <span v-else>Zaloguj przez Last.fm</span>
-            </button>
-            <button type="button" class="rl-link rl-link--center" @click="showManualNickInput = !showManualNickInput">
-              {{ showManualNickInput ? 'Ukryj' : 'Albo wpisz login Last.fm' }}
-            </button>
-            <div v-if="showManualNickInput" class="rl-inline-form">
-              <input
-                v-model="lastFmUsernameInput"
-                type="text"
-                placeholder="Login Last.fm"
-                class="rl-native-input"
-                @keydown.enter="handleManualConnect"
-              />
-              <button
-                type="button"
-                class="rl-inline-btn"
-                :disabled="!lastFmUsernameInput.trim() || musicLoading"
-                @click="handleManualConnect"
-              >
-                Połącz
-              </button>
-            </div>
-          </template>
-
-          <template v-else>
-            <div class="rl-row rl-row--card">
-              <span class="rl-row-icon rl-row-icon--plain">
-                <DuoMusicLogo :service="musicConnection.music_service || 'spotify'" size="small" />
-              </span>
-              <span class="rl-row-body">
-                <span class="rl-row-title">{{ musicConnection.display_name || 'Last.fm' }}</span>
-                <span class="rl-row-sub">{{ currentPlatformName }}</span>
-              </span>
-              <button type="button" class="rl-icon-btn" :disabled="musicLoading" aria-label="Odśwież" @click="refreshMusicStatus(true)">
-                <ion-icon :icon="ioniconsRefreshOutline" :class="{ 'is-spinning': musicLoading }" />
-              </button>
-            </div>
-
-            <p class="rl-label">Główna platforma</p>
-            <div class="rl-chips" data-no-swipe>
-              <button
-                v-for="platform in availablePlatforms"
-                :key="platform.id"
-                type="button"
-                class="dn-filter-chip rl-platform-chip"
-                :class="{ active: (musicConnection.music_service || 'spotify') === platform.id }"
-                @click="handleSelectService(platform.id)"
-              >
-                <DuoMusicLogo :service="platform.id" size="xs" />
-                <span>{{ platform.name }}</span>
-              </button>
-            </div>
-
-            <div class="rl-list">
-              <div class="rl-toggle-row">
-                <span class="rl-row-body">
-                  <span class="rl-row-title">Pokazuj {{ partnerCelownik.toLowerCase() }}</span>
-                  <span class="rl-row-sub">Twoja muzyka we wspólnym Gniazdku</span>
-                </span>
-                <ion-toggle :aria-label="'Udostępniaj muzykę ' + partnerCelownik.toLowerCase()"
-                  :checked="musicConnection.visible_to_partner"
-                  @ionChange="runToggle($event, () => setMusicVisibility($event.detail.checked), () => musicConnection.visible_to_partner)"
-                />
-              </div>
-            </div>
-
-            <div v-if="musicConnection.visible_to_partner && myMusicPlayback" class="rl-music-preview">
-              <DuoMusicCard
-                :playback="myMusicPlayback"
-                user-name="Ty"
-                :is-preview="true"
-                :service="musicConnection.music_service || 'spotify'"
-              />
-            </div>
-            <p v-else class="rl-hint">
-              {{ !musicConnection.visible_to_partner ? 'Udostępnianie jest wyłączone.' : 'Włącz utwór – pojawi się tu podgląd.' }}
-              Utwór się nie zmienia?
-              <a href="https://www.last.fm/settings/applications" target="_blank" rel="noopener noreferrer">Połącz ponownie Spotify w Last.fm</a>.
-            </p>
-
-            <button type="button" class="rl-danger-link" :disabled="musicLoading" @click="disconnectMusic">
-              Odłącz konto muzyczne
-            </button>
-          </template>
         </section>
 
         <!-- NOTIFICATIONS -->
@@ -742,6 +556,7 @@
         :handle="true"
         data-no-swipe="true"
       >
+        <div class="rl-profile-modal-layout">
         <ion-header class="dn-form-sheet-header ion-no-border">
           <div class="dn-form-sheet-handle-spacer" aria-hidden="true"></div>
           <ion-toolbar>
@@ -759,12 +574,152 @@
           </ion-toolbar>
         </ion-header>
 
-        <ion-content class="ion-padding">
+        <div class="ion-content-scroll-host rl-profile-scroll">
           <div class="rl-sheet">
+            <!-- AVATAR -->
+            <section class="rl-section rl-section--sheet-first">
+              <div class="rl-section-head">
+                <h3 class="rl-section-title">Zdjęcie profilowe</h3>
+                <span class="rl-section-meta">JPG / JPEG · maks. {{ AVATAR_MAX_FILE_MB }} MB</span>
+              </div>
+              <div class="rl-avatar-editor">
+                <span class="rl-avatar-preview" :style="{ backgroundColor: selectedCustomColor }">
+                  <img
+                    v-if="currentUser.avatar_url && !myAvatarImgError"
+                    :src="currentUser.avatar_url"
+                    alt=""
+                    class="rl-avatar-img"
+                    @error="myAvatarImgError = true"
+                  />
+                  <span v-else>{{ (editProfileForm.name || currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
+                </span>
+                <div class="rl-avatar-actions">
+                  <input
+                    ref="avatarFileInputRef"
+                    type="file"
+                    accept=".jpg,.jpeg,image/jpeg"
+                    class="rl-avatar-file-input"
+                    @change="handleAvatarFileChange"
+                  />
+                  <div class="rl-avatar-btns">
+                    <button
+                      type="button"
+                      class="dn-button-secondary rl-avatar-btn"
+                      :disabled="isUploadingAvatar || isRemovingAvatar"
+                      @click="triggerAvatarPicker"
+                    >
+                      <ion-spinner v-if="isUploadingAvatar" name="crescent" />
+                      <template v-else>
+                        <ion-icon :icon="ioniconsCameraOutline" aria-hidden="true" />
+                        <span>{{ currentUser.avatar_url ? 'Zmień zdjęcie' : 'Dodaj zdjęcie' }}</span>
+                      </template>
+                    </button>
+                    <button
+                      v-if="currentUser.avatar_url"
+                      type="button"
+                      class="dn-button-secondary rl-avatar-btn rl-avatar-btn--danger"
+                      :disabled="isUploadingAvatar || isRemovingAvatar"
+                      @click="handleRemoveAvatar"
+                    >
+                      <ion-spinner v-if="isRemovingAvatar" name="crescent" />
+                      <template v-else>
+                        <ion-icon :icon="ioniconsTrashOutline" aria-hidden="true" />
+                        <span>Usuń</span>
+                      </template>
+                    </button>
+                  </div>
+                  <p class="rl-avatar-hint">Widoczne we wspólnym Gniazdku i na mapie.</p>
+                </div>
+              </div>
+              <p v-if="avatarError" class="rl-error" role="alert">{{ avatarError }}</p>
+            </section>
+
             <label class="rl-label">Imię lub pseudonim</label>
             <div class="rl-field">
               <ion-input aria-label="Imię lub pseudonim" v-model="editProfileForm.name" placeholder="np. Dawid, Kasia..." class="rl-input" :clear-input="true" />
             </div>
+
+            <!-- ACCENT COLOUR -->
+            <section class="rl-section">
+              <div class="rl-section-head">
+                <h3 class="rl-section-title">Twój kolor</h3>
+                <span class="rl-section-meta">{{ selectedCustomColor.toUpperCase() }}</span>
+              </div>
+              <p class="rl-desc">Wyróżnia Twój awatar i wszystko, co przypisane do Ciebie.</p>
+
+              <div class="rl-color-top">
+                <button
+                  type="button"
+                  class="rl-swatch"
+                  :style="{ backgroundColor: selectedCustomColor }"
+                  @click="openNativeColorPicker"
+                  aria-label="Otwórz koło kolorów"
+                >
+                  <span>{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
+                  <input
+                    type="color"
+                    ref="nativeColorInputRef"
+                    class="native-color-hidden-input"
+                    :value="selectedCustomColor"
+                    @input="onNativeColorChange"
+                  />
+                </button>
+                <div class="rl-hex">
+                  <span class="rl-hex-hash">#</span>
+                  <input
+                    type="text"
+                    class="rl-hex-input"
+                    :value="selectedCustomColor.replace('#', '').toUpperCase()"
+                    @input="handleHexInput"
+                    placeholder="HEX"
+                    maxlength="6"
+                  />
+                </div>
+                <button
+                  type="button"
+                  class="rl-color-save"
+                  :disabled="isSavingColor"
+                  @click="handleSaveCustomColor"
+                >
+                  <ion-spinner v-if="isSavingColor" name="crescent" />
+                  <span v-else>Zapisz</span>
+                </button>
+              </div>
+
+              <div class="rl-swatches" data-no-swipe>
+                <button
+                  v-for="c in quickColorInspirations"
+                  :key="c.hex"
+                  type="button"
+                  class="rl-swatch-dot"
+                  :class="{ active: selectedCustomColor.toLowerCase() === c.hex.toLowerCase() }"
+                  :style="{ backgroundColor: c.hex }"
+                  :aria-label="c.label"
+                  @click="handleSelectInspiration(c.hex)"
+                ></button>
+              </div>
+
+              <div class="rl-slider">
+                <div class="rl-slider-head"><span>Odcień</span><span>{{ pickerHue }}°</span></div>
+                <input type="range" min="0" max="360" step="1" v-model.number="pickerHue" class="duo-color-range hue-range" />
+              </div>
+              <div class="rl-slider">
+                <div class="rl-slider-head"><span>Nasycenie</span><span>{{ pickerSaturation }}%</span></div>
+                <input
+                  type="range" min="5" max="100" step="1" v-model.number="pickerSaturation"
+                  class="duo-color-range"
+                  :style="{ background: `linear-gradient(to right, hsl(${pickerHue}, 5%, ${pickerLightness}%), hsl(${pickerHue}, 100%, ${pickerLightness}%))` }"
+                />
+              </div>
+              <div class="rl-slider">
+                <div class="rl-slider-head"><span>Jasność</span><span>{{ pickerLightness }}%</span></div>
+                <input
+                  type="range" min="10" max="90" step="1" v-model.number="pickerLightness"
+                  class="duo-color-range"
+                  :style="{ background: `linear-gradient(to right, #000000 0%, hsl(${pickerHue}, ${pickerSaturation}%, 50%) 50%, #ffffff 100%)` }"
+                />
+              </div>
+            </section>
 
             <details class="rl-language">
               <summary class="rl-language-summary">
@@ -851,41 +806,116 @@
               </button>
             </div>
 
-            <label class="rl-label">Ulubiony napój</label>
-            <div class="rl-field">
-              <ion-input aria-label="Ulubiony napój" v-model="editProfileForm.favorite_drink" placeholder="np. Matcha latte" class="rl-input" :clear-input="true" />
-            </div>
-            <div class="rl-chips" data-no-swipe>
-              <button
-                v-for="drink in quickDrinkSuggestions"
-                :key="drink"
-                type="button"
-                class="dn-filter-chip"
-                :class="{ active: editProfileForm.favorite_drink === drink }"
-                @click="editProfileForm.favorite_drink = drink"
-              >
-                <ion-icon :icon="ioniconsCafeOutline" aria-hidden="true" />
-                {{ drink }}
-              </button>
-            </div>
+            <!-- MUSIC -->
+            <section class="rl-section">
+              <div class="rl-section-head">
+                <h3 class="rl-section-title">Muzyka</h3>
+                <span class="rl-status" :class="{ 'is-on': musicConnection.connected }">
+                  {{ musicConnection.connected ? 'Połączone' : 'Niepołączone' }}
+                </span>
+              </div>
 
-            <label class="rl-label">Ulubiona przekąska</label>
-            <div class="rl-field">
-              <ion-input aria-label="Ulubiona przekąska" v-model="editProfileForm.favorite_treat" placeholder="np. Pistacje" class="rl-input" :clear-input="true" />
-            </div>
-            <div class="rl-chips" data-no-swipe>
-              <button
-                v-for="treat in quickTreatSuggestions"
-                :key="treat"
-                type="button"
-                class="dn-filter-chip"
-                :class="{ active: editProfileForm.favorite_treat === treat }"
-                @click="editProfileForm.favorite_treat = treat"
-              >
-                <ion-icon :icon="ioniconsRestaurantOutline" aria-hidden="true" />
-                {{ treat }}
-              </button>
-            </div>
+              <div v-if="musicSuccessMessage" class="rl-banner">{{ musicSuccessMessage }}</div>
+              <div v-if="musicErrorMessage" class="rl-banner rl-banner--error">{{ musicErrorMessage }}</div>
+
+              <template v-if="!musicConnection.connected">
+                <p class="rl-desc">Przez Last.fm możesz udostępniać na żywo to, czego słuchasz w innych aplikacjach.</p>
+                <div class="rl-platforms">
+                  <span v-for="sv in ['spotify', 'apple_music', 'youtube_music', 'tidal', 'lastfm']" :key="sv" class="rl-platform">
+                    <DuoMusicLogo :service="sv" size="xs" />
+                  </span>
+                </div>
+                <ol class="rl-steps">
+                  <li>Włącz scrobblowanie w aplikacji muzycznej (Spotify: <a href="https://www.last.fm/settings/applications" target="_blank" rel="noopener noreferrer">last.fm/settings/applications</a> → <em>Connect</em>).</li>
+                  <li>Zaloguj konto Last.fm poniżej.</li>
+                </ol>
+                <button type="button" class="dn-button-primary rl-full-btn" :disabled="musicLoading" @click="connectMusic">
+                  <ion-spinner v-if="musicLoading" name="crescent" />
+                  <span v-else>Zaloguj przez Last.fm</span>
+                </button>
+                <button type="button" class="rl-link rl-link--center" @click="showManualNickInput = !showManualNickInput">
+                  {{ showManualNickInput ? 'Ukryj' : 'Albo wpisz login Last.fm' }}
+                </button>
+                <div v-if="showManualNickInput" class="rl-inline-form">
+                  <input
+                    v-model="lastFmUsernameInput"
+                    type="text"
+                    placeholder="Login Last.fm"
+                    class="rl-native-input"
+                    @keydown.enter="handleManualConnect"
+                  />
+                  <button
+                    type="button"
+                    class="rl-inline-btn"
+                    :disabled="!lastFmUsernameInput.trim() || musicLoading"
+                    @click="handleManualConnect"
+                  >
+                    Połącz
+                  </button>
+                </div>
+              </template>
+
+              <template v-else>
+                <div class="rl-row rl-row--card">
+                  <span class="rl-row-icon rl-row-icon--plain">
+                    <DuoMusicLogo :service="musicConnection.music_service || 'spotify'" size="small" />
+                  </span>
+                  <span class="rl-row-body">
+                    <span class="rl-row-title">{{ musicConnection.display_name || 'Last.fm' }}</span>
+                    <span class="rl-row-sub">{{ currentPlatformName }}</span>
+                  </span>
+                  <button type="button" class="rl-icon-btn" :disabled="musicLoading" aria-label="Odśwież" @click="refreshMusicStatus(true)">
+                    <ion-icon :icon="ioniconsRefreshOutline" :class="{ 'is-spinning': musicLoading }" />
+                  </button>
+                </div>
+
+                <p class="rl-label">Główna platforma</p>
+                <div class="rl-chips" data-no-swipe>
+                  <button
+                    v-for="platform in availablePlatforms"
+                    :key="platform.id"
+                    type="button"
+                    class="dn-filter-chip rl-platform-chip"
+                    :class="{ active: (musicConnection.music_service || 'spotify') === platform.id }"
+                    @click="handleSelectService(platform.id)"
+                  >
+                    <DuoMusicLogo :service="platform.id" size="xs" />
+                    <span>{{ platform.name }}</span>
+                  </button>
+                </div>
+
+                <div class="rl-list">
+                  <div class="rl-toggle-row">
+                    <span class="rl-row-body">
+                      <span class="rl-row-title">Pokazuj {{ partnerCelownik.toLowerCase() }}</span>
+                      <span class="rl-row-sub">Twoja muzyka we wspólnym Gniazdku</span>
+                    </span>
+                    <ion-toggle :aria-label="'Udostępniaj muzykę ' + partnerCelownik.toLowerCase()"
+                      :checked="musicConnection.visible_to_partner"
+                      @ionChange="runToggle($event, () => setMusicVisibility($event.detail.checked), () => musicConnection.visible_to_partner)"
+                    />
+                  </div>
+                </div>
+
+                <div v-if="musicConnection.visible_to_partner && myMusicPlayback" class="rl-music-preview">
+                  <DuoMusicCard
+                    :playback="myMusicPlayback"
+                    user-name="Ty"
+                    :is-preview="true"
+                    :service="musicConnection.music_service || 'spotify'"
+                  />
+                </div>
+                <p v-else class="rl-hint">
+                  {{ !musicConnection.visible_to_partner ? 'Udostępnianie jest wyłączone.' : 'Włącz utwór – pojawi się tu podgląd.' }}
+                  Utwór się nie zmienia?
+                  <a href="https://www.last.fm/settings/applications" target="_blank" rel="noopener noreferrer">Połącz ponownie Spotify w Last.fm</a>.
+                </p>
+
+                <button type="button" class="rl-danger-link" :disabled="musicLoading" @click="disconnectMusic">
+                  Odłącz konto muzyczne
+                </button>
+              </template>
+            </section>
 
             <p v-if="profileSaveError" class="rl-profile-error" role="alert">{{ profileSaveError }}</p>
             <button
@@ -898,7 +928,8 @@
               {{ isSavingProfile ? 'Zapisywanie…' : 'Zapisz profil' }}
             </button>
           </div>
-        </ion-content>
+        </div>
+        </div>
       </ion-modal>
 
       <DuoFeatureSettings :is-open="isFeatureSettingsOpen" @close="isFeatureSettingsOpen = false" />
@@ -917,6 +948,8 @@ import { useMusic } from '~/composables/useMusic'
 import { useConfirm } from '~/composables/useConfirm'
 import { normalizeGenderIdentity } from '~/functions/src/duoGrammar'
 import { translateAppError } from '~/utils/errorTranslator'
+import { AVATAR_MAX_FILE_MB } from '~/utils/avatarStorage'
+import { DUO_GESTURE_PRESETS, formatNudgeDateTime, getDuoGestureMeta } from '~/utils/duoGestures'
 import DuoIcon from '~/components/DuoIcon.vue'
 import DuoMusicCard from '~/components/DuoMusicCard.vue'
 
@@ -994,9 +1027,11 @@ const {
   hexToRgba,
   updateMood,
   sendNudge,
-  hasSentDailyNudge,
+  isNudgeRateLimited,
   formattedNextNudgeTime,
   updateMyProfile,
+  uploadMyAvatar,
+  removeMyAvatar,
   updatePartnershipSettings,
   pairWithCode,
   disconnectPartnership,
@@ -1018,10 +1053,20 @@ const {
 const locationSharingStopping = ref(false)
 const {
   sharing: isLocationSharing, ownShared: hasSharedPosition, updatingSharing: locationSharingStarting,
-  sharingError: locationSharingError, startSharing, stopSharing
+  sharingError: locationSharingError, isLocationNativeApp,
+  isLocationStatusOn, isLocationAttentionNeeded, locationStatusLabel, locationModeInfo, locationSettingsButtonLabel,
+  refreshLocationStatus, openLocationSettings, startSharing, stopSharing
 } = useDuoLocation()
 const canStopLocationSharing = computed(() => isLocationSharing.value || hasSharedPosition.value
   || locationSharingError.value.startsWith('Telefon przestał'))
+
+async function openSystemLocationSettings() {
+  try {
+    await openLocationSettings()
+  } catch (err) {
+    triggerToast(translateAppError(err), { type: 'warning' })
+  }
+}
 
 async function stopLocationFromSettings() {
   locationSharingStopping.value = true
@@ -1127,12 +1172,14 @@ watch(
   async (musicStatus) => {
     if (musicStatus === 'connected') {
       musicSuccessMessage.value = 'Konto muzyczne zostało pomyślnie połączone!'
+      openEditProfileModal()
       await refreshMusicStatus(true)
       setTimeout(() => {
         musicSuccessMessage.value = ''
       }, 5000)
     } else if (musicStatus === 'failed') {
       musicErrorMessage.value = 'Nie udało się połączyć konta. Możesz połączyć konto wpisując swój login Last.fm ręcznie.'
+      openEditProfileModal()
     }
   },
   { immediate: true }
@@ -1143,6 +1190,10 @@ watch(() => route?.query?.category, (newCat) => {
     currentCategory.value = newCat
   }
 })
+
+watch(currentCategory, (newCat) => {
+  if (newCat === 'nest_settings') void refreshLocationStatus()
+}, { immediate: true })
 
 // Nest Settings Inputs
 const nestNameInput = ref(partnership.value?.nest_name || 'Nasze Ciepłe Gniazdko')
@@ -1346,18 +1397,70 @@ watch(currentUserAccentColor, (newColor) => {
   }
 })
 
-// Personal Profile Modal
+// Personal Profile Modal & Avatar
 const isEditProfileModalOpen = ref(false)
 const isFeatureSettingsOpen = ref(false)
 const isSavingProfile = ref(false)
 const profileSaveError = ref('')
+const avatarFileInputRef = ref<HTMLInputElement | null>(null)
+const isUploadingAvatar = ref(false)
+const isRemovingAvatar = ref(false)
+const avatarError = ref('')
+const myAvatarImgError = ref(false)
+const partnerAvatarImgError = ref(false)
+
+watch(() => currentUser.value?.avatar_url, () => {
+  myAvatarImgError.value = false
+})
+watch(() => partnerUser.value?.avatar_url, () => {
+  partnerAvatarImgError.value = false
+})
+
+const triggerAvatarPicker = () => {
+  avatarError.value = ''
+  avatarFileInputRef.value?.click()
+}
+
+const handleAvatarFileChange = async (event: Event) => {
+  const input = event.target as HTMLInputElement | null
+  const file = input?.files?.[0]
+  if (input) input.value = ''
+  if (!file || isUploadingAvatar.value || isRemovingAvatar.value) return
+
+  avatarError.value = ''
+  isUploadingAvatar.value = true
+  try {
+    await uploadMyAvatar(file)
+    myAvatarImgError.value = false
+    triggerToast('Zaktualizowano zdjęcie profilowe')
+  } catch (error) {
+    avatarError.value = translateAppError(error)
+  } finally {
+    isUploadingAvatar.value = false
+  }
+}
+
+const handleRemoveAvatar = async () => {
+  if (!currentUser.value?.avatar_url || isUploadingAvatar.value || isRemovingAvatar.value) return
+
+  avatarError.value = ''
+  isRemovingAvatar.value = true
+  try {
+    await removeMyAvatar()
+    myAvatarImgError.value = false
+    triggerToast('Usunięto zdjęcie profilowe')
+  } catch (error) {
+    avatarError.value = translateAppError(error)
+  } finally {
+    isRemovingAvatar.value = false
+  }
+}
+
 const editProfileForm = ref({
   name: '',
   gender: '',
   grammatical_gender: '',
-  love_note: '',
-  favorite_drink: '',
-  favorite_treat: ''
+  love_note: ''
 })
 const selectedGenderOption = computed(() => GENDER_OPTIONS.find(option => option.value === editProfileForm.value.gender))
 const selectedProfileGrammarLabel = computed(() =>
@@ -1372,37 +1475,22 @@ const quickLoveNoteSuggestions = [
   'Najlepsze chwile to te z Tobą'
 ]
 
-const quickDrinkSuggestions = [
-  'Kawa z mlekiem',
-  'Kawa owsiana',
-  'Matcha latte',
-  'Woda z cytryną',
-  'Świeży sok'
-]
-
-const quickTreatSuggestions = [
-  'Czekolada pistacjowa',
-  'Solone pistacje',
-  'Ciepły rogalik',
-  'Kremowy sernik',
-  'Świeże truskawki',
-  'Malinowe żelki'
-]
-
 const openEditProfileModal = () => {
   profileSaveError.value = ''
+  avatarError.value = ''
+  syncPickerFromHex(currentUserAccentColor.value)
   editProfileForm.value = {
     name: currentUser.value?.name || '',
     gender: normalizeGenderIdentity(currentUser.value?.gender) || '',
     grammatical_gender: currentUser.value?.grammatical_gender || '',
-    love_note: currentUser.value?.love_note || '',
-    favorite_drink: currentUser.value?.favorite_drink || '',
-    favorite_treat: currentUser.value?.favorite_treat || ''
+    love_note: currentUser.value?.love_note || ''
   }
   isEditProfileModalOpen.value = true
 }
 
 const closeEditProfileModal = () => {
+  avatarError.value = ''
+  syncPickerFromHex(currentUserAccentColor.value)
   isEditProfileModalOpen.value = false
 }
 
@@ -1414,7 +1502,11 @@ const handleSaveProfile = async () => {
   try {
     const { gender, grammatical_gender, ...fields } = editProfileForm.value
     const desired = {
-      ...fields, name, gender: gender || null, grammatical_gender: grammatical_gender || null
+      ...fields,
+      name,
+      avatar_color: selectedCustomColor.value,
+      gender: gender || null,
+      grammatical_gender: grammatical_gender || null
     }
     const existing = currentUser.value
     const updates = Object.fromEntries(
@@ -1453,13 +1545,7 @@ const moodChoices = [
   { id: 'excited', label: 'Ekscytacja' }
 ]
 
-const nudgePresets = [
-  { id: 'hug', title: 'Uścisk', defaultMsg: 'Ciepły uścisk w trakcie dnia!' },
-  { id: 'kiss', title: 'Buziak', defaultMsg: 'Słodki buziak dla Ciebie!' },
-  { id: 'tea', title: 'Herbatka', defaultMsg: 'Zrobiłem dla Ciebie herbatkę!' },
-  { id: 'love', title: 'Kocham Cię', defaultMsg: 'Pamiętaj, że bardzo Cię kocham!' },
-  { id: 'massage', title: 'Masaż', defaultMsg: 'Wieczorny relaksujący masaż czeka na Ciebie!' }
-]
+const nudgePresets = DUO_GESTURE_PRESETS
 
 const formattedPartnerMoodTime = computed(() => {
   if (!partnerUser.value?.mood_updated_at) return 'Dzisiaj'
@@ -1474,10 +1560,7 @@ const getMoodLabel = (mood?: string | null) => {
   return choice ? choice.label : 'Dobry'
 }
 
-const getNudgeTitle = (type: string) => {
-  const found = nudgePresets.find(p => p.id === type)
-  return found ? found.title : type
-}
+const getNudgeTitle = (type: string) => getDuoGestureMeta(type).title
 
 const handleSaveMood = async () => {
   await updateMood(selectedMood.value, moodNote.value)
@@ -1645,20 +1728,20 @@ const handleRefresh = async (event: any) => {
 /* ---------- Couple card (cream) ---------- */
 .rl-couple {
   margin: 4px 20px 6px;
-  padding: 22px 18px 18px;
+  padding: 20px 16px 16px;
   border-radius: 28px;
   background: var(--dn-cream);
 }
 
 .rl-couple-people {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr);
+  align-items: start;
   gap: 8px;
 }
 
 .rl-person {
-  flex: 0 0 96px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1667,13 +1750,19 @@ const handleRefresh = async (event: any) => {
   border: none;
   background: transparent;
   font-family: inherit;
+  text-align: center;
   color: var(--dn-ink);
+}
+
+.rl-person--empty {
+  border-radius: 14px;
+  cursor: pointer;
 }
 
 .rl-avatar {
   position: relative;
-  width: 60px;
-  height: 60px;
+  width: min(64px, 100%);
+  aspect-ratio: 1;
   margin-bottom: 4px;
   border-radius: 50%;
   border: 3px solid #ffffff;
@@ -1685,6 +1774,19 @@ const handleRefresh = async (event: any) => {
   font-weight: 600;
 }
 
+.rl-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.rl-avatar > .rl-avatar-img {
+  position: absolute;
+  inset: 0;
+}
+
 .rl-avatar--empty {
   background: #ffffff;
   color: var(--dn-cream-ink);
@@ -1692,14 +1794,10 @@ const handleRefresh = async (event: any) => {
 }
 
 .rl-online-pip {
-  position: absolute;
-  right: -2px;
-  bottom: 0;
-  width: 14px;
-  height: 14px;
+  flex: 0 0 6px;
+  height: 6px;
   border-radius: 50%;
-  border: 2.5px solid var(--dn-cream);
-  background: #c3c6cc;
+  background: var(--dn-faint);
 }
 
 .rl-online-pip.is-online {
@@ -1708,57 +1806,45 @@ const handleRefresh = async (event: any) => {
 
 .rl-person-name {
   max-width: 100%;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .rl-person-meta {
-  font-size: 12.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  font-size: 0.8125rem;
   color: var(--dn-cream-ink);
 }
 
-.rl-couple-bridge {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 24px;
-}
-
-.rl-bridge-line {
-  flex: 1;
-  height: 0;
-  border-top: 1.5px dashed var(--dn-cream-deep);
-  filter: brightness(0.9);
-}
-
-.rl-bridge-heart {
-  width: 30px;
-  height: 30px;
+.rl-days-heart {
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  background: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--dn-danger);
-  font-size: 14px;
-  flex-shrink: 0;
+  background: var(--dn-cream-deep);
+  display: grid;
+  place-items: center;
+  color: var(--dn-cream-ink);
+  font-size: 12px;
 }
 
 .rl-couple-days {
   display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 8px;
-  margin: 18px 0 16px;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .rl-days-num {
+  max-width: 100%;
   font-family: var(--dn-serif);
-  font-size: 40px;
+  font-size: clamp(2rem, 10vw, 2.75rem);
   font-weight: 600;
   line-height: 1;
   letter-spacing: -0.02em;
@@ -1766,47 +1852,61 @@ const handleRefresh = async (event: any) => {
 }
 
 .rl-days-label {
-  font-size: 14px;
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--dn-cream-ink);
 }
 
+.rl-notes,
+.rl-note--invite {
+  margin-top: 16px;
+  border-radius: 18px;
+  background: var(--dn-bg);
+}
+
 .rl-notes {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  padding-inline: 14px;
 }
 
 .rl-note {
-  position: relative;
-  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 12px 14px;
-  border: none;
-  border-radius: 18px;
-  background: #ffffff;
-  font-family: inherit;
-  text-align: left;
-  color: var(--dn-ink);
+  gap: 3px;
+  padding-block: 11px;
+  overflow-wrap: anywhere;
+}
+
+.rl-note + .rl-note {
+  border-top: 1px solid var(--dn-line);
 }
 
 .rl-note--invite {
-  padding-right: 40px;
+  position: relative;
+  width: 100%;
+  padding-inline: 14px 40px;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  color: var(--dn-ink);
   cursor: pointer;
 }
 
+.rl-person--empty:focus-visible,
+.rl-note--invite:focus-visible {
+  outline: 2px solid var(--dn-ink);
+  outline-offset: 3px;
+}
+
 .rl-note-author {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--dn-ink);
+  color: var(--dn-cream-ink);
 }
 
 .rl-note-text {
   margin: 0;
   font-family: var(--dn-serif);
-  font-size: 16px;
+  font-size: 1.0625rem;
   line-height: 1.4;
   color: var(--dn-ink);
 }
@@ -2284,6 +2384,11 @@ const handleRefresh = async (event: any) => {
   transform: scale(0.94);
 }
 
+.rl-gesture:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .rl-gesture-label {
   font-size: 12px;
   font-weight: 500;
@@ -2293,48 +2398,6 @@ const handleRefresh = async (event: any) => {
 
 .rl-history {
   margin-top: 6px;
-}
-
-/* ---------- Cheatsheet ---------- */
-.rl-cheats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.rl-cheat {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 14px;
-  border-radius: 20px;
-  background: var(--dn-cream);
-  min-width: 0;
-}
-
-.rl-cheat-head {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--dn-cream-ink);
-}
-
-.rl-cheat-row {
-  display: flex;
-  flex-direction: column;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--dn-ink);
-  overflow-wrap: anywhere;
-}
-
-.rl-cheat-who {
-  font-size: 11.5px;
-  font-weight: 400;
-  color: var(--dn-muted);
 }
 
 /* ---------- Colour ---------- */
@@ -2556,8 +2619,106 @@ const handleRefresh = async (event: any) => {
 }
 
 /* ---------- Profile sheet ---------- */
+.rl-profile-modal-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.rl-profile-modal-layout > ion-header {
+  flex: none;
+}
+
+.rl-profile-scroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 20px 0;
+}
+
+.rl-profile-scroll > .rl-sheet {
+  flex: none;
+}
+
 .rl-sheet {
   padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+
+.rl-sheet .rl-section {
+  margin: 18px 0 0;
+  padding: 20px 0;
+}
+
+.rl-sheet .rl-section--sheet-first {
+  margin-top: 0;
+  padding-top: 4px;
+}
+
+.rl-avatar-editor {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.rl-avatar-preview {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 2px solid var(--dn-line);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 600;
+  overflow: hidden;
+}
+
+.rl-avatar-actions {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rl-avatar-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.rl-avatar-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rl-avatar-btn {
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 13.5px;
+}
+
+.rl-avatar-btn--danger {
+  color: var(--dn-danger);
+}
+
+.rl-avatar-hint {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--dn-muted);
 }
 
 .rl-sheet .rl-label:first-child {
@@ -2744,5 +2905,50 @@ const handleRefresh = async (event: any) => {
   margin: 12px 0;
   color: var(--dn-danger);
   font-size: 13px;
+}
+
+.rl-loc-card {
+  align-items: flex-start;
+  margin-top: 2px;
+}
+
+.rl-loc-card--cream {
+  background: var(--dn-cream);
+}
+
+.rl-loc-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rl-loc-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--dn-ink);
+  line-height: 1.3;
+}
+
+.rl-loc-sub {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--dn-muted);
+}
+
+.rl-loc-card--cream .rl-loc-sub {
+  color: var(--dn-cream-ink);
+}
+
+.rl-loc-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.rl-loc-actions .rl-full-btn {
+  margin-top: 0;
 }
 </style>

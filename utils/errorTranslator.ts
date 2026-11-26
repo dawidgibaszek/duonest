@@ -98,6 +98,31 @@ export function translateAppError(err: any): string {
     return 'Upłynął limit czasu oczekiwania na odpowiedź serwera. Spróbuj ponownie.'
   }
 
+  // 2b. Firebase Storage i walidacja avataru
+  if (code.startsWith('avatar/') && typeof err?.message === 'string' && err.message) {
+    return err.message
+  }
+
+  if (code.includes('storage/unauthorized') || code.includes('storage/unauthenticated')) {
+    return 'Brak uprawnień do zapisu pliku lub Twoja sesja wygasła. Zaloguj się ponownie.'
+  }
+
+  if (code.includes('storage/quota-exceeded')) {
+    return 'Przekroczono limit miejsca w chmurze. Spróbuj ponownie później.'
+  }
+
+  if (code.includes('storage/retry-limit-exceeded')) {
+    return 'Przesyłanie pliku trwało zbyt długo. Sprawdź połączenie z internetem i spróbuj ponownie.'
+  }
+
+  if (code.includes('storage/canceled')) {
+    return 'Przesyłanie pliku zostało anulowane.'
+  }
+
+  if (code.includes('storage/invalid-argument')) {
+    return 'Nieprawidłowy plik lub format obrazu.'
+  }
+
   // 3. Logika parowania i związków
   if (msg.includes('email_not_verified')) {
     return 'Najpierw potwierdź swój adres e-mail – kliknij link aktywacyjny, który wysłaliśmy na Twoją skrzynkę.'
@@ -135,6 +160,14 @@ export function translateAppError(err: any): string {
 
   if (msg.includes('profile_not_linked') || msg.includes('nie znaleziono profilu')) {
     return 'Trwa synchronizacja Twojego profilu. Odśwież stronę i spróbuj ponownie za moment.'
+  }
+
+  if (msg.includes('email_cooldown')) {
+    return 'Odczekaj minutę przed ponownym wysłaniem linku.'
+  }
+
+  if (msg.includes('email_service_unavailable')) {
+    return 'Wysyłka wiadomości jest chwilowo niedostępna. Spróbuj ponownie później.'
   }
 
   // 4. Bezpieczny fallback – nigdy nie pokazuj surowego JSON-a ani stack trace'a

@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 /**
+ * Legacy utility for Firebase-managed email. The app now sends these templates
+ * through the api Cloud Function and Resend directly; do not run this script
+ * to update the current email flow.
+ *
  * Wgrywa szablony maili z tego katalogu do Firebase Auth (Identity Toolkit Admin API).
  *
  *   node email-templates/push-templates.mjs           # dry-run: pokazuje, co zostanie zmienione

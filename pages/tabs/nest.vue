@@ -18,7 +18,12 @@
               >
                 <span class="nest-partner-indicator" aria-hidden="true">
                   <span class="nest-partner-avatar" :style="{ backgroundColor: partnerUserAccentColor }">
-                    <img v-if="partnerUser.avatar_url" :src="partnerUser.avatar_url" alt="" />
+                    <img
+                      v-if="partnerUser.avatar_url && !partnerAvatarImgError"
+                      :src="partnerUser.avatar_url"
+                      alt=""
+                      @error="partnerAvatarImgError = true"
+                    />
                     <span v-else>{{ partnerDisplayName.charAt(0).toUpperCase() }}</span>
                   </span>
                   <span class="nest-partner-pip" :class="{ 'is-online': isPartnerOnline }"></span>
@@ -78,10 +83,24 @@
               <button type="button" class="nx-couple" @click="navigateTo('/tabs/relationship')" aria-label="Profil relacji">
                 <span class="nx-duo-avatars">
                   <span class="nx-avatar" :style="{ backgroundColor: currentUserAccentColor }">
-                    {{ (currentUser.name || 'T').charAt(0).toUpperCase() }}
+                    <img
+                      v-if="currentUser.avatar_url && !myAvatarImgError"
+                      :src="currentUser.avatar_url"
+                      alt=""
+                      class="nx-avatar-img"
+                      @error="myAvatarImgError = true"
+                    />
+                    <span v-else>{{ (currentUser.name || 'T').charAt(0).toUpperCase() }}</span>
                   </span>
                   <span class="nx-avatar nx-avatar--second" :style="{ backgroundColor: partnerUserAccentColor }">
-                    {{ partnerUser ? partnerDisplayName.charAt(0).toUpperCase() : '?' }}
+                    <img
+                      v-if="partnerUser?.avatar_url && !partnerAvatarImgError"
+                      :src="partnerUser.avatar_url"
+                      alt=""
+                      class="nx-avatar-img"
+                      @error="partnerAvatarImgError = true"
+                    />
+                    <span v-else>{{ partnerUser ? partnerDisplayName.charAt(0).toUpperCase() : '?' }}</span>
                   </span>
                   <span class="nx-avatar-heart"><ion-icon :icon="ioniconsHeart" /></span>
                 </span>
@@ -232,31 +251,25 @@
           <section v-if="card === 'gestures'" class="nx-section">
             <div class="nx-section-head">
               <h3 class="nx-section-title">Drobny gest</h3>
-              <span v-if="hasSentDailyNudge" class="nx-section-meta">Wysłano</span>
+              <span v-if="isNudgeRateLimited" class="nx-section-meta">Limit · {{ formattedNextNudgeTime }}</span>
             </div>
 
-            <div v-if="hasSentDailyNudge" class="nx-row">
-              <div class="nx-row-icon nx-row-icon--ink">
-                <ion-icon :icon="ioniconsCheckmarkOutline" />
-              </div>
-              <div class="nx-row-body">
-                <span class="nx-row-title">Twój gest dotarł</span>
-                <span class="nx-row-sub">Kolejny za {{ formattedNextNudgeTime }}</span>
-              </div>
-            </div>
-
-            <div v-else class="nx-gestures" data-no-swipe>
+            <div class="nx-gestures" data-no-swipe>
               <button
                 v-for="n in nudgePresets"
                 :key="n.id"
                 type="button"
                 class="nx-gesture"
+                :disabled="isNudgeRateLimited"
                 @click="sendQuickNudge(n.id, n.defaultMsg)"
               >
                 <span class="nx-gesture-icon"><DuoIcon :name="'nudge-' + n.id" :size="22" /></span>
                 <span class="nx-gesture-label">{{ n.title }}</span>
               </button>
             </div>
+            <p v-if="isNudgeRateLimited" class="nx-gesture-limit">
+              Maksymalnie 5 gestów na minutę. Kolejny za {{ formattedNextNudgeTime }}.
+            </p>
           </section>
 
           <!-- ===== 5. TODAY ===== -->
@@ -542,6 +555,7 @@ import DuoIcon from '~/components/DuoIcon.vue'
 import DuoDoodleModal from '~/components/DuoDoodleModal.vue'
 import { featurePath } from '~/utils/duoPersonalization'
 import { FEATURE_DETAILS } from '~/utils/duoPersonalizationUi'
+import { DUO_GESTURE_PRESETS } from '~/utils/duoGestures'
 
 const {
   currentUser,
@@ -557,7 +571,7 @@ const {
   isPartnerOnline,
   partnerLastSeenAt,
   sendNudge,
-  hasSentDailyNudge,
+  isNudgeRateLimited,
   formattedNextNudgeTime,
   toggleTask,
   currentUserAccentColor,
@@ -589,6 +603,14 @@ const {
 const { confirm } = useConfirm()
 const { nestCards, enabledFeatures, isFeatureEnabled } = useDuoPersonalization()
 const isLayoutEditorOpen = ref(false)
+const myAvatarImgError = ref(false)
+const partnerAvatarImgError = ref(false)
+watch(() => currentUser.value?.avatar_url, () => {
+  myAvatarImgError.value = false
+})
+watch(() => partnerUser.value?.avatar_url, () => {
+  partnerAvatarImgError.value = false
+})
 
 const { askPermissionAfterPairing } = usePushNotifications()
 const {
@@ -880,18 +902,10 @@ const formatEventDate = (dateStr: string) => {
   }
 }
 
-const nudgePresets = [
-  { id: 'hug', title: 'Uścisk', defaultMsg: 'Ciepły uścisk w trakcie dnia!' },
-  { id: 'kiss', title: 'Buziak', defaultMsg: 'Słodki buziak dla Ciebie!' },
-  { id: 'tea', title: 'Herbatka', defaultMsg: 'Zrobiłem dla Ciebie herbatkę!' },
-  { id: 'love', title: 'Kocham Cię', defaultMsg: 'Pamiętaj, że bardzo Cię kocham!' },
-  { id: 'massage', title: 'Masaż', defaultMsg: 'Wieczorny relaksujący masaż czeka na Ciebie!' }
-]
+const nudgePresets = DUO_GESTURE_PRESETS
 
 const sendQuickNudge = async (type: string, msg: string) => {
-  const sent = await sendNudge(type, msg)
-  if (sent) {
-  }
+  await sendNudge(type, msg)
 }
 
 // --- DUO POINTS & MILESTONES STATE ---
@@ -1157,7 +1171,6 @@ ion-toolbar {
   --border-width: 0;
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 1px solid rgba(229, 230, 232, 0.8);
 }
 
 .header-content {
@@ -3594,13 +3607,13 @@ ion-toolbar {
 }
 
 .nx-page {
-  padding: 4px 0 24px;
+  padding: 4px 20px 24px;
 }
 
 /* --- Summary --- */
 .nx-summary {
   position: relative;
-  margin: 4px 20px 8px;
+  margin: 4px 0 8px;
   padding: 18px 18px 14px;
   border-radius: 28px;
   background: var(--dn-cream);
@@ -3637,12 +3650,20 @@ ion-toolbar {
   height: 40px;
   border-radius: 50%;
   border: 2px solid var(--dn-cream);
+  overflow: hidden;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
   font-size: 15px;
   font-weight: 600;
+}
+
+.nx-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .nx-avatar--second {
@@ -3830,13 +3851,8 @@ ion-toolbar {
 
 /* --- Sections --- */
 .nx-section {
-  margin: 0 20px;
+  margin: 0;
   padding: 22px 0;
-  border-bottom: 1px solid var(--dn-line);
-}
-
-.nx-section:last-child {
-  border-bottom: none;
 }
 
 .nx-section-head {
@@ -3938,21 +3954,17 @@ ion-toolbar {
   min-height: 56px;
   padding: 6px 0;
   border: none;
-  border-bottom: 1px solid var(--dn-line);
   background: transparent;
   font-family: inherit;
   cursor: pointer;
-}
-
-.nx-list-row:last-child {
-  border-bottom: none;
 }
 
 .nx-check {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  border: 1.5px solid #c9ccd2;
+  border: none;
+  background: var(--dn-soft);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3963,7 +3975,6 @@ ion-toolbar {
 
 .nx-check.checked {
   background: var(--dn-ink);
-  border-color: var(--dn-ink);
 }
 
 .nx-empty {
@@ -4049,6 +4060,17 @@ ion-toolbar {
   background: var(--dn-soft-press);
 }
 
+.nx-gesture:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nx-gesture-limit {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--dn-muted);
+}
+
 .nx-gesture-label {
   font-size: 12px;
   font-weight: 500;
@@ -4061,9 +4083,9 @@ ion-toolbar {
   width: 100%;
   height: 180px;
   padding: 0;
-  border: none;
+  border: 1px solid var(--dn-line);
   border-radius: 24px;
-  background: var(--dn-soft);
+  background: #ffffff;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -4077,7 +4099,6 @@ ion-toolbar {
   height: 100%;
   display: block;
   background: #ffffff;
-  border: 1px solid var(--dn-line);
   border-radius: 24px;
 }
 
@@ -4221,14 +4242,27 @@ ion-toolbar {
 
 .nx-goal {
   padding: 16px;
-  border-radius: 20px;
   border: 1px solid var(--dn-line);
-  background: #ffffff;
+  border-radius: 20px;
+  background: transparent;
 }
 
-.nx-goal.is-claimed {
-  background: var(--dn-soft);
-  border-color: transparent;
+.nx-page :deep(.location-card) {
+  border: none;
+  background: transparent;
+  padding: 12px 0;
+}
+
+.nx-page :deep(.music-activity-card) {
+  margin-inline: 0;
+}
+
+.nx-page :deep(.music-activity-card),
+.nx-page :deep(.music-player-surface),
+.nx-page :deep(.music-cover-wrap),
+.nx-page :deep(.music-preview-pill),
+.nx-page :deep(.music-status-tag) {
+  border: none;
 }
 
 .nx-goal-top {

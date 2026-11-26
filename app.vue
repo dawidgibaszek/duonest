@@ -8,6 +8,7 @@
     <template v-else>
       <ion-router-outlet />
       <DuoToast />
+      <DuoGestureOverlay />
       <DuoPushPromptModal />
       <DuoConfirmModal />
     </template>
@@ -27,6 +28,7 @@ import { useConfirm } from '~/composables/useConfirm'
 import { useDuoState } from '~/composables/useDuoState'
 import { usePushNotifications } from '~/composables/usePushNotifications'
 import DuoToast from '~/components/DuoToast.vue'
+import DuoGestureOverlay from '~/components/DuoGestureOverlay.vue'
 import DuoPushPromptModal from '~/components/DuoPushPromptModal.vue'
 import DuoConfirmModal from '~/components/DuoConfirmModal.vue'
 import DuoRequiredUpdate from '~/components/DuoRequiredUpdate.vue'

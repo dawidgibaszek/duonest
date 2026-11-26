@@ -3,12 +3,10 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   onIdTokenChanged,
-  sendPasswordResetEmail,
   updatePassword,
   updateProfile,
   confirmPasswordReset,
   verifyPasswordResetCode,
-  sendEmailVerification,
   applyActionCode,
   checkActionCode,
   reload,
@@ -63,6 +61,27 @@ import {
   serverTimestamp as rtdbServerTimestamp
 } from 'firebase/database'
 
+function isNativeAuthCancelError(err: any): boolean {
+  const text = `${err?.code || ''} ${err?.message || ''}`.toLowerCase()
+  return text.includes('popup-closed-by-user') || text.includes('cancel') || text.includes('12501') || /\b16\b/.test(text)
+}
+
+async function signInWithNativeGoogle(FirebaseAuthentication: typeof import('@capacitor-firebase/authentication').FirebaseAuthentication) {
+  try {
+    return await FirebaseAuthentication.signInWithGoogle()
+  } catch (err) {
+    if (isNativeAuthCancelError(err)) throw new Error('auth/popup-closed-by-user')
+    if (Capacitor.getPlatform() !== 'android') throw err
+    // Fallback for Android devices where Credential Manager cannot resolve Google accounts
+    try {
+      return await FirebaseAuthentication.signInWithGoogle({ useCredentialManager: false })
+    } catch (fallbackErr) {
+      if (isNativeAuthCancelError(fallbackErr)) throw new Error('auth/popup-closed-by-user')
+      throw fallbackErr
+    }
+  }
+}
+
 export interface BridgeUser {
   id: string
   uid: string
@@ -111,14 +130,16 @@ export class FirebaseSupabaseBridge {
   public auth: any
   public db: any
   public rtdb: any
+  public storage: any
   private activeSubscriptions = new Map<string, Unsubscribe[]>()
 
   constructor() {
     const config = typeof useRuntimeConfig === 'function' ? useRuntimeConfig() : null
-    const { auth, db, rtdb } = getDuoFirebase(config?.public)
+    const { auth, db, rtdb, storage } = getDuoFirebase(config?.public)
     this.auth = auth
     this.db = db
     this.rtdb = rtdb
+    this.storage = storage
 
     this.setupAuthShim()
   }
@@ -227,7 +248,7 @@ export class FirebaseSupabaseBridge {
         }
         // Account stays blocked (middleware → /verify-email) until the link is clicked
         try {
-          await sendEmailVerification(cred.user)
+          await self.callApi('/api/auth/verification-email', {}, 20_000)
         } catch (err) {
           console.warn('Nie udało się wysłać maila weryfikacyjnego:', err)
         }
@@ -263,7 +284,15 @@ export class FirebaseSupabaseBridge {
 
     this.auth.resetPasswordForEmail = async (email: string) => {
       try {
-        await sendPasswordResetEmail(self.auth, email)
+        const response = await fetch('/api/auth/password-reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+          signal: AbortSignal.timeout(20_000)
+        })
+        if (!response.ok) throw new Error(response.status === 503
+          ? 'Wysyłka wiadomości jest chwilowo niedostępna. Spróbuj ponownie później.'
+          : 'Nie udało się wysłać linku. Spróbuj ponownie później.')
         return { data: {}, error: null }
       } catch (err) {
         return { data: null, error: err }
@@ -290,7 +319,7 @@ export class FirebaseSupabaseBridge {
         if (!self.auth.currentUser) {
           return { data: null, error: new Error('Sesja wygasła. Zaloguj się ponownie.') }
         }
-        await sendEmailVerification(self.auth.currentUser)
+        await self.callApi('/api/auth/verification-email', {}, 20_000)
         return { data: { success: true }, error: null }
       } catch (err) {
         return { data: null, error: err }
@@ -357,13 +386,13 @@ export class FirebaseSupabaseBridge {
         let cred: any
         let appleName = ''
         if (Capacitor.isNativePlatform()) {
-          // iOS app: native Google / Apple sheet returns a credential, the web SDK signs in
+          // Native app (iOS & Android): native Google / Apple sheet returns a credential, the web SDK signs in
           const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication')
           if (provider === 'google') {
-            const result = await FirebaseAuthentication.signInWithGoogle()
+            const result = await signInWithNativeGoogle(FirebaseAuthentication)
             const idToken = result.credential?.idToken
             if (!idToken) throw new Error('auth/popup-closed-by-user')
-            cred = await signInWithCredential(self.auth, GoogleAuthProvider.credential(idToken, result.credential?.accessToken))
+            cred = await signInWithCredential(self.auth, GoogleAuthProvider.credential(idToken, result.credential?.accessToken || undefined))
           } else {
             const result = await FirebaseAuthentication.signInWithApple({ scopes: ['email', 'name'] })
             const idToken = result.credential?.idToken
@@ -407,7 +436,7 @@ export class FirebaseSupabaseBridge {
   private accountSyncCache: { uid: string; at: number; result: any } | null = null
   private accountSyncInFlight: { uid: string; promise: Promise<any> } | null = null
 
-  public async callApi<T = any>(path: string, body: object = {}): Promise<T> {
+  public async callApi<T = any>(path: string, body: object = {}, timeoutMs = 10_000): Promise<T> {
     const user = this.auth.currentUser
     if (!user) throw new Error('Brak autoryzacji')
     const token = await user.getIdToken()
@@ -415,7 +444,7 @@ export class FirebaseSupabaseBridge {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(10_000)
+      signal: AbortSignal.timeout(timeoutMs)
     })
     const json = await res.json().catch(() => null)
     if (!res.ok) {

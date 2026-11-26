@@ -15,6 +15,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "273218538953-gh3akf08v6pdm2f69t0s06huhjb8jv7l.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.belka.duonest",
+            "certificate_hash": "234b41632ea23b58b47117c1b3b2d14a8d2e0109"
+          }
+        },
+        {
+          "client_id": "273218538953-o68bseoo8pgj76uneu3s96ab3ae78vlr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.belka.duonest",
+            "certificate_hash": "89097f92be0249eb80a48bb88f5ad32677cea2b3"
+          }
+        },
+        {
           "client_id": "273218538953-ajj1k0ncea6c1hbcvkikg7obg4429itv.apps.googleusercontent.com",
           "client_type": 3
         }

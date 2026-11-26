@@ -4,9 +4,12 @@ import type { Marker, Map as LeafletMap } from 'leaflet'
 import type { DuoMapPin } from '~/utils/duoMapPin'
 import 'leaflet/dist/leaflet.css'
 
-const props = defineProps<{ mine: DuoMapPin | null; partner: DuoMapPin | null; preview?: boolean; detailsTop?: number; controls?: HTMLElement }>()
+const props = defineProps<{ mine: DuoMapPin | null; partner: DuoMapPin | null; preview?: boolean; detailsTop?: number; controls?: HTMLElement; interactive?: boolean }>()
 const emit = defineEmits<{ open: [] }>()
 const apple = Capacitor.getPlatform() === 'ios' && Capacitor.isNativePlatform()
+const android = Capacitor.getPlatform() === 'android' && Capacitor.isNativePlatform() &&
+  useRuntimeConfig().public.googleMapsAndroidConfigured
+const androidPreviewFailed = ref(false)
 const surface = ref<HTMLElement>()
 const failed = ref(false)
 const bottomInset = computed(() => props.detailsTop === undefined ? 0 : Math.max(0, (surface.value?.getBoundingClientRect().bottom ?? 0) - props.detailsTop))
@@ -134,8 +137,8 @@ async function mountLeaflet() {
   }
 }
 
-onMounted(() => {
-  if (apple || !surface.value) return
+function startLeaflet() {
+  if (!surface.value) return
   if (!props.preview) {
     void mountLeaflet()
     return
@@ -146,6 +149,17 @@ onMounted(() => {
     void mountLeaflet()
   })
   visibilityObserver.observe(surface.value)
+}
+
+function useLeafletPreview() {
+  if (androidPreviewFailed.value) return
+  androidPreviewFailed.value = true
+  void nextTick(startLeaflet)
+}
+
+onMounted(() => {
+  if (apple || android) return
+  startLeaflet()
 })
 
 watch(() => [props.mine, props.partner], draw)
@@ -160,13 +174,15 @@ onBeforeUnmount(() => {
   <div class="duo-map" :class="{ 'duo-map--preview': preview }"
     :style="{ '--duo-map-bottom-inset': `${bottomInset}px` }">
     <DuoAppleLocationMap v-if="apple" :mine="mine" :partner="partner" :preview="Boolean(preview)" :details-top="detailsTop" :controls="controls" />
+    <DuoAndroidMapPreview v-else-if="android && preview && !androidPreviewFailed" :partner="partner" @failed="useLeafletPreview" />
+    <DuoAndroidLocationMap v-else-if="android && !preview" :mine="mine" :partner="partner" :details-top="detailsTop" :controls="controls" :interactive="interactive" />
     <div v-else ref="surface" class="duo-map-surface" :role="preview ? undefined : 'region'"
       :aria-label="preview ? undefined : 'Mapa Waszych pozycji'" :aria-hidden="preview || undefined" />
-    <button v-if="!apple && !preview" type="button" class="duo-map-center" aria-label="Dopasuj mapę do pozycji" @click="fit">
+    <button v-if="!apple && !android && !preview" type="button" class="duo-map-center" aria-label="Dopasuj mapę do pozycji" @click="fit">
       <ion-icon :icon="ioniconsLocateOutline" aria-hidden="true" />
     </button>
     <button v-if="preview" type="button" class="duo-map-preview-link" aria-label="Otwórz mapę lokalizacji" @click="emit('open')" />
-    <a v-if="preview && !apple" class="duo-map-credit" href="https://www.openstreetmap.org/copyright"
+    <a v-if="preview && !apple && (!android || androidPreviewFailed)" class="duo-map-credit" href="https://www.openstreetmap.org/copyright"
       target="_blank" rel="noopener">© OpenStreetMap</a>
     <span v-if="failed" class="duo-map-unavailable" role="status">Mapa jest chwilowo niedostępna</span>
   </div>

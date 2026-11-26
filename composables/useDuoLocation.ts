@@ -1,7 +1,10 @@
+import { App } from '@capacitor/app'
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import { computed, ref } from 'vue'
 import { authUser, currentUser, isAuthLoading, isPaired, partnerUser, partnership } from '~/composables/duo/state'
 import { getFirebaseBridge } from '~/composables/useFirebaseBridge'
+
+export type DuoLocationPermission = 'always' | 'whenInUse' | 'granted' | 'denied' | 'prompt' | 'unknown'
 
 export interface DuoPosition {
   latitude: number
@@ -11,11 +14,19 @@ export interface DuoPosition {
   address?: { street?: string; number?: string; city?: string; country?: string }
 }
 
-const nativeLocation = registerPlugin<{
+export const nativeLocation = registerPlugin<{
   start(options: { token: string; requestBackground: boolean }): Promise<void>
   stop(): Promise<void>
-  status(): Promise<{ active: boolean }>
+  status(): Promise<{ active: boolean; permission?: DuoLocationPermission; batteryUnrestricted?: boolean }>
+  openSettings(): Promise<void>
+  navigate(destination: Pick<DuoPosition, 'latitude' | 'longitude'>): Promise<void>
+  setMapTouchExclusions(options: { zones: Array<{ left: number; top: number; right: number; bottom: number }> }): Promise<void>
 }>('DuoLocation')
+
+export function syncAndroidMapTouchExclusions(zones: Array<{ left: number; top: number; right: number; bottom: number }>) {
+  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return
+  void nativeLocation.setMapTouchExclusions({ zones }).catch(() => {})
+}
 
 const STORAGE_KEY = 'duonest_location_sharing_device'
 const ownShared = ref<DuoPosition | null>(null)
@@ -23,8 +34,114 @@ const partnerPosition = ref<DuoPosition | null>(null)
 const sharing = ref(false)
 const updatingSharing = ref(false)
 const sharingError = ref('')
+const permissionState = ref<DuoLocationPermission>('unknown')
+const batteryUnrestricted = ref<boolean | null>(null)
 const clock = ref(Date.now())
 const isNative = () => Capacitor.isNativePlatform()
+const nativePlatform = () => Capacitor.getPlatform()
+let statusWatchersBound = false
+
+const isLocationStatusOn = computed(() => (
+  sharing.value && (!isNative() || nativePlatform() !== 'ios' || permissionState.value === 'always')
+))
+
+const isLocationAttentionNeeded = computed(() => {
+  if (permissionState.value === 'denied') return true
+  if (isNative() && nativePlatform() === 'ios') {
+    return permissionState.value === 'whenInUse' || permissionState.value === 'prompt'
+  }
+  if (isNative() && nativePlatform() === 'android') {
+    return batteryUnrestricted.value === false || permissionState.value === 'prompt'
+  }
+  return false
+})
+
+const locationStatusLabel = computed(() => {
+  if (permissionState.value === 'denied') return 'Zablokowana'
+  if (sharing.value && isNative() && nativePlatform() === 'ios' && permissionState.value === 'whenInUse') {
+    return 'Tylko w aplikacji'
+  }
+  if (sharing.value) return 'Aktywna'
+  if (permissionState.value === 'always') return 'Gotowa w tle'
+  if (permissionState.value === 'whenInUse' || permissionState.value === 'granted') return 'Wyłączona'
+  return 'Wymaga zgody'
+})
+
+const locationModeInfo = computed(() => {
+  const perm = permissionState.value
+  const platform = nativePlatform()
+  if (isNative() && platform === 'ios') {
+    if (perm === 'always') {
+      return {
+        title: 'Dostęp w tle: Zawsze',
+        sub: 'Pozycja aktualizuje się także wtedy, gdy DuoNest działa w tle lub ekran jest zablokowany.'
+      }
+    }
+    if (perm === 'whenInUse') {
+      return {
+        title: 'Tylko podczas używania aplikacji',
+        sub: 'iOS nie pozwala wybrać „Zawsze” w pierwszym oknie. Otwórz Ustawienia DuoNest i zmień Lokalizację na „Zawsze”.'
+      }
+    }
+    if (perm === 'denied') {
+      return {
+        title: 'Brak dostępu do lokalizacji',
+        sub: 'Otwórz Ustawienia DuoNest i ustaw Lokalizację na „Zawsze”, aby pozycja aktualizowała się również w tle.'
+      }
+    }
+    return {
+      title: 'Jak włączyć lokalizację w tle na iOS',
+      sub: 'iOS w pierwszym komunikacie pokazuje tylko „Podczas używania”. W kolejnym kroku lub w Ustawieniach zmień zgodę na „Zawsze”.'
+    }
+  }
+
+  if (isNative() && platform === 'android') {
+    if (perm === 'denied') {
+      return {
+        title: 'Brak dostępu do lokalizacji',
+        sub: 'Otwórz ustawienia aplikacji i zezwól na lokalizację „Podczas używania aplikacji”.'
+      }
+    }
+    if (perm === 'whenInUse' || perm === 'granted' || perm === 'always') {
+      if (batteryUnrestricted.value === false) {
+        return {
+          title: 'Warto wyłączyć ograniczenia baterii',
+          sub: 'Zgoda „Podczas używania aplikacji” wystarcza do pracy w tle, ale w ustawieniach baterii DuoNest ustaw tryb „Bez ograniczeń”.'
+        }
+      }
+      return {
+        title: 'Gotowa do działania w tle',
+        sub: 'Zgoda „Podczas używania aplikacji” oraz ustawienia baterii pozwalają wysyłać pozycję po zminimalizowaniu.'
+      }
+    }
+    return {
+      title: 'Jak działa lokalizacja w tle na Androidzie',
+      sub: 'Android pokazuje opcję „Podczas używania aplikacji” — wybierz ją. DuoNest korzysta z usługi w tle także po zminimalizowaniu.'
+    }
+  }
+
+  if (perm === 'denied') {
+    return {
+      title: 'Lokalizacja zablokowana w przeglądarce',
+      sub: 'Zezwól na dostęp do lokalizacji w ustawieniach witryny i spróbuj ponownie.'
+    }
+  }
+  return {
+    title: 'Udostępnianie w przeglądarce',
+    sub: 'Przeglądarka aktualizuje pozycję przy otwartej karcie. Do działania przy wygaszonym ekranie użyj aplikacji na telefonie.'
+  }
+})
+
+const locationSettingsButtonLabel = computed(() => {
+  if (nativePlatform() === 'ios') {
+    return permissionState.value === 'whenInUse' || permissionState.value === 'denied'
+      ? 'Zmień na „Zawsze” w Ustawieniach iOS'
+      : 'Ustawienia lokalizacji w iOS'
+  }
+  if (permissionState.value === 'denied') return 'Zezwól w ustawieniach aplikacji'
+  if (batteryUnrestricted.value === false) return 'Ustaw baterię na „Bez ograniczeń”'
+  return 'Ustawienia aplikacji w telefonie'
+})
 
 const activePair = computed(() => {
   const uid = authUser.value?.id
@@ -99,6 +216,42 @@ async function startBrowser(token: string, revision: number) {
   }, browserOptions)
 }
 
+async function refreshLocationStatus() {
+  if (!import.meta.client) return
+  if (isNative()) {
+    const status = await nativeLocation.status().catch(() => null)
+    if (!status) return
+    if (status.permission) permissionState.value = status.permission
+    batteryUnrestricted.value = typeof status.batteryUnrestricted === 'boolean' ? status.batteryUnrestricted : null
+    return
+  }
+  try {
+    const result = await navigator.permissions?.query({ name: 'geolocation' as PermissionName })
+    if (result) permissionState.value = result.state
+  } catch {
+    // Some browsers do not expose navigator.permissions for geolocation.
+  }
+}
+
+async function openLocationSettings() {
+  if (!isNative()) return
+  await nativeLocation.openSettings()
+}
+
+function bindStatusWatchers() {
+  if (!import.meta.client || statusWatchersBound) return
+  statusWatchersBound = true
+  void refreshLocationStatus()
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) void refreshLocationStatus()
+  })
+  if (isNative()) {
+    void App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive) void refreshLocationStatus()
+    }).catch(() => {})
+  }
+}
+
 async function stopLocal() {
   ++sequence
   sharing.value = false
@@ -150,6 +303,7 @@ async function startSharing(action: 'start' | 'resume') {
     }
   } finally {
     updatingSharing.value = false
+    void refreshLocationStatus()
   }
 }
 
@@ -178,14 +332,21 @@ export function observeDuoLocation(pair: typeof activePair.value) {
 }
 
 export function useDuoLocation() {
+  bindStatusWatchers()
   return {
     activePair, deviceKey, clock, ownShared, myPosition, theirPosition, distance, sharing, updatingSharing, sharingError,
+    permissionState, batteryUnrestricted, isLocationNativeApp: isNative(),
+    isLocationStatusOn, isLocationAttentionNeeded, locationStatusLabel, locationModeInfo, locationSettingsButtonLabel,
+    refreshLocationStatus,
+    openLocationSettings,
     startSharing: () => startSharing('start'),
     resumeSharing: async () => {
       if (!deviceKey.value || localStorage.getItem(STORAGE_KEY) !== deviceKey.value) return
       if (sharing.value && !isNative()) return
       if (sharing.value && Date.now() - renewedAt < 20 * 60 * 60_000) {
         const status = await nativeLocation.status().catch(() => null)
+        if (status?.permission) permissionState.value = status.permission
+        if (typeof status?.batteryUnrestricted === 'boolean') batteryUnrestricted.value = status.batteryUnrestricted
         if (status?.active) return
         sharing.value = false
       }
@@ -199,6 +360,8 @@ export function useDuoLocation() {
       } catch {
         sharingError.value = 'Telefon przestał wysyłać pozycję. Połącz się z internetem, aby usunąć ostatni odczyt.'
         throw new Error(sharingError.value)
+      } finally {
+        void refreshLocationStatus()
       }
     }
   }

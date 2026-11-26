@@ -1,7 +1,11 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { databaseUrlForProject, DUONEST_PROJECT_ID } from './functions/src/firebaseProject'
+import { existsSync, readFileSync } from 'node:fs'
 
 const firebaseProjectId = process.env.FIREBASE_PROJECT_ID || DUONEST_PROJECT_ID
+const androidProperties = 'android/local.properties'
+const androidMapsConfigured = Boolean(process.env.MAPS_API_KEY?.trim()) ||
+  (existsSync(androidProperties) && /^MAPS_API_KEY\s*=\s*\S+/m.test(readFileSync(androidProperties, 'utf8')))
 const cezarState = '**/.ai/cezar/**'
 
 export default defineNuxtConfig({
@@ -29,7 +33,8 @@ export default defineNuxtConfig({
         'firebase/app',
         'firebase/auth',
         'firebase/firestore',
-        'firebase/database'
+        'firebase/database',
+        'firebase/storage'
       ]
     },
     server: {
@@ -92,6 +97,9 @@ export default defineNuxtConfig({
       firebaseMessagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || '273218538953',
       firebaseAppId: process.env.FIREBASE_APP_ID || '1:273218538953:web:f8daf30bf01ae40a66ec18',
       firebaseDatabaseUrl: process.env.FIREBASE_DATABASE_URL || databaseUrlForProject(firebaseProjectId) || '',
+      firebaseUseEmulators: process.env.FIREBASE_USE_EMULATORS === '1',
+      firebaseEmulatorHost: process.env.FIREBASE_EMULATOR_HOST || '127.0.0.1',
+      googleMapsAndroidConfigured: androidMapsConfigured,
       appCheckRecaptchaSiteKey: process.env.NUXT_PUBLIC_APP_CHECK_RECAPTCHA_SITE_KEY || '',
       vapidPublicKey: process.env.VAPID_PUBLIC_KEY || process.env.NUXT_PUBLIC_VAPID_PUBLIC_KEY || ''
     }

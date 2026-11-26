@@ -809,7 +809,8 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
-import { useDuoState, type EventItem } from '~/composables/useDuoState'
+import { useDuoState } from '~/composables/useDuoState'
+import type { EventItem } from '~/types/duo'
 import { useConfirm } from '~/composables/useConfirm'
 import DuoIcon from '~/components/DuoIcon.vue'
 import DuoCalendarSyncModal from '~/components/DuoCalendarSyncModal.vue'

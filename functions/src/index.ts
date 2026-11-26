@@ -23,6 +23,7 @@ import { readWidgetDoodle, readWidgetLocation, updateWidgetAccess } from './widg
 import { storeNativeDiagnosticReports } from './nativeDiagnostics'
 import { createAdminRouter } from './adminAccess'
 import { locationSession, publishDuoLocation } from './duoLocation'
+import { requestPasswordReset, sendVerificationEmail } from './authEmails'
 
 // Inicjalizacja Firebase Admin
 if (getApps().length === 0) {
@@ -118,10 +119,18 @@ async function requireAuth(req: any, res: any, next: any) {
     const decoded = await auth.verifyIdToken(match[1])
     req.user = decoded
     next()
-  } catch (err: any) {
-    return res.status(401).json({ error: 'Invalid authentication token', message: err.message })
+  } catch {
+    return res.status(401).json({ error: 'Invalid authentication token' })
   }
 }
+
+app.post('/api/auth/verification-email', requireAuth, async (req: any, res) => {
+  await sendVerificationEmail(auth, db, req.user.uid, res)
+})
+
+app.post('/api/auth/password-reset', async (req, res) => {
+  await requestPasswordReset(auth, db, req, res)
+})
 
 // -----------------------------------------------------------------------------
 // 1. FILMY (TMDB)
@@ -403,7 +412,7 @@ export const api = onRequest(
     region: 'europe-west1',
     cors: true,
     invoker: 'public',
-    secrets: [defineSecret('APNS_KEY_PRODUCTION'), defineSecret('APNS_KEY_SANDBOX')]
+    secrets: [defineSecret('APNS_KEY_PRODUCTION'), defineSecret('APNS_KEY_SANDBOX'), defineSecret('RESEND_API_KEY')]
   },
   app
 )

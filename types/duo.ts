@@ -12,8 +12,6 @@ export interface Profile {
   mood_note?: string | null
   mood_updated_at?: string | null
   love_note?: string | null
-  favorite_drink?: string | null
-  favorite_treat?: string | null
   gender?: string | null
   grammatical_gender?: string | null
   enabled_features?: DuoFeature[]

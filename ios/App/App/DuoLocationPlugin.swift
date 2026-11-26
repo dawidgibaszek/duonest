@@ -14,7 +14,8 @@ final class DuoLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         CAPPluginMethod(name: "start", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stop", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "status", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "locate", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "locate", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise)
     ]
 
     private lazy var manager: CLLocationManager = {
@@ -97,8 +98,36 @@ final class DuoLocationPlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         }
     }
 
+    private func permissionState() -> String {
+        switch manager.authorizationStatus {
+        case .authorizedAlways: return "always"
+        case .authorizedWhenInUse: return "whenInUse"
+        case .denied, .restricted: return "denied"
+        case .notDetermined: return "prompt"
+        @unknown default: return "prompt"
+        }
+    }
+
     @objc func status(_ call: CAPPluginCall) {
-        DispatchQueue.main.async { call.resolve(["active": self.token != nil]) }
+        DispatchQueue.main.async {
+            call.resolve([
+                "active": self.token != nil,
+                "permission": self.permissionState()
+            ])
+        }
+    }
+
+    @objc func openSettings(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            guard let url = URL(string: UIApplication.openSettingsURLString) else {
+                call.reject("Nie udało się otworzyć ustawień aplikacji.")
+                return
+            }
+            UIApplication.shared.open(url, options: [:]) { opened in
+                if opened { call.resolve() }
+                else { call.reject("Nie udało się otworzyć ustawień aplikacji.") }
+            }
+        }
     }
 
     @objc func stop(_ call: CAPPluginCall) {

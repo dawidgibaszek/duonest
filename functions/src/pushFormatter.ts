@@ -22,19 +22,32 @@ export function formatPartnerAction(
 
   switch (action) {
     case 'NUDGE_SEND': {
-      const type = (data?.nudge_type || 'love').toLowerCase()
-      let label = 'buziaka'
+      const type = String(data?.nudge_type || 'love').toLowerCase()
+      let actionPhrase = `${subjectVerb('przesłał')} Ci drobny gest`
       if (type.includes('hug') || type.includes('przytulas')) {
-        label = 'przytulasa'
+        actionPhrase = `${subjectVerb('przesłał')} Ci ciepły uścisk`
+      } else if (type.includes('kiss') || type.includes('buziak')) {
+        actionPhrase = `${subjectVerb('przesłał')} Ci słodkiego buziaka`
+      } else if (type.includes('tea') || type.includes('herbat')) {
+        actionPhrase = `${subjectVerb('przesłał')} Ci ciepłą herbatkę`
+      } else if (type.includes('massage') || type.includes('masaż') || type.includes('masaz')) {
+        actionPhrase = `${subjectVerb('przesłał')} Ci zaproszenie na masaż`
+      } else if (type.includes('love') || type.includes('kocham')) {
+        actionPhrase = `${subjectVerb('przesłał')} Ci czułe „Kocham Cię”`
       } else if (type.includes('touch') || type.includes('puk')) {
-        label = 'delikatne puknięcie'
+        actionPhrase = `${subjectVerb('przesłał')} Ci delikatne puknięcie`
       } else if (type.includes('miss') || type.includes('tęsk')) {
-        label = 'wiadomość, że za Tobą tęskni'
+        actionPhrase = `${subjectVerb('przesłał')} wiadomość, że za Tobą tęskni`
       }
+      const customMessage = typeof data?.message === 'string' ? data.message.trim().slice(0, 140) : ''
+      const title = !senderName && verbGrammar === 'impersonal' ? 'Nowy drobny gest' : `${name} myśli o Tobie!`
+      const body = customMessage
+        ? `${actionPhrase}: „${customMessage}”`
+        : `${actionPhrase}. Otwórz DuoNest, aby zobaczyć gest.`
       return {
-        title: `${name} myśli o Tobie!`,
-        body: `${name} przesyła Ci ${label}. Otwórz Gniazdko, by odpowiedzieć!`,
-        url: '/tabs/nest',
+        title,
+        body,
+        url: '/tabs/relationship',
         category: 'nudges'
       }
     }

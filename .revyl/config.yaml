@@ -1,0 +1,56 @@
+project:
+    id: 76801af5-3405-4c2e-848a-7feb2bb67bb6
+session:
+    idle_timeout_seconds: 1800
+build:
+    framework: ios
+    profiles:
+        preview:
+            ios:
+                app_id: aff92b5e-b933-44eb-aa53-b2a955b2b590
+                image: ios-macos-26-xcode-26.6
+                setup_commands:
+                    - name: Install Node dependencies
+                      run: npm ci --include=dev --no-audit --no-fund
+                    - name: Build Nuxt bundle and sync Capacitor iOS
+                      run: npm run ios:build
+                build_commands:
+                    - name: Build iOS Simulator app
+                      run: cd ios/App && xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build ARCHS=arm64
+                output_path: ios/App/build/Build/Products/Release-iphonesimulator/App.app
+            android:
+                app_id: 0e8815f5-db71-43a1-9d42-403a1118092a
+                setup_commands:
+                    - name: Install Node dependencies
+                      run: npm ci --include=dev --no-audit --no-fund
+                    - name: Build Nuxt bundle and sync Capacitor Android
+                      run: npm run android:build
+                build_commands:
+                    - name: Build Android debug APK
+                      run: |
+                        set -eu
+                        JDK21_DIR=$(find /usr/lib/jvm -maxdepth 1 -type d -name '*21*' 2>/dev/null | head -n1 || true)
+                        if [ -z "$JDK21_DIR" ]; then
+                          ARCH=$(uname -m)
+                          [ "$ARCH" = "x86_64" ] && ARCH="x64"
+                          mkdir -p "$HOME/.jdk21"
+                          curl -fsSL "https://api.adoptium.net/v3/binary/latest/21/ga/linux/${ARCH}/jdk/hotspot/normal/eclipse" | tar -xz -C "$HOME/.jdk21" --strip-components=1
+                          JDK21_DIR="$HOME/.jdk21"
+                        fi
+                        export JAVA_HOME="$JDK21_DIR"
+                        export PATH="$JAVA_HOME/bin:$PATH"
+                        java -version
+                        cd android
+                        sed -i 's/\r$//' gradlew
+                        chmod +x gradlew
+                        ./gradlew assembleDebug
+                output_path: android/app/build/outputs/apk/debug/app-debug.apk
+pr_review:
+    enabled: true
+    build:
+        kind: revyl
+        profile: preview
+    proof_of_changes:
+        enabled: true
+        harness:
+            kind: revyl

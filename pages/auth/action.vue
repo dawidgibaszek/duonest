@@ -14,8 +14,8 @@
 
 <script setup lang="ts">
 /**
- * Firebase Auth action handler (callbackUri set by email-templates/push-templates.mjs).
- * Links from e-mails look like /auth/action?mode=<mode>&oobCode=<code>&apiKey=…
+ * Firebase Auth action handler used by the Resend email flow.
+ * Links from emails look like /auth/action?mode=<mode>&oobCode=<code>.
  */
 import { onMounted } from 'vue'
 import { IonPage, IonContent, IonSpinner } from '@ionic/vue'

@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core'
-import type { EventItem } from '~/composables/useDuoState'
+import type { EventItem } from '~/types/duo'
 
 export interface ParsedIcsEvent {
   title: string

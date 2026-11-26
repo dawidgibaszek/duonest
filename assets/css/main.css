@@ -89,6 +89,27 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* The full-screen Android map sits behind the WebView. Its modal is the only
+   screen that needs transparent layers; ordinary Ionic content stays opaque. */
+html.dn-native-google-map-full,
+html.dn-native-google-map-full body,
+html.dn-native-google-map-full ion-app,
+html.dn-native-google-map-full ion-router-outlet,
+html.dn-native-google-map-full .ion-page,
+html.dn-native-google-map-full .location-map-screen,
+html.dn-native-google-map-full .location-map-full {
+  background: transparent !important;
+}
+html.dn-native-google-map-full .location-map-modal {
+  --background: transparent;
+}
+html.dn-native-google-map-full .location-map-modal::part(content) {
+  background: transparent;
+}
+html.dn-native-google-map-full ion-router-outlet {
+  visibility: hidden;
+}
+
 /* Universal text boundary & overflow protection */
 p, span, h1, h2, h3, h4, h5, h6, a, label, li, ion-label {
   overflow-wrap: break-word;

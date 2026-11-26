@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import type { Auth } from 'firebase-admin/auth'
 import type { Firestore } from 'firebase-admin/firestore'
 import type { RequestHandler } from 'express'
-import { isIosWidgetVersionAllowed } from './clientAccess'
+import { isWidgetVersionAllowed } from './clientAccess'
 
 const LIFETIME_MS = 14 * 24 * 60 * 60_000
 const credentialRef = (db: Firestore, token: string) =>
@@ -35,6 +35,7 @@ export function updateWidgetAccess(db: Firestore): RequestHandler {
           profileId: member.profile_id,
           partnershipId: member.partnership_id,
           authenticatedAt: user.auth_time * 1000,
+          platform: res.locals.duoPlatform === 'android' ? 'android' : 'ios',
           version: req.get('X-DuoNest-Version') ?? '',
           build: req.get('X-DuoNest-Build') ?? '',
           expiresAt: Date.now() + LIFETIME_MS
@@ -72,7 +73,7 @@ function readWidgetData(db: Firestore, auth: Auth, location: boolean): RequestHa
       if (!user || user.disabled || Date.parse(user.tokensValidAfterTime ?? '') > session.authenticatedAt) {
         return res.status(401).json({ error: 'widget_session_expired' })
       }
-      if (!await isIosWidgetVersionAllowed(session.version, session.build)) {
+      if (!await isWidgetVersionAllowed(session.platform === 'android' ? 'android' : 'ios', session.version, session.build)) {
         return res.status(426).json({ error: 'update_required' })
       }
 
@@ -98,12 +99,13 @@ function readWidgetData(db: Firestore, auth: Auth, location: boolean): RequestHa
             db.collection('location_grants').doc(partnerUid),
             db.collection('partnership_locations').doc(session.partnershipId).collection('location_fixes').doc(partnerId)
           )
+          const expiresAt = Math.min(grant.get('expires_at')?.toMillis() ?? 0, fix.get('expires_at')?.toMillis() ?? 0)
           const visible = grant.get('pid') === session.partnershipId && grant.get('profileId') === partnerId &&
-            grant.get('expires_at')?.toMillis() > Date.now() && fix.get('expires_at')?.toMillis() > Date.now()
+            expiresAt > Date.now()
           const data = fix.data()
           return { partnerName: partner.get('name') || '', location: visible && data ? {
             latitude: data.latitude, longitude: data.longitude, accuracy: data.accuracy,
-            captured_at: data.captured_at, address: data.address
+            captured_at: data.captured_at, expires_at: expiresAt, address: data.address
           } : null }
         }
 

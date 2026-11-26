@@ -15,6 +15,7 @@
           @touchstart="onTouchStart"
           @touchmove="onTouchMove"
           @touchend="onTouchEnd"
+          @touchcancel="onTouchCancel"
         >
           <!-- Pull Handle -->
           <div class="sheet-handle-pill" aria-hidden="true"></div>
@@ -191,8 +192,11 @@ const onKeyDown = (e: KeyboardEvent) => {
 // Touch swipe-down to dismiss
 let touchStartY = 0
 let touchCurrentY = 0
+let canSwipeToDismiss = false
 
 const onTouchStart = (e: TouchEvent) => {
+  const target = e.target as HTMLElement
+  canSwipeToDismiss = !!target.closest('.sheet-handle-pill, .sheet-header-box') && cardRef.value?.scrollTop === 0
   touchStartY = e.touches[0].clientY
   touchCurrentY = touchStartY
 }
@@ -203,9 +207,14 @@ const onTouchMove = (e: TouchEvent) => {
 
 const onTouchEnd = () => {
   const diff = touchCurrentY - touchStartY
-  if (diff > 55) {
+  if (canSwipeToDismiss && diff > 55 && cardRef.value?.scrollTop === 0) {
     handleCancelClick()
   }
+  onTouchCancel()
+}
+
+const onTouchCancel = () => {
+  canSwipeToDismiss = false
   touchStartY = 0
   touchCurrentY = 0
 }
@@ -214,8 +223,7 @@ watch(
   () => props.isOpen,
   (val) => {
     if (val) {
-      touchStartY = 0
-      touchCurrentY = 0
+      onTouchCancel()
     }
   }
 )

@@ -1,119 +1,19 @@
 <template>
   <ion-page>
     <ion-header :translucent="true">
+      <DuoOrganizationNav />
       <ion-toolbar>
-        <div class="dn-page-header">
-          <div class="header-action-row">
-            <div>
-              <div class="dn-header-title">
-                <span>Obiady</span>
-                <span class="count-chip" v-if="weekMealsCount > 0">{{ weekMealsCount }} / 7</span>
-              </div>
-              <p class="dn-header-subtitle">Wspólny jadłospis na ten tydzień i inspiracje</p>
-            </div>
-            <div class="header-buttons">
-              <button
-                type="button"
-                class="dn-header-btn dn-header-btn--icon"
-                @click="activeSubView === 'my-recipes' ? openAddCookbookRecipeModal() : openAddCustomModal()"
-                :aria-label="activeSubView === 'my-recipes' ? 'Dodaj przepis do książki' : 'Dodaj własny obiad'"
-              >
-                <ion-icon :icon="ioniconsAddOutline" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </ion-toolbar>
-
-      <!-- MAIN TABS: Zakupy vs Zadania vs Obiady vs Zwierzak (ZERO EMOJIS - ONLY SVG) -->
-      <ion-toolbar class="main-tabs-toolbar" data-no-swipe>
-        <div ref="pillRowRef" class="main-tabs-pill-row" @scroll.passive="onTabsScroll">
+        <div class="dn-page-header header-action-row">
+          <div class="dn-header-title">Obiady</div>
           <button
-            v-if="isFeatureEnabled('shopping')"
+            v-if="activeSubView === 'my-recipes'"
             type="button"
-            class="main-tab-pill"
-            @click="switchToShopping"
+            class="dn-header-btn"
+            aria-label="Dodaj przepis"
+            @click="openAddCookbookRecipeModal()"
           >
-            <ion-icon :icon="ioniconsCartOutline" />
-            <span>Zakupy</span>
-            <span class="pill-count-chip" v-if="uncompletedShoppingCount > 0">{{ uncompletedShoppingCount }}</span>
-          </button>
-
-          <button
-            v-if="isFeatureEnabled('tasks')"
-            type="button"
-            class="main-tab-pill"
-            @click="switchToTasks"
-          >
-            <ion-icon :icon="ioniconsCheckboxOutline" />
-            <span>Zadania</span>
-            <span class="pill-count-chip" v-if="uncompletedTasksCount > 0">{{ uncompletedTasksCount }}</span>
-          </button>
-
-          <button
-            v-if="isFeatureEnabled('meals')"
-            type="button"
-            class="main-tab-pill active"
-          >
-            <ion-icon :icon="ioniconsRestaurantOutline" />
-            <span>Obiady</span>
-          </button>
-
-          <button
-            v-if="isFeatureEnabled('savings')"
-            type="button"
-            class="main-tab-pill"
-            @click="switchToSavings"
-          >
-            <ion-icon :icon="ioniconsWalletOutline" />
-            <span>Skarbonki</span>
-          </button>
-
-          <button
-            v-if="isFeatureEnabled('pet')"
-            type="button"
-            class="main-tab-pill pet-tab-pill"
-            @click="switchToPet"
-          >
-            <ion-icon :icon="ioniconsPawOutline" />
-            <span>Zwierzak</span>
-            <span class="tab-pet-lvl" v-if="hasPet">lvl {{ petLevel }}</span>
-          </button>
-        </div>
-      </ion-toolbar>
-
-      <!-- SUB-VIEW SEGMENT: Plan Tygodnia vs Twoje Przepisy vs Inspiracje -->
-      <ion-toolbar class="dn-subtabs-toolbar" data-no-swipe>
-        <div class="dn-subtabs">
-          <button
-            type="button"
-            class="dn-subtab"
-            :class="{ active: activeSubView === 'calendar' }"
-            @click="activeSubView = 'calendar'"
-          >
-            <ion-icon :icon="ioniconsCalendarOutline" />
-            <span>Plan Tygodnia</span>
-          </button>
-
-          <button
-            type="button"
-            class="dn-subtab"
-            :class="{ active: activeSubView === 'my-recipes' }"
-            @click="activeSubView = 'my-recipes'"
-          >
-            <ion-icon :icon="ioniconsBookOutline" />
-            <span>Twoje Przepisy</span>
-            <span class="dn-subtab-count" v-if="savedRecipes.length > 0">{{ savedRecipes.length }}</span>
-          </button>
-
-          <button
-            type="button"
-            class="dn-subtab"
-            :class="{ active: activeSubView === 'explore' }"
-            @click="activeSubView = 'explore'"
-          >
-            <ion-icon :icon="ioniconsSparklesOutline" />
-            <span>Inspiracje</span>
+            <ion-icon :icon="ioniconsAddOutline" aria-hidden="true" />
+            <span>Przepis</span>
           </button>
         </div>
       </ion-toolbar>
@@ -124,6 +24,38 @@
       <ion-refresher slot="fixed" @ionRefresh="handleRefresh($event)">
         <ion-refresher-content pulling-text="Przeciągnij, aby odświeżyć..." refreshing-spinner="crescent" />
       </ion-refresher>
+
+      <div class="dn-subtabs" role="group" aria-label="Widok obiadów" data-no-swipe>
+        <button
+          type="button"
+          class="dn-subtab"
+          :class="{ active: activeSubView === 'calendar' }"
+          :aria-pressed="activeSubView === 'calendar'"
+          @click="activeSubView = 'calendar'"
+        >
+          <span>Plan tygodnia</span>
+        </button>
+
+        <button
+          type="button"
+          class="dn-subtab"
+          :class="{ active: activeSubView === 'my-recipes' }"
+          :aria-pressed="activeSubView === 'my-recipes'"
+          @click="activeSubView = 'my-recipes'"
+        >
+          <span>Przepisy</span>
+        </button>
+
+        <button
+          type="button"
+          class="dn-subtab"
+          :class="{ active: activeSubView === 'explore' }"
+          :aria-pressed="activeSubView === 'explore'"
+          @click="activeSubView = 'explore'"
+        >
+          <span>Inspiracje</span>
+        </button>
+      </div>
 
       <!-- ============================================== -->
       <!-- WIDOK 1: KALENDARZ TYGODNIA                    -->
@@ -136,6 +68,7 @@
           </button>
           <div class="ml-weeknav-center">
             <span class="ml-weeknav-title">{{ weekRangeLabel }}</span>
+            <span class="ml-weeknav-count">{{ weekMealsCount }} z 7 dni zaplanowanych</span>
             <button v-if="weekOffset !== 0" type="button" class="ml-weeknav-today" @click="weekOffset = 0">Wróć do dzisiaj</button>
           </div>
           <button type="button" class="ml-weeknav-btn" @click="changeWeek(1)" aria-label="Następny tydzień">
@@ -194,42 +127,22 @@
             </template>
           </div>
         </div>
-</div>
+      </div>
 
       <!-- ============================================== -->
       <!-- WIDOK 2: TWOJE PRZEPISY (KSIĄŻKA KUCHARSKA)    -->
       <!-- ============================================== -->
       <div v-else-if="activeSubView === 'my-recipes'" class="saved-recipes-wrapper">
-        <!-- Top Hero Bar -->
-        <div class="saved-recipes-header dn-card">
-          <div class="saved-header-texts">
-            <div class="saved-title-row">
-              <ion-icon :icon="ioniconsBookOutline" class="saved-hero-icon" />
-              <h3 class="saved-heading">Twoje Przepisy</h3>
-              <span class="count-chip" v-if="savedRecipes.length > 0">{{ savedRecipes.length }}</span>
-            </div>
-          </div>
-          <div class="saved-header-actions-group">
-            <button
-              type="button"
-              class="saved-action-btn import-btn"
-              @click="openImportRecipeModal()"
-              title="Importuj przepis z linku lub TikToka"
-            >
-              <ion-icon :icon="ioniconsLinkOutline" />
-              <span>Importuj</span>
-            </button>
-            <button
-              type="button"
-              class="header-action-btn"
-              @click="openAddCookbookRecipeModal()"
-              title="Dodaj własny przepis do książki"
-            >
-              <ion-icon :icon="ioniconsAddOutline" />
-              <span class="btn-text-full">Nowy przepis</span>
-              <span class="btn-text-short">Dodaj</span>
-            </button>
-          </div>
+        <div class="saved-recipe-actions">
+          <button
+            type="button"
+            class="dn-header-btn dn-header-btn--soft"
+            aria-label="Importuj przepis z linku"
+            @click="openImportRecipeModal()"
+          >
+            <ion-icon :icon="ioniconsLinkOutline" aria-hidden="true" />
+            <span>Importuj</span>
+          </button>
         </div>
 
         <!-- Search & View Controls Bar -->
@@ -1902,13 +1815,12 @@ import {
   trashOutline as ioniconsTrashOutline
 } from 'ionicons/icons'
 import DuoActionSheet, { type DuoActionSheetButton } from '~/components/DuoActionSheet.vue'
-import { useDuoState, type MealItem, type MealIngredient } from '~/composables/useDuoState'
+import { useDuoState } from '~/composables/useDuoState'
+import type { MealItem, MealIngredient } from '~/types/duo'
 import { usePetState } from '~/composables/usePetState'
 import { useConfirm } from '~/composables/useConfirm'
 
 const {
-  shoppingItems,
-  tasksList,
   mealsList,
   currentUser,
   partnerUser,
@@ -1917,8 +1829,6 @@ const {
   partnerUserAccentColor,
   getUserAccentColor,
   hexToRgba,
-  activeDailySubTab,
-  activeTasksMainTab,
   addMeal,
   updateMeal,
   deleteMeal,
@@ -1928,10 +1838,8 @@ const {
   refreshMeals,
   triggerToast
 } = useDuoState()
-const { isFeatureEnabled } = useDuoPersonalization()
 
 const { confirm } = useConfirm()
-const { pillRowRef, onTabsScroll } = useOrgTabsSync('meals')
 
 const deletingMealIds = ref<Set<string>>(new Set())
 const deletingRecipeKeys = ref<Set<string>>(new Set())
@@ -1959,12 +1867,6 @@ const getRecipePreviewImage = (meal: RecipePreviewImageSource) => {
 const markRecipePreviewImageFailed = (meal: RecipePreviewImageSource) => {
   failedRecipePreviewImages.value = new Set(failedRecipePreviewImages.value).add(getRecipePreviewKey(meal))
 }
-
-const {
-  hasPet,
-  petLevel,
-  onEnterPetView
-} = usePetState()
 
 // Sub-view switcher inside meals: 'calendar' | 'my-recipes' | 'explore'
 const activeSubView = ref<'calendar' | 'my-recipes' | 'explore'>('calendar')
@@ -2186,35 +2088,11 @@ const filteredSavedRecipes = computed(() => {
   return sorted
 })
 
-// Counts for pill chips
-const uncompletedShoppingCount = computed(() => shoppingItems.value.filter(i => !i.is_completed).length)
-const uncompletedTasksCount = computed(() => tasksList.value.filter(t => !t.is_completed).length)
-
 // Week navigation offset (0 = current week, -1 = last week, +1 = next week)
 const weekOffset = ref(0)
 
 const changeWeek = (delta: number) => {
   weekOffset.value += delta
-}
-
-// Sub-tab navigation methods
-const switchToShopping = () => {
-  activeDailySubTab.value = 'shopping'
-}
-
-const switchToTasks = () => {
-  activeDailySubTab.value = 'tasks'
-  activeTasksMainTab.value = 'tasks'
-}
-
-const switchToSavings = () => {
-  activeDailySubTab.value = 'savings'
-}
-
-const switchToPet = () => {
-  activeDailySubTab.value = 'tasks'
-  activeTasksMainTab.value = 'pet'
-  try { onEnterPetView() } catch (_) {}
 }
 
 // Format Date as 'YYYY-MM-DD'
@@ -3242,31 +3120,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* MAIN TABS TOOLBAR & PILLS (Organizacja: Zakupy | Zadania | Obiady | Zwierzak) */
-
-/* SUB-VIEW SEGMENT TOOLBAR */
-
-/* HEADER ACTION BUTTONS */
-.header-action-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: #1c1b19;
-  color: #ffffff;
-  border: none;
-  border-radius: 10px;
-  padding: 7px 12px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
 /* WIDOK 1: KALENDARZ TYGODNIA */
 .meals-calendar-wrapper {
   padding: 8px 0 40px;
@@ -4169,70 +4022,9 @@ onMounted(() => {
   gap: 12px;
 }
 
-.saved-recipes-header {
+.saved-recipe-actions {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  border-radius: 14px;
-  background: #ffffff;
-  border: 1px solid var(--dn-line);
-  gap: 16px;
-  flex-wrap: nowrap;
-  min-height: 48px;
-}
-
-.saved-header-texts {
-  display: flex;
-  align-items: center;
-  flex-shrink: 1;
-  min-width: 0;
-}
-
-.saved-title-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.saved-hero-icon {
-  font-size: 16.5px;
-  color: #1c1b19;
-  flex-shrink: 0;
-}
-
-.saved-heading {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #1c1b19;
-  margin: 0;
-  white-space: nowrap;
-  letter-spacing: -0.2px;
-  flex-shrink: 0;
-}
-
-.saved-title-row .count-chip {
-  flex-shrink: 0;
-  font-size: 10px;
-  font-weight: 500;
-  background: var(--dn-soft);
-  color: #545454;
-  border: none;
-  padding: 1px 6px;
-  border-radius: 9999px;
-  line-height: 1.4;
-  margin-right: 4px;
-}
-
-.saved-subheading {
-  font-size: 11.5px;
-  color: #737373;
-  margin: 2px 0 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  justify-content: flex-end;
 }
 
 .saved-empty-actions {
@@ -6202,129 +5994,6 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   box-shadow: none;
 }
 
-/* ======================================================= */
-/* IMPORT RECIPE & TWOJE PRZEPISY ACTIONS                  */
-/* ======================================================= */
-.saved-header-actions-group {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-  margin-left: auto;
-}
-
-.saved-header-actions-group .header-action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 5px 9px;
-  font-size: 11px;
-  white-space: nowrap;
-  border-radius: 9px;
-  font-weight: 700;
-  background: #1c1b19;
-  color: #ffffff;
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  touch-action: manipulation;
-  flex-shrink: 0;
-  height: 30px;
-}
-
-.saved-header-actions-group .header-action-btn ion-icon {
-  font-size: 13.5px;
-}
-
-.saved-action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 5px 8px;
-  border-radius: 9px;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  touch-action: manipulation;
-  white-space: nowrap;
-  border: 1px solid #d4d4d4;
-  background: #ffffff;
-  color: #1c1b19;
-  flex-shrink: 0;
-  height: 30px;
-}
-
-.saved-action-btn:hover {
-  background: #f8f9fb;
-  border-color: #a2a2a2;
-}
-
-.saved-action-btn:active,
-.saved-header-actions-group .header-action-btn:active {
-  transform: scale(0.96);
-}
-
-.saved-action-btn.import-btn {
-  background: #f8f9fb;
-  border-color: #d4d4d4;
-  color: #1c1b19;
-}
-
-.saved-action-btn.import-btn ion-icon {
-  font-size: 13px;
-  color: #1c1b19;
-}
-
-.saved-header-actions-group .btn-text-full {
-  display: inline;
-}
-
-.saved-header-actions-group .btn-text-short {
-  display: none;
-}
-
-@media (max-width: 560px) {
-  .saved-header-actions-group .btn-text-full {
-    display: none;
-  }
-  .saved-header-actions-group .btn-text-short {
-    display: inline;
-  }
-}
-
-@media (max-width: 375px) {
-  .saved-recipes-header {
-    padding: 7px 10px;
-    gap: 10px;
-  }
-  .saved-heading {
-    font-size: 13px;
-  }
-  .saved-hero-icon {
-    font-size: 16px;
-  }
-  .saved-title-row {
-    gap: 4px;
-  }
-  .saved-title-row .count-chip {
-    font-size: 9.5px;
-    padding: 1px 5px;
-    margin-right: 2px;
-  }
-  .saved-header-actions-group {
-    gap: 4px;
-  }
-  .saved-action-btn {
-    padding: 4px 7px;
-    font-size: 10.5px;
-  }
-  .saved-header-actions-group .header-action-btn {
-    padding: 4px 8px;
-    font-size: 10.5px;
-  }
-}
-
 .recipe-badge-source.import {
   background: rgba(28, 27, 25, 0.9);
   color: #b1b1b1;
@@ -6646,6 +6315,11 @@ ion-modal.dn-meal-sheet-modal::part(handle) {
   font-size: 20px;
   font-weight: 600;
   color: var(--dn-ink);
+}
+
+.ml-weeknav-count {
+  color: var(--dn-muted);
+  font-size: 0.75rem;
 }
 
 .ml-weeknav-today {

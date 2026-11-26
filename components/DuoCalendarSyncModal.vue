@@ -371,7 +371,8 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { getFirebaseBridge } from '~/composables/useFirebaseBridge'
-import { useDuoState, type EventItem } from '~/composables/useDuoState'
+import { useDuoState } from '~/composables/useDuoState'
+import type { EventItem } from '~/types/duo'
 import {
   generateIcsCalendar,
   generateSingleEventIcs,
