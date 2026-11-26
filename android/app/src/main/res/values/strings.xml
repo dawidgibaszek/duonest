@@ -10,6 +10,12 @@
     <string name="widget_doodle_partner">Druga osoba</string>
     <string name="widget_doodle_empty">Dodaj coś do wspólnego rysunku</string>
     <string name="widget_doodle_signed_out">Otwórz DuoNest, aby zobaczyć wspólny rysunek</string>
+    <string name="widget_location_title">Lokalizacja drugiej osoby</string>
+    <string name="widget_location_description">Ostatnia udostępniona pozycja, adres i czas odczytu</string>
+    <string name="widget_location_unavailable">Brak udostępnionej pozycji</string>
+    <string name="widget_location_signed_out">Otwórz DuoNest, aby połączyć widget</string>
+    <string name="widget_location_no_address">Adres niedostępny</string>
+    <string name="widget_location_read_at">Odczyt: %1$s</string>
     <string name="duo_location_channel">Udostępnianie lokalizacji</string>
     <string name="duo_location_notification">Udostępniasz lokalizację w DuoNest</string>
     <string name="duo_location_notification_info">Dotknij, aby przejść do ustawień udostępniania w Relacji</string>

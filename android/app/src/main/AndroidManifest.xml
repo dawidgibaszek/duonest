@@ -9,6 +9,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
+        <meta-data android:name="com.google.android.geo.API_KEY" android:value="${MAPS_API_KEY}" />
         <meta-data android:name="firebase_analytics_collection_enabled" android:value="false" />
         <meta-data android:name="google_analytics_automatic_screen_reporting_enabled" android:value="false" />
         <meta-data android:name="google_analytics_adid_collection_enabled" android:value="false" />
@@ -62,6 +63,18 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/doodle_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.PartnerLocationWidgetProvider"
+            android:label="@string/widget_location_title"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/partner_location_widget_info" />
         </receiver>
 
         <service android:name=".DuoLocationService" android:exported="false"

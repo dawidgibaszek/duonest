@@ -34,11 +34,13 @@ export default defineNuxtPlugin(() => {
     sessionQueue = sessionQueue.catch(ignore).then(async () => {
       if (!isIos && !androidSessionMatches(key)) return
       if (key && (isLoggingOut.value || key !== `${bridge.auth.currentUser?.uid}:${partnership.value?.id}`)) return
+      const newSession = installedSession !== key
       await DuoWidget.setSession(session)
       installedSession = key
       if (key) {
         await pushDoodle(true)
         await pushLocation()
+        if (!isIos && newSession) void DuoWidget.refresh?.().catch(ignore)
       }
     })
     void sessionQueue.catch(ignore)
@@ -67,12 +69,22 @@ export default defineNuxtPlugin(() => {
     }).catch(ignore)
   }
 
-  async function syncIosAccess() {
+  function sessionIdentity(user: NonNullable<typeof bridge.auth.currentUser>, pid: string) {
+    const identity = {
+      uid: user.uid, profileId: currentUser.value.id, partnershipId: pid, partnerName: partnerUser.value?.name || ''
+    }
+    if (isIos) return identity
+    const { apiKey, projectId } = bridge.auth.app.options
+    return { ...identity, refreshToken: user.refreshToken, apiKey, projectId }
+  }
+
+  async function syncWidgetAccess() {
     if (!active || isAuthLoading.value || isLoggingOut.value || accessInFlight) return
     const user = bridge.auth.currentUser
     const pid = partnership.value?.id
     if (!user || currentUser.value.auth_user_id !== user.uid || !pid) return
     const key = `${user.uid}:${pid}`
+    if (!isIos && !androidSessionMatches(key)) return
     accessInFlight = true
     try {
       const credential = getWidgetCredential(user.uid)
@@ -82,11 +94,9 @@ export default defineNuxtPlugin(() => {
         const result = await bridge.callApi<{ success: boolean }>('/api/widget/session', { token: credential })
         if (!result?.success || !isCurrent()) return
         confirmedAccess = { key, credential, renewedAt: Date.now() }
-        queueSession({
-          uid: user.uid, profileId: currentUser.value.id, partnershipId: pid,
-          partnerName: partnerUser.value?.name || '', credential
-        }, key)
+        queueSession({ ...sessionIdentity(user, pid), credential }, key)
       }
+      if (!isIos) return
       const { token, environment } = await DuoWidget.getPushToken()
       if (!token || !isCurrent()) return
       const marker = `${key}:${environment}:${token}`
@@ -106,7 +116,7 @@ export default defineNuxtPlugin(() => {
 
   watch(
     () => [isAuthLoading.value, isLoggingOut.value, authSession.value?.access_token, partnership.value?.id, partnerUser.value?.name, currentUser.value.auth_user_id, currentUser.value.id, isIos ? undefined : currentUser.value.partnership_id] as const,
-    ([loading, loggingOut, accessToken, pid, partnerName]) => {
+    ([loading, loggingOut, accessToken, pid]) => {
       if (loading || loggingOut) return
       const user = bridge.auth.currentUser
       if (!accessToken || !user || !pid || currentUser.value.auth_user_id !== user.uid) {
@@ -115,15 +125,8 @@ export default defineNuxtPlugin(() => {
         return
       }
       const key = `${user.uid}:${pid}`
-      const identity = { uid: user.uid, profileId: currentUser.value.id, partnershipId: pid, partnerName: partnerName || '' }
-      if (isIos) {
-        // Local drawing still works if registration is temporarily offline.
-        queueSession(identity, key)
-        void syncIosAccess()
-      } else {
-        const { apiKey, projectId } = bridge.auth.app.options
-        queueSession({ ...identity, refreshToken: user.refreshToken, apiKey, projectId }, key)
-      }
+      queueSession(sessionIdentity(user, pid), key)
+      void syncWidgetAccess()
     },
     { immediate: true }
   )
@@ -135,18 +138,23 @@ export default defineNuxtPlugin(() => {
       active = isActive
       clearInterval(polling)
       if (!active) return
-      void syncIosAccess()
-      polling = setInterval(() => { void syncIosAccess() }, 15_000)
+      void syncWidgetAccess()
+      polling = setInterval(() => { void syncWidgetAccess() }, 15_000)
     }
     monitor(true)
     void App.addListener('appStateChange', ({ isActive }) => monitor(isActive)).catch(ignore)
   } else {
     void App.addListener('appStateChange', ({ isActive }) => {
+      active = isActive
+      if (isActive) void syncWidgetAccess()
       if (isActive && activeWidgetSession()) void DuoWidget.refresh?.().catch(ignore)
     }).catch(ignore)
   }
 
   if (isIos) watch(theirPosition, () => { void pushLocation() })
+  else watch(() => theirPosition.value?.captured_at, () => {
+    if (active && activeWidgetSession()) void DuoWidget.refreshLocation().catch(ignore)
+  })
 
   watch(currentDoodle, () => { void pushDoodle(false) })
   watch(partnerLiveStroke, (live) => {

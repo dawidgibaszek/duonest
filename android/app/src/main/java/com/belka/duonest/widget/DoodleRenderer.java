@@ -24,7 +24,7 @@ final class DoodleRenderer {
      * @param height bitmap height in px
      * @param scale  bitmap px per device px, used for the border and corner radius
      */
-    static Bitmap render(List<DoodleStroke> strokes, int width, int height, float density, float scale) {
+    static Bitmap render(List<DoodleStroke> strokes, int width, int height, float density, float scale, boolean framed) {
         Bitmap layer = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         Canvas layerCanvas = new Canvas(layer);
         float lineScale = Math.min(width, height) / 400f;
@@ -34,6 +34,11 @@ final class DoodleRenderer {
         Bitmap output = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
         Canvas canvas = new Canvas(output);
         canvas.drawColor(CARD_COLOR);
+        if (!framed) {
+            canvas.drawBitmap(layer, 0, 0, null);
+            layer.recycle();
+            return output;
+        }
 
         float border = Math.max(1f, density * scale);
         float radius = 24f * density * scale;

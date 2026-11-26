@@ -21,9 +21,24 @@ public class DuoWidgetPlugin extends Plugin {
             call.reject("Incomplete widget session");
             return;
         }
-        store.setSession(session);
-        if (session != null) store.setPartnerName(call.getString("partnerName", ""));
+        store.setAppSession(session, call.getString("partnerName", ""));
         DoodleWidgetProvider.requestRender(getContext());
+        PartnerLocationWidgetProvider.render(getContext());
+        if (session != null) PartnerLocationRefreshWorker.enqueue(getContext());
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void hasReadAccess(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("valid", DoodleWidgetStore.get(getContext()).hasLocationAccess(
+            call.getString("uid", ""), call.getString("partnershipId", "")));
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void refreshLocation(PluginCall call) {
+        PartnerLocationRefreshWorker.enqueue(getContext());
         call.resolve();
     }
 
@@ -98,6 +113,9 @@ public class DuoWidgetPlugin extends Plugin {
 
     @PluginMethod
     public void refresh(PluginCall call) {
+        DoodleWidgetProvider.restore(getContext());
+        PartnerLocationWidgetProvider.restore(getContext());
+        PartnerLocationRefreshWorker.enqueue(getContext());
         DoodleWidgetSync.refreshAsync(getContext(), call::resolve);
     }
 }

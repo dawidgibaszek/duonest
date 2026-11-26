@@ -9,8 +9,17 @@ public class DuoMessagingService extends MessagingService {
 
     @Override
     public void onMessageReceived(@NonNull RemoteMessage remoteMessage) {
-        if ("doodle".equals(remoteMessage.getData().get("widget"))) {
+        String widget = remoteMessage.getData().get("widget");
+        if ("doodle".equals(widget)) {
             DoodleWidgetSync.handlePush(this, remoteMessage.getData());
+            return;
+        }
+        if ("location".equals(widget)) {
+            DoodleWidgetStore.Session session = DoodleWidgetStore.get(this).session();
+            if (session != null && !session.profileId.isEmpty() &&
+                session.profileId.equals(remoteMessage.getData().get("recipientProfileId"))) {
+                PartnerLocationRefreshWorker.enqueue(this);
+            }
             return;
         }
         super.onMessageReceived(remoteMessage);

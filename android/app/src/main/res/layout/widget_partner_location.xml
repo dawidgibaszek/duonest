@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_location_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_location_bg"
+    android:orientation="vertical"
+    android:gravity="center_vertical"
+    android:padding="12dp">
+
+    <include layout="@layout/widget_location_heading" />
+    <include
+        layout="@layout/widget_location_map"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="6dp"
+        android:layout_weight="1" />
+    <include layout="@layout/widget_location_details" />
+</LinearLayout>

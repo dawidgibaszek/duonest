@@ -2,6 +2,7 @@ package com.belka.duonest.widget;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
 import android.util.AtomicFile;
 import android.util.Log;
 import androidx.annotation.Nullable;
@@ -26,6 +27,7 @@ final class DoodleWidgetStore {
     private static final String DOODLE_FILE = "doodle_widget.json";
     // Holds the Firebase refresh token, so it stays out of Auto Backup.
     private static final String SESSION_FILE = "doodle_widget_session.json";
+    private static final String LOCATION_FILE = "partner_location_widget.json";
 
     static final class Session {
         final String uid;
@@ -34,18 +36,24 @@ final class DoodleWidgetStore {
         final String refreshToken;
         final String apiKey;
         final String projectId;
+        final String credential;
 
-        Session(String uid, String profileId, String partnershipId, String refreshToken, String apiKey, String projectId) {
+        Session(String uid, String profileId, String partnershipId, String refreshToken, String apiKey, String projectId, String credential) {
             this.uid = uid;
             this.profileId = profileId;
             this.partnershipId = partnershipId;
             this.refreshToken = refreshToken;
             this.apiKey = apiKey;
             this.projectId = projectId;
+            this.credential = credential;
         }
 
         Session withRefreshToken(String token) {
-            return new Session(uid, profileId, partnershipId, token, apiKey, projectId);
+            return new Session(uid, profileId, partnershipId, token, apiKey, projectId, credential);
+        }
+
+        Session withCredential(String token) {
+            return new Session(uid, profileId, partnershipId, refreshToken, apiKey, projectId, token);
         }
 
         boolean sameAccount(@Nullable Session other) {
@@ -62,7 +70,7 @@ final class DoodleWidgetStore {
             String apiKey = json.optString("apiKey");
             String projectId = json.optString("projectId");
             if (uid.isEmpty() || partnershipId.isEmpty() || refreshToken.isEmpty() || apiKey.isEmpty() || projectId.isEmpty()) return null;
-            return new Session(uid, profileId, partnershipId, refreshToken, apiKey, projectId);
+            return new Session(uid, profileId, partnershipId, refreshToken, apiKey, projectId, json.optString("credential"));
         }
 
         JSONObject toJson() throws JSONException {
@@ -72,7 +80,8 @@ final class DoodleWidgetStore {
                 .put("partnershipId", partnershipId)
                 .put("refreshToken", refreshToken)
                 .put("apiKey", apiKey)
-                .put("projectId", projectId);
+                .put("projectId", projectId)
+                .put("credential", credential);
         }
     }
 
@@ -104,6 +113,8 @@ final class DoodleWidgetStore {
     private final SharedPreferences prefs;
     @Nullable
     private Session session;
+    @Nullable private PartnerLocation partnerLocation;
+    @Nullable private Bitmap partnerLocationMap;
     private String doodleKey = "";
     private String updatedAt = "";
     private String authorName = "";
@@ -114,6 +125,11 @@ final class DoodleWidgetStore {
         this.context = context;
         this.prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         this.session = Session.fromJson(readJson(sessionFile()));
+        JSONObject cached = readJson(locationFile());
+        if (session != null && !session.credential.isEmpty() && cached != null &&
+            session.uid.equals(cached.optString("uid")) && session.partnershipId.equals(cached.optString("partnershipId"))) {
+            partnerLocation = PartnerLocation.fromJson(cached.optJSONObject("location"));
+        }
         applyDoodle(readJson(doodleFile()));
     }
 
@@ -126,6 +142,7 @@ final class DoodleWidgetStore {
     synchronized void setSession(@Nullable Session next) {
         if (next == null) {
             session = null;
+            clearPartnerLocation();
             strokes = Collections.emptyList();
             liveStrokes.clear();
             doodleKey = "";
@@ -136,12 +153,81 @@ final class DoodleWidgetStore {
             prefs.edit().clear().apply();
             return;
         }
-        if (!next.sameAccount(session)) {
+        boolean sameAccount = next.sameAccount(session);
+        if (!sameAccount || !next.credential.equals(session.credential)) clearPartnerLocation();
+        if (!sameAccount) {
             applyDoodle(null);
             doodleFile().delete();
         }
         session = next;
-        writeJson(sessionFile(), () -> next.toJson());
+        writeJson(sessionFile(), next::toJson);
+    }
+
+    synchronized void setAppSession(@Nullable Session next, String name) {
+        if (next != null && next.sameAccount(session) && next.credential.isEmpty()) {
+            next = next.withCredential(session.credential);
+        }
+        setSession(next);
+        if (next != null) setPartnerName(name);
+    }
+
+    synchronized boolean hasLocationAccess(String uid, String partnershipId) {
+        return session != null && uid.equals(session.uid) && partnershipId.equals(session.partnershipId) &&
+            !session.credential.isEmpty();
+    }
+
+    @Nullable
+    synchronized PartnerLocation partnerLocation() {
+        if (partnerLocation != null && partnerLocation.expiresAt <= System.currentTimeMillis()) clearPartnerLocation();
+        return partnerLocation;
+    }
+
+    @Nullable
+    synchronized Bitmap partnerLocationMap() {
+        return partnerLocationMap;
+    }
+
+    @Nullable
+    synchronized Bitmap mapForLocation(Session expected, PartnerLocation location) {
+        return sameLocationSession(expected) && location.sameMapArea(partnerLocation()) ? partnerLocationMap : null;
+    }
+
+    synchronized void restoreLocationMap(Session expected, PartnerLocation location, Bitmap map) {
+        if (sameLocationSession(expected) && location.sameMapArea(partnerLocation()) && partnerLocationMap == null) {
+            partnerLocationMap = map;
+        }
+    }
+
+    synchronized boolean sameLocationSession(Session expected) {
+        return expected.sameAccount(session) && expected.credential.equals(session.credential);
+    }
+
+    synchronized void setPartnerLocation(Session expected, @Nullable JSONObject response, boolean revokeAccess, @Nullable Bitmap map) {
+        if (!sameLocationSession(expected)) return;
+        if (revokeAccess) setSession(session.withCredential(""));
+        JSONObject rawLocation = response == null ? null : response.optJSONObject("location");
+        if (response != null && response.has("partnerName")) setPartnerName(response.optString("partnerName"));
+        PartnerLocation nextLocation = PartnerLocation.fromJson(rawLocation);
+        if (nextLocation == null) {
+            clearPartnerLocation();
+        } else {
+            if (!nextLocation.sameMapArea(partnerLocation) || (map != null && map != partnerLocationMap)) {
+                partnerLocationMap = map;
+            }
+            partnerLocation = nextLocation;
+            writeJson(locationFile(), () -> new JSONObject().put("uid", expected.uid)
+                .put("partnershipId", expected.partnershipId).put("location", rawLocation));
+        }
+    }
+
+    synchronized String partnerName() {
+        return prefs.getString(PREF_PARTNER_NAME, "");
+    }
+
+    private void clearPartnerLocation() {
+        partnerLocation = null;
+        partnerLocationMap = null;
+        new AtomicFile(locationFile()).delete();
     }
 
     synchronized void updateRefreshToken(Session from, String refreshToken) {
@@ -296,6 +382,10 @@ final class DoodleWidgetStore {
 
     private File sessionFile() {
         return new File(context.getNoBackupFilesDir(), SESSION_FILE);
+    }
+
+    private File locationFile() {
+        return new File(context.getNoBackupFilesDir(), LOCATION_FILE);
     }
 
     private interface JsonSupplier {

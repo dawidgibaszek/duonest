@@ -3,17 +3,21 @@ package com.belka.duonest.widget;
 import android.content.Context;
 import androidx.annotation.NonNull;
 import androidx.work.Constraints;
+import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.NetworkType;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.OutOfQuotaPolicy;
+import androidx.work.PeriodicWorkRequest;
 import androidx.work.WorkManager;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
+import java.util.concurrent.TimeUnit;
 
 /** Retry fallback if an immediate widget fetch fails while offline. */
 public final class DoodleRefreshWorker extends Worker {
     private static final String WORK_NAME = "duonest_doodle_widget_refresh";
+    private static final String PERIODIC_WORK_NAME = "duonest_doodle_widget_periodic";
 
     public DoodleRefreshWorker(@NonNull Context context, @NonNull WorkerParameters parameters) {
         super(context, parameters);
@@ -30,6 +34,17 @@ public final class DoodleRefreshWorker extends Worker {
             ExistingWorkPolicy.REPLACE,
             request.build()
         );
+    }
+
+    static void schedulePeriodic(Context context) {
+        PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(DoodleRefreshWorker.class, 30, TimeUnit.MINUTES)
+            .setConstraints(new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .build();
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(PERIODIC_WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request);
+    }
+
+    static void cancelPeriodic(Context context) {
+        WorkManager.getInstance(context).cancelUniqueWork(PERIODIC_WORK_NAME);
     }
 
     @NonNull

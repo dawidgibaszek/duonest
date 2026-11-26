@@ -66,10 +66,15 @@
             android:visibility="gone" />
     </LinearLayout>
 
+    <TextView
+        android:id="@+id/widget_board_gap"
+        android:layout_width="match_parent"
+        android:layout_height="10dp"
+        android:importantForAccessibility="no" />
+
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="10dp"
         android:layout_weight="1">
 
         <ImageView

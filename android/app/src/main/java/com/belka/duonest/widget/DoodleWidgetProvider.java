@@ -85,17 +85,30 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
+        restore(context, appWidgetIds);
+        DoodleRefreshWorker.schedulePeriodic(context);
+    }
+
+    @Override
+    public void onDisabled(Context context) {
+        DoodleRefreshWorker.cancelPeriodic(context);
+    }
+
+    static void restore(Context context) {
+        int[] ids = AppWidgetManager.getInstance(context).getAppWidgetIds(new ComponentName(context, DoodleWidgetProvider.class));
+        restore(context, ids);
+    }
+
+    private static void restore(Context context, int[] ids) {
+        // The launcher may have discarded its RemoteViews after an update or restore.
         synchronized (DoodleWidgetProvider.class) {
-            for (int id : appWidgetIds) displayed.remove(id);
+            for (int id : ids) displayed.remove(id);
         }
         requestRender(context);
-        PendingResult result = goAsync();
-        DoodleWidgetSync.refreshAsync(context, result::finish);
     }
 
     @Override
     public void onAppWidgetOptionsChanged(Context context, AppWidgetManager manager, int appWidgetId, Bundle newOptions) {
-        synchronized (DoodleWidgetProvider.class) { displayed.remove(appWidgetId); }
         requestRender(context);
     }
 
@@ -168,11 +181,11 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
                 int heightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0);
                 if (widthDp <= 0) widthDp = 320;
                 if (heightDp <= 0) heightDp = 180;
-                boolean compact = widthDp < 150 || heightDp < 100;
-                boolean partnerDrawing = snapshot.connected && snapshot.partnerDrawing;
-                boolean headerVisible = !compact || partnerDrawing;
-                String liveLabel = partnerDrawing ? resolveLiveLabel(context, snapshot, compact) : "";
-                String authorLabel = (!partnerDrawing && snapshot.connected && !snapshot.strokes.isEmpty())
+                boolean compact = widthDp < 205 || heightDp < 100;
+                boolean headerVisible = !compact;
+                boolean partnerDrawing = headerVisible && snapshot.connected && snapshot.partnerDrawing;
+                String liveLabel = partnerDrawing ? resolveLiveLabel(context, snapshot) : "";
+                String authorLabel = (headerVisible && !partnerDrawing && snapshot.connected && !snapshot.strokes.isEmpty())
                     ? snapshot.authorName
                     : "";
 
@@ -199,10 +212,12 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
                         : renderBoard(context, snapshot, widthDp, heightDp, compact, headerVisible);
                 }
 
-                RemoteViews views = buildFullViews(
-                    context, snapshot, compact, partnerDrawing, headerVisible, liveLabel, authorLabel, bitmap
+                RemoteViews views = buildViews(
+                    context, snapshot, compact, partnerDrawing, liveLabel, authorLabel, bitmap,
+                    previous == null, !sameBoard, paddingDp(widthDp, heightDp)
                 );
-                manager.updateAppWidget(id, views);
+                if (previous == null) manager.updateAppWidget(id, views);
+                else manager.partiallyUpdateAppWidget(id, views);
                 displayed.put(id, new DisplayedState(
                     snapshot.connected, snapshot.strokes, partnerDrawing, liveLabel, authorLabel,
                     widthDp, heightDp, compact, headerVisible, bitmap
@@ -213,8 +228,7 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
         }
     }
 
-    private static String resolveLiveLabel(Context context, DoodleWidgetStore.Snapshot snapshot, boolean compact) {
-        if (compact) return "Rysuje…";
+    private static String resolveLiveLabel(Context context, DoodleWidgetStore.Snapshot snapshot) {
         String partner = snapshot.partnerName.isEmpty()
             ? context.getString(R.string.widget_doodle_partner)
             : snapshot.partnerName;
@@ -239,34 +253,40 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
         }
     }
 
-    private static RemoteViews buildFullViews(
+    private static RemoteViews buildViews(
         Context context,
         DoodleWidgetStore.Snapshot snapshot,
         boolean compact,
         boolean partnerDrawing,
-        boolean headerVisible,
         String liveLabel,
         String authorLabel,
-        @Nullable Bitmap bitmap
+        @Nullable Bitmap bitmap,
+        boolean firstRender,
+        boolean boardChanged,
+        int paddingDp
     ) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_doodle);
-        PendingIntent open = launchIntent(context);
-        if (open != null) views.setOnClickPendingIntent(R.id.widget_root, open);
+        if (firstRender) {
+            PendingIntent open = launchIntent(context);
+            if (open != null) views.setOnClickPendingIntent(R.id.widget_root, open);
+        }
 
         applyHeaderState(views, partnerDrawing, liveLabel, authorLabel);
 
-        views.setViewVisibility(R.id.widget_title, compact ? View.GONE : View.VISIBLE);
-        views.setViewVisibility(R.id.widget_header, headerVisible ? View.VISIBLE : View.GONE);
-        if (compact) {
-            int padding = Math.round(COMPACT_PADDING_DP * context.getResources().getDisplayMetrics().density);
-            views.setViewPadding(R.id.widget_root, padding, padding, padding, padding);
-        }
+        views.setViewVisibility(R.id.widget_header, compact ? View.GONE : View.VISIBLE);
+        views.setViewVisibility(R.id.widget_board_gap, compact ? View.GONE : View.VISIBLE);
+        int padding = Math.round(paddingDp * context.getResources().getDisplayMetrics().density);
+        views.setViewPadding(R.id.widget_root, padding, padding, padding, padding);
 
+        if (!boardChanged) return views;
+        views.setInt(R.id.widget_empty, "setBackgroundResource", compact ? android.R.color.transparent : R.drawable.widget_empty_bg);
+        views.setViewVisibility(R.id.widget_empty_text, compact ? View.GONE : View.VISIBLE);
         if (bitmap != null) {
             views.setImageViewBitmap(R.id.widget_doodle, bitmap);
             views.setViewVisibility(R.id.widget_doodle, View.VISIBLE);
             views.setViewVisibility(R.id.widget_empty, View.GONE);
         } else {
+            views.setImageViewBitmap(R.id.widget_doodle, null);
             views.setViewVisibility(R.id.widget_doodle, View.GONE);
             views.setViewVisibility(R.id.widget_empty, View.VISIBLE);
             views.setTextViewText(R.id.widget_empty_text, !snapshot.connected
@@ -274,6 +294,10 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
                 : context.getString(R.string.widget_doodle_empty));
         }
         return views;
+    }
+
+    private static int paddingDp(int widthDp, int heightDp) {
+        return Math.min(widthDp, heightDp) < 85 ? COMPACT_PADDING_DP : PADDING_DP;
     }
 
     private static Bitmap renderBoard(
@@ -285,15 +309,15 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
         boolean headerVisible
     ) {
         float density = context.getResources().getDisplayMetrics().density;
-        int padDp = compact ? COMPACT_PADDING_DP : PADDING_DP;
-        int headerSpaceDp = headerVisible ? (HEADER_DP + GAP_DP) : GAP_DP;
-        float boardWidth = Math.max(80, widthDp - 2 * padDp) * density;
-        float boardHeight = Math.max(60, heightDp - 2 * padDp - headerSpaceDp) * density;
+        int padDp = paddingDp(widthDp, heightDp);
+        int headerSpaceDp = headerVisible ? HEADER_DP + GAP_DP : 0;
+        float boardWidth = Math.max(1, widthDp - 2 * padDp) * density;
+        float boardHeight = Math.max(1, heightDp - 2 * padDp - headerSpaceDp) * density;
         float scale = (float) Math.min(1.0, Math.sqrt(MAX_BITMAP_PIXELS / (boardWidth * boardHeight)));
 
         int width = Math.max(1, Math.round(boardWidth * scale));
         int height = Math.max(1, Math.round(boardHeight * scale));
-        return DoodleRenderer.render(snapshot.strokes, width, height, density, scale);
+        return DoodleRenderer.render(snapshot.strokes, width, height, density, scale, !compact);
     }
 
     @Nullable

@@ -137,6 +137,7 @@ final class DoodleWidgetSync {
             String token = idToken(store, session);
             if (token == null) {
                 if (clearDrawing) store.finishPartnerDrawing();
+                PartnerLocationWidgetProvider.render(context);
                 return true;
             }
             JSONObject doodle = fetchLatestDoodle(session, token, appCheckToken());
