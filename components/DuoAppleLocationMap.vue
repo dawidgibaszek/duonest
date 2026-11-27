@@ -18,6 +18,25 @@ let stopped = false
 let requestVersion = 0
 let lastInput = ''
 let lastCount = -1
+type MapRender = Parameters<typeof maps.render>[0]
+let pendingRender: MapRender | undefined
+let rendering = false
+
+function flushRender() {
+  if (rendering || !pendingRender || stopped) return
+  rendering = true
+  const current = pendingRender
+  pendingRender = undefined
+  void maps.render(current).catch(() => {
+    if (!stopped) {
+      failed.value = true
+      lastInput = ''
+    }
+  }).finally(() => {
+    rendering = false
+    flushRender()
+  })
+}
 
 function frame(rect: DOMRect): MapFrame {
   return { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(rect.width), height: Math.round(rect.height) }
@@ -65,12 +84,8 @@ function update() {
     if (clip.width && clip.height && area.width && area.height &&
       area.x < clip.x + clip.width && area.x + area.width > clip.x &&
       area.y < clip.y + clip.height && area.y + area.height > clip.y) lastCount = count
-    void maps.render({ id, frame: area, clip, cover, mine, partner, fit }).catch(() => {
-      if (!stopped) {
-        failed.value = true
-        lastInput = ''
-      }
-    })
+    pendingRender = { id, frame: area, clip, cover, mine, partner, fit }
+    flushRender()
   })
 }
 
@@ -111,6 +126,7 @@ watch(() => [props.mine, props.partner, props.detailsTop, props.controls], updat
 onBeforeUnmount(() => {
   stopped = true
   ++requestVersion
+  pendingRender = undefined
   cancelAnimationFrame(animation)
   stopTrackingDismiss()
   resizeObserver?.disconnect()
