@@ -21,14 +21,13 @@ const RECENT_NUDGE_TS_KEY_PREFIX = 'duonest_nudge_recent_ts_'
 const MAX_SEEN_NUDGE_IDS = 120
 const INITIAL_FRESH_WINDOW_MS = 12 * 60 * 60 * 1000
 export const GESTURE_EFFECT_DURATION_MS = 3000
-const GESTURE_STAGGER_MS = 220
+export const MAX_PENDING_PARTNER_GESTURES = 3
 export const NUDGE_RATE_LIMIT_MAX = 5
 export const NUDGE_RATE_LIMIT_WINDOW_MS = 60 * 1000
 
 const nudgeNowTick = ref(Date.now())
 let nudgeTickTimer: ReturnType<typeof setInterval> | null = null
-const scheduledPartnerGestureIds = new Set<string>()
-const scheduledPartnerTimers = new Set<ReturnType<typeof setTimeout>>()
+const unsavedSeenIds = new Map<string, string[]>()
 
 function seenStorageKey(profileId: string): string {
   return `${SEEN_NUDGES_KEY_PREFIX}${profileId}`
@@ -39,6 +38,8 @@ function recentTsStorageKey(profileId: string): string {
 }
 
 function readSeenNudgeIds(profileId: string): string[] | null {
+  const unsaved = unsavedSeenIds.get(profileId)
+  if (unsaved) return unsaved
   if (typeof window === 'undefined' || !profileId) return []
   try {
     const raw = localStorage.getItem(seenStorageKey(profileId))
@@ -52,10 +53,13 @@ function readSeenNudgeIds(profileId: string): string[] | null {
 
 function writeSeenNudgeIds(profileId: string, ids: string[]) {
   if (typeof window === 'undefined' || !profileId) return
+  const deduped = Array.from(new Set(ids)).slice(-MAX_SEEN_NUDGE_IDS)
   try {
-    const deduped = Array.from(new Set(ids)).slice(-MAX_SEEN_NUDGE_IDS)
     localStorage.setItem(seenStorageKey(profileId), JSON.stringify(deduped))
-  } catch {}
+    unsavedSeenIds.delete(profileId)
+  } catch {
+    unsavedSeenIds.set(profileId, deduped)
+  }
 }
 
 function pruneRecentTimestamps(timestamps: number[], now = Date.now()): number[] {
@@ -119,74 +123,51 @@ export function dismissGestureAnimation(instanceId?: string) {
   activeGestureAnimations.value = activeGestureAnimations.value.filter(item => item.instanceId !== instanceId)
 }
 
-/**
- * Plays all unseen partner gestures as overlapping full-screen layers in chronological
- * order (oldest -> newest) without canceling any currently active animation.
- */
+// The overlay checks again when the current partner animation ends.
 export function consumePendingPartnerGesture(
-  rows: NudgeItem[] = nudgesList.value,
-  canPlay: () => boolean = () => true
+  rows: NudgeItem[],
+  replay: { since: number; remaining: number }
 ) {
   const profileId = currentUser.value?.id
   const pid = partnership.value?.id
-  if (!profileId || !pid || !Array.isArray(rows) || rows.length === 0) return
+  if (!profileId || !pid || !rows.length) return
+  if (activeGestureAnimations.value.some(gesture => !gesture.isOwn)) return
 
   const partnerRows = rows
     .filter(row => row && row.id && row.partnership_id === pid && row.sender_id && row.sender_id !== profileId)
-    .sort((a, b) => String(a.created_at || '').localeCompare(String(b.created_at || '')))
+    .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')) || b.id.localeCompare(a.id))
 
-  if (partnerRows.length === 0) {
-    if (readSeenNudgeIds(profileId) === null) writeSeenNudgeIds(profileId, [])
-    return
-  }
-
+  if (!partnerRows.length) return
   const storedSeen = readSeenNudgeIds(profileId)
-  const now = Date.now()
-  let unseenRows: NudgeItem[]
-
-  if (storedSeen === null) {
-    const freshThreshold = now - INITIAL_FRESH_WINDOW_MS
-    const historicalIds = partnerRows
-      .filter(row => {
-        const ts = Date.parse(row.created_at || '')
-        return !Number.isFinite(ts) || ts < freshThreshold
-      })
-      .map(row => row.id)
-
-    writeSeenNudgeIds(profileId, historicalIds)
-    unseenRows = partnerRows.filter(row => {
-      const ts = Date.parse(row.created_at || '')
-      return Number.isFinite(ts) && ts >= freshThreshold && !scheduledPartnerGestureIds.has(row.id)
-    })
-  } else {
-    const seenSet = new Set(storedSeen)
-    unseenRows = partnerRows.filter(row => !seenSet.has(row.id) && !scheduledPartnerGestureIds.has(row.id))
-  }
-
-  if (unseenRows.length === 0) return
-
-  const launchGesture = (row: NudgeItem) => {
-    const activeProfileId = currentUser.value?.id
-    if (!activeProfileId || activeProfileId !== profileId || partnership.value?.id !== pid || !canPlay()) return
-    const currentSeen = readSeenNudgeIds(activeProfileId) || []
-    if (currentSeen.includes(row.id)) return
-    writeSeenNudgeIds(activeProfileId, [...currentSeen, row.id])
-    playGestureAnimation(row, false)
-  }
-
-  unseenRows.forEach((row, index) => {
-    if (index === 0) {
-      launchGesture(row)
-      return
+  const seen = new Set(storedSeen)
+  const freshSince = Date.now() - INITIAL_FRESH_WINDOW_MS
+  let slots = replay.remaining
+  let next: NudgeItem | undefined
+  let nextIsLive = false
+  for (const row of partnerRows) {
+    if (seen.has(row.id)) continue
+    const sentAt = Date.parse(row.created_at)
+    if (storedSeen === null && (!Number.isFinite(sentAt) || sentAt < freshSince)) {
+      seen.add(row.id)
+      continue
     }
-    scheduledPartnerGestureIds.add(row.id)
-    const timer = setTimeout(() => {
-      scheduledPartnerTimers.delete(timer)
-      scheduledPartnerGestureIds.delete(row.id)
-      launchGesture(row)
-    }, index * GESTURE_STAGGER_MS)
-    scheduledPartnerTimers.add(timer)
-  })
+    const isLive = sentAt >= replay.since
+    if (!isLive) {
+      if (slots === 0) {
+        seen.add(row.id)
+        continue
+      }
+      slots--
+    }
+    // Scan newest first to keep the latest backlog, then play it oldest first.
+    next = row
+    nextIsLive = isLive
+  }
+  if (next) seen.add(next.id)
+  if (seen.size !== (storedSeen?.length ?? 0)) writeSeenNudgeIds(profileId, [...seen])
+  if (!next) return
+  if (!nextIsLive) replay.remaining--
+  playGestureAnimation(next, false)
 }
 
 let hasBoundRateLimitWatchers = false

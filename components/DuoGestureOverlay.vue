@@ -36,11 +36,12 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { App } from '@capacitor/app'
 import { Capacitor, type PluginListenerHandle } from '@capacitor/core'
 import DuoIcon from '~/components/DuoIcon.vue'
 import type { ActiveGestureAnimation } from '~/composables/duo/state'
+import { MAX_PENDING_PARTNER_GESTURES } from '~/composables/duo/useNudges'
 import { useDuoState } from '~/composables/useDuoState'
 import { getDuoGestureMeta } from '~/utils/duoGestures'
 
@@ -144,34 +145,23 @@ function particlesFor(gesture: ActiveGestureAnimation): GestureParticle[] {
   })
 }
 
-function canPlayForegroundGesture() {
-  return Boolean(
-    isForeground.value &&
-    !isAuthLoading.value &&
-    !isLoggingOut.value &&
-    isPaired.value &&
-    route.path.startsWith('/tabs')
-  )
-}
+const canPlayForegroundGesture = computed(() =>
+  isForeground.value &&
+  !isAuthLoading.value &&
+  !isLoggingOut.value &&
+  isPaired.value &&
+  route.path.startsWith('/tabs')
+)
 
-function checkPendingGesture() {
-  if (!canPlayForegroundGesture()) return
-  consumePendingPartnerGesture(nudgesList.value, canPlayForegroundGesture)
-}
+const replay = ref({ since: Date.now(), remaining: MAX_PENDING_PARTNER_GESTURES })
+watch([canPlayForegroundGesture, () => currentUser.value?.id, () => partnership.value?.id], () => {
+  replay.value = { since: Date.now(), remaining: MAX_PENDING_PARTNER_GESTURES }
+})
 
 watch(
-  [
-    nudgesList,
-    isForeground,
-    isAuthLoading,
-    isLoggingOut,
-    isPaired,
-    () => currentUser.value?.id,
-    () => partnership.value?.id,
-    () => route.path
-  ],
-  () => {
-    checkPendingGesture()
+  [nudgesList, replay, () => activeGestureAnimations.value.some(gesture => !gesture.isOwn)],
+  ([rows, session]) => {
+    if (canPlayForegroundGesture.value) consumePendingPartnerGesture(rows, session)
   },
   { immediate: true }
 )
@@ -187,7 +177,7 @@ watch(
       if (oldestKey) announcedInstances.delete(oldestKey)
     }
 
-    if (!latest.isOwn) {
+    if (!latest.isOwn && Date.parse(latest.created_at || '') >= replay.value.since) {
       const meta = getDuoGestureMeta(latest.nudge_type)
       const verb = formatPartnerVerb('przesłał')
       const subject = partnerUser.value?.name?.trim() || partnerDisplayName.value
