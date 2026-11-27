@@ -20,7 +20,18 @@ const config: CapacitorConfig = {
     contentInset: 'never',
     backgroundColor: '#f6f2e7',
     scheme: 'DuoNest',
-    limitsNavigationsToAppBoundDomains: false
+    limitsNavigationsToAppBoundDomains: false,
+    // iOS uses the native MapKit plugin. The Capacitor Google Maps plugin is Android-only here.
+    includePlugins: [
+      '@capacitor-firebase/analytics',
+      '@capacitor-firebase/app-check',
+      '@capacitor-firebase/authentication',
+      '@capacitor-firebase/messaging',
+      '@capacitor/app',
+      '@capacitor/keyboard',
+      '@capacitor/splash-screen',
+      '@capacitor/status-bar'
+    ]
   },
   plugins: {
     SplashScreen: {
