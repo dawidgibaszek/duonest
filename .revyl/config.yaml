@@ -17,7 +17,7 @@ build:
                 build_commands:
                     - name: Build iOS Simulator app
                       run: cd ios/App && xcodebuild -project App.xcodeproj -scheme App -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build -disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile ARCHS=arm64
-                output_path: ios/App/build/Build/Products/Release-iphonesimulator/App.app
+                output_path: ios/App/build/Build/Products/Release-iphonesimulator/DuoNest.app
             android:
                 app_id: 0e8815f5-db71-43a1-9d42-403a1118092a
                 setup_commands:
