@@ -11,10 +11,15 @@ struct PartnerLocation: Codable {
     let longitude: Double
     let accuracy: Double
     let captured_at: Double
+    let expires_at: Double?
     let address: [String: String]
 
     var date: Date { Date(timeIntervalSince1970: captured_at / 1000) }
-    var expires: Date { date.addingTimeInterval(24 * 60 * 60) }
+    var expires: Date {
+        let maxAge = date.addingTimeInterval(24 * 60 * 60)
+        guard let expires_at else { return maxAge }
+        return min(maxAge, Date(timeIntervalSince1970: expires_at / 1000))
+    }
     var label: String {
         let street = [address["street"], address["number"]].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ")
         let parts = [street, address["city"] ?? "", address["country"] ?? ""].filter { !$0.isEmpty }

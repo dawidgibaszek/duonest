@@ -35,7 +35,8 @@ test('returns only the paired partner location and public fields', async () => {
   assert.equal(result.status, 200)
   assert.equal(result.body.partnerName, 'Alex')
   assert.equal(result.body.location.latitude, 52)
-  assert.equal(result.body.location.expires_at, undefined)
+  assert.ok(result.body.location.expires_at > Date.now())
+  assert.deepEqual(Object.keys(result.body.location).sort(), ['accuracy', 'address', 'captured_at', 'expires_at', 'latitude', 'longitude'])
 })
 test('requires widget credential', async () => {
   assert.equal((await fixture().request(null)).status, 401)
@@ -67,7 +68,7 @@ test('rejects disabled user and foreign partner profile', async () => {
   assert.equal((await f.request()).body.location, null)
 })
 
-test('location wakeups target only iOS devices of the other partner', async () => {
+test('location wakeups reach both native platforms of the other partner with alerts disabled', async () => {
   const { notifyLocationWidgets } = require('../lib/pushCore')
   const sent = []
   const db = { collection: name => {
@@ -75,16 +76,22 @@ test('location wakeups target only iOS devices of the other partner', async () =
     return { where: (key, op, value) => {
       assert.equal(value, 'partner')
       return { get: async () => ({ docs: name === 'widget_push_tokens' ? [] : [
-        { data: () => ({ platform: 'android', fcm_token: 'android-device' }) },
-        { data: () => ({ platform: 'ios', fcm_token: 'ios-device' }) }
+        { data: () => ({ platform: 'android', fcm_token: 'android-device', enabled: false }) },
+        { data: () => ({ platform: 'ios', fcm_token: 'ios-device', enabled: false }) },
+        { data: () => ({ type: 'web' }) }
       ] }) }
     } }
   } }
   await notifyLocationWidgets(db, { send: async message => { sent.push(message) } }, 'nest', 'mine')
-  assert.equal(sent.length, 1)
-  assert.equal(sent[0].token, 'ios-device')
-  assert.deepEqual(sent[0].data, { widget: 'location', recipientProfileId: 'partner' })
-  assert.equal(sent[0].apns.payload.aps.contentAvailable, true)
-  assert.equal(sent[0].apns.headers['apns-collapse-id'], 'partner-location')
+  assert.equal(sent.length, 2)
+  const ios = sent.find(message => message.token === 'ios-device')
+  const android = sent.find(message => message.token === 'android-device')
+  for (const message of [ios, android]) {
+    assert.deepEqual(message.data, { widget: 'location', recipientProfileId: 'partner' })
+    assert.equal(message.notification, undefined)
+  }
+  assert.equal(ios.apns.payload.aps.contentAvailable, true)
+  assert.equal(ios.apns.headers['apns-collapse-id'], 'partner-location')
+  assert.equal(android.android.collapseKey, 'partner-location')
   await notifyLocationWidgets(db, { send: async () => { throw Error('Unexpected push') } }, 'nest', 'outsider')
 })

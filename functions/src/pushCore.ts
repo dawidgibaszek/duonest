@@ -407,7 +407,7 @@ async function refreshPartnerWidgets(
       doodleId: cleanDoodleId(payload?.doodleId)
     })
   } else if (action === 'DOODLE_DRAWING_STOP') {
-    await wakePartnerApps(db, messaging, partnerId, 'DOODLE_DRAWING_STOP', senderName, { androidOnly: true })
+    await wakePartnerApps(db, messaging, partnerId, action, senderName)
   } else if (action !== 'DOODLE_DRAWING_STATUS') {
     await Promise.all([
       pushWidgetReloads(db, partnerId),

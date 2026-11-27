@@ -568,9 +568,9 @@ export function useRealtimeSync(options?: {
     if (!bridge || !partnershipId) return false
     const profileId = currentUser.value.id
     const uid = bridge.auth.currentUser?.uid
-    // Android also renders the board from a native server read in the background.
+    // Native widgets can refresh the drawing in the background.
     // A cached dashboard query must not replace that drawing when the app resumes.
-    const readDoodleFromServer = serverOnly || Capacitor.getPlatform() === 'android'
+    const readDoodleFromServer = serverOnly || Capacitor.isNativePlatform()
     try {
       const [shops, tasks, evts, ndgs, wishes, movs, mls, mlsList, svgGoals, svgContribs, doodles] = await Promise.all([
         bridge.from('shopping_items', serverOnly).select('*').eq('partnership_id', partnershipId).order('created_at', { ascending: false }),

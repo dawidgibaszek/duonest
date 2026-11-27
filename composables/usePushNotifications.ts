@@ -63,7 +63,7 @@ let nativeSyncTimer: ReturnType<typeof setTimeout> | undefined
 let registerInFlight: Promise<boolean> | undefined
 let nativeWork: Promise<unknown> = Promise.resolve()
 let nativeDevice: { uid: string; token: string; enabled?: boolean } | null = null
-let androidSilentSyncedKey: string | null = null
+let silentSyncedKey: string | null = null
 const isAndroidNative = () => Capacitor.getPlatform() === 'android'
 
 const mapNativePermission = (state: string): NotificationPermission =>
@@ -111,7 +111,7 @@ async function forgetNativeDevice() {
   ])
   await FirebaseMessaging.removeAllDeliveredNotifications().catch(() => {})
   if (removed || invalidated) rememberNativeDevice(null)
-  androidSilentSyncedKey = null
+  silentSyncedKey = null
   nativeRegistered.value = false
   return removed || invalidated
 }
@@ -513,7 +513,7 @@ export const usePushNotifications = () => {
   ) => {
     const authToken = await account.getIdToken()
     const wantAlerts = isPushEnabled.value && permission.value === 'granted'
-    if (alertsEnabled ? !wantAlerts : (!isAndroidNative() || !currentUser.value?.partnership_id || wantAlerts)) return false
+    if (alertsEnabled ? !wantAlerts : (!currentUser.value?.partnership_id || wantAlerts)) return false
     if (activeNativeAccount()?.uid !== account.uid) return false
     const response = await $fetch<{ success: boolean }>('/api/push/subscribe', {
       method: 'POST',
@@ -530,32 +530,32 @@ export const usePushNotifications = () => {
     })
     if (!response?.success) return false
     rememberNativeDevice({ uid: account.uid, token, enabled: alertsEnabled })
-    if (alertsEnabled) androidSilentSyncedKey = null
+    if (alertsEnabled) silentSyncedKey = null
     nativeRegistered.value = alertsEnabled
     return true
   }
 
-  // Android home-screen widgets wake via data-only FCM messages even when tray alerts are off.
-  const registerAndroidSilentDevice = (force = false): Promise<boolean> => {
-    if (!isAndroidNative() || !currentUser.value?.partnership_id || !activeNativeAccount()) return Promise.resolve(false)
+  // Native widgets use silent pushes even when alerts are off.
+  const registerSilentDevice = (force = false): Promise<boolean> => {
+    if (!currentUser.value?.partnership_id || !activeNativeAccount()) return Promise.resolve(false)
     return queueNativeWork(async () => {
       const account = activeNativeAccount()
       const pid = currentUser.value?.partnership_id
       if (!account || !pid || (isPushEnabled.value && permission.value === 'granted')) return false
-      for (const delay of [0, 500, 1500]) {
+      for (const delay of [0, 500, 1000, 2000]) {
         if (delay) await new Promise(resolve => setTimeout(resolve, delay))
         if (activeNativeAccount()?.uid !== account.uid || currentUser.value?.partnership_id !== pid) return false
         if (isPushEnabled.value && permission.value === 'granted') return false
         const result = await FirebaseMessaging.getToken().catch(() => null)
         if (!result?.token) continue
         const key = `${account.uid}:${pid}:${result.token}`
-        if (!force && androidSilentSyncedKey === key &&
+        if (!force && silentSyncedKey === key &&
             nativeDevice?.uid === account.uid && nativeDevice.token === result.token && nativeDevice.enabled === false) {
           nativeRegistered.value = false
           return true
         }
         const saved = await saveNativeToken(result.token, account, false)
-        if (saved) androidSilentSyncedKey = key
+        if (saved) silentSyncedKey = key
         return saved
       }
       return false
@@ -677,7 +677,7 @@ export const usePushNotifications = () => {
       }).catch(() => console.warn('[Push] Notification tap listener unavailable'))
 
       void FirebaseMessaging.addListener('tokenReceived', () => {
-        androidSilentSyncedKey = null
+        silentSyncedKey = null
         if (!isSubscribing.value) refresh()
       }).catch(() => console.warn('[Push] Token refresh listener unavailable'))
 
@@ -692,8 +692,8 @@ export const usePushNotifications = () => {
         if (permission.value !== 'granted') nativeRegistered.value = false
         if (isPushEnabled.value && permission.value === 'granted') {
           await registerNativeDevice()
-        } else if (isAndroidNative() && currentUser.value?.partnership_id && activeNativeAccount()) {
-          await registerAndroidSilentDevice()
+        } else if (currentUser.value?.partnership_id && activeNativeAccount()) {
+          await registerSilentDevice()
         } else if (nativeDevice?.uid && nativeDevice.uid === activeNativeAccount()?.uid) {
           await queueNativeWork(forgetNativeDevice)
         }
@@ -777,9 +777,9 @@ export const usePushNotifications = () => {
         isPushEnabled.value = false
         persistSettings(false)
         clearTimeout(nativeSyncTimer)
-        if (isAndroidNative() && currentUser.value?.partnership_id && activeNativeAccount()) {
+        if (currentUser.value?.partnership_id && activeNativeAccount()) {
           await FirebaseMessaging.removeAllDeliveredNotifications().catch(() => {})
-          const updated = await registerAndroidSilentDevice(true)
+          const updated = await registerSilentDevice(true)
           triggerToast(
             updated ? 'Wyłączono powiadomienia' : 'Nie udało się zapisać ustawień powiadomień. Ponowimy próbę po połączeniu.',
             { type: updated ? 'info' : 'warning' }

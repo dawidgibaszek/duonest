@@ -10,7 +10,7 @@ final class DuoWidgetPlugin: CAPPlugin, CAPBridgedPlugin {
     let jsName = "DuoWidget"
     let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "setSession", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "setPartnerLocation", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "refreshLocation", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setDoodle", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "addLiveStroke", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clearLiveStrokes", returnType: CAPPluginReturnPromise),
@@ -25,16 +25,20 @@ final class DuoWidgetPlugin: CAPPlugin, CAPBridgedPlugin {
     private let store = DoodleWidgetStore.shared
     private let liveQueue = DispatchQueue(label: "com.belka.duonest.widget-live")
     private var liveStrokes: [DoodleStroke] = []
+    private var lastLiveStrokeAt: Date?
 
     @objc func setSession(_ call: CAPPluginCall) {
         let session = DoodleWidgetSession(json: call.options as? [String: Any] ?? [:])
+        if session == nil && call.getString("uid") != nil {
+            call.reject("Incomplete widget session")
+            return
+        }
         let previous = store.session()
+        if session?.sameAccount(previous) != true { resetLiveStrokes() }
         store.setSession(session)
         if session != nil {
             let partnerName = call.getString("partnerName") ?? ""
             store.update { $0.partnerName = partnerName }
-        } else {
-            liveQueue.sync { liveStrokes = [] }
         }
         if store.session() != previous {
             scheduleReload()
@@ -49,48 +53,33 @@ final class DuoWidgetPlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve()
     }
 
-    @objc func setPartnerLocation(_ call: CAPPluginCall) {
-        guard let session = store.session(),
-              session.uid == call.getString("uid"), session.partnershipId == call.getString("partnershipId") else {
-            call.reject("Sesja widgetu zmieniła się.")
-            return
-        }
-        if let input = call.getObject("location"),
-           let data = try? JSONSerialization.data(withJSONObject: input),
-           let location = try? JSONDecoder().decode(PartnerLocation.self, from: data),
-           location.latitude.isFinite, abs(location.latitude) <= 90,
-           location.longitude.isFinite, abs(location.longitude) <= 180,
-           location.accuracy.isFinite, location.accuracy >= 0,
-           location.captured_at.isFinite, location.expires > Date() {
-            let previous = store.state()
-            // A delayed WebView callback cannot overwrite a more recent background fix.
-            if (previous.location?.captured_at ?? 0) <= location.captured_at {
-                _ = store.applyLocation(location, name: previous.partnerName, session: session,
-                                        previousCapturedAt: previous.location?.captured_at)
-                WidgetCenter.shared.reloadTimelines(ofKind: LocationWidgetConfig.kind)
-            }
+    @objc func refreshLocation(_ call: CAPPluginCall) {
+        Task {
+            _ = await LocationWidgetSync.refresh()
+            WidgetCenter.shared.reloadTimelines(ofKind: LocationWidgetConfig.kind)
             call.resolve()
-        } else {
-            // An unresolved Firestore listener also starts with nil; verify absence on the server.
-            Task {
-                _ = await LocationWidgetSync.refresh()
-                WidgetCenter.shared.reloadTimelines(ofKind: LocationWidgetConfig.kind)
-                call.resolve()
-            }
         }
     }
 
     @objc func setDoodle(_ call: CAPPluginCall) {
         let doodle = DoodleWidgetDoodle(json: call.options["doodle"] as? [String: Any])
+        if doodle == nil && call.getBool("verifyEmpty") == true {
+            // The timeline verifies the saved drawing with the server after initial hydration.
+            DoodleWidgetReloader.reload()
+            call.resolve()
+            return
+        }
+        let finishDrawing = call.getBool("finishDrawing") == true
         var changed = false
         store.update { state in
             if let cached = state.doodle, let incoming = doodle, cached.isNewer(than: incoming) { return }
             changed = state.doodle?.id != doodle?.id || state.doodle?.updatedAt != doodle?.updatedAt
-            if changed { state.liveStrokes = [] }
+            if changed || doodle == nil { state.liveStrokes = [] }
+            if (changed && finishDrawing) || doodle == nil { state.partnerDrawingUntil = nil }
             state.doodle = doodle
         }
-        if changed {
-            liveQueue.sync { liveStrokes = [] }
+        if changed || doodle == nil {
+            resetLiveStrokes()
             scheduleReload()
         }
         call.resolve()
@@ -102,6 +91,7 @@ final class DuoWidgetPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
         liveQueue.sync {
+            lastLiveStrokeAt = Date()
             if let last = liveStrokes.last, last.isContinued(by: stroke) {
                 liveStrokes[liveStrokes.count - 1] = stroke
             } else {
@@ -113,16 +103,28 @@ final class DuoWidgetPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func clearLiveStrokes(_ call: CAPPluginCall) {
-        liveQueue.sync { liveStrokes = [] }
+        resetLiveStrokes()
         scheduleReload()
         call.resolve()
     }
 
     @objc func setPartnerDrawing(_ call: CAPPluginCall) {
         let isDrawing = call.getBool("isDrawing") ?? false
-        store.update { $0.partnerDrawingUntil = isDrawing ? Date().addingTimeInterval(Self.liveDrawing) : nil }
+        if !isDrawing { liveQueue.sync { lastLiveStrokeAt = nil } }
+        store.update { state in
+            state.partnerDrawingUntil = isDrawing
+                ? max(state.partnerDrawingUntil ?? .distantPast, Date().addingTimeInterval(Self.liveDrawing))
+                : nil
+        }
         scheduleReload()
         call.resolve()
+    }
+
+    private func resetLiveStrokes() {
+        liveQueue.sync {
+            liveStrokes = []
+            lastLiveStrokeAt = nil
+        }
     }
 
     @objc func hasReadAccess(_ call: CAPPluginCall) {
@@ -144,8 +146,14 @@ final class DuoWidgetPlugin: CAPPlugin, CAPBridgedPlugin {
     private func scheduleReload() {
         DoodleWidgetReloader.reload { [weak self] in
             guard let self else { return }
-            let live = self.liveQueue.sync { self.liveStrokes }
-            self.store.update { $0.liveStrokes = live }
+            self.liveQueue.sync {
+                self.store.update { state in
+                    state.liveStrokes = self.liveStrokes
+                    if let until = self.lastLiveStrokeAt?.addingTimeInterval(Self.liveDrawing), until > Date() {
+                        state.partnerDrawingUntil = max(state.partnerDrawingUntil ?? .distantPast, until)
+                    }
+                }
+            }
         }
     }
 }
@@ -200,8 +208,18 @@ enum DoodleWidgetPush {
             store.update { $0.partnerDrawingUntil = Date().addingTimeInterval(drawingDuration) }
             WidgetCenter.shared.reloadTimelines(ofKind: DoodleWidgetConfig.kind)
             completion(.newData)
+        case "DOODLE_DRAWING_STOP":
+            store.update {
+                $0.partnerDrawingUntil = nil
+                $0.liveStrokes = []
+            }
+            WidgetCenter.shared.reloadTimelines(ofKind: DoodleWidgetConfig.kind)
+            completion(.newData)
         case "DOODLE_SAVE", "DOODLE_CLEAR":
-            store.update { $0.partnerDrawingUntil = nil }
+            store.update {
+                $0.partnerDrawingUntil = nil
+                $0.liveStrokes = []
+            }
             Task {
                 let refreshed = await DoodleWidgetSync.refresh()
                 WidgetCenter.shared.reloadTimelines(ofKind: DoodleWidgetConfig.kind)

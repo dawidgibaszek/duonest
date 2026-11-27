@@ -20,52 +20,40 @@ export default defineNuxtPlugin(() => {
   let accessInFlight = false
   let sessionQueue: Promise<void> = Promise.resolve()
 
-  function androidSessionMatches(key: string | null) {
+  function sessionMatches(key: string | null) {
     if (isAuthLoading.value || isLoggingOut.value) return false
     const user = bridge.auth.currentUser
     const pid = partnership.value?.id
     if (!user) return key === null && !authSession.value
     if (!authSession.value?.access_token || currentUser.value.auth_user_id !== user.uid) return false
     if (key === null) return !pid && !currentUser.value.partnership_id
-    return pid === currentUser.value.partnership_id && key === `${user.uid}:${pid}`
+    return !!currentUser.value.id && pid === currentUser.value.partnership_id && key === `${user.uid}:${pid}`
   }
 
   function queueSession(session: DuoWidgetSession, key: string | null) {
     sessionQueue = sessionQueue.catch(ignore).then(async () => {
-      if (!isIos && !androidSessionMatches(key)) return
-      if (key && (isLoggingOut.value || key !== `${bridge.auth.currentUser?.uid}:${partnership.value?.id}`)) return
+      if (!sessionMatches(key)) return
       const newSession = installedSession !== key
       await DuoWidget.setSession(session)
       installedSession = key
       if (key) {
         await pushDoodle(true)
-        await pushLocation()
         if (!isIos && newSession) void DuoWidget.refresh?.().catch(ignore)
       }
     })
     void sessionQueue.catch(ignore)
   }
 
-  function pushLocation() {
-    const user = bridge.auth.currentUser
-    const pid = partnership.value?.id
-    if (!isIos || !user || !pid || isAuthLoading.value || isLoggingOut.value ||
-        installedSession !== `${user.uid}:${pid}`) return
-    return DuoWidget.setPartnerLocation({ uid: user.uid, partnershipId: pid, location: theirPosition.value }).catch(ignore)
-  }
-
   function pushDoodle(verifyEmpty = false) {
-    if (!installedSession || isAuthLoading.value || isLoggingOut.value ||
-        installedSession !== `${bridge.auth.currentUser?.uid}:${partnership.value?.id}`) return
+    if (!activeWidgetSession()) return
     const doodle = currentDoodle.value
-    if (!isIos && (!androidSessionMatches(installedSession) ||
-        (doodle && doodle.partnership_id !== partnership.value?.id))) return
+    if (doodle && doodle.partnership_id !== partnership.value?.id) return
     return DuoWidget.setDoodle({
       doodle: doodle
         ? { id: doodle.id, updated_at: doodle.updated_at, author_name: doodle.author_name, strokes: doodle.strokes }
         : null,
       ...(!doodle && verifyEmpty ? { verifyEmpty: true } : {}),
-      ...(!isIos && doodle && !verifyEmpty ? { finishDrawing: true } : {})
+      ...(doodle && !verifyEmpty ? { finishDrawing: true } : {})
     }).catch(ignore)
   }
 
@@ -84,7 +72,7 @@ export default defineNuxtPlugin(() => {
     const pid = partnership.value?.id
     if (!user || currentUser.value.auth_user_id !== user.uid || !pid) return
     const key = `${user.uid}:${pid}`
-    if (!isIos && !androidSessionMatches(key)) return
+    if (!sessionMatches(key)) return
     accessInFlight = true
     try {
       const credential = getWidgetCredential(user.uid)
@@ -110,12 +98,12 @@ export default defineNuxtPlugin(() => {
     }
 
     function isCurrent() {
-      return bridge.auth.currentUser === user && partnership.value?.id === pid && !isLoggingOut.value
+      return bridge.auth.currentUser === user && sessionMatches(key)
     }
   }
 
   watch(
-    () => [isAuthLoading.value, isLoggingOut.value, authSession.value?.access_token, partnership.value?.id, partnerUser.value?.name, currentUser.value.auth_user_id, currentUser.value.id, isIos ? undefined : currentUser.value.partnership_id] as const,
+    () => [isAuthLoading.value, isLoggingOut.value, authSession.value?.access_token, partnership.value?.id, partnerUser.value?.name, currentUser.value.auth_user_id, currentUser.value.id, currentUser.value.partnership_id] as const,
     ([loading, loggingOut, accessToken, pid]) => {
       if (loading || loggingOut) return
       const user = bridge.auth.currentUser
@@ -151,24 +139,23 @@ export default defineNuxtPlugin(() => {
     }).catch(ignore)
   }
 
-  if (isIos) watch(theirPosition, () => { void pushLocation() })
-  else watch(() => theirPosition.value?.captured_at, () => {
+  watch(() => theirPosition.value?.captured_at, () => {
     if (active && activeWidgetSession()) void DuoWidget.refreshLocation().catch(ignore)
   })
 
   watch(currentDoodle, () => { void pushDoodle(false) })
   watch(partnerLiveStroke, (live) => {
-    if (isIos || !activeWidgetSession()) return
+    if (!activeWidgetSession()) return
     if (!live && isPartnershipRealtimeSuspended()) return
     void (live ? DuoWidget.addLiveStroke({ stroke: live.stroke }) : DuoWidget.clearLiveStrokes()).catch(ignore)
   })
   watch(isPartnerDrawing, (isDrawing) => {
-    if (isIos || !activeWidgetSession()) return
+    if (!activeWidgetSession()) return
     if (!isDrawing && isPartnershipRealtimeSuspended()) return
     void DuoWidget.setPartnerDrawing({ isDrawing }).catch(ignore)
   })
 
   function activeWidgetSession() {
-    return installedSession && androidSessionMatches(installedSession)
+    return installedSession && sessionMatches(installedSession)
   }
 })
