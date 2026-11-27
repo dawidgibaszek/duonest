@@ -5,6 +5,8 @@ export interface Profile {
   email: string | null
   name: string
   avatar_url?: string | null
+  has_avatar?: boolean
+  avatar_updated_at?: string | null
   avatar_color?: string | null
   pairing_code: string
   partnership_id?: string | null

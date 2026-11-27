@@ -1,6 +1,6 @@
 import { trackDuoPairing } from '~/composables/useDuoAnalytics'
 import { getFirebaseBridge } from '../useFirebaseBridge'
-import { removeProfileAvatar, uploadProfileAvatar } from '~/utils/avatarStorage'
+import { requestProfileAvatar, validateAvatarFile } from '~/utils/avatarStorage'
 import { stopPartnershipRealtime } from './useRealtimeSync'
 import {
   currentUser,
@@ -84,8 +84,8 @@ export function usePairingSecurity(options: {
       : nest.partner2_id === currentUserId ? nest.partner1_id : null
     if (!partnerId) return false
 
-    const { data: profile, error: partnerError } = await bridge.from('profiles', serverOnly)
-      .select(PROFILE_SELECT_FIELDS).eq('id', partnerId).maybeSingle()
+    const { data: profile, error: partnerError } = await bridge.from('partner_profiles', serverOnly)
+      .select('*').eq('id', partnerId).maybeSingle()
     if (partnerError || profile?.partnership_id !== partnershipId || !isCurrent()) return false
 
     partnerUser.value = {
@@ -299,34 +299,29 @@ export function usePairingSecurity(options: {
     return true
   }
 
-  const uploadMyAvatar = async (file: File) => {
+  const changeMyAvatar = async (method: 'POST' | 'DELETE', file?: File) => {
     const bridge = getDb()
-    const uid = bridge.auth.currentUser?.uid
-    if (!uid || !currentUser.value.id) {
+    const account = bridge.auth.currentUser
+    const id = currentUser.value.id
+    if (!account || !id) {
       throw new Error('Sesja wygasła. Zaloguj się ponownie.')
     }
-    return uploadProfileAvatar({
-      storage: bridge.storage,
-      uid,
-      file,
-      previousAvatarUrl: currentUser.value.avatar_url || null,
-      saveAvatarUrl: avatar_url => updateMyProfile({ avatar_url })
-    })
+    const response = await requestProfileAvatar(account, null, method, file)
+    if (!response.ok) throw new Error('Nie udało się zapisać zdjęcia profilowego.')
+    const { avatar_url, avatar_updated_at } = await response.json()
+    if (bridge.auth.currentUser !== account || currentUser.value.id !== id) {
+      throw new Error('Sesja się zmieniła. Otwórz profil ponownie.')
+    }
+    currentUser.value = { ...currentUser.value, avatar_url, avatar_updated_at }
+    saveToStorage('duonest_current_user', currentUser.value)
+    return true
   }
 
-  const removeMyAvatar = async () => {
-    const bridge = getDb()
-    const uid = bridge.auth.currentUser?.uid
-    if (!uid || !currentUser.value.id) {
-      throw new Error('Sesja wygasła. Zaloguj się ponownie.')
-    }
-    return removeProfileAvatar({
-      storage: bridge.storage,
-      uid,
-      currentAvatarUrl: currentUser.value.avatar_url || null,
-      saveAvatarUrl: avatar_url => updateMyProfile({ avatar_url })
-    })
+  const uploadMyAvatar = async (file: File) => {
+    await validateAvatarFile(file)
+    return changeMyAvatar('POST', file)
   }
+  const removeMyAvatar = () => changeMyAvatar('DELETE')
 
   const updatePartnershipSettings = async (updates: Partial<Partnership>) => {
     const pid = partnership.value?.id

@@ -8,7 +8,10 @@ let nativeAppCheckReady: Promise<void> | undefined
 
 export default defineNuxtPlugin(() => {
   const { app, auth, db, rtdb, storage } = useFirebase()
-  const siteKey = useRuntimeConfig().public.appCheckRecaptchaSiteKey
+  const duoProductionWeb = app.options.appId === '1:273218538953:web:f8daf30bf01ae40a66ec18' &&
+    ['duonestapp.pl', 'www.duonestapp.pl'].includes(window.location.hostname)
+  const siteKey = useRuntimeConfig().public.appCheckRecaptchaSiteKey ||
+    (duoProductionWeb ? '6LfURTUuAAAAAGT3XuoOJNZ0oUj7qhxP2Y9UYRLk' : '')
   const provider = Capacitor.isNativePlatform()
     ? new CustomProvider({
         async getToken() {

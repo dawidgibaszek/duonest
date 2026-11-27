@@ -33,7 +33,8 @@ import {
   saveToStorage,
   newDocumentId,
   deduplicateMoviesList,
-  inferToastMetadata
+  inferToastMetadata,
+  createInitialProfile
 } from './utils'
 import type { DuoDoodle, DuoDoodleStroke, SavingsContribution, SavingsGoal, WishlistItem, ToastType } from '~/types/duo'
 import { normalizeEventRecord } from '~/functions/src/eventRecord'
@@ -381,10 +382,10 @@ export function useRealtimeSync(options?: {
       observedPartnerId = partnerId
       syncPresence()
       stopPartner?.()
-      stopPartner = bridge.observeDocument('profiles', partnerId, profile => {
+      stopPartner = bridge.observeDocument('partner_profiles', partnerId, profile => {
         if (!isCurrent() || !profile || profile.partnership_id !== pid) return
         const previousMood = partnerUser.value?.mood_updated_at
-        partnerUser.value = { ...partnerUser.value, ...profile, points: Number(profile.points) || 0 }
+        partnerUser.value = { ...createInitialProfile(), ...profile, points: Number(profile.points) || 0 }
         saveToStorage('duonest_partner_user', partnerUser.value)
         if (!isPartnerOnline.value && profile.last_seen_at && (!partnerLastSeenAt.value || profile.last_seen_at > partnerLastSeenAt.value)) {
           partnerLastSeenAt.value = profile.last_seen_at
@@ -405,7 +406,7 @@ export function useRealtimeSync(options?: {
       saveToStorage('duonest_shopping', shoppingItems.value)
     })
     observe('tasks', rows => {
-      tasksList.value = rows.sort(byNewest)
+      tasksList.value = rows.filter(row => !row.deleted_at).sort(byNewest)
       saveToStorage('duonest_tasks', tasksList.value)
     })
     observe('events', rows => {
@@ -593,7 +594,7 @@ export function useRealtimeSync(options?: {
       if (isLoggingOut.value || bridge.auth.currentUser?.uid !== uid || currentUser.value.id !== profileId ||
           (partnership.value?.id || currentUser.value.partnership_id) !== partnershipId) return false
       if (shops.data) shoppingItems.value = shops.data
-      if (tasks.data) tasksList.value = tasks.data
+      if (tasks.data) tasksList.value = tasks.data.filter((row: { deleted_at?: string }) => !row.deleted_at)
       if (evts.data) eventsList.value = evts.data.map(normalizeEventRecord).sort((a: any, b: any) => String(a.start_time).localeCompare(String(b.start_time)))
       if (ndgs.data) nudgesList.value = [...ndgs.data].sort(byNewest)
       if (wishes) wishlistItems.value = wishes

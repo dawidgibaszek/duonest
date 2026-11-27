@@ -10,6 +10,8 @@
 import { randomInt, randomUUID } from 'node:crypto'
 import { removeDuoLocationForPair } from './duoLocation'
 import { isCurrentPairingCode, normalizePairingCode, PAIRING_CODE_ALPHABET, PAIRING_CODE_LENGTH } from './pairingCode'
+import { DuoDataError } from './partnershipAccess'
+import { projectPartnerProfile } from './partnerProfile'
 
 export interface DecodedUser {
   uid: string
@@ -33,7 +35,9 @@ async function allocatePairingCode(db: Db, tx: any, exclude: ReadonlySet<string>
       PAIRING_CODE_ALPHABET[randomInt(PAIRING_CODE_ALPHABET.length)]).join('')
     if (exclude.has(code)) continue
     const ref = db.collection('pairing_codes').doc(code)
-    if (!(await tx.get(ref)).exists) return { code, ref }
+    if ((await tx.get(ref)).exists) continue
+    const existing = await tx.get(db.collection('profiles').where('pairing_code', '==', code).limit(1))
+    if (existing.empty) return { code, ref }
   }
   throw new Error('Could not reserve pairing code')
 }
@@ -94,18 +98,43 @@ async function validPartnershipFor(db: Db, profile: any): Promise<string | null>
   return data.partner1_id === me || data.partner2_id === me ? snap.id : null
 }
 
-async function mirrorMembership(db: Db, rtdb: Rtdb | null, uid: string) {
-  if (!rtdb) return
-  try {
-    const data = (await db.collection('members').doc(uid).get()).data()
-    await rtdb.ref(`members/${uid}`).set(data ? { profile_id: data.profile_id, partnership_id: data.partnership_id } : null)
-  } catch (err) {
-    console.warn('[duoAccount] RTDB membership sync failed', (err as any)?.code)
-  }
+export async function mirrorMembership(db: Db, rtdb: Rtdb, uid: string) {
+  const snapshot = await db.collection('members').doc(uid).get()
+  const data = snapshot.data()
+  const revision = snapshot.updateTime ?? snapshot.readTime
+  await rtdb.ref(`members/${uid}`).transaction((current: any) => {
+    if (current?.revision_seconds > revision.seconds ||
+        (current?.revision_seconds === revision.seconds && current?.revision_nanos >= revision.nanoseconds)) return
+    return {
+      profile_id: data?.profile_id ?? null,
+      partnership_id: data?.partnership_id ?? null,
+      revision_seconds: revision.seconds,
+      revision_nanos: revision.nanoseconds
+    }
+  })
+}
+
+function syncMembershipNow(db: Db, rtdb: Rtdb | null, uid: string) {
+  // Firestore's members trigger retries a failed inline mirror.
+  return rtdb ? mirrorMembership(db, rtdb, uid).catch(error => {
+    console.warn('[duoAccount] RTDB membership sync failed', error?.code)
+  }) : Promise.resolve()
 }
 
 const membership = (profile_id: string | null, partnership_id: string | null) =>
   ({ profile_id, partnership_id, updated_at: nowIso() })
+
+export function pairingRetryAfter(db: Db, uid: string): Promise<number> {
+  const ref = db.collection('pairing_limits').doc(uid)
+  return db.runTransaction(async (tx: any) => {
+    const now = Date.now()
+    const previous = (await tx.get(ref)).data()?.attempts as number[] | undefined
+    const recent = (previous ?? []).filter(time => time > now - 60_000)
+    if (recent.length >= 10) return Math.max(1, Math.ceil((recent[0] + 60_000 - now) / 1000))
+    tx.set(ref, { attempts: [...recent, now], expires_at: new Date(now + 86_400_000) })
+    return 0
+  })
+}
 
 async function loadMyProfile(db: Db, user: DecodedUser) {
   const profiles = await findProfilesForUid(db, user.uid)
@@ -129,6 +158,9 @@ export async function syncAccount(db: Db, rtdb: Rtdb | null, user: DecodedUser):
       ? db.collection('partnerships').doc(storedPid) : null
     const nest = nestRef ? (await tx.get(nestRef)).data() : null
     const partnershipId = nest && [nest.partner1_id, nest.partner2_id].includes(profileRef.id) ? nestRef.id : null
+    const partnerId = partnershipId && (nest.partner1_id === profileRef.id ? nest.partner2_id : nest.partner1_id)
+    const peer = typeof partnerId === 'string' && partnerId && !partnerId.includes('/')
+      ? (await tx.get(db.collection('profiles').doc(partnerId))).data() : null
 
     if (!stored && candidate) return { profile_id: null, partnership_id: null }
     const nextCode = isCurrentPairingCode(stored?.pairing_code) ? null : await allocatePairingCode(db, tx)
@@ -163,21 +195,26 @@ export async function syncAccount(db: Db, rtdb: Rtdb | null, user: DecodedUser):
       if (!partnershipId && stored.points) updates.points = 0
       if (nextCode) {
         updates.pairing_code = nextCode.code
-        if (typeof stored.pairing_code === 'string' && stored.pairing_code) {
-          updates.legacy_pairing_code = stored.pairing_code
-        }
+        updates.legacy_pairing_code = null
       }
       if (stored.name_from_auth_pending === true && name) {
         if (stored.name === fallbackProfileName(stored.email)) updates.name = name
         updates.name_from_auth_pending = false
       }
       if (Object.keys(updates).length) tx.update(profileRef, updates)
+      if (partnershipId) {
+        tx.set(db.collection('partner_profiles').doc(profileRef.id),
+          projectPartnerProfile({ ...stored, ...updates }, profileRef.id, partnershipId))
+        if (peer?.partnership_id === partnershipId && peer.auth_user_id) {
+          tx.set(db.collection('partner_profiles').doc(partnerId), projectPartnerProfile(peer, partnerId, partnershipId))
+        }
+      }
     }
 
     tx.set(memberRef, membership(profileRef.id, partnershipId))
     return { profile_id: profileRef.id, partnership_id: partnershipId }
   })
-  await mirrorMembership(db, rtdb, user.uid)
+  await syncMembershipNow(db, rtdb, user.uid)
   return result
 }
 
@@ -203,7 +240,7 @@ export async function migratePairingCode(db: Db, uid: string): Promise<boolean> 
       if (previous === code) continue
       tx.update(row.ref, {
         pairing_code: code,
-        ...(typeof previous === 'string' && previous.startsWith('DN-') ? { legacy_pairing_code: previous } : {})
+        legacy_pairing_code: null
       })
       changed = true
     }
@@ -211,30 +248,11 @@ export async function migratePairingCode(db: Db, uid: string): Promise<boolean> 
   })
 }
 
-function hasPairingCode(profile: any, code: string) {
-  return profile?.pairing_code === code || profile?.legacy_pairing_code === code
-}
-
 async function findPairingOwner(db: Db, code: string) {
-  const [current, legacy] = await Promise.all(['pairing_code', 'legacy_pairing_code'].map(field =>
-    db.collection('profiles').where(field, '==', code).limit(20).get()
-  ))
-  const owners = new Set<string>([...current.docs, ...legacy.docs]
+  const current = await db.collection('profiles').where('pairing_code', '==', code).limit(20).get()
+  const owners = new Set<string>(current.docs
     .map(doc => doc.data()?.auth_user_id).filter(Boolean))
   return owners.size === 1 ? [...owners][0] : null
-}
-
-function partnerSummary(p: any, partnershipId: string) {
-  return {
-    id: profileIdOf(p),
-    name: p.name || '',
-    avatar_url: p.avatar_url || null,
-    avatar_color: p.avatar_color || '#0d9488',
-    partnership_id: partnershipId,
-    gender: p.gender || null,
-    grammatical_gender: p.grammatical_gender || null,
-    points: Number(p.points) || 0
-  }
 }
 
 export async function pairWithCode(
@@ -251,7 +269,9 @@ export async function pairWithCode(
   // proves consent. (Pairing by e-mail let anyone attach themselves to a stranger.)
   if (input.includes('@')) return { error: 'pairing_code_required' }
   let code = normalizePairingCode(input)
-  if (!code) return { error: 'invalid_pairing_input' }
+  // Older clients add this prefix even to current codes.
+  if (code.startsWith('DN-') && isCurrentPairingCode(code.slice(3))) code = code.slice(3)
+  if (!isCurrentPairingCode(code)) return { error: 'invalid_pairing_input' }
 
   let me = await loadMyProfile(db, user)
   if (!me?.auth_user_id || !me.pairing_code) {
@@ -263,15 +283,10 @@ export async function pairWithCode(
   }
   const myId = profileIdOf(me)
 
-  let owner = await findPairingOwner(db, code)
-  // Previously released clients prefix every typed code automatically.
-  if (!owner && code.startsWith('DN-') && isCurrentPairingCode(code.slice(3))) {
-    code = code.slice(3)
-    owner = await findPairingOwner(db, code)
-  }
+  const owner = await findPairingOwner(db, code)
   if (!owner || owner === user.uid) return { error: 'partner_unavailable' }
   const partner = await loadMyProfile(db, { uid: owner })
-  if (!hasPairingCode(partner, code)) return { error: 'partner_unavailable' }
+  if (partner?.pairing_code !== code) return { error: 'partner_unavailable' }
   if (!partner || !partner.auth_user_id || profileIdOf(partner) === myId) return { error: 'partner_unavailable' }
   const partnerId = profileIdOf(partner)
 
@@ -309,7 +324,7 @@ export async function pairWithCode(
     const theirs = partnerDocs.filter(doc => doc.data()?.auth_user_id === partner.auth_user_id)
     const myProfile = mine.find(doc => doc.id === myId)?.data()
     const partnerProfile = theirs.find(doc => doc.id === partnerId)?.data()
-    if (!myProfile || !hasPairingCode(partnerProfile, code)) return null
+    if (!myProfile || partnerProfile?.pairing_code !== code) return null
 
     const existingPids = new Set<string>()
     for (const doc of [...mine, ...theirs]) {
@@ -327,26 +342,39 @@ export async function pairWithCode(
         return {
           partnership: { ...candidate, id: doc.id },
           points: Number(myProfile.points) || 0,
-          partner: partnerSummary({ ...partnerProfile, docId: partnerId }, doc.id)
+          partner: projectPartnerProfile(partnerProfile, partnerId, doc.id)
         }
       }
       if (ids.includes(myId) || ids.includes(partnerId)) return null
     }
+    const myCode = await allocatePairingCode(db, tx)
+    const theirCode = await allocatePairingCode(db, tx, new Set([myCode.code]))
+    tx.create(myCode.ref, { uid: user.uid })
+    tx.create(theirCode.ref, { uid: partner.auth_user_id })
     tx.create(db.collection('partnerships').doc(partnershipId), partnership)
-    for (const doc of mine) tx.update(doc.ref, myUpdates)
-    for (const doc of theirs) tx.update(doc.ref, { partnership_id: partnershipId, points: 0, updated_at: created })
+    for (const doc of mine) tx.update(doc.ref, { ...myUpdates, pairing_code: myCode.code, legacy_pairing_code: null })
+    for (const doc of theirs) tx.update(doc.ref, {
+      partnership_id: partnershipId, points: 0, updated_at: created,
+      pairing_code: theirCode.code, legacy_pairing_code: null
+    })
+    const myPublic = projectPartnerProfile({ ...myProfile, ...myUpdates }, myId, partnershipId)
+    const theirPublic = projectPartnerProfile({ ...partnerProfile, points: 0 }, partnerId, partnershipId)
+    tx.set(db.collection('partner_profiles').doc(myId), myPublic)
+    tx.set(db.collection('partner_profiles').doc(partnerId), theirPublic)
     tx.set(db.collection('members').doc(user.uid), membership(myId, partnershipId))
     tx.set(db.collection('members').doc(partner.auth_user_id), membership(partnerId, partnershipId))
-    return { partnership, points: 0, partner: partnerSummary({ ...partnerProfile, docId: partnerId, points: 0 }, partnershipId) }
+    return { partnership, points: 0, partner: theirPublic }
   })
   if (!paired) return { error: 'already paired' }
 
-  await Promise.all([mirrorMembership(db, rtdb, user.uid), mirrorMembership(db, rtdb, partner.auth_user_id)])
+  await Promise.all([syncMembershipNow(db, rtdb, user.uid), syncMembershipNow(db, rtdb, partner.auth_user_id)])
 
   return paired
 }
 
-export async function disconnectPartnership(db: Db, rtdb: Rtdb | null, user: DecodedUser): Promise<{ success: boolean }> {
+export async function disconnectPartnership(
+  db: Db, rtdb: Rtdb | null, user: DecodedUser, expectedPartnershipId?: string
+): Promise<{ success: boolean }> {
   const me = await loadMyProfile(db, user)
   if (!me) return { success: true }
   const profileRef = db.collection('profiles').doc(me.docId)
@@ -354,7 +382,7 @@ export async function disconnectPartnership(db: Db, rtdb: Rtdb | null, user: Dec
     const current = (await tx.get(profileRef)).data()
     if (current?.auth_user_id !== user.uid) return null
     const pid = current.partnership_id
-    if (typeof pid !== 'string') return null
+    if (typeof pid !== 'string' || (expectedPartnershipId && pid !== expectedPartnershipId)) return null
 
     const nestRef = db.collection('partnerships').doc(pid)
     const nest = (await tx.get(nestRef)).data()
@@ -373,6 +401,9 @@ export async function disconnectPartnership(db: Db, rtdb: Rtdb | null, user: Dec
       freshCodes.set(uid, next)
       reserved.add(next.code)
     }
+    // Block the old RTDB channel before Firestore commits, even if membership mirroring fails.
+    if (!rtdb) throw new DuoDataError(503, 'Nie można teraz rozłączyć Gniazdka.')
+    await rtdb.ref(`revoked_partnerships/${pid}`).set({ requested_by: user.uid })
     for (const [uid, next] of freshCodes) tx.create(next.ref, { uid })
     for (const doc of profiles.docs) {
       const next = freshCodes.get(doc.data()?.auth_user_id)
@@ -383,12 +414,13 @@ export async function disconnectPartnership(db: Db, rtdb: Rtdb | null, user: Dec
     tx.delete(nestRef)
     for (const [uid, profileId] of ids) {
       tx.set(db.collection('members').doc(uid), membership(profileId, null))
+      tx.delete(db.collection('partner_profiles').doc(profileId))
       tx.delete(db.collection('calendar_subscriptions').doc(uid))
       removeDuoLocationForPair(db, tx, uid, pid, profileId)
     }
     return [...ids.keys()]
   })
-  await Promise.all((result || [user.uid]).map((uid: string) => mirrorMembership(db, rtdb, uid)))
+  await Promise.all((result || [user.uid]).map((uid: string) => syncMembershipNow(db, rtdb, uid)))
   return { success: true }
 }
 

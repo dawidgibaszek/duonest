@@ -26,6 +26,7 @@ import { useAppConnection } from '~/composables/useAppConnection'
 import { useDuoDiagnosticsUpload } from '~/composables/useDuoDiagnostics'
 import { useConfirm } from '~/composables/useConfirm'
 import { useDuoState } from '~/composables/useDuoState'
+import { watchDuoAvatars } from '~/composables/useDuoAvatars'
 import { usePushNotifications } from '~/composables/usePushNotifications'
 import DuoToast from '~/components/DuoToast.vue'
 import DuoGestureOverlay from '~/components/DuoGestureOverlay.vue'
@@ -38,6 +39,7 @@ const {
   authUser, currentUser, isAuthLoading, initSupabaseSync, subscribeToPartnershipRealtime,
   setNativeRealtimeActive, syncUserProfileWithAuth
 } = useDuoState()
+watchDuoAvatars()
 const appRuntime = import.meta.dev || Capacitor.isNativePlatform()
 const { confirmState, handleCancel } = useConfirm()
 const { initPushNotifications, clearAppBadge, isPostPairingPromptOpen, declinePostPairingPrompt } = usePushNotifications()

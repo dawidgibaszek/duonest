@@ -99,6 +99,18 @@
   ],
   "fieldOverrides": [
     {
+      "collectionGroup": "widget_read_sessions",
+      "fieldPath": "expires_at",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "pairing_limits",
+      "fieldPath": "expires_at",
+      "ttl": true,
+      "indexes": []
+    },
+    {
       "collectionGroup": "ios_diagnostics",
       "fieldPath": "expiresAt",
       "ttl": true,

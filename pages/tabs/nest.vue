@@ -19,8 +19,8 @@
                 <span class="nest-partner-indicator" aria-hidden="true">
                   <span class="nest-partner-avatar" :style="{ backgroundColor: partnerUserAccentColor }">
                     <img
-                      v-if="partnerUser.avatar_url && !partnerAvatarImgError"
-                      :src="partnerUser.avatar_url"
+                      v-if="partnerAvatarImage && !partnerAvatarImgError"
+                      :src="partnerAvatarImage"
                       alt=""
                       @error="partnerAvatarImgError = true"
                     />
@@ -84,8 +84,8 @@
                 <span class="nx-duo-avatars">
                   <span class="nx-avatar" :style="{ backgroundColor: currentUserAccentColor }">
                     <img
-                      v-if="currentUser.avatar_url && !myAvatarImgError"
-                      :src="currentUser.avatar_url"
+                      v-if="ownAvatarImage && !myAvatarImgError"
+                      :src="ownAvatarImage"
                       alt=""
                       class="nx-avatar-img"
                       @error="myAvatarImgError = true"
@@ -94,8 +94,8 @@
                   </span>
                   <span class="nx-avatar nx-avatar--second" :style="{ backgroundColor: partnerUserAccentColor }">
                     <img
-                      v-if="partnerUser?.avatar_url && !partnerAvatarImgError"
-                      :src="partnerUser.avatar_url"
+                      v-if="partnerAvatarImage && !partnerAvatarImgError"
+                      :src="partnerAvatarImage"
                       alt=""
                       class="nx-avatar-img"
                       @error="partnerAvatarImgError = true"
@@ -544,6 +544,7 @@
 </template>
 
 <script setup lang="ts">
+import { useDuoAvatars } from '~/composables/useDuoAvatars'
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useDuoState } from '~/composables/useDuoState'
 import type { DuoDoodleStroke } from '~/types/duo'
@@ -556,6 +557,8 @@ import DuoDoodleModal from '~/components/DuoDoodleModal.vue'
 import { featurePath } from '~/utils/duoPersonalization'
 import { FEATURE_DETAILS } from '~/utils/duoPersonalizationUi'
 import { DUO_GESTURE_PRESETS } from '~/utils/duoGestures'
+
+const { ownAvatarImage, partnerAvatarImage } = useDuoAvatars()
 
 const {
   currentUser,
@@ -605,10 +608,10 @@ const { nestCards, enabledFeatures, isFeatureEnabled } = useDuoPersonalization()
 const isLayoutEditorOpen = ref(false)
 const myAvatarImgError = ref(false)
 const partnerAvatarImgError = ref(false)
-watch(() => currentUser.value?.avatar_url, () => {
+watch(ownAvatarImage, () => {
   myAvatarImgError.value = false
 })
-watch(() => partnerUser.value?.avatar_url, () => {
+watch(partnerAvatarImage, () => {
   partnerAvatarImgError.value = false
 })
 

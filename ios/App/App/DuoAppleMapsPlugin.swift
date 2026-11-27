@@ -1,5 +1,4 @@
 import Capacitor
-import ImageIO
 import MapKit
 import UIKit
 
@@ -22,7 +21,6 @@ final class DuoAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDelegate {
     private var fitButton: UIButton?
     private var bottomOcclusion: CGFloat = 0
     private var annotations: [String: PersonAnnotation] = [:]
-    private let avatars = NSCache<NSURL, UIImage>()
 
     private final class MapSurface: UIView {
         private var coveredArea: CGRect?
@@ -53,13 +51,13 @@ final class DuoAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDelegate {
 
     private struct Identity: Equatable {
         let name: String
-        let avatar: URL?
+        let avatar: String?
         let color: String?
 
         init(_ input: JSObject, fallback: String) {
             let value = (input["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
             name = value.flatMap { $0.isEmpty ? nil : String($0.prefix(80)) } ?? fallback
-            avatar = (input["avatar"] as? String).flatMap { URL(string: $0) }.flatMap { $0.scheme == "https" ? $0 : nil }
+            avatar = input["avatar"] as? String
             color = input["color"] as? String
         }
     }
@@ -269,28 +267,14 @@ final class DuoAppleMapsPlugin: CAPPlugin, CAPBridgedPlugin, MKMapViewDelegate {
         }
     }
 
-    private func loadAvatar(_ url: URL?, completion: @escaping (UIImage?) -> Void) {
-        guard let url else { completion(nil); return }
-        if let cached = avatars.object(forKey: url as NSURL) { completion(cached); return }
-        let request = URLRequest(url: url, timeoutInterval: 5)
-        URLSession.shared.dataTask(with: request) { data, response, _ in
-            var image: UIImage?
-            if let data, data.count <= 2_000_000, let response = response as? HTTPURLResponse,
-               (200..<300).contains(response.statusCode), response.url?.scheme == "https",
-               let source = CGImageSourceCreateWithData(data as CFData, nil),
-               let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-                   kCGImageSourceCreateThumbnailFromImageAlways: true,
-                   kCGImageSourceCreateThumbnailWithTransform: true,
-                   kCGImageSourceThumbnailMaxPixelSize: 96
-               ] as CFDictionary) {
-                image = UIImage(cgImage: thumbnail)
-            }
-            let result = image
-            DispatchQueue.main.async {
-                if let result { self.avatars.setObject(result, forKey: url as NSURL) }
-                completion(result)
-            }
-        }.resume()
+    private func loadAvatar(_ image: String?, completion: (UIImage?) -> Void) {
+        let prefix = "data:image/jpeg;base64,"
+        guard let image, image.count <= 200_000, image.hasPrefix(prefix),
+              let data = Data(base64Encoded: String(image.dropFirst(prefix.count))) else {
+            completion(nil)
+            return
+        }
+        completion(UIImage(data: data))
     }
 
     private func pinImage(_ identity: Identity, avatar: UIImage?, fallbackColor: UIColor) -> UIImage {

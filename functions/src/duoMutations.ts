@@ -22,6 +22,17 @@ function desiredState(value: unknown) {
   return value
 }
 
+async function deleteTask(tx: Transaction, db: Firestore, access: PartnershipAccess, id: string, now: string) {
+  const ref = db.collection('tasks').doc(id)
+  const task = (await tx.get(ref)).data()
+  if (!task || task.partnership_id !== access.partnershipId) {
+    throw new DuoDataError(404, 'Element niedostępny.')
+  }
+  // Keep the awarded points, pet XP and source record for completed tasks.
+  if (!task.deleted_at) tx.update(ref, { deleted_at: now })
+  return { success: true }
+}
+
 async function setTaskCompleted(tx: Transaction, db: Firestore, access: PartnershipAccess, id: string, completed: boolean, now: string) {
   const ref = db.collection('tasks').doc(id)
   const task = ownedDocument(await tx.get(ref), access)
@@ -204,6 +215,7 @@ export function mutateDuoData(db: Firestore, uid: string, body: Record<string, a
     const access = await requirePartnership(tx, db, uid)
     switch (body.action) {
       case 'tasks/complete': return setTaskCompleted(tx, db, access, id, desiredState(body.completed), now)
+      case 'tasks/delete': return deleteTask(tx, db, access, id, now)
       case 'milestones/complete': return setMilestoneCompleted(tx, db, access, id, desiredState(body.completed), now)
       case 'savings/create': return createSavingsGoal(tx, db, access, id, body, now)
       case 'savings/update':

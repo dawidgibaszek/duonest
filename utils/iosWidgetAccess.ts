@@ -6,9 +6,6 @@ export interface DuoWidgetSession {
   uid?: string
   profileId?: string
   partnershipId?: string
-  refreshToken?: string
-  apiKey?: string
-  projectId?: string
   partnerName?: string
   credential?: string
 }

@@ -5,10 +5,12 @@ import { getFirestore, type Query } from 'firebase-admin/firestore'
 import { getAuth } from 'firebase-admin/auth'
 import { getDatabaseWithUrl, type Database } from 'firebase-admin/database'
 import { getMessaging } from 'firebase-admin/messaging'
+import { getStorage } from 'firebase-admin/storage'
 import * as fs from 'fs'
 import * as path from 'path'
 import { createError } from 'h3'
 import { databaseUrlForProject, DUONEST_PROJECT_ID } from '~/functions/src/firebaseProject'
+import { avatarBucket } from '~/functions/src/profileAvatar'
 
 let adminApp: App | null = null
 
@@ -45,6 +47,10 @@ export function getFirebaseAdminAuth() {
   return getAuth(getFirebaseAdmin())
 }
 
+export function getFirebaseAvatarBucket() {
+  return avatarBucket(getStorage(getFirebaseAdmin()))
+}
+
 export function getFirebaseAdminRtdb(): Database | null {
   try {
     const app = getFirebaseAdmin()
@@ -64,7 +70,7 @@ export async function requireFirebaseUser(event: any) {
     throw createError({ statusCode: 401, statusMessage: 'Authentication required' })
   }
   try {
-    const decoded = await getFirebaseAdminAuth().verifyIdToken(token)
+    const decoded = await getFirebaseAdminAuth().verifyIdToken(token, true)
     return { uid: decoded.uid, auth_time: decoded.auth_time, email: decoded.email, name: typeof decoded.name === 'string' ? decoded.name : undefined, email_verified: decoded.email_verified === true, sign_in_provider: decoded.firebase?.sign_in_provider || '' }
   } catch {
     throw createError({ statusCode: 401, statusMessage: 'Invalid authentication token' })
@@ -82,7 +88,7 @@ export function getFirebaseServerAdapter() {
     auth: {
       async getUser(token: string) {
         try {
-          const decoded = await auth.verifyIdToken(token)
+          const decoded = await auth.verifyIdToken(token, true)
           return { data: { user: { id: decoded.uid, email: decoded.email } }, error: null }
         } catch (err) {
           return { data: { user: null }, error: err }

@@ -33,12 +33,11 @@ export default defineNuxtPlugin(() => {
   function queueSession(session: DuoWidgetSession, key: string | null) {
     sessionQueue = sessionQueue.catch(ignore).then(async () => {
       if (!sessionMatches(key)) return
-      const newSession = installedSession !== key
       await DuoWidget.setSession(session)
       installedSession = key
       if (key) {
         await pushDoodle(true)
-        if (!isIos && newSession) void DuoWidget.refresh?.().catch(ignore)
+        if (!isIos && session.credential) void DuoWidget.refresh?.().catch(ignore)
       }
     })
     void sessionQueue.catch(ignore)
@@ -58,12 +57,9 @@ export default defineNuxtPlugin(() => {
   }
 
   function sessionIdentity(user: NonNullable<typeof bridge.auth.currentUser>, pid: string) {
-    const identity = {
+    return {
       uid: user.uid, profileId: currentUser.value.id, partnershipId: pid, partnerName: partnerUser.value?.name || ''
     }
-    if (isIos) return identity
-    const { apiKey, projectId } = bridge.auth.app.options
-    return { ...identity, refreshToken: user.refreshToken, apiKey, projectId }
   }
 
   async function syncWidgetAccess() {

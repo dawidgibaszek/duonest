@@ -59,24 +59,17 @@ service cloud.firestore {
     match /profiles/{id} {
       allow get: if signedIn() && (
         (id == request.auth.uid && (resource == null || resource.data.get('auth_user_id', null) == null)) ||
-        resource.data.get('auth_user_id', null) == request.auth.uid ||
-        inPartnership(resource.data.get('partnership_id', null))
+        resource.data.get('auth_user_id', null) == request.auth.uid
       );
-      allow list: if signedIn() && (
-        resource.data.get('auth_user_id', null) == request.auth.uid ||
-        inPartnership(resource.data.get('partnership_id', null))
-      );
+      allow list: if signedIn() && resource.data.get('auth_user_id', null) == request.auth.uid;
 
       allow update: if signedIn() && resource.data.get('auth_user_id', null) == request.auth.uid
         && changedOnly([
-          'name', 'avatar_url', 'avatar_color', 'current_mood', 'mood_note', 'mood_updated_at',
+          'name', 'avatar_color', 'current_mood', 'mood_note', 'mood_updated_at',
           'love_note', 'gender', 'grammatical_gender',
           'enabled_features', 'nest_cards', 'onboarding_stage', 'onboarding_partnership_id', 'show_location_widget',
           'last_seen_at', 'updated_at'
         ])
-        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['avatar_url'])
-          || request.resource.data.get('avatar_url', null) == null
-          || (request.resource.data.avatar_url is string && request.resource.data.avatar_url.size() <= 2048))
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['gender'])
           || request.resource.data.get('gender', null) in [null, 'male', 'female', 'nonbinary'])
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['grammatical_gender'])
@@ -104,6 +97,14 @@ service cloud.firestore {
             && inPartnership(request.resource.data.onboarding_partnership_id)));
     }
 
+    match /partner_profiles/{id} {
+      allow get: if inPartnership(resource.data.partnership_id)
+        && id in [
+          get(/databases/$(database)/documents/partnerships/$(resource.data.partnership_id)).data.partner1_id,
+          get(/databases/$(database)/documents/partnerships/$(resource.data.partnership_id)).data.partner2_id
+        ];
+    }
+
     match /partnerships/{pid} {
       allow get: if inPartnership(pid);
       allow update: if inPartnership(pid)
@@ -123,9 +124,10 @@ service cloud.firestore {
     }
 
     match /tasks/{id} {
-      allow read, delete: if inPartnership(resource.data.partnership_id);
+      allow read: if inPartnership(resource.data.partnership_id);
       allow create: if newShared(id)
         && isMe(request.resource.data.created_by)
+        && request.resource.data.get('deleted_at', null) == null
         && request.resource.data.points is int
         && request.resource.data.points >= 1
         && request.resource.data.points <= 100
@@ -135,7 +137,7 @@ service cloud.firestore {
         && request.resource.data.get('points_awarded', 0) == 0;
       allow update: if samePartnership() && changedOnly([
         'title', 'description', 'assigned_to', 'due_date', 'is_recurring', 'recurrence_interval', 'updated_at'
-      ]);
+      ]) && resource.data.get('deleted_at', null) == null;
     }
 
     match /milestones/{id} {

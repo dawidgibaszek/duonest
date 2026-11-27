@@ -55,8 +55,8 @@
             <div class="rl-person">
               <span class="rl-avatar" :style="{ backgroundColor: currentUserAccentColor }">
                 <img
-                  v-if="currentUser.avatar_url && !myAvatarImgError"
-                  :src="currentUser.avatar_url"
+                  v-if="ownAvatarImage && !myAvatarImgError"
+                  :src="ownAvatarImage"
                   alt=""
                   class="rl-avatar-img"
                   @error="myAvatarImgError = true"
@@ -78,8 +78,8 @@
             <div v-if="partnerUser" class="rl-person">
               <span class="rl-avatar" :style="{ backgroundColor: partnerUserAccentColor }">
                 <img
-                  v-if="partnerUser.avatar_url && !partnerAvatarImgError"
-                  :src="partnerUser.avatar_url"
+                  v-if="partnerAvatarImage && !partnerAvatarImgError"
+                  :src="partnerAvatarImage"
                   alt=""
                   class="rl-avatar-img"
                   @error="partnerAvatarImgError = true"
@@ -585,8 +585,8 @@
               <div class="rl-avatar-editor">
                 <span class="rl-avatar-preview" :style="{ backgroundColor: selectedCustomColor }">
                   <img
-                    v-if="currentUser.avatar_url && !myAvatarImgError"
-                    :src="currentUser.avatar_url"
+                    v-if="ownAvatarImage && !myAvatarImgError"
+                    :src="ownAvatarImage"
                     alt=""
                     class="rl-avatar-img"
                     @error="myAvatarImgError = true"
@@ -939,6 +939,7 @@
 </template>
 
 <script setup lang="ts">
+import { useDuoAvatars } from '~/composables/useDuoAvatars'
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useDuoState } from '~/composables/useDuoState'
 import { useDuoDiagnostics } from '~/composables/useDuoDiagnostics'
@@ -952,6 +953,8 @@ import { AVATAR_MAX_FILE_MB } from '~/utils/avatarStorage'
 import { DUO_GESTURE_PRESETS, formatNudgeDateTime, getDuoGestureMeta } from '~/utils/duoGestures'
 import DuoIcon from '~/components/DuoIcon.vue'
 import DuoMusicCard from '~/components/DuoMusicCard.vue'
+
+const { ownAvatarImage, partnerAvatarImage } = useDuoAvatars()
 
 /**
  * ion-toggle with a one-way `:checked` flips itself on tap. If the action fails or is
@@ -1409,10 +1412,10 @@ const avatarError = ref('')
 const myAvatarImgError = ref(false)
 const partnerAvatarImgError = ref(false)
 
-watch(() => currentUser.value?.avatar_url, () => {
+watch(ownAvatarImage, () => {
   myAvatarImgError.value = false
 })
-watch(() => partnerUser.value?.avatar_url, () => {
+watch(partnerAvatarImage, () => {
   partnerAvatarImgError.value = false
 })
 

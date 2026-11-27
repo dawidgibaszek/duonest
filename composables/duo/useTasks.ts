@@ -88,8 +88,7 @@ export function useTasks(options: {
     const pid = partnership.value?.id
     if (!pid || !tasksList.value.some(task => task.id === id)) return false
     try {
-      const { error } = await getDb().from('tasks').delete().eq('id', id)
-      if (error) throw error
+      await getDb().callApi('/api/duo/mutate', { action: 'tasks/delete', id })
       if (partnership.value?.id !== pid) return false
       tasksList.value = tasksList.value.filter(task => task.id !== id)
       syncTasksToStorage()

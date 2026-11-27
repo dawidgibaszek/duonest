@@ -1,7 +1,6 @@
 import { defineEventHandler, readBody, createError, setResponseHeader } from 'h3'
 import { getFirebaseAdminDb, getFirebaseAdminRtdb, requireFirebaseUser } from '~/server/utils/firebaseAdmin'
-import { pairWithCode } from '~/server/utils/duoAccount'
-import { checkRateLimit } from '~/server/utils/rateLimit'
+import { pairWithCode, pairingRetryAfter } from '~/server/utils/duoAccount'
 
 export default defineEventHandler(async (event) => {
   const user = await requireFirebaseUser(event)
@@ -9,14 +8,15 @@ export default defineEventHandler(async (event) => {
   if (user.sign_in_provider === 'password' && !user.email_verified) {
     throw createError({ statusCode: 403, statusMessage: 'email_not_verified' })
   }
-  const rate = await checkRateLimit(event, { maxRequests: 10, windowMs: 60000, keyPrefix: 'pairing', subject: user.uid })
-  if (!rate.allowed) {
-    setResponseHeader(event, 'Retry-After', String(rate.retryAfterSeconds ?? 1))
+  const db = getFirebaseAdminDb()
+  const retryAfter = await pairingRetryAfter(db, user.uid)
+  if (retryAfter) {
+    setResponseHeader(event, 'Retry-After', String(retryAfter))
     throw createError({ statusCode: 429, statusMessage: 'pairing_rate_limited' })
   }
   const body = await readBody(event).catch(() => ({}))
   return await pairWithCode(
-    getFirebaseAdminDb(),
+    db,
     getFirebaseAdminRtdb(),
     user,
     String(body?.pairing_input || ''),

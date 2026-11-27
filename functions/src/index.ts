@@ -1,5 +1,5 @@
 import { onRequest } from 'firebase-functions/v2/https'
-import { defineSecret } from 'firebase-functions/params'
+import { defineSecret, defineString } from 'firebase-functions/params'
 import { region } from 'firebase-functions/v1'
 import { getApp, getApps, initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
@@ -13,7 +13,9 @@ import { getCalendarFeed, updateCalendarSubscription } from './calendarCore'
 import { mutateDuoData } from './duoMutations'
 import { DuoDataError } from './partnershipAccess'
 import { processScrape } from './wishlistScraper'
-import { syncAccount, pairWithCode, disconnectPartnership, resolveCallerProfile } from './duoAccount'
+import { syncAccount, pairWithCode, disconnectPartnership, resolveCallerProfile, mirrorMembership, pairingRetryAfter } from './duoAccount'
+import { refreshPartnerProfile } from './partnerProfile'
+import { MAX_AVATAR_BYTES, readProfileAvatar, writeProfileAvatar } from './profileAvatar'
 import { handlePushAction, notifySavedDoodle, notifyLocationWidgets, PUSH_ACTIONS, type PushAction } from './pushCore'
 import { handleMusicAction, isMusicAction } from './musicCore'
 import { handleMoviesTrending, handleMoviesSearch, handleMoviesRandom } from './moviesCore'
@@ -32,6 +34,9 @@ if (getApps().length === 0) {
 
 const db = getFirestore()
 const auth = getAuth()
+const apiServiceAccount = defineString('DUO_API_SERVICE_ACCOUNT', {
+  default: 'duonest-api@duonest-38dc2.iam.gserviceaccount.com'
+})
 
 // Realtime Database (null if the project has no default RTDB instance)
 const getRtdb = () => {
@@ -67,6 +72,27 @@ export const provisionDuoProfile = region('europe-west1').runWith({ failurePolic
       name: user.displayName,
       email_verified: user.emailVerified
     })
+  })
+
+export const syncDuoMembership = region('europe-west1').runWith({ failurePolicy: true })
+  .firestore.document('members/{uid}').onWrite(async (_, context) => {
+    const rtdb = getRtdb()
+    if (!rtdb) throw new Error('Realtime Database is unavailable')
+    await mirrorMembership(db, rtdb, context.params.uid)
+  })
+
+export const completeDuoDisconnection = region('europe-west1').runWith({ failurePolicy: true })
+  .database.ref('revoked_partnerships/{pid}').onCreate(async (snapshot, context) => {
+    const uid = snapshot.child('requested_by').val()
+    if (typeof uid !== 'string' || !uid) return
+    const rtdb = getRtdb()
+    if (!rtdb) throw new Error('Realtime Database is unavailable')
+    await disconnectPartnership(db, rtdb, { uid }, context.params.pid)
+  })
+
+export const syncPartnerProfile = region('europe-west1').runWith({ failurePolicy: true })
+  .firestore.document('profiles/{id}').onWrite(async (_, context) => {
+    await refreshPartnerProfile(db, context.params.id)
   })
 
 export const refreshSavedDoodleWidgets = region('europe-west1')
@@ -116,7 +142,7 @@ async function requireAuth(req: any, res: any, next: any) {
     return res.status(401).json({ error: 'Authentication required' })
   }
   try {
-    const decoded = await auth.verifyIdToken(match[1])
+    const decoded = await auth.verifyIdToken(match[1], true)
     req.user = decoded
     next()
   } catch {
@@ -216,6 +242,37 @@ function respondToDataError(res: express.Response, error: unknown) {
   console.error('[duo-data]', (error as any)?.code)
   res.status(500).json({ error: 'Operacja chwilowo niedostępna.' })
 }
+
+app.get('/api/avatar/:id', requireAuth, async (req: any, res) => {
+  res.set('Cache-Control', 'private, no-store')
+  try {
+    const image = await readProfileAvatar(db, req.user.uid, req.params.id)
+    res.type('image/jpeg').send(image)
+  } catch (error) {
+    respondToDataError(res, error)
+  }
+})
+
+app.post('/api/avatar', requireAuth, express.raw({ type: 'image/jpeg', limit: MAX_AVATAR_BYTES }), async (req: any, res) => {
+  res.set('Cache-Control', 'no-store')
+  if (!allowPush(`avatar:${req.user.uid}`, 10)) return res.status(429).json({ error: 'avatar_rate_limited' })
+  try {
+    if (!Buffer.isBuffer(req.body)) throw new DuoDataError(400, 'Nie wybrano zdjęcia JPG.')
+    res.json(await writeProfileAvatar(db, req.user.uid, req.body))
+  } catch (error) {
+    respondToDataError(res, error)
+  }
+})
+
+app.delete('/api/avatar', requireAuth, async (req: any, res) => {
+  res.set('Cache-Control', 'no-store')
+  if (!allowPush(`avatar:${req.user.uid}`, 10)) return res.status(429).json({ error: 'avatar_rate_limited' })
+  try {
+    res.json(await writeProfileAvatar(db, req.user.uid, null))
+  } catch (error) {
+    respondToDataError(res, error)
+  }
+})
 
 app.get('/api/calendar/feed', async (req, res) => {
   res.set('Cache-Control', 'no-store')
@@ -325,6 +382,9 @@ app.post('/api/location/session', requireAuth, async (req: any, res) => {
   res.set('Cache-Control', 'no-store')
   try {
     const platform = res.locals.duoPlatform
+    if (process.env.DUO_APP_CHECK_ENFORCE === 'true' && !platform && req.body?.action !== 'stop') {
+      return res.status(403).json({ error: 'native_app_required' })
+    }
     const client = platform ? { platform, version: req.get('X-DuoNest-Version') ?? '', build: req.get('X-DuoNest-Build') ?? '' } : undefined
     res.json(await locationSession(db, req.user.uid, req.user.auth_time * 1000, req.body?.action, req.body?.partnershipId, client))
   } catch (error) {
@@ -340,24 +400,13 @@ app.post('/api/account/sync', requireAuth, async (req: any, res) => {
   }
 })
 
-// Simple per-user limiter against guessing pairing codes (per function instance)
-const pairingAttempts = new Map<string, number[]>()
-const pairingRetryAfter = (uid: string) => {
-  const now = Date.now()
-  const recent = (pairingAttempts.get(uid) || []).filter(t => now - t < 60_000)
-  if (recent.length >= 10) return Math.max(1, Math.ceil((recent[0] + 60_000 - now) / 1000))
-  recent.push(now)
-  pairingAttempts.set(uid, recent)
-  return 0
-}
-
 app.post('/api/pairing/pair', requireAuth, async (req: any, res) => {
   try {
     // Only password accounts must confirm the address (Apple may hide the e-mail)
     if (req.user.firebase?.sign_in_provider === 'password' && req.user.email_verified !== true) {
       return res.status(403).json({ error: 'email_not_verified' })
     }
-    const retryAfter = pairingRetryAfter(req.user.uid)
+    const retryAfter = await pairingRetryAfter(db, req.user.uid)
     if (retryAfter) {
       res.set('Retry-After', String(retryAfter))
       res.set('Access-Control-Expose-Headers', 'Retry-After')
@@ -373,8 +422,8 @@ app.post('/api/pairing/pair', requireAuth, async (req: any, res) => {
 app.post('/api/pairing/disconnect', requireAuth, async (req: any, res) => {
   try {
     res.json(await disconnectPartnership(db, getRtdb(), decodedUser(req)))
-  } catch (err: any) {
-    res.status(500).json({ error: err.message })
+  } catch (err) {
+    respondToDataError(res, err)
   }
 })
 
@@ -412,6 +461,7 @@ export const api = onRequest(
     region: 'europe-west1',
     cors: true,
     invoker: 'public',
+    serviceAccount: apiServiceAccount,
     secrets: [defineSecret('APNS_KEY_PRODUCTION'), defineSecret('APNS_KEY_SANDBOX'), defineSecret('RESEND_API_KEY')]
   },
   app

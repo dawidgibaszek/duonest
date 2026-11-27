@@ -4,7 +4,8 @@ import { getRemoteConfig } from 'firebase-admin/remote-config'
 import { compareAppVersions, needsAppUpdate } from './appVersion'
 
 const IOS_APP_ID = '1:273218538953:ios:1efc6d10056bb9b466ec18'
-const ANDROID_APP_PREFIX = '1:273218538953:android:'
+const ANDROID_APP_ID = '1:273218538953:android:a3688a7d49847f3a66ec18'
+const WEB_APP_ID = '1:273218538953:web:f8daf30bf01ae40a66ec18'
 const POLICY_TTL = 60_000
 
 interface PlatformVersionPolicy {
@@ -62,26 +63,33 @@ export const requireDuoClient: RequestHandler = async (req, res, next) => {
   if (/^\/api\/admin(?:\/|$)/i.test(req.path)) return next()
   // Calendar apps authenticate with the feed's own opaque subscription token.
   if (req.method === 'GET' && ['/api/calendar/feed', '/api/widget/doodle', '/api/widget/location'].includes(req.path)) return next()
-  if (process.env.DUO_APP_CHECK_ENFORCE !== 'true') return next()
+  const enforce = process.env.DUO_APP_CHECK_ENFORCE === 'true'
+  if (!enforce && process.env.DUO_APP_CHECK_MONITOR !== 'true') return next()
+
+  const rejectClient = (error: string) => {
+    if (enforce) return res.status(403).json({ error })
+    console.warn('[app-check]', error)
+    return next()
+  }
 
   let appId: string
   try {
     const token = req.get('X-Firebase-AppCheck')
-    if (!token) return res.status(403).json({ error: 'app_attestation_required' })
+    if (!token) return rejectClient('app_attestation_required')
     const verified = await getAppCheck().verifyToken(token)
     appId = verified.appId
   } catch {
-    return res.status(403).json({ error: 'invalid_app_attestation' })
+    return rejectClient('invalid_app_attestation')
   }
 
-  const configuredAndroidAppId = process.env.DUO_ANDROID_APP_ID?.trim()
+  const isWebClient = appId === (process.env.DUO_WEB_APP_ID?.trim() || WEB_APP_ID)
+  if (isWebClient) return next()
   const isIosClient = appId === IOS_APP_ID
-  const isAndroidClient = configuredAndroidAppId
-    ? appId === configuredAndroidAppId
-    : appId.startsWith(ANDROID_APP_PREFIX)
+  const isAndroidClient = appId === (process.env.DUO_ANDROID_APP_ID?.trim() || ANDROID_APP_ID)
 
-  if (!isIosClient && !isAndroidClient) return res.status(403).json({ error: 'unauthorized_app' })
+  if (!isIosClient && !isAndroidClient) return rejectClient('unauthorized_app')
   res.locals.duoPlatform = isAndroidClient ? 'android' : 'ios'
+  if (!enforce) return next()
 
   try {
     const version = req.get('X-DuoNest-Version') ?? ''

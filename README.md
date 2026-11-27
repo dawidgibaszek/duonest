@@ -86,14 +86,22 @@ W projekcie Firebase DuoNest otwórz [Remote Config](https://console.firebase.go
 
 Przykładowo wersja `1.0` i build `5` blokują instalację `1.0 (4)` oraz starsze wersje. Podnieś próg dopiero, gdy wskazany build będzie dostępny dla wszystkich objętych nim użytkowników. Zmiana progu działa przy uruchomieniu lub po powrocie aplikacji na ekran, przy ponownym pobraniu konfiguracji.
 
+### Wdrożenie zmian dostępu do Firebase
+
+1. Przygotuj konto `duonest-api` skryptem `scripts/provision-firebase-api-identity.ps1 -Apply`. Funkcja `api` korzysta domyślnie z tego konta. Konto wdrażające potrzebuje na nim uprawnienia `iam.serviceAccounts.actAs`. Jeśli panel pobiera dane z GA4, przyznaj nowemu kontu odczyt w odpowiedniej usłudze GA4 przed przełączeniem.
+2. Sprawdź nowy backend, reguły i podpisane buildy iOS oraz Androida w środowisku testowym. Klient musi korzystać z `partner_profiles`, nowego API awatarów i serwerowego usuwania zadań. Wdrożenie bardziej restrykcyjnych reguł wymaga udostępnienia tej wersji.
+3. Funkcje i reguły RTDB można wdrożyć wcześniej. W okresie przejściowym dodaj regułę odczytu `partner_profiles` do aktywnych reguł Firestore, żeby obsłużyć nowego klienta. Pełne reguły Firestore i Storage wdróż po udostępnieniu podpisanych klientów. Zachowaj ustawienia środowiskowe używane przez istniejącą funkcję, w tym konfigurację dostawców zewnętrznych. Jeżeli wdrażasz indeksy osobno, zachowaj aktywne indeksy i polityki TTL.
+4. Uruchom `npx tsx scripts/migrate-firebase-access.ts`, aby sprawdzić zakres migracji. Po przełączeniu klientów i reguł powtórz z `--apply`, aby uzupełnić profile par, naprawić zaległe wpisy RTDB i unieważnić stare linki do awatarów. Zweryfikuj wynik kolejnym uruchomieniem bez flagi. Unieważnienie linku nie usuwa kopii zdjęcia, które wcześniej pobrano.
+
 ### Włączenie App Check
 
-1. W [Firebase App Check](https://console.firebase.google.com/project/duonest-38dc2/appcheck) zarejestruj aplikację iOS z dostawcą App Attest i Apple Team ID.
-2. Udostępnij build iOS z App Check. Sprawdź poprawne żądania w metrykach Firebase.
-3. Konto wykonawcze funkcji `api` potrzebuje odczytu Remote Config (`roles/cloudconfig.viewer`). Ustaw `DUO_APP_CHECK_ENFORCE=true` w środowisku Cloud Functions i wdróż funkcję. API aplikacji wymaga wtedy prawidłowego tokenu iOS. API zwraca HTTP 426, gdy deklarowana wersja jest niższa niż domyślne wartości opublikowane w Remote Config. Panel administratora używa osobnej sesji, a subskrypcje iCal używają własnego tokenu kanału.
-4. W Firebase App Check włącz egzekwowanie dla Cloud Firestore i Realtime Database. Reguły członkostwa i uprawnień nadal obowiązują. Stare buildy bez App Check stracą dostęp do tych usług po włączeniu egzekwowania.
+1. W [Firebase App Check](https://console.firebase.google.com/project/duonest-38dc2/appcheck) sprawdź konfigurację App Attest dla iOS, Play Integrity dla Androida i reCAPTCHA Enterprise dla weba. Porównaj odciski SHA-256 Androida z podpisem dystrybuowanego buildu oraz ustawienia Play Integrity z kanałem dystrybucji. `duonestapp.pl` ma domyślny publiczny klucz witryny. Dla innego środowiska podaj jego klucz w `NUXT_PUBLIC_APP_CHECK_RECAPTCHA_SITE_KEY` podczas builda.
+2. Włącz `DUO_APP_CHECK_MONITOR=true` w funkcji `api`. Sprawdź metryki Firebase i logi `[app-check]` dla podpisanych klientów. Zweryfikuj logowanie, dostęp pary do danych, wysyłanie lokalizacji w tle i odczyt widżetów.
+3. Po potwierdzeniu poprawnych żądań włącz `DUO_APP_CHECK_ENFORCE=true` dla funkcji `api`, a następnie egzekwowanie w Firestore i Realtime Database. Panel administratora ma osobną sesję. Subskrypcje iCal, odczyty widżetów i wysyłka lokalizacji w tle używają poświadczeń ograniczonych do danej funkcji.
 
-Standardowy token App Check potwierdza tożsamość aplikacji, ale nie poświadcza numeru buildu. Porównanie wersji w API służy zgodności klientów. Firestore i Realtime Database egzekwują App Check, bez osobnego porównania numerów wersji. Samo podniesienie progu Remote Config nie odcina bezpośredniego dostępu do bazy starszemu klientowi, który potrafi już przedstawić ważny token App Check.
+App Check potwierdza tożsamość aplikacji. Wersję i numer buildu klient podaje w nagłówkach, więc ich porównanie służy zgodności klientów. Reguły Firebase nadal decydują, do których danych użytkownik ma dostęp.
+
+Ochrona bazy przed usunięciem działa niezależnie od odzyskiwania do punktu w czasie. Przed włączeniem PITR ustal koszty i okres przechowywania historii dokumentów, w tym wygasłych odczytów lokalizacji.
 
 ## Diagnostyka iOS
 

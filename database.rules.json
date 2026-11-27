@@ -11,12 +11,12 @@
     "live": {
       "transient": {
         "$channel": {
-          ".read": "auth != null && root.child('members').child(auth.uid).child('partnership_id').isString() && $channel === 'duonest_channel_' + root.child('members').child(auth.uid).child('partnership_id').val()",
+          ".read": "auth != null && root.child('members').child(auth.uid).child('partnership_id').isString() && !root.child('revoked_partnerships').child(root.child('members').child(auth.uid).child('partnership_id').val()).exists() && $channel === 'duonest_channel_' + root.child('members').child(auth.uid).child('partnership_id').val()",
           ".indexOn": [
             "ts"
           ],
           "$msgId": {
-            ".write": "auth != null && root.child('members').child(auth.uid).child('partnership_id').isString() && $channel === 'duonest_channel_' + root.child('members').child(auth.uid).child('partnership_id').val() && ((!data.exists() && newData.exists() && newData.child('payload').child('senderId').val() === root.child('members').child(auth.uid).child('profile_id').val()) || (data.exists() && !newData.exists() && data.child('ts').isNumber() && data.child('ts').val() <= now - 600000))",
+            ".write": "auth != null && root.child('members').child(auth.uid).child('partnership_id').isString() && !root.child('revoked_partnerships').child(root.child('members').child(auth.uid).child('partnership_id').val()).exists() && $channel === 'duonest_channel_' + root.child('members').child(auth.uid).child('partnership_id').val() && ((!data.exists() && newData.exists() && newData.child('payload').child('senderId').val() === root.child('members').child(auth.uid).child('profile_id').val()) || (data.exists() && !newData.exists() && data.child('ts').isNumber() && data.child('ts').val() <= now - 600000))",
             ".validate": "newData.child('event').val() === 'duo_sync' && newData.child('ts').isNumber() && newData.child('ts').val() >= now - 5000 && newData.child('ts').val() <= now && (newData.child('payload').child('action').val() === 'HEARTBEAT' || newData.child('payload').child('action').val() === 'DOODLE_LIVE_STROKE' || newData.child('payload').child('action').val() === 'DOODLE_DRAWING_STATUS')",
             "event": {
               ".validate": "newData.val() === 'duo_sync'"
@@ -78,16 +78,16 @@
       },
       "music": {
         "$partnershipId": {
-          ".read": "auth != null && root.child('members').child(auth.uid).child('partnership_id').val() === $partnershipId",
+          ".read": "auth != null && root.child('members').child(auth.uid).child('partnership_id').val() === $partnershipId && !root.child('revoked_partnerships').child($partnershipId).exists()",
           ".write": false
         }
       },
       "presence_v2": {
         "$channel": {
-          ".read": "auth != null && root.child('members').child(auth.uid).child('partnership_id').isString() && $channel === 'duonest_channel_' + root.child('members').child(auth.uid).child('partnership_id').val()",
+          ".read": "auth != null && root.child('members').child(auth.uid).child('partnership_id').isString() && !root.child('revoked_partnerships').child(root.child('members').child(auth.uid).child('partnership_id').val()).exists() && $channel === 'duonest_channel_' + root.child('members').child(auth.uid).child('partnership_id').val()",
           "$key": {
             "$session": {
-              ".write": "auth != null && root.child('members').child(auth.uid).child('partnership_id').isString() && $channel === 'duonest_channel_' + root.child('members').child(auth.uid).child('partnership_id').val() && $key === root.child('members').child(auth.uid).child('profile_id').val()",
+              ".write": "auth != null && root.child('members').child(auth.uid).child('partnership_id').isString() && !root.child('revoked_partnerships').child(root.child('members').child(auth.uid).child('partnership_id').val()).exists() && $channel === 'duonest_channel_' + root.child('members').child(auth.uid).child('partnership_id').val() && $key === root.child('members').child(auth.uid).child('profile_id').val()",
               ".validate": "newData.hasChildren(['updated_at'])",
               "updated_at": {
                 ".validate": "newData.isNumber() && newData.val() >= now - 5000 && newData.val() <= now"

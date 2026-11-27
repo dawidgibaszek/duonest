@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { useDuoAvatars } from '~/composables/useDuoAvatars'
 import { Capacitor } from '@capacitor/core'
 import { createAnimation } from '@ionic/vue'
 import { nativeLocation, useDuoLocation, type DuoPosition } from '~/composables/useDuoLocation'
 import { appleMaps } from '~/utils/duoAppleMaps'
 import type { DuoMapPin } from '~/utils/duoMapPin'
+
+const { ownAvatarImage, partnerAvatarImage } = useDuoAvatars()
 
 const { currentUser, partnerUser, currentUserAccentColor, partnerUserAccentColor } = useDuoState()
 const props = defineProps<{ partnerName: string }>()
@@ -193,12 +196,12 @@ function age(point: DuoPosition) {
 
 const ownIdentity = computed(() => ({
   name: currentUser.value.name?.trim() || 'Ty',
-  avatar: currentUser.value.avatar_url,
+  avatar: ownAvatarImage.value,
   color: currentUserAccentColor.value
 }))
 const partnerIdentity = computed(() => ({
   name: partnerUser.value?.name?.trim() || props.partnerName,
-  avatar: partnerUser.value?.avatar_url,
+  avatar: partnerAvatarImage.value,
   color: partnerUserAccentColor.value
 }))
 const people = computed(() => [

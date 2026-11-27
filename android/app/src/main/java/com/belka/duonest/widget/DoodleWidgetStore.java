@@ -25,7 +25,7 @@ final class DoodleWidgetStore {
     private static final String PREF_PARTNER_NAME = "partner_name";
     private static final String PREF_DRAWING_UNTIL = "partner_drawing_until";
     private static final String DOODLE_FILE = "doodle_widget.json";
-    // Holds the Firebase refresh token, so it stays out of Auto Backup.
+    // Holds the scoped widget credential, so it stays out of Auto Backup.
     private static final String SESSION_FILE = "doodle_widget_session.json";
     private static final String LOCATION_FILE = "partner_location_widget.json";
 
@@ -33,27 +33,17 @@ final class DoodleWidgetStore {
         final String uid;
         final String profileId;
         final String partnershipId;
-        final String refreshToken;
-        final String apiKey;
-        final String projectId;
         final String credential;
 
-        Session(String uid, String profileId, String partnershipId, String refreshToken, String apiKey, String projectId, String credential) {
+        Session(String uid, String profileId, String partnershipId, String credential) {
             this.uid = uid;
             this.profileId = profileId;
             this.partnershipId = partnershipId;
-            this.refreshToken = refreshToken;
-            this.apiKey = apiKey;
-            this.projectId = projectId;
             this.credential = credential;
         }
 
-        Session withRefreshToken(String token) {
-            return new Session(uid, profileId, partnershipId, token, apiKey, projectId, credential);
-        }
-
         Session withCredential(String token) {
-            return new Session(uid, profileId, partnershipId, refreshToken, apiKey, projectId, token);
+            return new Session(uid, profileId, partnershipId, token);
         }
 
         boolean sameAccount(@Nullable Session other) {
@@ -66,11 +56,8 @@ final class DoodleWidgetStore {
             String uid = json.optString("uid");
             String profileId = json.optString("profileId");
             String partnershipId = json.optString("partnershipId");
-            String refreshToken = json.optString("refreshToken");
-            String apiKey = json.optString("apiKey");
-            String projectId = json.optString("projectId");
-            if (uid.isEmpty() || partnershipId.isEmpty() || refreshToken.isEmpty() || apiKey.isEmpty() || projectId.isEmpty()) return null;
-            return new Session(uid, profileId, partnershipId, refreshToken, apiKey, projectId, json.optString("credential"));
+            if (uid.isEmpty() || partnershipId.isEmpty()) return null;
+            return new Session(uid, profileId, partnershipId, json.optString("credential"));
         }
 
         JSONObject toJson() throws JSONException {
@@ -78,9 +65,6 @@ final class DoodleWidgetStore {
                 .put("uid", uid)
                 .put("profileId", profileId)
                 .put("partnershipId", partnershipId)
-                .put("refreshToken", refreshToken)
-                .put("apiKey", apiKey)
-                .put("projectId", projectId)
                 .put("credential", credential);
         }
     }
@@ -124,13 +108,19 @@ final class DoodleWidgetStore {
     private DoodleWidgetStore(Context context) {
         this.context = context;
         this.prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        this.session = Session.fromJson(readJson(sessionFile()));
+        JSONObject savedSession = readJson(sessionFile());
+        this.session = Session.fromJson(savedSession);
+        if (savedSession != null && savedSession.has("refreshToken")) {
+            if (session == null) new AtomicFile(sessionFile()).delete();
+            else writeJson(sessionFile(), session::toJson);
+        }
         JSONObject cached = readJson(locationFile());
         if (session != null && !session.credential.isEmpty() && cached != null &&
             session.uid.equals(cached.optString("uid")) && session.partnershipId.equals(cached.optString("partnershipId"))) {
             partnerLocation = PartnerLocation.fromJson(cached.optJSONObject("location"));
         }
-        applyDoodle(readJson(doodleFile()));
+        if (session != null && !session.credential.isEmpty()) applyDoodle(readJson(doodleFile()));
+        else new AtomicFile(doodleFile()).delete();
     }
 
     @Nullable
@@ -148,7 +138,7 @@ final class DoodleWidgetStore {
             doodleKey = "";
             updatedAt = "";
             authorName = "";
-            sessionFile().delete();
+            new AtomicFile(sessionFile()).delete();
             doodleFile().delete();
             prefs.edit().clear().apply();
             return;
@@ -204,7 +194,10 @@ final class DoodleWidgetStore {
 
     synchronized void setPartnerLocation(Session expected, @Nullable JSONObject response, boolean revokeAccess, @Nullable Bitmap map) {
         if (!sameLocationSession(expected)) return;
-        if (revokeAccess) setSession(session.withCredential(""));
+        if (revokeAccess) {
+            setSession(null);
+            return;
+        }
         JSONObject rawLocation = response == null ? null : response.optJSONObject("location");
         if (response != null && response.has("partnerName")) setPartnerName(response.optString("partnerName"));
         PartnerLocation nextLocation = PartnerLocation.fromJson(rawLocation);
@@ -230,17 +223,8 @@ final class DoodleWidgetStore {
         new AtomicFile(locationFile()).delete();
     }
 
-    synchronized void updateRefreshToken(Session from, String refreshToken) {
-        if (!hasRefreshToken(from) || refreshToken.equals(from.refreshToken)) return;
-        setSession(session.withRefreshToken(refreshToken));
-    }
-
-    synchronized void clearRevokedSession(Session from) {
-        if (hasRefreshToken(from)) setSession(null);
-    }
-
-    private boolean hasRefreshToken(Session from) {
-        return from.sameAccount(session) && from.refreshToken.equals(session.refreshToken);
+    synchronized void clearRevokedSession(Session expected) {
+        if (sameLocationSession(expected)) setSession(null);
     }
 
     synchronized String currentDoodleKey() {
@@ -257,7 +241,7 @@ final class DoodleWidgetStore {
     }
 
     synchronized void applyRefresh(Session account, String previousKey, @Nullable JSONObject doodle, boolean clearDrawing) {
-        if (!account.sameAccount(session)) return;
+        if (!sameLocationSession(account)) return;
         if (clearDrawing) {
             liveStrokes.clear();
             setPartnerDrawingUntil(0);

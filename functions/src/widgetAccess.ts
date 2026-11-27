@@ -3,6 +3,7 @@ import type { Auth } from 'firebase-admin/auth'
 import type { Firestore } from 'firebase-admin/firestore'
 import type { RequestHandler } from 'express'
 import { isWidgetVersionAllowed } from './clientAccess'
+import { DuoDataError, requirePartnership } from './partnershipAccess'
 
 const LIFETIME_MS = 14 * 24 * 60 * 60_000
 const credentialRef = (db: Firestore, token: string) =>
@@ -28,17 +29,23 @@ export function updateWidgetAccess(db: Firestore): RequestHandler {
           if (existing) tx.delete(ref)
           return true
         }
-        const member = (await tx.get(db.collection('members').doc(user.uid))).data()
-        if (!member?.profile_id || !member?.partnership_id) return false
+        if (process.env.DUO_APP_CHECK_ENFORCE === 'true' && !res.locals.duoPlatform) return false
+        let access
+        try {
+          access = await requirePartnership(tx, db, user.uid)
+        } catch (error) {
+          if (error instanceof DuoDataError && error.status === 403) return false
+          throw error
+        }
         tx.set(ref, {
           uid: user.uid,
-          profileId: member.profile_id,
-          partnershipId: member.partnership_id,
+          profileId: access.profileId,
+          partnershipId: access.partnershipId,
           authenticatedAt: user.auth_time * 1000,
           platform: res.locals.duoPlatform === 'android' ? 'android' : 'ios',
           version: req.get('X-DuoNest-Version') ?? '',
           build: req.get('X-DuoNest-Build') ?? '',
-          expiresAt: Date.now() + LIFETIME_MS
+          expires_at: new Date(Date.now() + LIFETIME_MS)
         })
         return true
       })
@@ -65,7 +72,7 @@ function readWidgetData(db: Firestore, auth: Auth, location: boolean): RequestHa
 
     try {
       const session = (await credentialRef(db, token).get()).data()
-      if (!session || session.expiresAt <= Date.now()) return res.status(401).json({ error: 'widget_session_expired' })
+      if (!session || widgetExpired(session)) return res.status(401).json({ error: 'widget_session_expired' })
       const user = await auth.getUser(session.uid).catch(error => {
         if (error.code === 'auth/user-not-found') return null
         throw error
@@ -84,7 +91,9 @@ function readWidgetData(db: Firestore, auth: Auth, location: boolean): RequestHa
           db.collection('profiles').doc(session.profileId),
           db.collection('partnerships').doc(session.partnershipId)
         )
-        if (!access.exists || access.get('partnershipId') !== session.partnershipId ||
+        const current = access.data()
+        if (!current || widgetExpired(current) || current.uid !== session.uid ||
+            current.profileId !== session.profileId || current.partnershipId !== session.partnershipId ||
             member.get('profile_id') !== session.profileId || member.get('partnership_id') !== session.partnershipId ||
             profile.get('auth_user_id') !== session.uid || profile.get('partnership_id') !== session.partnershipId ||
             ![nest.get('partner1_id'), nest.get('partner2_id')].includes(session.profileId)) return null
@@ -125,4 +134,9 @@ function readWidgetData(db: Firestore, auth: Auth, location: boolean): RequestHa
       return res.status(503).json({ error: 'widget_unavailable' })
     }
   }
+}
+
+function widgetExpired(session: FirebaseFirestore.DocumentData) {
+  const expiry = session.expires_at?.toMillis() ?? session.expiresAt
+  return typeof expiry !== 'number' || expiry <= Date.now()
 }
