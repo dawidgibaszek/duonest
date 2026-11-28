@@ -1,6 +1,7 @@
 <template>
   <ion-page>
     <ion-header :translucent="true">
+      <DuoSectionBack to="/tabs/leisure" label="Wróć do rozrywki" />
       <ion-toolbar>
         <div class="dn-page-header">
           <div class="header-action-row">
@@ -17,32 +18,6 @@
               <ion-icon :icon="ioniconsAddOutline" />
             </button>
           </div>
-        </div>
-      </ion-toolbar>
-
-      <!-- MAIN TABS: Filmy & Seriale vs Wishlista -->
-      <ion-toolbar class="main-tabs-toolbar" data-no-swipe>
-        <div class="main-tabs-pill-row">
-          <button
-            v-if="isFeatureEnabled('movies')"
-            type="button"
-            class="main-tab-pill"
-            @click="switchToMovies"
-          >
-            <ion-icon :icon="ioniconsFilmOutline" />
-            <span>Filmy i seriale</span>
-            <span class="pill-count-chip" v-if="plannedMoviesCount > 0">{{ plannedMoviesCount }}</span>
-          </button>
-
-          <button
-            v-if="isFeatureEnabled('wishlist')"
-            type="button"
-            class="main-tab-pill active"
-          >
-            <ion-icon :icon="ioniconsGiftOutline" />
-            <span>Lista życzeń</span>
-            <span class="pill-count-chip" v-if="uncompletedCount > 0">{{ uncompletedCount }}</span>
-          </button>
         </div>
       </ion-toolbar>
     </ion-header>
@@ -528,8 +503,6 @@ const contentRef = ref<any>(null)
 
 const {
   wishlistItems,
-  moviesList,
-  activeLeisureSubTab,
   currentUser,
   partnerUser,
   partnership,
@@ -545,21 +518,11 @@ const {
   hexToRgba,
   triggerToast
 } = useDuoState()
-const { isFeatureEnabled } = useDuoPersonalization()
 
 const { confirm } = useConfirm()
 
 const completingWishlistIds = ref<Set<string>>(new Set())
 const deletingWishlistIds = ref<Set<string>>(new Set())
-
-// Subtab switcher to Movies
-const plannedMoviesCount = computed(() => {
-  return moviesList.value.filter(m => m.status === 'planned').length
-})
-
-const switchToMovies = () => {
-  activeLeisureSubTab.value = 'movies'
-}
 
 // Scraper state
 const urlInput = ref('')

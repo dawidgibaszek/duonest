@@ -1,7 +1,7 @@
 <template>
   <ion-page>
     <ion-header :translucent="true">
-      <DuoOrganizationNav />
+      <DuoSectionBack />
       <ion-toolbar>
         <div class="dn-page-header">
           <div class="header-action-row">
