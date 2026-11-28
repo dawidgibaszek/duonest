@@ -1,8 +1,15 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { databaseUrlForProject, DUONEST_PROJECT_ID } from './functions/src/firebaseProject'
 import { existsSync, readFileSync } from 'node:fs'
+import nuxtAdminProxy from './scripts/nuxtAdminProxy'
 
-const firebaseProjectId = process.env.FIREBASE_PROJECT_ID || DUONEST_PROJECT_ID
+const firebaseUseEmulators = process.env.FIREBASE_USE_EMULATORS === '1'
+const firebaseProjectId = process.env.FIREBASE_PROJECT_ID || (firebaseUseEmulators ? 'demo-duonest' : DUONEST_PROJECT_ID)
+const firebaseEmulatorHost = process.env.FIREBASE_EMULATOR_HOST || '127.0.0.1'
+if (firebaseUseEmulators && (!/^demo-[a-z0-9-]+$/.test(firebaseProjectId) ||
+  !['127.0.0.1', 'localhost', 'host.docker.internal'].includes(firebaseEmulatorHost))) {
+  throw new Error('DuoNest requires a demo Firebase project and a local emulator host')
+}
 const androidProperties = 'android/local.properties'
 const androidMapsConfigured = Boolean(process.env.MAPS_API_KEY?.trim()) ||
   (existsSync(androidProperties) && /^MAPS_API_KEY\s*=\s*\S+/m.test(readFileSync(androidProperties, 'utf8')))
@@ -50,6 +57,15 @@ export default defineNuxtConfig({
   },
 
   nitro: {
+    devHandlers: [{ handler: nuxtAdminProxy }],
+    devProxy: {
+      '/api': {
+        target: firebaseUseEmulators
+          ? `http://${firebaseEmulatorHost}:5001/${firebaseProjectId}/europe-west1/api/api`
+          : 'https://duonestapp.pl/api',
+        changeOrigin: true
+      }
+    },
     prerender: {
       crawlLinks: false,
       routes: ['/']
@@ -80,25 +96,18 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    // Server-only keys (never exposed to client browser)
-    firebaseServiceAccountPath: process.env.FIREBASE_SERVICE_ACCOUNT_PATH || './serviceAccountKey.json',
-    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
-    vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || '',
-    vapidSubject: process.env.VAPID_SUBJECT || 'mailto:kontakt@duonestapp.pl',
-    tmdbApiKey: process.env.TMDB_API_KEY || '',
-    groqApiKey: process.env.GROQ_API_KEY || '',
-    groqModel: process.env.GROQ_MODEL || 'qwen/qwen3.8-27b',
-
     public: {
-      firebaseApiKey: process.env.FIREBASE_API_KEY || 'AIzaSyBrxtidFifD4vlf9OPSu9jkMWJLVsJAKV8',
-      firebaseAuthDomain: process.env.FIREBASE_AUTH_DOMAIN || 'duonest-38dc2.firebaseapp.com',
+      firebaseApiKey: process.env.FIREBASE_API_KEY || (firebaseUseEmulators ? 'fake-emulator-key' : 'AIzaSyBrxtidFifD4vlf9OPSu9jkMWJLVsJAKV8'),
+      firebaseAuthDomain: process.env.FIREBASE_AUTH_DOMAIN || `${firebaseProjectId}.firebaseapp.com`,
       firebaseProjectId,
-      firebaseStorageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'duonest-38dc2.firebasestorage.app',
+      firebaseStorageBucket: process.env.FIREBASE_STORAGE_BUCKET || (firebaseUseEmulators ? `${firebaseProjectId}.appspot.com` : 'duonest-38dc2.firebasestorage.app'),
       firebaseMessagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || '273218538953',
       firebaseAppId: process.env.FIREBASE_APP_ID || '1:273218538953:web:f8daf30bf01ae40a66ec18',
-      firebaseDatabaseUrl: process.env.FIREBASE_DATABASE_URL || databaseUrlForProject(firebaseProjectId) || '',
-      firebaseUseEmulators: process.env.FIREBASE_USE_EMULATORS === '1',
-      firebaseEmulatorHost: process.env.FIREBASE_EMULATOR_HOST || '127.0.0.1',
+      firebaseDatabaseUrl: process.env.FIREBASE_DATABASE_URL || (firebaseUseEmulators
+        ? `https://${firebaseProjectId}-default-rtdb.firebaseio.com`
+        : databaseUrlForProject(firebaseProjectId) || ''),
+      firebaseUseEmulators,
+      firebaseEmulatorHost,
       googleMapsAndroidConfigured: androidMapsConfigured,
       appCheckRecaptchaSiteKey: process.env.NUXT_PUBLIC_APP_CHECK_RECAPTCHA_SITE_KEY || '',
       vapidPublicKey: process.env.VAPID_PUBLIC_KEY || process.env.NUXT_PUBLIC_VAPID_PUBLIC_KEY || ''

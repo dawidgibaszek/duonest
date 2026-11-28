@@ -1,6 +1,6 @@
 import {
   createError, defineEventHandler, deleteCookie, getCookie, getRequestHeader, getRequestHost,
-  getRequestProtocol, getRouterParam, readRawBody, setCookie, setResponseHeader, setResponseStatus
+  getRequestProtocol, readRawBody, setCookie, setResponseHeader, setResponseStatus
 } from 'h3'
 
 const production = 'https://duonestapp.pl'
@@ -13,12 +13,12 @@ const allowedRequests = new Set([
 ])
 
 export default defineEventHandler(async event => {
-  const action = getRouterParam(event, 'action')
+  const action = event.path.split('?')[0].match(/^\/api\/admin\/([a-z-]+)\/?$/)?.[1]
+  if (!/^\/api\/admin(?:[/?]|$)/i.test(event.path)) return
   const method = event.method
   const host = getRequestHost(event, { xForwardedHost: false })
-  // Nitro's dev proxy forwards the peer address when it uses a Unix socket.
-  const peer = event.node.req.socket.remoteAddress ?? getRequestHeader(event, 'x-forwarded-for')
-  if (!import.meta.dev || !loopbackHost.test(host) || !loopbackPeers.has(peer ?? '') ||
+  const peer = event.node.req.socket.remoteAddress
+  if (!loopbackHost.test(host) || !loopbackPeers.has(peer ?? '') ||
     !allowedRequests.has(`${method}/${action}`)) throw createError({ statusCode: 404 })
 
   const protocol = getRequestProtocol(event, { xForwardedProto: false })

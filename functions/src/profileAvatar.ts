@@ -9,7 +9,9 @@ const jpegPath = /^avatars\/[^/]+\/[\w-]+\.jpe?g$/i
 export function avatarBucket(storage = getStorage()) {
   const project = storage.app.options.projectId || process.env.GCLOUD_PROJECT
   const bucket = process.env.DUO_AVATAR_BUCKET || storage.app.options.storageBucket ||
-    (project && `${project}.firebasestorage.app`)
+    (project && (process.env.FIREBASE_STORAGE_EMULATOR_HOST && project.startsWith('demo-')
+      ? `${project}.appspot.com`
+      : `${project}.firebasestorage.app`))
   return storage.bucket(bucket)
 }
 

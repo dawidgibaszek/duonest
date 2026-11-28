@@ -39,3 +39,4 @@ supabase/.temp/
 # Obsidian local workspace & cache
 **/.obsidian/workspace*.json
 **/.obsidian/cache
+functions/env.duonest-38dc2

@@ -38,6 +38,17 @@ yarn dev
 bun run dev
 ```
 
+Nuxt przekazuje `/api/**` do Firebase Functions przez `https://duonestapp.pl`. Ten tryb korzysta z danych produkcyjnych. Lokalny Nuxt nie potrzebuje `serviceAccountKey.json` ani klucza TMDB.
+
+Do pracy na danych testowych uruchom Firebase Emulator Suite z katalogu głównego:
+
+```bash
+npm --prefix functions run build
+firebase emulators:start --project demo-duonest --only auth,firestore,database,storage,functions
+```
+
+W drugim terminalu włącz `FIREBASE_USE_EMULATORS=1` (w PowerShell `$env:FIREBASE_USE_EMULATORS = '1'`) i uruchom `npm run dev`. Frontend przekazuje żądania do emulatora Functions na porcie 5001 i używa emulatorów danych. Po zmianie kodu funkcji uruchom ponownie build `functions`. Do testów katalogu filmów ustaw `TMDB_API_KEY` w `functions/.env.local`. Panel administratora na localhost przekazuje żądania do produkcyjnego panelu.
+
 ## Production
 
 Build the application for production:
