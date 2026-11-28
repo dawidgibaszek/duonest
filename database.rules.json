@@ -38,6 +38,9 @@
                 },
                 "stroke": {
                   ".validate": "newData.hasChildren(['color', 'width', 'points'])",
+                  "id": {
+                    ".validate": "newData.isString() && newData.val().matches(/^[a-zA-Z0-9-]{1,64}$/)"
+                  },
                   "color": {
                     ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F]{6}$/)"
                   },
