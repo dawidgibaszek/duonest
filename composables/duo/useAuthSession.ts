@@ -10,7 +10,8 @@ import {
   authUser,
   authSession,
   isAuthLoading,
-  authRestoreFailed,
+  authRestoreFailure,
+  type AuthRestoreStage,
   isStateInitialized,
   isLoggingOut,
   shoppingItems,
@@ -144,14 +145,16 @@ export function useAuthSession(options: {
       clearAllDuoState()
       clearSupabaseSessionStorage()
       restorableSessionConfirmed = true
-      authRestoreFailed.value = false
+      authRestoreFailure.value = null
       isAuthLoading.value = false
       if (oldUid && !isLoggingOut.value) leaveProtectedRoute()
       return
     }
-    if (oldUid && oldUid !== user.id) clearAllDuoState()
+    if (oldUid !== user.id) {
+      if (oldUid) clearAllDuoState()
+      authRestoreFailure.value = null
+    }
     restorableSessionConfirmed = true
-    authRestoreFailed.value = false
     authUser.value = user
     authSession.value = session
     saveToStorage('duonest_auth_user', user)
@@ -159,7 +162,7 @@ export function useAuthSession(options: {
 
     if (requiresVerifiedEmail(user)) {
       clearTimeout(restoreTimer)
-      authRestoreFailed.value = false
+      authRestoreFailure.value = null
       isAuthLoading.value = false
       return
     }
@@ -168,9 +171,9 @@ export function useAuthSession(options: {
     }
   }
 
-  const scheduleRestoreRetry = (retry: () => void | Promise<void>) => {
+  const scheduleRestoreRetry = (retry: () => void | Promise<void>, stage: AuthRestoreStage = 'session') => {
     if (typeof window === 'undefined' || isLoggingOut.value) return
-    authRestoreFailed.value = true
+    authRestoreFailure.value = stage
     clearTimeout(restoreTimer)
     restoreTimer = setTimeout(() => { void retry() }, retryDelay)
     retryDelay = Math.min(retryDelay * 2, 30000)
@@ -179,7 +182,6 @@ export function useAuthSession(options: {
   const retrySessionRestore = async () => {
     if (isLoggingOut.value) return
     clearTimeout(restoreTimer)
-    authRestoreFailed.value = false
     if (restorableSessionConfirmed && authUser.value) {
       await syncUserProfileWithAuth(authUser.value)
       return
@@ -222,10 +224,12 @@ export function useAuthSession(options: {
     const firebaseUser = bridge.auth.currentUser
     const stillSignedIn = () => !isLoggingOut.value && authUser.value?.id === user.id &&
       firebaseUser?.uid === user.id && bridge.auth.currentUser === firebaseUser
+    let stage: AuthRestoreStage = 'account'
     try {
       const member = await bridge.syncAccount(true)
       if (!stillSignedIn()) return false
       if (!member?.profile_id) throw new Error('Missing account profile')
+      stage = 'profile'
       const { data: profile, error } = await bridge.from('profiles', true).select('*').eq('id', member.profile_id).maybeSingle()
       if (!stillSignedIn()) return false
       if (error || profile?.auth_user_id !== user.id || !profile.pairing_code ||
@@ -234,17 +238,20 @@ export function useAuthSession(options: {
       if (partnership.value && partnership.value.id !== member.partnership_id) clearAllDuoState()
       hydrateCurrentUserFromProfile(profile, user)
       if (member.partnership_id) {
-        if (!await options.loadPartnership(member.partnership_id, profile.id, true) ||
-            !await options.loadDashboard(member.partnership_id, true)) throw new Error('Partnership data is not ready')
+        stage = 'partnership'
+        if (!await options.loadPartnership(member.partnership_id, profile.id, true)) throw new Error('Partnership is not ready')
+        stage = 'dashboard'
+        if (!await options.loadDashboard(member.partnership_id, true)) throw new Error('Dashboard data is not ready')
       }
       if (!stillSignedIn()) return false
+      stage = 'partnership'
       if (currentUser.value.partnership_id !== member.partnership_id) throw new Error('Membership changed during loading')
       retryDelay = 1500
-      authRestoreFailed.value = false
+      authRestoreFailure.value = null
       isAuthLoading.value = false
       return true
     } catch {
-      if (stillSignedIn()) scheduleRestoreRetry(async () => { await syncUserProfileWithAuth(user) })
+      if (stillSignedIn()) scheduleRestoreRetry(async () => { await syncUserProfileWithAuth(user) }, stage)
       return false
     }
   }
@@ -379,7 +386,7 @@ export function useAuthSession(options: {
     } finally {
       clearTimeout(pushTimeout)
       isLoggingOut.value = false
-      if (isAuthLoading.value) scheduleRestoreRetry(retrySessionRestore)
+      if (isAuthLoading.value) scheduleRestoreRetry(retrySessionRestore, authRestoreFailure.value ?? 'session')
     }
   }
 
