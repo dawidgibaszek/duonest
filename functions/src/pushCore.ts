@@ -1,8 +1,5 @@
 /**
- * Push notifications – device registration and delivery, shared by the Nuxt
- * dev server and the production Cloud Function.
- *
- * NOTE: an identical copy lives in server/utils/pushCore.ts. Keep both in sync.
+ * Push notifications – device registration and delivery.
  *
  * Two kinds of devices live in `push_subscriptions/{id}` (server-only collection):
  *   - type 'web' – browser / PWA Web Push subscription (VAPID), id = sha256(endpoint)

@@ -48,7 +48,7 @@ let isInitialized = false
 // --- Native app (Capacitor iOS & Android): push via Firebase Cloud Messaging -
 // The web build uses Web Push + service worker; inside the native app there is
 // no Web Push manager, so the device registers an FCM token with the backend
-// instead and the server delivers through APNs / FCM (see server/utils/pushCore.ts).
+// instead and the server delivers through APNs / FCM (see functions/src/pushCore.ts).
 export const isNativeApp = () =>
   Capacitor.isNativePlatform() || (typeof window !== 'undefined' && window.location.protocol === 'capacitor:')
 

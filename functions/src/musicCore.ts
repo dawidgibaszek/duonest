@@ -1,8 +1,5 @@
 /**
- * Music activity (Last.fm) – Firestore implementation shared by the Nuxt dev
- * server and the production Cloud Function.
- *
- * NOTE: an identical copy lives in server/utils/musicCore.ts. Keep both in sync.
+ * Music activity (Last.fm) backed by Firestore.
  *
  * Firestore (server-only collections, Admin SDK):
  *   music_connections/{profileId}  { service_username, session_key?, music_service, updated_at }
