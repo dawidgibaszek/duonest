@@ -14,32 +14,39 @@
           <TabNest />
         </div>
         <div v-show="visibleTabs.includes(1)" class="tab-slide" :style="slideWidth" :inert="activeTabIndex !== 1" :class="{ 'is-active': activeTabIndex === 1 }">
-          <div v-show="activeDailySubTab === 'shopping'" class="subtab-fill-container">
-            <TabShopping v-if="isFeatureEnabled('shopping')" />
-          </div>
-          <div v-show="activeDailySubTab === 'tasks'" class="subtab-fill-container">
-            <TabTasks v-if="isFeatureEnabled('tasks')" />
-          </div>
-          <div v-show="activeDailySubTab === 'meals'" class="subtab-fill-container">
-            <TabMeals v-if="isFeatureEnabled('meals')" />
-          </div>
-          <div v-show="activeDailySubTab === 'savings'" class="subtab-fill-container">
-            <TabSavings v-if="isFeatureEnabled('savings')" />
-          </div>
-          <div v-show="activeDailySubTab === 'calendar'" class="subtab-fill-container">
-            <TabCalendar v-if="isFeatureEnabled('calendar')" />
-          </div>
+          <Transition name="section-menu" :css="animateOrganization">
+            <div v-show="!activeDailySubTab" class="subtab-fill-container" :inert="!!activeDailySubTab">
+              <TabDaily />
+            </div>
+          </Transition>
+          <Transition v-for="feature in dailyFeatures" :key="feature" name="section-view" :css="animateOrganization">
+            <div
+              v-show="activeDailySubTab === feature"
+              class="subtab-fill-container section-view"
+              :inert="activeDailySubTab !== feature"
+            >
+              <component :is="dailySections[feature]" />
+            </div>
+          </Transition>
         </div>
         <div v-show="visibleTabs.includes(2)" class="tab-slide" :style="slideWidth" :inert="activeTabIndex !== 2" :class="{ 'is-active': activeTabIndex === 2 }">
           <DuoPetTab v-if="isFeatureEnabled('pet')" :active="activeTabIndex === 2" />
         </div>
         <div v-show="visibleTabs.includes(3)" class="tab-slide" :style="slideWidth" :inert="activeTabIndex !== 3" :class="{ 'is-active': activeTabIndex === 3 }">
-          <div v-show="activeLeisureSubTab === 'movies'" class="subtab-fill-container">
-            <TabMovies v-if="isFeatureEnabled('movies')" />
-          </div>
-          <div v-show="activeLeisureSubTab === 'wishlist'" class="subtab-fill-container">
-            <TabWishlist v-if="isFeatureEnabled('wishlist')" />
-          </div>
+          <Transition name="section-menu" :css="animateLeisure">
+            <div v-show="!activeLeisureSubTab" class="subtab-fill-container" :inert="!!activeLeisureSubTab">
+              <TabLeisure />
+            </div>
+          </Transition>
+          <Transition v-for="feature in leisureFeatures" :key="feature" name="section-view" :css="animateLeisure">
+            <div
+              v-show="activeLeisureSubTab === feature"
+              class="subtab-fill-container section-view"
+              :inert="activeLeisureSubTab !== feature"
+            >
+              <component :is="leisureSections[feature]" />
+            </div>
+          </Transition>
         </div>
         <div v-show="visibleTabs.includes(4)" class="tab-slide" :style="slideWidth" :inert="activeTabIndex !== 4" :class="{ 'is-active': activeTabIndex === 4 }">
           <TabRelationship />
@@ -68,15 +75,15 @@
           id="tab-btn-daily"
           class="duo-tab-btn"
           :aria-current="activeTabIndex === 1 ? 'page' : undefined"
-          @click="handleDailyTabClick"
+          @click="goToTab(1)"
         >
           <div class="tab-icon-wrap">
-            <ion-icon :icon="dailyTabFeature ? featureTabIcons[dailyTabFeature] : ioniconsCheckbox" aria-hidden="true" />
+            <ion-icon :icon="ioniconsCheckbox" aria-hidden="true" />
             <span v-if="dailyBadge > 0" class="tab-badge">
               {{ dailyBadge }}
             </span>
           </div>
-          <span class="ion-sr-only">{{ dailyTabFeature ? FEATURE_DETAILS[dailyTabFeature].label : 'Organizacja' }}</span>
+          <span class="ion-sr-only">Organizacja</span>
         </button>
 
         <button
@@ -99,15 +106,15 @@
           id="tab-btn-leisure"
           class="duo-tab-btn"
           :aria-current="activeTabIndex === 3 ? 'page' : undefined"
-          @click="handleLeisureTabClick"
+          @click="goToTab(3)"
         >
           <div class="tab-icon-wrap">
-            <ion-icon :icon="leisureTabFeature ? featureTabIcons[leisureTabFeature] : ioniconsSparkles" aria-hidden="true" />
+            <ion-icon :icon="ioniconsSparkles" aria-hidden="true" />
             <span v-if="leisureBadge > 0" class="tab-badge">
               {{ leisureBadge }}
             </span>
           </div>
-          <span class="ion-sr-only">{{ leisureTabFeature ? FEATURE_DETAILS[leisureTabFeature].label : 'Rozrywka' }}</span>
+          <span class="ion-sr-only">Rozrywka</span>
         </button>
 
         <button
@@ -128,32 +135,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, type Component } from 'vue'
 import { DAILY_FEATURES, LEISURE_FEATURES, featurePath } from '~/utils/duoPersonalization'
-import { FEATURE_DETAILS } from '~/utils/duoPersonalizationUi'
 import { useDuoState } from '~/composables/useDuoState'
-import { selectDaily } from '~/composables/duo/state'
 
 import TabNest from '~/pages/tabs/nest.vue'
+import TabDaily from '~/pages/tabs/daily.vue'
 import TabShopping from '~/pages/tabs/shopping.vue'
 import TabTasks from '~/pages/tabs/tasks.vue'
 import TabMeals from '~/pages/tabs/meals.vue'
 import TabSavings from '~/pages/tabs/savings.vue'
 import TabCalendar from '~/pages/tabs/calendar.vue'
+import TabLeisure from '~/pages/tabs/leisure.vue'
 import TabWishlist from '~/pages/tabs/wishlist.vue'
 import TabMovies from '~/pages/tabs/movies.vue'
 import TabRelationship from '~/pages/tabs/relationship.vue'
 
-const route = useRoute()
 const router = useRouter()
+const route = router.currentRoute
 const {
   shoppingItems,
   tasksList,
   eventsList,
   wishlistItems,
-  moviesList,
-  activeDailySubTab,
-  activeLeisureSubTab
+  moviesList
 } = useDuoState()
 
 const pendingShoppingCount = computed(() => {
@@ -178,20 +183,31 @@ const pendingMoviesCount = computed(() => {
 })
 
 const TABS = ['nest', 'daily', 'pet', 'leisure', 'relationship']
+const dailySections = {
+  shopping: TabShopping,
+  tasks: TabTasks,
+  meals: TabMeals,
+  savings: TabSavings,
+  calendar: TabCalendar
+} satisfies Record<typeof DAILY_FEATURES[number], Component>
+const leisureSections = {
+  movies: TabMovies,
+  wishlist: TabWishlist
+} satisfies Record<typeof LEISURE_FEATURES[number], Component>
 const { isFeatureEnabled, enabledFeatures } = useDuoPersonalization()
 const dailyFeatures = computed(() => DAILY_FEATURES.filter(isFeatureEnabled))
 const leisureFeatures = computed(() => LEISURE_FEATURES.filter(isFeatureEnabled))
-const dailyTabFeature = computed(() => dailyFeatures.value.length === 1 ? dailyFeatures.value[0] : undefined)
-const leisureTabFeature = computed(() => leisureFeatures.value.length === 1 ? leisureFeatures.value[0] : undefined)
-const featureTabIcons = {
-  shopping: ioniconsCart,
-  tasks: ioniconsCheckbox,
-  meals: ioniconsRestaurant,
-  savings: ioniconsWallet,
-  calendar: ioniconsCalendarClear,
-  movies: ioniconsFilm,
-  wishlist: ioniconsGift
-}
+const tabPath = computed(() => route.value.path.replace(/\/$/, ''))
+const dailyRouteFeature = computed(() => {
+  const path = tabPath.value
+  if (path === '/tabs/tasks' && route.value.query.view === 'pet') return undefined
+  return DAILY_FEATURES.find(feature => featurePath(feature) === path)
+})
+const activeDailySubTab = computed(() => dailyFeatures.value.find(feature => feature === dailyRouteFeature.value))
+const leisureRouteFeature = computed(() => LEISURE_FEATURES.find(feature => featurePath(feature) === tabPath.value))
+const activeLeisureSubTab = computed(() => leisureFeatures.value.find(feature => feature === leisureRouteFeature.value))
+const animateOrganization = ref(false)
+const animateLeisure = ref(false)
 const dailyBadge = computed(() => (isFeatureEnabled('shopping') ? pendingShoppingCount.value : 0)
   + (isFeatureEnabled('tasks') ? pendingTasksCount.value : 0)
   + (isFeatureEnabled('calendar') ? todayEventsCount.value : 0))
@@ -202,26 +218,18 @@ const visibleTabs = computed(() => [
   ...(leisureFeatures.value.length ? [3] : []), 4
 ])
 const slideWidth = computed(() => ({ width: `${100 / visibleTabs.value.length}%` }))
-function normalizeSubTabs() {
-  const firstDaily = dailyFeatures.value[0]
-  if (firstDaily && !isFeatureEnabled(activeDailySubTab.value)) selectDaily(firstDaily)
-  const firstLeisure = leisureFeatures.value[0]
-  if (firstLeisure && !isFeatureEnabled(activeLeisureSubTab.value)) activeLeisureSubTab.value = firstLeisure
-}
 
 function tabPosition(index: number) {
   return visibleTabs.value.indexOf(index)
 }
 
 function updateTabUrl(index: number) {
-  const target = index === 1 ? featurePath(activeDailySubTab.value)
-    : index === 2 ? featurePath('pet')
-    : index === 3 ? featurePath(activeLeisureSubTab.value)
+  const target = index === 2 ? featurePath('pet')
     : `/tabs/${TABS[index]}`
   // Preserve contextual query parameters, such as the settings section.
-  const currentPath = route.path
+  const currentPath = route.value.path
   const petChanged = currentPath === '/tabs/tasks' &&
-    (route.query.view === 'pet') !== (target === featurePath('pet'))
+    (route.value.query.view === 'pet') !== (target === featurePath('pet'))
   if (currentPath !== target.split('?')[0] || petChanged) {
     void router.replace(target)
   }
@@ -507,7 +515,6 @@ const onTouchCancel = () => {
 
 const goToTab = (index: number, updateUrl = true) => {
   if (!visibleTabs.value.includes(index)) return
-  normalizeSubTabs()
   const oldIndex = activeTabIndex.value
   activeTabIndex.value = index
 
@@ -538,24 +545,6 @@ const onContainerScroll = () => {
   }
 }
 
-const handleDailyTabClick = () => {
-  if (activeTabIndex.value === 1) {
-    const next = dailyFeatures.value[(dailyFeatures.value.indexOf(activeDailySubTab.value) + 1) % dailyFeatures.value.length]
-    if (next) selectDaily(next)
-  } else {
-    goToTab(1)
-  }
-}
-
-const handleLeisureTabClick = () => {
-  if (activeTabIndex.value === 3) {
-    const next = leisureFeatures.value[(leisureFeatures.value.indexOf(activeLeisureSubTab.value) + 1) % leisureFeatures.value.length]
-    if (next) activeLeisureSubTab.value = next
-  } else {
-    goToTab(3)
-  }
-}
-
 const handleResize = () => {
   const width = getContainerWidth()
   const targetX = -tabPosition(activeTabIndex.value) * width
@@ -567,45 +556,21 @@ const handleResize = () => {
 
 // Synchronize active tab from initial route URL
 const syncTabFromRoute = (animate: boolean = false) => {
-  const path = route?.path || (typeof window !== 'undefined' ? window.location.pathname : '')
+  const path = route.value.path
   let idx = 0
 
   if (path.includes('nest')) {
     idx = 0
-  } else if (path.includes('shopping')) {
+  } else if (path.includes('tasks') && route.value.query.view === 'pet') {
+    idx = 2
+  } else if (dailyRouteFeature.value || path.includes('daily')) {
     idx = 1
-    selectDaily('shopping')
-  } else if (path.includes('tasks')) {
-    if (route.query.view === 'pet') {
-      idx = 2
-    } else {
-      idx = 1
-      selectDaily('tasks')
-    }
-  } else if (path.includes('meals') || path.includes('dinner')) {
-    idx = 1
-    selectDaily('meals')
-  } else if (path.includes('savings') || path.includes('budget') || path.includes('skarbonki')) {
-    idx = 1
-    selectDaily('savings')
-  } else if (path.includes('daily') || path.includes('organization') || path.includes('organizacja')) {
-    idx = 1
-  } else if (path.includes('calendar')) {
-    idx = 1
-    selectDaily('calendar')
-  } else if (path.includes('movies')) {
-    idx = 3
-    activeLeisureSubTab.value = 'movies'
-  } else if (path.includes('wishlist')) {
-    idx = 3
-    activeLeisureSubTab.value = 'wishlist'
-  } else if (path.includes('leisure')) {
+  } else if (leisureRouteFeature.value || tabPath.value === '/tabs/leisure') {
     idx = 3
   } else if (path.includes('relationship')) {
     idx = 4
   }
 
-  normalizeSubTabs()
   if (!visibleTabs.value.includes(idx)) idx = 0
   if (animate) {
     if (idx !== activeTabIndex.value) goToTab(idx, false)
@@ -648,19 +613,24 @@ onUnmounted(() => {
   window.removeEventListener('orientationchange', handleResize)
 })
 
-watch(() => route.fullPath, () => syncTabFromRoute(true))
-
-watch(activeDailySubTab, () => {
-  if (activeTabIndex.value === 1) updateTabUrl(1)
+watch(() => route.value.fullPath, () => syncTabFromRoute(true))
+watch([() => route.value.name, activeDailySubTab], ([name, feature], [previousName, previousFeature]) => {
+  animateOrganization.value = (previousName === 'tabs-daily' && !!feature)
+    || (name === 'tabs-daily' && !!previousFeature)
 })
-watch(activeLeisureSubTab, () => {
-  if (activeTabIndex.value === 3) updateTabUrl(3)
+
+watch([() => route.value.name, activeLeisureSubTab], ([name, feature], [previousName, previousFeature]) => {
+  animateLeisure.value = (previousName === 'tabs-leisure' && !!feature)
+    || (name === 'tabs-leisure' && !!previousFeature)
 })
 
 watch(enabledFeatures, () => {
-  normalizeSubTabs()
   if (!visibleTabs.value.includes(activeTabIndex.value)) goToTab(0)
-  else handleResize()
+  else {
+    if (activeTabIndex.value === 1 && dailyRouteFeature.value && !activeDailySubTab.value) updateTabUrl(1)
+    if (activeTabIndex.value === 3 && leisureRouteFeature.value && !activeLeisureSubTab.value) updateTabUrl(3)
+    handleResize()
+  }
 })
 </script>
 
@@ -723,6 +693,37 @@ watch(enabledFeatures, () => {
   bottom: 0;
   width: 100%;
   height: 100%;
+}
+
+.section-view {
+  z-index: 1;
+  background: var(--dn-bg);
+}
+
+.section-menu-enter-active,
+.section-menu-leave-active,
+.section-view-enter-active,
+.section-view-leave-active {
+  transition: transform 340ms cubic-bezier(0.25, 0.9, 0.3, 1);
+}
+
+.section-menu-enter-from,
+.section-menu-leave-to {
+  transform: translate3d(-24%, 0, 0);
+}
+
+.section-view-enter-from,
+.section-view-leave-to {
+  transform: translate3d(100%, 0, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-menu-enter-active,
+  .section-menu-leave-active,
+  .section-view-enter-active,
+  .section-view-leave-active {
+    transition: none;
+  }
 }
 
 .tab-slide :deep(ion-page) {
