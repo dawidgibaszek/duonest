@@ -1,5 +1,4 @@
 import { ref, computed } from 'vue'
-import type { DAILY_FEATURES } from '~/utils/duoPersonalization'
 import type {
   Profile,
   Partnership,
@@ -77,15 +76,6 @@ export const activeGestureAnimation = computed(() => {
   const list = activeGestureAnimations.value
   return list[list.length - 1] ?? null
 })
-
-// Aktywne podkarty i nawigacja
-export const activeDailySubTab = ref<typeof DAILY_FEATURES[number]>('shopping')
-export const activeOrgSubTab = activeDailySubTab
-export const activeLeisureSubTab = ref<'movies' | 'wishlist'>('movies')
-
-export function selectDaily(feature: typeof DAILY_FEATURES[number]) {
-  activeDailySubTab.value = feature
-}
 
 // Status połączenia i obecności
 export const isOnlineWithSupabase = ref(true)

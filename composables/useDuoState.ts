@@ -56,9 +56,6 @@ export {
   currentDoodle,
   partnerLiveStroke,
   isPartnerDrawing,
-  activeDailySubTab,
-  activeOrgSubTab,
-  activeLeisureSubTab,
   isAuthLoading,
   authRestoreFailed,
   isLoggingOut,
@@ -108,9 +105,6 @@ import {
   currentDoodle,
   partnerLiveStroke,
   isPartnerDrawing,
-  activeDailySubTab,
-  activeOrgSubTab,
-  activeLeisureSubTab,
   isAuthLoading,
   authRestoreFailed,
   isLoggingOut,
@@ -434,11 +428,6 @@ export const useDuoState = () => {
     formatUserAdj: grammar.formatUserAdj,
     getPartnerNoun: grammar.getPartnerNoun,
     GENDER_OPTIONS: grammar.GENDER_OPTIONS,
-    GRAMMAR_OPTIONS: grammar.GRAMMAR_OPTIONS,
-
-    // Zakładki nawigacyjne
-    activeDailySubTab,
-    activeOrgSubTab,
-    activeLeisureSubTab
+    GRAMMAR_OPTIONS: grammar.GRAMMAR_OPTIONS
   }
 }
