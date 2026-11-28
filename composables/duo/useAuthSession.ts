@@ -10,8 +10,7 @@ import {
   authUser,
   authSession,
   isAuthLoading,
-  authRestoreFailure,
-  type AuthRestoreStage,
+  authRestoreFailed,
   isStateInitialized,
   isLoggingOut,
   shoppingItems,
@@ -145,14 +144,14 @@ export function useAuthSession(options: {
       clearAllDuoState()
       clearSupabaseSessionStorage()
       restorableSessionConfirmed = true
-      authRestoreFailure.value = null
+      authRestoreFailed.value = false
       isAuthLoading.value = false
       if (oldUid && !isLoggingOut.value) leaveProtectedRoute()
       return
     }
     if (oldUid !== user.id) {
       if (oldUid) clearAllDuoState()
-      authRestoreFailure.value = null
+      authRestoreFailed.value = false
     }
     restorableSessionConfirmed = true
     authUser.value = user
@@ -162,7 +161,7 @@ export function useAuthSession(options: {
 
     if (requiresVerifiedEmail(user)) {
       clearTimeout(restoreTimer)
-      authRestoreFailure.value = null
+      authRestoreFailed.value = false
       isAuthLoading.value = false
       return
     }
@@ -171,9 +170,9 @@ export function useAuthSession(options: {
     }
   }
 
-  const scheduleRestoreRetry = (retry: () => void | Promise<void>, stage: AuthRestoreStage = 'session') => {
+  const scheduleRestoreRetry = (retry: () => void | Promise<void>) => {
     if (typeof window === 'undefined' || isLoggingOut.value) return
-    authRestoreFailure.value = stage
+    authRestoreFailed.value = true
     clearTimeout(restoreTimer)
     restoreTimer = setTimeout(() => { void retry() }, retryDelay)
     retryDelay = Math.min(retryDelay * 2, 30000)
@@ -224,12 +223,10 @@ export function useAuthSession(options: {
     const firebaseUser = bridge.auth.currentUser
     const stillSignedIn = () => !isLoggingOut.value && authUser.value?.id === user.id &&
       firebaseUser?.uid === user.id && bridge.auth.currentUser === firebaseUser
-    let stage: AuthRestoreStage = 'account'
     try {
       const member = await bridge.syncAccount(true)
       if (!stillSignedIn()) return false
       if (!member?.profile_id) throw new Error('Missing account profile')
-      stage = 'profile'
       const { data: profile, error } = await bridge.from('profiles', true).select('*').eq('id', member.profile_id).maybeSingle()
       if (!stillSignedIn()) return false
       if (error || profile?.auth_user_id !== user.id || !profile.pairing_code ||
@@ -238,20 +235,17 @@ export function useAuthSession(options: {
       if (partnership.value && partnership.value.id !== member.partnership_id) clearAllDuoState()
       hydrateCurrentUserFromProfile(profile, user)
       if (member.partnership_id) {
-        stage = 'partnership'
-        if (!await options.loadPartnership(member.partnership_id, profile.id, true)) throw new Error('Partnership is not ready')
-        stage = 'dashboard'
-        if (!await options.loadDashboard(member.partnership_id, true)) throw new Error('Dashboard data is not ready')
+        if (!await options.loadPartnership(member.partnership_id, profile.id, true) ||
+            !await options.loadDashboard(member.partnership_id, true)) throw new Error('Partnership data is not ready')
       }
       if (!stillSignedIn()) return false
-      stage = 'partnership'
       if (currentUser.value.partnership_id !== member.partnership_id) throw new Error('Membership changed during loading')
       retryDelay = 1500
-      authRestoreFailure.value = null
+      authRestoreFailed.value = false
       isAuthLoading.value = false
       return true
     } catch {
-      if (stillSignedIn()) scheduleRestoreRetry(async () => { await syncUserProfileWithAuth(user) }, stage)
+      if (stillSignedIn()) scheduleRestoreRetry(async () => { await syncUserProfileWithAuth(user) })
       return false
     }
   }
@@ -386,7 +380,7 @@ export function useAuthSession(options: {
     } finally {
       clearTimeout(pushTimeout)
       isLoggingOut.value = false
-      if (isAuthLoading.value) scheduleRestoreRetry(retrySessionRestore, authRestoreFailure.value ?? 'session')
+      if (isAuthLoading.value) scheduleRestoreRetry(retrySessionRestore)
     }
   }
 

@@ -27,8 +27,7 @@ export const partnership = ref<Partnership | null>(null)
 export const authUser = ref<any>(null)
 export const authSession = ref<any>(null)
 export const isAuthLoading = ref(true)
-export type AuthRestoreStage = 'session' | 'account' | 'profile' | 'partnership' | 'dashboard'
-export const authRestoreFailure = ref<AuthRestoreStage | null>(null)
+export const authRestoreFailed = ref(false)
 export const isStateInitialized = ref(false)
 export const isLoggingOut = ref(false)
 

@@ -28,9 +28,8 @@
           <img src="/logo.svg" alt="DuoNest" class="dn-boot-logo" width="96" height="96" />
           <span class="dn-boot-name">DuoNest</span>
         </div>
-        <div v-if="authRestoreFailure" class="dn-boot-retry">
+        <div v-if="authRestoreFailed" class="dn-boot-retry">
           <p>Nie udało się wczytać danych. Ponawiamy połączenie.</p>
-          <p class="dn-boot-retry-detail">{{ restoreStageLabels[authRestoreFailure] }}</p>
           <div class="dn-boot-retry-actions">
             <button type="button" class="dn-button-secondary" :disabled="isLoggingOut" @click="retrySessionRestore">Spróbuj ponownie</button>
             <button type="button" class="dn-button-secondary" :disabled="isLoggingOut" @click="signOutUser">
@@ -52,15 +51,8 @@ import { logoApple, logoGooglePlaystore } from 'ionicons/icons'
 import { onMounted, onScopeDispose, ref, watch } from 'vue'
 
 const showDownload = !import.meta.dev && !Capacitor.isNativePlatform()
-const { isAuthenticated, needsEmailVerification, isPaired, isAuthLoading, authRestoreFailure, isLoggingOut,
+const { isAuthenticated, needsEmailVerification, isPaired, isAuthLoading, authRestoreFailed, isLoggingOut,
   initializeClientState, retrySessionRestore, signOutUser } = useDuoState()
-const restoreStageLabels = {
-  session: 'Przywracanie sesji',
-  account: 'Synchronizacja konta',
-  profile: 'Odczyt profilu',
-  partnership: 'Odczyt danych pary',
-  dashboard: 'Wczytywanie zawartości Gniazdka'
-}
 const router = useRouter()
 const canNavigate = ref(false)
 let timer: ReturnType<typeof setTimeout> | undefined
@@ -175,11 +167,6 @@ watch([canNavigate, isAuthLoading], ([visible, loading]) => {
   bottom: calc(env(safe-area-inset-bottom) + 32px);
   padding: 0 24px;
   text-align: center;
-}
-
-.dn-boot-retry-detail {
-  color: var(--dn-muted);
-  font-size: 13px;
 }
 
 .dn-boot-retry-actions {
