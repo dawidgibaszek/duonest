@@ -24,7 +24,7 @@ export function avatarObjectPath(value: unknown, uid: string, bucket: string): s
       if (url.protocol === 'gs:' && url.host === bucket) {
         path = decodeURIComponent(url.pathname.slice(1))
       } else if (url.protocol === 'https:' && url.hostname === 'firebasestorage.googleapis.com') {
-        const match = /^\/v1\/b\/([^/]+)\/o\/([^/]+)$/.exec(url.pathname)
+        const match = /^\/v[01]\/b\/([^/]+)\/o\/([^/]+)$/.exec(url.pathname)
         if (!match || decodeURIComponent(match[1]) !== bucket) return null
         path = decodeURIComponent(match[2])
       } else {
