@@ -140,8 +140,6 @@
             </button>
           </div>
         </ion-toolbar>
-      </ion-header>
-      <ion-content class="ion-padding">
         <div class="bunny-wardrobe-categories" role="group" aria-label="Kategorie ubioru">
           <button
             v-for="(category, field) in wardrobeCategories"
@@ -154,6 +152,8 @@
             {{ category.label }}
           </button>
         </div>
+      </ion-header>
+      <div :key="wardrobeCategory" class="bunny-wardrobe-scroll ion-content-scroll-host">
         <div v-if="wardrobeItems.length" class="bunny-wardrobe-items">
           <button
             v-for="item in wardrobeItems"
@@ -166,14 +166,14 @@
             :disabled="!partnership || savingWardrobeItem !== null || (wardrobeCategory === 'pet_fur' && selectedWardrobeItem === item.id)"
             @click="selectWardrobeItem(item.id)"
           >
-            <img :src="item.image" class="bunny-wardrobe-thumbnail" alt="" width="64" height="48" />
+            <img :src="item.image" class="bunny-wardrobe-thumbnail" alt="" width="64" height="48" loading="lazy" />
             <span class="bunny-wardrobe-item-name">{{ item.label }}</span>
             <span class="bunny-wardrobe-item-action">{{ wardrobeItemAction(item.id) }}</span>
           </button>
         </div>
         <p v-else class="bunny-wardrobe-empty" role="status">Brak dostępnych elementów.</p>
         <p v-if="wardrobeSaveFailed" class="bunny-wardrobe-error" role="alert">Nie udało się zapisać wyglądu. Spróbuj ponownie.</p>
-      </ion-content>
+      </div>
     </ion-modal>
 
     <ion-modal
@@ -898,14 +898,31 @@ onBeforeUnmount(() => {
 }
 
 .bunny-wardrobe {
-  --height: min(350px, 100%);
+  --height: auto;
+  --max-height: calc(100dvh - max(12px, env(safe-area-inset-top, 0px)));
+}
+
+.bunny-wardrobe :deep(.ion-delegate-host) {
+  position: relative;
+  max-height: var(--max-height);
+}
+
+.bunny-wardrobe .dn-form-sheet-header {
+  flex: none;
+}
+
+.bunny-wardrobe-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding: 4px 20px calc(16px + env(safe-area-inset-bottom, 0px));
 }
 
 .bunny-wardrobe-categories {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 16px;
+  padding: 12px 20px;
 }
 
 .bunny-wardrobe-categories button {
