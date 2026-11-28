@@ -232,6 +232,11 @@
       <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/>
     </svg>
 
+    <svg v-else-if="name === 'eraser'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 12.5 13 3.5a2 2 0 0 1 2.8 0l4.7 4.7a2 2 0 0 1 0 2.8L12 19.5H8l-4-4a2.1 2.1 0 0 1 0-3Z"/>
+      <path d="m8 8.5 7.5 7.5M12 19.5h9"/>
+    </svg>
+
     <!-- FALLBACK / SPARKLE -->
     <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>

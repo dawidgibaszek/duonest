@@ -241,25 +241,26 @@ final class DoodleWidgetStore {
     }
 }
 
-/// Draws the doodle like the "Wspólny rysunek" preview in pages/tabs/nest.vue (renderPreviewCanvas).
 enum DoodleRenderer {
-    static func image(strokes: [DoodleStroke], size: CGSize, scale: CGFloat) -> UIImage {
+    // Matches the board in utils/duoDoodle.ts.
+    private static let boardSize = CGSize(width: 768, height: 384)
+
+    static func image(strokes: [DoodleStroke]) -> UIImage {
         let format = UIGraphicsImageRendererFormat()
-        format.scale = scale
+        format.scale = 1
         format.opaque = false
-        return UIGraphicsImageRenderer(size: size, format: format).image { context in
+        return UIGraphicsImageRenderer(size: boardSize, format: format).image { context in
             let cg = context.cgContext
-            let lineScale = min(size.width, size.height) / 400
             for stroke in strokes {
-                draw(stroke, in: cg, size: size, lineScale: lineScale, scale: scale)
+                draw(stroke, in: cg)
             }
         }
     }
 
-    private static func draw(_ stroke: DoodleStroke, in cg: CGContext, size: CGSize, lineScale: CGFloat, scale: CGFloat) {
+    private static func draw(_ stroke: DoodleStroke, in cg: CGContext) {
         let pts = stroke.points
         guard pts.count >= 2 else { return }
-        func point(_ i: Int) -> CGPoint { CGPoint(x: pts[i] * size.width, y: pts[i + 1] * size.height) }
+        func point(_ i: Int) -> CGPoint { CGPoint(x: pts[i] * boardSize.width, y: pts[i + 1] * boardSize.height) }
 
         cg.saveGState()
         defer { cg.restoreGState() }
@@ -267,7 +268,7 @@ enum DoodleRenderer {
         cg.setBlendMode(stroke.isEraser ? .clear : .normal)
         cg.setStrokeColor(color.cgColor)
         cg.setFillColor(color.cgColor)
-        let lineWidth = max(1.5 / scale, CGFloat(stroke.width) * lineScale)
+        let lineWidth = max(1.5, CGFloat(stroke.width) * boardSize.height / 400)
         cg.setLineWidth(lineWidth)
         cg.setLineCap(.round)
         cg.setLineJoin(.round)

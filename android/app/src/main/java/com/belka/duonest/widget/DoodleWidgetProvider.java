@@ -25,12 +25,9 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
     static final String ACTION_REFRESH = "com.belka.duonest.widget.DOODLE_REFRESH";
 
     private static final long MIN_RENDER_INTERVAL_MS = 120;
-    // RGB_565 bitmap of at most ~600 KB stays below the RemoteViews transaction limit.
-    private static final int MAX_BITMAP_PIXELS = 300_000;
     private static final int PADDING_DP = 16;
     private static final int COMPACT_PADDING_DP = 3;
-    private static final int HEADER_DP = 28;
-    private static final int GAP_DP = 10;
+    private static final int BOARD_PADDING_DP = 8;
 
     private static final Object LOCK = new Object();
     private static Handler renderHandler;
@@ -174,6 +171,7 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
         int[] ids = manager.getAppWidgetIds(new ComponentName(context, DoodleWidgetProvider.class));
         if (ids.length == 0) return;
         DoodleWidgetStore.Snapshot snapshot = DoodleWidgetStore.get(context).snapshot();
+        Bitmap updatedBitmap = null;
         for (int id : ids) {
             try {
                 Bundle options = manager.getAppWidgetOptions(id);
@@ -207,9 +205,12 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
                 boolean hasContent = snapshot.connected && !snapshot.strokes.isEmpty();
                 Bitmap bitmap = null;
                 if (hasContent) {
-                    bitmap = (sameBoard && previous.bitmap != null)
-                        ? previous.bitmap
-                        : renderBoard(context, snapshot, widthDp, heightDp, compact, headerVisible);
+                    if (sameBoard && previous.bitmap != null) {
+                        bitmap = previous.bitmap;
+                    } else {
+                        if (updatedBitmap == null) updatedBitmap = DoodleRenderer.render(snapshot.strokes);
+                        bitmap = updatedBitmap;
+                    }
                 }
 
                 RemoteViews views = buildViews(
@@ -282,6 +283,9 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
         views.setInt(R.id.widget_empty, "setBackgroundResource", compact ? android.R.color.transparent : R.drawable.widget_empty_bg);
         views.setViewVisibility(R.id.widget_empty_text, compact ? View.GONE : View.VISIBLE);
         if (bitmap != null) {
+            int boardPadding = compact ? 0 : Math.round(BOARD_PADDING_DP * context.getResources().getDisplayMetrics().density);
+            views.setInt(R.id.widget_doodle, "setBackgroundResource", compact ? android.R.color.transparent : R.drawable.widget_doodle_bg);
+            views.setViewPadding(R.id.widget_doodle, boardPadding, boardPadding, boardPadding, boardPadding);
             views.setImageViewBitmap(R.id.widget_doodle, bitmap);
             views.setViewVisibility(R.id.widget_doodle, View.VISIBLE);
             views.setViewVisibility(R.id.widget_empty, View.GONE);
@@ -298,26 +302,6 @@ public class DoodleWidgetProvider extends AppWidgetProvider {
 
     private static int paddingDp(int widthDp, int heightDp) {
         return Math.min(widthDp, heightDp) < 85 ? COMPACT_PADDING_DP : PADDING_DP;
-    }
-
-    private static Bitmap renderBoard(
-        Context context,
-        DoodleWidgetStore.Snapshot snapshot,
-        int widthDp,
-        int heightDp,
-        boolean compact,
-        boolean headerVisible
-    ) {
-        float density = context.getResources().getDisplayMetrics().density;
-        int padDp = paddingDp(widthDp, heightDp);
-        int headerSpaceDp = headerVisible ? HEADER_DP + GAP_DP : 0;
-        float boardWidth = Math.max(1, widthDp - 2 * padDp) * density;
-        float boardHeight = Math.max(1, heightDp - 2 * padDp - headerSpaceDp) * density;
-        float scale = (float) Math.min(1.0, Math.sqrt(MAX_BITMAP_PIXELS / (boardWidth * boardHeight)));
-
-        int width = Math.max(1, Math.round(boardWidth * scale));
-        int height = Math.max(1, Math.round(boardHeight * scale));
-        return DoodleRenderer.render(snapshot.strokes, width, height, density, scale, !compact);
     }
 
     @Nullable

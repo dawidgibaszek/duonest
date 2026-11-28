@@ -950,6 +950,7 @@ import { useConfirm } from '~/composables/useConfirm'
 import { normalizeGenderIdentity } from '~/functions/src/duoGrammar'
 import { translateAppError } from '~/utils/errorTranslator'
 import { AVATAR_MAX_FILE_MB } from '~/utils/avatarStorage'
+import { hslToHex } from '~/utils/duoColors'
 import { DUO_GESTURE_PRESETS, formatNudgeDateTime, getDuoGestureMeta } from '~/utils/duoGestures'
 import DuoIcon from '~/components/DuoIcon.vue'
 import DuoMusicCard from '~/components/DuoMusicCard.vue'
@@ -1286,18 +1287,6 @@ const hexToHsl = (hex: string): { h: number; s: number; l: number } => {
     s: Math.round(s * 100),
     l: Math.round(l * 100)
   }
-}
-
-const hslToHex = (h: number, s: number, l: number): string => {
-  const sat = s / 100
-  const lit = l / 100
-  const a = sat * Math.min(lit, 1 - lit)
-  const f = (n: number) => {
-    const k = (n + h / 30) % 12
-    const color = lit - a * Math.max(Math.min(k - 3, 9 - k, 1), -1)
-    return Math.round(255 * color).toString(16).padStart(2, '0')
-  }
-  return `#${f(0)}${f(8)}${f(4)}`
 }
 
 const isLightColor = (hex: string): boolean => {

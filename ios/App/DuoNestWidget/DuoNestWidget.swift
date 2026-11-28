@@ -53,17 +53,13 @@ struct DoodleEntry: TimelineEntry {
 }
 
 struct DoodleProvider: TimelineProvider {
-    // Matches the 16 pt widget content margins and the header in DoodleWidgetView.
-    private static let margin: CGFloat = 16
-    private static let header: CGFloat = 28
-    private static let gap: CGFloat = 10
     private static let refreshInterval: TimeInterval = 15 * 60
     func placeholder(in context: Context) -> DoodleEntry {
         DoodleEntry(date: Date(), connected: true, partnerName: "", authorName: "", partnerDrawing: false, image: nil)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (DoodleEntry) -> Void) {
-        completion(entry(at: Date(), state: DoodleWidgetStore.shared.state(), drawing: nil, context: context))
+        completion(entry(at: Date(), state: DoodleWidgetStore.shared.state(), drawing: nil))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<DoodleEntry>) -> Void) {
@@ -72,28 +68,24 @@ struct DoodleProvider: TimelineProvider {
             let state = await DoodleWidgetSync.refresh() ?? store.state()
 
             let now = Date()
-            var entries = [entry(at: now, state: state, drawing: nil, context: context)]
+            var entries = [entry(at: now, state: state, drawing: nil)]
             if let until = state.partnerDrawingUntil, until > now {
-                entries.append(entry(at: until, state: state, drawing: false, context: context))
+                entries.append(entry(at: until, state: state, drawing: false))
             }
             completion(Timeline(entries: entries, policy: .after(now.addingTimeInterval(Self.refreshInterval))))
         }
     }
 
-    private func entry(at date: Date, state: DoodleWidgetState, drawing: Bool?, context: Context) -> DoodleEntry {
+    private func entry(at date: Date, state: DoodleWidgetState, drawing: Bool?) -> DoodleEntry {
         let connected = DoodleWidgetStore.shared.session() != nil
         let strokes = connected ? state.strokes : []
-        let board = CGSize(
-            width: max(1, context.displaySize.width - 2 * Self.margin),
-            height: max(1, context.displaySize.height - 2 * Self.margin - ([WidgetFamily.systemMedium, .systemLarge, .systemExtraLarge].contains(context.family) ? Self.header + Self.gap : 0))
-        )
         return DoodleEntry(
             date: date,
             connected: connected,
             partnerName: state.partnerName,
             authorName: state.doodle?.authorName ?? "",
             partnerDrawing: connected && (drawing ?? ((state.partnerDrawingUntil ?? .distantPast) > date)),
-            image: strokes.isEmpty ? nil : DoodleRenderer.image(strokes: strokes, size: board, scale: 2)
+            image: strokes.isEmpty ? nil : DoodleRenderer.image(strokes: strokes)
         )
     }
 }
@@ -157,12 +149,12 @@ struct DoodleWidgetView: View {
             .frame(height: 28)
 
             if let image = entry.image {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color.white)
-                    Image(uiImage: image).resizable()
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(DuoColor.line, lineWidth: 1))
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(DuoColor.line, lineWidth: 1))
             } else {
                 VStack(spacing: 10) {
                     Image(systemName: "paintbrush.pointed")

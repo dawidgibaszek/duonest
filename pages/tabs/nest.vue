@@ -327,7 +327,13 @@
               <span v-else-if="hasDoodleContent" class="nx-section-meta">{{ currentDoodle?.author_name }}</span>
             </div>
             <button type="button" class="nx-doodle" @click="isDoodleModalOpen = true">
-              <canvas v-show="hasDoodleContent" :ref="setPreviewCanvas" class="nx-doodle-canvas"></canvas>
+              <canvas
+                v-show="hasDoodleContent"
+                :ref="setPreviewCanvas"
+                :width="DOODLE_WIDTH"
+                :height="DOODLE_HEIGHT"
+                class="nx-doodle-canvas"
+              ></canvas>
               <span v-show="!hasDoodleContent" class="nx-doodle-empty">
                 <ion-icon :icon="ioniconsBrushOutline" />
                 <span>Narysuj coś dla {{ partnerUser?.name || partnerDopelniacz.toLowerCase() }}</span>
@@ -557,6 +563,7 @@ import DuoDoodleModal from '~/components/DuoDoodleModal.vue'
 import { featurePath } from '~/utils/duoPersonalization'
 import { FEATURE_DETAILS } from '~/utils/duoPersonalizationUi'
 import { DUO_GESTURE_PRESETS } from '~/utils/duoGestures'
+import { DOODLE_HEIGHT, DOODLE_WIDTH, drawDoodleStroke } from '~/utils/duoDoodle'
 
 const { ownAvatarImage, partnerAvatarImage } = useDuoAvatars()
 
@@ -637,77 +644,12 @@ const hasDoodleContent = computed(() => {
 })
 
 const renderPreviewCanvas = () => {
-  const canvas = previewCanvasRef.value
-  if (!canvas) return
-  const ctx = canvas.getContext('2d')
+  const ctx = previewCanvasRef.value?.getContext('2d')
   if (!ctx) return
 
-  const rect = canvas.getBoundingClientRect()
-  if (rect.width <= 0 || rect.height <= 0) return
-
-  const dpr = Math.max(window.devicePixelRatio || 1, 2)
-  const targetW = Math.round(rect.width * dpr)
-  const targetH = Math.round(rect.height * dpr)
-
-  if (canvas.width !== targetW || canvas.height !== targetH) {
-    canvas.width = targetW
-    canvas.height = targetH
-  }
-
-  ctx.imageSmoothingEnabled = true
-  ctx.imageSmoothingQuality = 'high'
-  ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-  const doodleStrokes = [
-    ...(currentDoodle.value?.strokes || []),
-    ...partnerLiveStrokes.value
-  ]
-  for (const stroke of doodleStrokes) {
-    const pts = stroke.points
-    if (!pts || pts.length < 2) continue
-
-    ctx.save()
-    if (stroke.isEraser) {
-      ctx.globalCompositeOperation = 'destination-out'
-      ctx.strokeStyle = 'rgba(0,0,0,1)'
-    } else {
-      ctx.globalCompositeOperation = 'source-over'
-      let strokeColor = stroke.color || '#e11d48'
-      if (strokeColor.toLowerCase() === '#ffffff') {
-        strokeColor = '#0f172a'
-      }
-      ctx.strokeStyle = strokeColor
-    }
-
-    const scaleFactor = Math.min(canvas.width, canvas.height) / 400
-    ctx.lineWidth = Math.max(1.5, stroke.width * scaleFactor)
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-
-    if (pts.length === 2) {
-      ctx.beginPath()
-      ctx.arc(pts[0] * canvas.width, pts[1] * canvas.height, ctx.lineWidth / 2, 0, Math.PI * 2)
-      ctx.fillStyle = ctx.strokeStyle
-      ctx.fill()
-      ctx.restore()
-      continue
-    }
-
-    ctx.beginPath()
-    ctx.moveTo(pts[0] * canvas.width, pts[1] * canvas.height)
-    for (let i = 2; i < pts.length; i += 2) {
-      const prevX = pts[i - 2] * canvas.width
-      const prevY = pts[i - 1] * canvas.height
-      const currX = pts[i] * canvas.width
-      const currY = pts[i + 1] * canvas.height
-      const midX = (prevX + currX) / 2
-      const midY = (prevY + currY) / 2
-      ctx.quadraticCurveTo(prevX, prevY, midX, midY)
-    }
-    ctx.lineTo(pts[pts.length - 2] * canvas.width, pts[pts.length - 1] * canvas.height)
-    ctx.stroke()
-    ctx.restore()
-  }
+  ctx.clearRect(0, 0, DOODLE_WIDTH, DOODLE_HEIGHT)
+  for (const stroke of currentDoodle.value?.strokes ?? []) drawDoodleStroke(ctx, stroke)
+  for (const stroke of partnerLiveStrokes.value) drawDoodleStroke(ctx, stroke)
 }
 
 watch(() => partnerLiveStroke.value, (live) => {
@@ -744,10 +686,7 @@ watch(() => isPartnerDrawing.value, (isDrawing) => {
   }
 })
 
-// The preview must be redrawn whenever the canvas gets a real size or loses its
-// pixels: it is 0×0 while hidden (v-show) or during the Ionic page transition,
-// resizing clears it, and iOS drops canvas backing stores of backgrounded apps.
-let previewResizeObserver: ResizeObserver | null = null
+// iOS can discard canvas backing stores when the app is backgrounded.
 let previewRaf = 0
 const schedulePreviewRender = () => {
   if (typeof window === 'undefined') return
@@ -763,14 +702,10 @@ const onPreviewVisibility = () => {
 }
 
 watch(previewCanvasRef, (canvas, prev) => {
-  if (!previewResizeObserver && typeof ResizeObserver !== 'undefined') {
-    previewResizeObserver = new ResizeObserver(() => schedulePreviewRender())
-  }
-  if (prev) previewResizeObserver?.unobserve(prev)
   prev?.removeEventListener('contextrestored', schedulePreviewRender)
   if (canvas) {
-    previewResizeObserver?.observe(canvas)
     canvas.addEventListener('contextrestored', schedulePreviewRender)
+    schedulePreviewRender()
   }
 }, { immediate: true, flush: 'post' })
 
@@ -803,8 +738,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  previewResizeObserver?.disconnect()
-  previewResizeObserver = null
   cancelAnimationFrame(previewRaf)
   document.removeEventListener('visibilitychange', onPreviewVisibility)
   window.removeEventListener('pageshow', schedulePreviewRender)
@@ -4085,10 +4018,10 @@ ion-toolbar {
 .nx-doodle {
   width: 100%;
   height: 180px;
-  padding: 0;
+  padding: 8px;
   border: 1px solid var(--dn-line);
   border-radius: 24px;
-  background: #ffffff;
+  background: var(--dn-bg);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -4101,8 +4034,7 @@ ion-toolbar {
   width: 100%;
   height: 100%;
   display: block;
-  background: #ffffff;
-  border-radius: 24px;
+  object-fit: contain;
 }
 
 .nx-doodle-empty {

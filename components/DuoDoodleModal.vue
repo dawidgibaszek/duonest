@@ -1,173 +1,143 @@
 <template>
   <ion-modal
     :is-open="isOpen"
+    :can-dismiss="canDismissDoodle"
+    aria-labelledby="doodle-title"
+    class="duo-doodle-modal"
     @willPresent="handleModalWillPresent"
     @didPresent="handleModalPresented"
-    :can-dismiss="canDismissDoodle"
     @didDismiss="emit('close')"
-    class="duo-doodle-modal"
   >
-    <div class="doodle-studio-wrapper">
-      <!-- TOP HEADER BAR -->
-      <div class="doodle-header-bar">
-        <button class="doodle-header-btn back-btn" @click="handleClose" title="Wróć">
-          <ion-icon :icon="ioniconsCloseOutline" />
+    <div class="doodle-studio">
+      <header class="doodle-header">
+        <button type="button" class="doodle-icon-btn" aria-label="Zamknij rysunek" @click="handleClose">
+          <ion-icon :icon="ioniconsCloseOutline" aria-hidden="true" />
         </button>
 
-        <div class="doodle-title-center">
-          <div class="doodle-title-row">
-            <span class="doodle-title-text">Wspólny rysunek</span>
-          </div>
-          <div class="doodle-status-row">
-            <span v-if="isPartnerDrawing" class="doodle-live-badge live-pulse">
-              <span class="live-dot"></span>
-              <span class="status-label">Druga osoba teraz rysuje</span>
-            </span>
-            <span v-else-if="isPartnerOnline" class="doodle-live-badge idle">
-              <span class="idle-dot"></span>
-              <span class="status-label">Druga osoba nie rysuje teraz</span>
-            </span>
-            <span v-else class="doodle-live-badge offline">
-              <span class="offline-dot"></span>
-              <span class="status-label">Druga osoba offline</span>
-            </span>
-          </div>
+        <div class="doodle-heading">
+          <h2 id="doodle-title">Wspólny rysunek</h2>
+          <p class="doodle-status" role="status" :class="{ drawing: isPartnerDrawing }">
+            <span class="doodle-status-dot" aria-hidden="true"></span>
+            {{ isPartnerDrawing ? 'Druga osoba rysuje' : isPartnerOnline ? 'Druga osoba online' : 'Druga osoba offline' }}
+          </p>
         </div>
 
-        <button class="doodle-header-btn save-btn" @click="handleSave" :disabled="isSavingDoodle || (strokes.length === 0 && !currentDoodle?.strokes.length)" title="Zapisz rysunek">
-          <ion-icon :icon="ioniconsCheckmarkOutline" />
-          <span>Gotowe</span>
+        <button
+          type="button"
+          class="dn-button-primary doodle-save-btn"
+          :disabled="isSavingDoodle || (strokes.length === 0 && !currentDoodle?.strokes.length)"
+          @click="handleSave"
+        >
+          Gotowe
         </button>
-      </div>
+      </header>
 
-      <!-- MAIN CANVAS DRAWING AREA (CLEAN RETINA PAPER STYLE) -->
-      <div class="doodle-canvas-container" ref="containerRef">
-        <canvas
-          ref="canvasRef"
-          class="doodle-touch-canvas"
-          @pointerdown="handlePointerDown"
-          @pointermove="handlePointerMove"
-          @pointerup="handlePointerUp"
-          @pointercancel="handlePointerUp"
-        ></canvas>
+      <div ref="containerRef" class="doodle-canvas-container">
+        <div class="doodle-board" :style="{ width: boardWidth + 'px' }">
+          <canvas
+            ref="canvasRef"
+            class="doodle-touch-canvas"
+            :width="DOODLE_WIDTH"
+            :height="DOODLE_HEIGHT"
+            aria-label="Płótno wspólnego rysunku"
+            @pointerdown="handlePointerDown"
+            @pointermove="handlePointerMove"
+            @pointerup="handlePointerUp"
+            @pointercancel="handlePointerUp"
+            @contextrestored="redrawFullCanvas"
+          ></canvas>
 
-        <!-- Empty canvas watermark guide -->
-        <div v-if="strokes.length === 0 && !isPartnerDrawing" class="doodle-empty-watermark" @click="focusCanvas">
-          <ion-icon :icon="ioniconsBrushOutline" class="watermark-icon" />
-          <p>Dotknij i narysuj coś miłego</p>
+          <div v-if="strokes.length === 0 && !isPartnerDrawing" class="doodle-canvas-hint">
+            <ion-icon :icon="ioniconsBrushOutline" aria-hidden="true" />
+            <p>Dotknij płótna, aby zacząć rysować</p>
+          </div>
         </div>
       </div>
 
-      <!-- BOTTOM FLOATING TOOLBAR -->
-      <div class="doodle-floating-controls">
-        <!-- ROW 1: ACTIONS (TOOLS, BRUSH SIZES, UNDO, CLEAR) -->
-        <div class="doodle-actions-row">
-          <div class="tool-mode-group">
-            <button
-              class="doodle-tool-btn"
-              :class="{ active: currentTool === 'brush' }"
-              @click="setTool('brush')"
-              title="Pędzel"
-            >
-              <ion-icon :icon="ioniconsBrushOutline" />
+      <footer class="doodle-toolbar" aria-label="Narzędzia rysowania">
+        <div class="doodle-toolbar-actions">
+          <div class="doodle-segment doodle-tool-modes" role="group" aria-label="Narzędzie">
+            <button type="button" :aria-pressed="currentTool === 'brush'" @click="setTool('brush')">
+              <ion-icon :icon="ioniconsBrushOutline" aria-hidden="true" />
               <span>Pędzel</span>
             </button>
-            <button
-              class="doodle-tool-btn"
-              :class="{ active: currentTool === 'eraser' }"
-              @click="setTool('eraser')"
-              title="Gumka"
-            >
-              <ion-icon :icon="ioniconsColorWandOutline" />
+            <button type="button" :aria-pressed="currentTool === 'eraser'" @click="setTool('eraser')">
+              <DuoIcon name="eraser" :size="16" aria-hidden="true" />
               <span>Gumka</span>
             </button>
           </div>
 
-          <div class="brush-size-group" :class="{ 'eraser-mode': currentTool === 'eraser' }">
-            <template v-if="currentTool === 'brush'">
-              <button
-                v-for="s in brushSizes"
-                :key="'brush-' + s.size"
-                class="brush-size-btn"
-                :class="{ active: currentBrushSize === s.size }"
-                @click="setBrushSize(s.size)"
-                :title="s.label"
-              >
-                <span class="brush-dot-preview" :style="{ width: s.dotSize + 'px', height: s.dotSize + 'px', backgroundColor: currentColor }"></span>
-              </button>
-            </template>
-            <template v-else>
-              <button
-                v-for="s in eraserSizes"
-                :key="'eraser-' + s.size"
-                class="brush-size-btn eraser-size-btn"
-                :class="{ active: currentEraserSize === s.size }"
-                @click="setEraserSize(s.size)"
-                :title="s.label"
-              >
-                <span class="eraser-dot-preview" :style="{ width: s.dotSize + 'px', height: s.dotSize + 'px' }"></span>
-              </button>
-            </template>
-          </div>
-
-          <div class="canvas-actions-group">
+          <div class="doodle-canvas-actions">
             <button
-              class="action-icon-btn"
+              type="button"
+              class="doodle-icon-btn"
+              :disabled="isClosing || strokes.length === 0"
+              aria-label="Cofnij ostatnią kreskę"
               @click="handleUndo"
-              :disabled="isClosing || strokes.length === 0"
-              title="Cofnij ostatnią kreskę"
             >
-              <ion-icon :icon="ioniconsArrowUndoOutline" />
+              <ion-icon :icon="ioniconsArrowUndoOutline" aria-hidden="true" />
             </button>
             <button
-              class="action-icon-btn danger"
-              @click="handleClear"
+              type="button"
+              class="doodle-icon-btn"
               :disabled="isClosing || strokes.length === 0"
-              title="Wyczyść wszystko"
+              aria-label="Wyczyść rysunek"
+              @click="handleClear"
             >
-              <ion-icon :icon="ioniconsTrashOutline" />
+              <ion-icon :icon="ioniconsTrashOutline" aria-hidden="true" />
             </button>
           </div>
         </div>
 
-        <!-- ROW 2: COLOR PALETTE (WHEN BRUSH IS ACTIVE) -->
-        <div class="doodle-colors-scroll" v-show="currentTool === 'brush'">
-          <button
-            v-for="col in colorPalette"
-            :key="col.value"
-            class="doodle-color-btn"
-            :class="{ active: currentColor === col.value }"
-            :style="{ backgroundColor: col.value }"
-            @click="setColor(col.value)"
-            :title="col.name"
-          >
-            <span class="color-selected-check" v-if="currentColor === col.value"></span>
-          </button>
+        <div class="doodle-size-control">
+          <span id="doodle-size-label" class="doodle-control-label">Rozmiar</span>
+          <div class="doodle-segment doodle-sizes" role="group" aria-labelledby="doodle-size-label">
+            <button
+              v-for="option in currentSizeOptions"
+              :key="option.size"
+              type="button"
+              :aria-label="option.label"
+              :aria-pressed="currentSize === option.size"
+              @click="setSize(option.size)"
+            >
+              <span
+                class="doodle-size-dot"
+                :class="{ eraser: currentTool === 'eraser' }"
+                :style="{ '--dot-size': option.dotSize + 'px' }"
+                aria-hidden="true"
+              ></span>
+            </button>
+          </div>
         </div>
 
-        <!-- ROW 2 ALTERNATIVE: ERASER INFO BANNER (WHEN ERASER IS ACTIVE) -->
-        <div class="doodle-eraser-bar" v-show="currentTool === 'eraser'">
-          <div class="eraser-badge">
-            <ion-icon :icon="ioniconsColorWandOutline" />
-            <span>Tryb gumki</span>
-          </div>
-          <span class="eraser-hint-text">Wybierz rozmiar i wymazuj kreski</span>
-          <button type="button" class="switch-to-brush-btn" @click="setTool('brush')">
-            <ion-icon :icon="ioniconsBrushOutline" />
-            <span>Pędzel</span>
-          </button>
+        <div class="doodle-color-control" :class="{ inactive: currentTool === 'eraser' }">
+          <label class="doodle-control-label" for="doodle-color">Kolor</label>
+          <input
+            id="doodle-color"
+            v-model.number="colorPosition"
+            class="doodle-color-range"
+            type="range"
+            min="0"
+            :max="lastColorPosition"
+            :disabled="currentTool === 'eraser'"
+            :style="{ '--doodle-color': currentColor, '--doodle-spectrum': colorSpectrum }"
+            @change="bumpDrawingIdleTimer"
+          />
         </div>
-      </div>
+      </footer>
     </div>
   </ion-modal>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useDuoState } from '~/composables/useDuoState'
 import type { DuoDoodleStroke } from '~/types/duo'
 import { isStrokeContinued, newDocumentId } from '~/composables/duo/utils'
 import { trackDuoEvent } from '~/composables/useDuoAnalytics'
+import DuoIcon from '~/components/DuoIcon.vue'
+import { hslToHex } from '~/utils/duoColors'
+import { DOODLE_HEIGHT, DOODLE_WIDTH, drawDoodleStroke } from '~/utils/duoDoodle'
 
 const props = defineProps<{
   isOpen: boolean
@@ -195,10 +165,10 @@ const {
 // Elements
 const containerRef = ref<HTMLDivElement | null>(null)
 const canvasRef = ref<HTMLCanvasElement | null>(null)
+const boardWidth = ref(0)
 
 // Drawing State
 const currentTool = ref<'brush' | 'eraser'>('brush')
-const currentColor = ref('#e11d48') // Duo Coral Rose default
 const currentBrushSize = ref(5)
 const currentEraserSize = ref(16)
 
@@ -216,19 +186,36 @@ const eraserSizes = [
   { size: 44, dotSize: 18, label: 'Szeroka gumka' }
 ]
 
-// 10 Harmonious DuoNest palette colors
-const colorPalette = [
-  { name: 'Koralowy Róż', value: '#e11d48' },
-  { name: 'Granat DuoNest', value: '#0f172a' },
-  { name: 'Morski Błękit', value: '#0284c7' },
-  { name: 'Turkusowy Cyjan', value: '#06b6d4' },
-  { name: 'Szmaragdowa Mięta', value: '#059669' },
-  { name: 'Limonkowa Zieleń', value: '#84cc16' },
-  { name: 'Złoty Bursztyn', value: '#d97706' },
-  { name: 'Ciepły Brąz', value: '#854d0e' },
-  { name: 'Lawendowy Fiolet', value: '#7c3aed' },
-  { name: 'Różowy Pastel', value: '#ec4899' }
+const currentSizeOptions = computed(() => currentTool.value === 'eraser' ? eraserSizes : brushSizes)
+const currentSize = computed(() => currentTool.value === 'eraser' ? currentEraserSize.value : currentBrushSize.value)
+
+const grayEnd = 32
+const hueStart = 56
+const firstHue = 348
+const lastColorPosition = hueStart + 360
+const colorPosition = ref(hueStart)
+
+const getBrushColor = (position: number) => {
+  if (position <= grayEnd) {
+    return hslToHex(0, 0, 90 * position / grayEnd)
+  }
+  if (position < hueStart) {
+    const progress = (position - grayEnd) / (hueStart - grayEnd)
+    return hslToHex(firstHue, 77 * progress, 90 - 40 * progress)
+  }
+  return hslToHex((firstHue + position - hueStart) % 360, 77, 50)
+}
+
+const currentColor = computed(() => getBrushColor(colorPosition.value))
+const spectrumPositions = [
+  0, grayEnd, (grayEnd + hueStart) / 2, hueStart,
+  ...[0, 60, 120, 180, 240, 300].map(hue => hueStart + 360 - firstHue + hue),
+  lastColorPosition
 ]
+const spectrumStops = spectrumPositions.map(position => {
+  return `${getBrushColor(position)} ${100 * position / lastColorPosition}%`
+})
+const colorSpectrum = `linear-gradient(to right, ${spectrumStops.join(', ')})`
 
 // Strokes list (each point is normalized 0..1)
 const strokes = ref<DuoDoodleStroke[]>([])
@@ -384,43 +371,21 @@ const loadStrokesFromDoodle = () => {
   lastSavedStrokesJson = JSON.stringify(strokes.value)
 }
 
-// Ensure canvas is resized and drawn immediately across animation frames
-const triggerCanvasRefresh = () => {
-  nextTick(() => {
-    initCanvas()
-  })
-  requestAnimationFrame(() => {
-    initCanvas()
-  })
-  setTimeout(() => {
-    initCanvas()
-  }, 60)
-  setTimeout(() => {
-    initCanvas()
-  }, 180)
-  setTimeout(() => {
-    initCanvas()
-  }, 350)
-}
-
 const handleModalWillPresent = () => {
   loadStrokesFromDoodle()
-  triggerCanvasRefresh()
+  void nextTick(redrawFullCanvas)
 }
 
 const handleModalPresented = () => {
   loadStrokesFromDoodle()
-  initCanvas()
-  if (containerRef.value) {
-    setupResizeObserver(containerRef.value)
-  }
+  redrawFullCanvas()
 }
 
 // Sync with currentDoodle on modal open
 watch(() => props.isOpen, (open) => {
   if (open) {
     loadStrokesFromDoodle()
-    triggerCanvasRefresh()
+    void nextTick(redrawFullCanvas)
   } else {
     cancelAutoSave()
     isDrawingActive = false
@@ -493,25 +458,21 @@ watch(() => currentDoodle.value, (newDoodle) => {
 
 // Setup ResizeObserver when containerRef is available
 const setupResizeObserver = (el: HTMLElement) => {
-  if (resizeObserver) {
-    resizeObserver.disconnect()
-    resizeObserver = null
-  }
-  resizeObserver = new ResizeObserver((entries) => {
-    for (const entry of entries) {
-      if (entry.contentRect.width > 20 && entry.contentRect.height > 20) {
-        initCanvas()
-      }
-    }
+  resizeObserver = new ResizeObserver(([entry]) => {
+    const { width, height } = entry.contentRect
+    boardWidth.value = Math.min(width, height * DOODLE_WIDTH / DOODLE_HEIGHT)
   })
   resizeObserver.observe(el)
 }
 
 watch(containerRef, (el) => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
   if (el) {
     setupResizeObserver(el)
+    redrawFullCanvas()
   }
-})
+}, { flush: 'post' })
 
 // Listen to real-time strokes drawn by partner
 watch(() => partnerLiveStroke.value, (live) => {
@@ -530,7 +491,8 @@ watch(() => partnerLiveStroke.value, (live) => {
       redrawFullCanvas()
     } else {
       strokes.value.push(strokeCopy)
-      renderStroke(strokeCopy)
+      const ctx = canvasRef.value?.getContext('2d')
+      if (ctx) drawDoodleStroke(ctx, strokeCopy)
     }
   }
 })
@@ -546,138 +508,18 @@ const setTool = (tool: 'brush' | 'eraser') => {
   bumpDrawingIdleTimer()
 }
 
-const setBrushSize = (size: number) => {
-  currentBrushSize.value = size
+const setSize = (size: number) => {
+  const selectedSize = currentTool.value === 'eraser' ? currentEraserSize : currentBrushSize
+  selectedSize.value = size
   bumpDrawingIdleTimer()
 }
 
-const setEraserSize = (size: number) => {
-  currentEraserSize.value = size
-  bumpDrawingIdleTimer()
-}
-
-const setColor = (col: string) => {
-  currentColor.value = col
-  currentTool.value = 'brush'
-  bumpDrawingIdleTimer()
-}
-
-const focusCanvas = () => {
-  // Focus handler
-}
-
-// Canvas Initialization with DPR scaling (Retina HD crisp rendering)
-const initCanvas = () => {
-  const canvas = canvasRef.value
-  const container = containerRef.value
-  if (!canvas || !container) return
-
-  const rect = container.getBoundingClientRect()
-  if (rect.width <= 10 || rect.height <= 10) return
-
-  // High-DPI scaling: at least 2x, or devicePixelRatio
-  const dpr = Math.max(window.devicePixelRatio || 1, 2)
-  const targetW = Math.round(rect.width * dpr)
-  const targetH = Math.round(rect.height * dpr)
-
-  if (canvas.width !== targetW || canvas.height !== targetH) {
-    canvas.width = targetW
-    canvas.height = targetH
-  }
-
-  redrawFullCanvas()
-}
-
-// Redraw all strokes onto the canvas with crisp subpixel anti-aliasing
 const redrawFullCanvas = () => {
-  const canvas = canvasRef.value
-  if (!canvas) return
-  const ctx = canvas.getContext('2d', { alpha: true })
+  const ctx = canvasRef.value?.getContext('2d')
   if (!ctx) return
 
-  ctx.imageSmoothingEnabled = true
-  ctx.imageSmoothingQuality = 'high'
-  ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-  for (const stroke of strokes.value) {
-    drawStrokeOnContext(ctx, stroke, canvas.width, canvas.height)
-  }
-}
-
-// Draw a single stroke onto the canvas context
-const drawStrokeOnContext = (
-  ctx: CanvasRenderingContext2D,
-  stroke: DuoDoodleStroke,
-  width: number,
-  height: number
-) => {
-  const pts = stroke.points
-  if (!pts || pts.length < 2) return
-
-  ctx.save()
-  ctx.imageSmoothingEnabled = true
-  ctx.imageSmoothingQuality = 'high'
-
-  if (stroke.isEraser) {
-    ctx.globalCompositeOperation = 'destination-out'
-    ctx.strokeStyle = 'rgba(0,0,0,1)'
-    ctx.fillStyle = 'rgba(0,0,0,1)'
-  } else {
-    ctx.globalCompositeOperation = 'source-over'
-    let strokeColor = stroke.color || '#e11d48'
-    if (strokeColor.toLowerCase() === '#ffffff') {
-      strokeColor = '#0f172a'
-    }
-    ctx.strokeStyle = strokeColor
-    ctx.fillStyle = strokeColor
-  }
-
-  // Scale line width proportionally to canvas resolution
-  const scaleFactor = Math.min(width, height) / 400
-  ctx.lineWidth = Math.max(2, stroke.width * scaleFactor)
-  ctx.lineCap = 'round'
-  ctx.lineJoin = 'round'
-
-  if (pts.length === 2) {
-    const x = pts[0] * width
-    const y = pts[1] * height
-    ctx.beginPath()
-    ctx.arc(x, y, ctx.lineWidth / 2, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.restore()
-    return
-  }
-
-  ctx.beginPath()
-  const firstX = pts[0] * width
-  const firstY = pts[1] * height
-  ctx.moveTo(firstX, firstY)
-
-  for (let i = 2; i < pts.length; i += 2) {
-    const prevX = pts[i - 2] * width
-    const prevY = pts[i - 1] * height
-    const currX = pts[i] * width
-    const currY = pts[i + 1] * height
-    const midX = (prevX + currX) / 2
-    const midY = (prevY + currY) / 2
-    ctx.quadraticCurveTo(prevX, prevY, midX, midY)
-  }
-
-  const lastX = pts[pts.length - 2] * width
-  const lastY = pts[pts.length - 1] * height
-  ctx.lineTo(lastX, lastY)
-  ctx.stroke()
-  ctx.restore()
-}
-
-const renderStroke = (stroke: DuoDoodleStroke) => {
-  const canvas = canvasRef.value
-  if (!canvas) return
-  const ctx = canvas.getContext('2d', { alpha: true })
-  if (!ctx) return
-  ctx.imageSmoothingEnabled = true
-  ctx.imageSmoothingQuality = 'high'
-  drawStrokeOnContext(ctx, stroke, canvas.width, canvas.height)
+  ctx.clearRect(0, 0, DOODLE_WIDTH, DOODLE_HEIGHT)
+  for (const stroke of strokes.value) drawDoodleStroke(ctx, stroke)
 }
 
 const handlePointerDown = (e: PointerEvent) => {
@@ -686,11 +528,6 @@ const handlePointerDown = (e: PointerEvent) => {
   if (!canvas) return
 
   hasLocalChanges.value = true
-
-  // Ensure canvas is correctly sized prior to drawing
-  if (canvas.width <= 300 || canvas.height <= 150) {
-    initCanvas()
-  }
 
   try {
     canvas.setPointerCapture(e.pointerId)
@@ -704,12 +541,11 @@ const handlePointerDown = (e: PointerEvent) => {
   const normY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height))
 
   const isEraserMode = currentTool.value === 'eraser'
-  const strokeWidth = isEraserMode ? currentEraserSize.value : currentBrushSize.value
 
   currentActiveStroke = {
     id: newDocumentId('stroke-'),
     color: currentColor.value,
-    width: strokeWidth,
+    width: currentSize.value,
     points: [normX, normY],
     isEraser: isEraserMode
   }
@@ -850,9 +686,6 @@ const handleDocumentVisibilityChange = () => {
 }
 
 onMounted(() => {
-  if (containerRef.value) {
-    setupResizeObserver(containerRef.value)
-  }
   if (typeof document !== 'undefined') {
     document.addEventListener('visibilitychange', handleDocumentVisibilityChange)
   }
@@ -873,607 +706,332 @@ onUnmounted(() => {
 
 <style scoped>
 .duo-doodle-modal {
-  --background: #f8f9fb;
+  --background: var(--dn-bg);
+  --border-radius: 0;
   --height: 100%;
   --width: 100%;
 }
 
-.doodle-studio-wrapper {
-  display: flex;
-  flex-direction: column;
+.doodle-studio {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  box-sizing: border-box;
   height: 100%;
-  width: 100%;
-  background: #f8f9fb;
-  color: #1c1b19;
+  padding: max(8px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right))
+    max(8px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left));
+  background: var(--dn-bg);
+  color: var(--dn-ink);
   user-select: none;
   -webkit-user-select: none;
-  touch-action: none;
-  position: relative;
-  overflow: hidden;
 }
 
-/* TOP HEADER */
-.doodle-header-bar {
+.doodle-header {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) auto;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
-  min-height: 80px;
-  padding: max(8px, env(safe-area-inset-top)) 16px 9px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(229, 230, 232, 0.8);
-  z-index: 20;
-  flex-shrink: 0;
 }
 
-.doodle-header-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--dn-soft);
-  border: none;
-  color: #404040;
-  border-radius: 9999px;
-  padding: 8px 14px;
-  font-size: 13.5px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.16s ease;
-  white-space: nowrap !important;
-  flex-shrink: 0 !important;
-}
-
-.doodle-header-btn span {
-  white-space: nowrap !important;
-  word-break: keep-all !important;
-  overflow-wrap: normal !important;
-}
-
-.doodle-header-btn:active {
-  transform: scale(0.96);
-  background: #e5e6e8;
-}
-
-.back-btn {
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  justify-content: center;
-  font-size: 20px;
-  border-radius: 50%;
-  flex-shrink: 0 !important;
-}
-
-.save-btn {
-  background: #1c1b19;
-  border: none;
-  color: #ffffff;
-  box-shadow: none;
-  flex-shrink: 0 !important;
-  white-space: nowrap !important;
-}
-
-.save-btn span {
-  white-space: nowrap !important;
-  word-break: keep-all !important;
-  overflow-wrap: normal !important;
-}
-
-.save-btn:active:not(:disabled) {
-  transform: scale(0.96);
-  background: #1c1b19;
-}
-
-.save-btn:disabled {
-  opacity: 0.35;
-  pointer-events: none;
-  box-shadow: none;
-}
-
-.doodle-title-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  flex: 1;
-  min-width: 0;
-  min-height: 54px;
-  padding: 0 6px;
-  overflow: hidden;
-}
-
-.doodle-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  max-width: 100%;
-}
-
-.doodle-status-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-  max-width: 100%;
-  margin-top: 3px;
-}
-
-.doodle-title-text {
-  font-family: 'Outfit', -apple-system, sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  color: #1c1b19;
-  letter-spacing: -0.2px;
-  white-space: nowrap !important;
-  word-break: keep-all !important;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.doodle-live-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  max-width: 100%;
-  padding: 3px 8px;
-  border-radius: 9999px;
-  font-size: 10.5px;
+.doodle-heading h2 {
+  margin: 0;
+  font-family: var(--dn-serif);
+  font-size: clamp(1.125rem, 5vw, 1.625rem);
   font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0;
+  line-height: 1.1;
 }
 
-.status-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.doodle-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 0;
+  color: var(--dn-muted);
+  font-size: 0.75rem;
+  line-height: 1.2;
 }
 
-.doodle-live-badge.live-pulse {
-  background: #f2f3f5;
-  border: 1px solid #d4d4d4;
-  color: #1c1b19;
-}
-
-.doodle-live-badge.idle {
-  background: #f8f9fb;
-  border: 1px solid #e5e6e8;
-  color: #545454;
-}
-
-.doodle-live-badge.offline {
-  background: #f8f9fb;
-  border: 1px solid #e5e6e8;
-  color: #737373;
-}
-
-.live-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background-color: #1c1b19;
-}
-
-.idle-dot,
-.offline-dot {
-  width: 6px;
+.doodle-status-dot {
+  flex: 0 0 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: #737373;
+  background: var(--dn-faint);
 }
 
-@keyframes liveBadgePulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.85; transform: scale(1.03); }
+.doodle-status.drawing {
+  color: var(--dn-ink);
 }
 
-/* CANVAS DRAWING BOARD (CLEAN RETINA HIGH DEFINITION PAPER) */
+.doodle-status.drawing .doodle-status-dot {
+  background: var(--dn-ink);
+}
+
+.doodle-icon-btn,
+.doodle-segment button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 999px;
+  color: var(--dn-ink);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.doodle-icon-btn {
+  border: 1px solid var(--dn-line);
+  background: var(--dn-bg);
+  font-size: 20px;
+}
+
+.doodle-icon-btn:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.doodle-save-btn {
+  min-height: 44px;
+  padding: 0 14px;
+  font-size: 0.875rem;
+}
+
 .doodle-canvas-container {
-  flex: 1;
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
+  min-height: 0;
+  margin: 8px;
+}
+
+.doodle-board {
   position: relative;
-  margin: 12px 16px;
-  background-color: #ffffff;
-  background-image: radial-gradient(rgba(162, 162, 162, 0.3) 1px, transparent 1px);
-  background-size: 24px 24px;
-  border-radius: 22px;
-  border: 1px solid rgba(229, 230, 232, 0.9);
-  box-shadow: none;
-  overflow: hidden;
-  touch-action: none;
+}
+
+.doodle-board::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border: 1px solid var(--dn-line);
+  border-radius: 24px;
+  pointer-events: none;
 }
 
 .doodle-touch-canvas {
-  width: 100%;
-  height: 100%;
   display: block;
+  width: 100%;
+  height: auto;
   touch-action: none;
   cursor: crosshair;
 }
 
-.doodle-empty-watermark {
+.doodle-canvas-hint {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  color: #a2a2a2;
-  pointer-events: none;
-  text-align: center;
-}
-
-.watermark-icon {
-  font-size: 34px;
-  color: #d4d4d4;
-}
-
-.doodle-empty-watermark p {
-  font-size: 13px;
-  font-weight: 500;
-  margin: 0;
-  color: #a2a2a2;
-}
-
-/* FLOATING CONTROLS */
-.doodle-floating-controls {
-  padding: 10px 14px;
-  padding-bottom: max(12px, env(safe-area-inset-bottom));
-  background: #ffffff;
-  border-top: 1px solid rgba(229, 230, 232, 0.8);
-  box-shadow: none;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  z-index: 20;
-  flex-shrink: 0;
-}
-
-.doodle-actions-row {
+  inset: 0;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  padding: 12px;
+  color: var(--dn-muted);
+  text-align: center;
+  pointer-events: none;
 }
 
-.tool-mode-group {
-  display: inline-flex;
-  background: #f2f3f5;
-  border-radius: 12px;
-  padding: 3px;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.doodle-tool-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: transparent;
-  border: none;
-  color: #737373;
-  padding: 6px 9px;
-  border-radius: 9px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.16s ease;
-  white-space: nowrap !important;
-  flex-shrink: 0 !important;
-}
-
-.doodle-tool-btn span {
-  white-space: nowrap !important;
-  word-break: keep-all !important;
-  overflow-wrap: normal !important;
-}
-
-.doodle-tool-btn ion-icon {
-  font-size: 15px;
-  flex-shrink: 0;
-}
-
-.doodle-tool-btn.active {
-  background: #ffffff;
-  color: #1c1b19;
-  box-shadow: none;
-}
-
-.brush-size-group {
-  display: inline-flex;
-  align-items: center;
-  justify-self: center;
-  max-width: 100%;
-  background: #f2f3f5;
-  border-radius: 12px;
-  padding: 3px 5px;
-  gap: 3px;
-  flex-shrink: 0;
-}
-
-.brush-size-btn {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  border: none;
-  background: transparent;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.16s ease;
-  flex-shrink: 0;
-}
-
-.brush-size-btn.active {
-  background: #ffffff;
-  box-shadow: none;
-  border: 1px solid #d4d4d4;
-}
-
-.brush-dot-preview {
+.doodle-canvas-hint ion-icon {
+  padding: 12px;
+  border: 1px solid var(--dn-line);
   border-radius: 50%;
-  display: block;
-  transition: transform 0.15s ease;
+  background: var(--dn-bg);
+  color: var(--dn-ink);
+  font-size: 24px;
 }
 
-.brush-size-btn.active .brush-dot-preview {
-  transform: scale(1.15);
+.doodle-canvas-hint p {
+  margin: 0;
+  font-size: 0.8125rem;
 }
 
-/* ERASER SIZE BUTTONS & DOTS */
-.eraser-size-btn {
-  position: relative;
-}
-
-.eraser-size-btn.active {
-  background: #ffffff;
-  border: 1.5px solid #1c1b19;
-  box-shadow: none;
-}
-
-.eraser-dot-preview {
-  border-radius: 50%;
-  display: block;
-  background: #ffffff;
-  border: 1.5px dashed #737373;
+.doodle-toolbar {
+  display: grid;
+  gap: 6px 12px;
   box-sizing: border-box;
-  box-shadow: inset 0 1px 2px rgba(28, 27, 25, 0.05);
-  transition: all 0.15s ease;
+  width: min(100%, 640px);
+  justify-self: center;
+  padding: 8px;
+  border: 1px solid var(--dn-line);
+  border-radius: 24px;
+  background: var(--dn-bg);
 }
 
-.eraser-size-btn.active .eraser-dot-preview {
-  border: 2px solid #1c1b19;
-  background: #f2f3f5;
-  transform: scale(1.15);
-  box-shadow: 0 0 0 1.5px rgba(28, 27, 25, 0.12);
-}
-
-/* ERASER INFO BAR */
-.doodle-eraser-bar {
+.doodle-toolbar-actions,
+.doodle-size-control,
+.doodle-color-control {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
-  padding: 4px 8px;
-  background: #f8f9fb;
-  border: 1px dashed #d4d4d4;
-  border-radius: 12px;
-  animation: fadeIn 0.18s ease;
-}
-
-.eraser-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 8px;
-  background: #ffffff;
-  border: 1px solid #e5e6e8;
-  border-radius: 8px;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #1c1b19;
-  box-shadow: none;
-  flex-shrink: 0;
-}
-
-.eraser-badge ion-icon {
-  font-size: 14px;
-  color: #737373;
-}
-
-.eraser-hint-text {
-  font-size: 11.5px;
-  color: #737373;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
   min-width: 0;
 }
 
-.switch-to-brush-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 11px;
-  border-radius: 8px;
-  border: none;
-  background: #1c1b19;
-  color: #ffffff;
-  font-size: 11.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
-}
-
-.switch-to-brush-btn:active {
-  transform: scale(0.96);
-  background: #1c1b19;
-}
-
-.canvas-actions-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-}
-
-.action-icon-btn {
-  width: 33px;
-  height: 33px;
-  border-radius: 10px;
-  background: #f8f9fb;
-  border: 1px solid #e5e6e8;
-  color: #545454;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  cursor: pointer;
-  transition: all 0.16s ease;
-  flex-shrink: 0;
-}
-
-.action-icon-btn:active:not(:disabled) {
-  transform: scale(0.92);
-  background: #e5e6e8;
-}
-
-.action-icon-btn:disabled {
-  opacity: 0.35;
-  pointer-events: none;
-}
-
-.action-icon-btn.danger {
-  color: #c2412d;
-  background: #f2f3f5;
-  border-color: #fcefec;
-}
-
-.action-icon-btn.danger:active:not(:disabled) {
-  background: #e8e9eb;
-}
-
-/* COLORS SCROLL ROW */
-.doodle-colors-scroll {
+.doodle-canvas-actions {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 7px;
-  overflow-x: auto;
-  min-height: 46px;
-  padding: 7px 4px;
-  -webkit-overflow-scrolling: touch;
+  gap: 4px;
 }
 
-.doodle-colors-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-.doodle-color-btn {
-  flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 2px solid #ffffff;
-  box-shadow: none;
-  cursor: pointer;
-  position: relative;
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.doodle-color-btn:active {
-  transform: scale(0.9);
-}
-
-.doodle-color-btn.active {
-  transform: scale(1.15);
-  box-shadow: 0 0 0 2px #1c1b19, 0 3px 8px rgba(28, 27, 25, 0.2);
-}
-
-.color-selected-check {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
+.doodle-segment {
+  display: grid;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--dn-line);
+  border-radius: 999px;
   background: var(--dn-soft);
-  box-shadow: none;
 }
 
-@media (max-width: 360px) {
-  .doodle-header-bar {
-    gap: 6px;
-    min-height: 76px;
-    padding-left: 10px;
-    padding-right: 10px;
+.doodle-tool-modes {
+  flex: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.doodle-segment button {
+  gap: 4px;
+  background: transparent;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.doodle-segment button ion-icon {
+  font-size: 16px;
+}
+
+.doodle-segment button[aria-pressed="true"] {
+  background: var(--dn-ink);
+  color: var(--dn-bg);
+}
+
+.doodle-size-control {
+  justify-content: space-between;
+}
+
+.doodle-sizes {
+  grid-template-columns: repeat(4, 44px);
+}
+
+.doodle-size-dot {
+  width: var(--dot-size);
+  height: var(--dot-size);
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.doodle-size-dot.eraser {
+  background: transparent;
+}
+
+.doodle-control-label {
+  flex: 0 0 4rem;
+  padding-inline-start: 4px;
+  color: var(--dn-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.doodle-color-control.inactive {
+  opacity: 0.45;
+}
+
+.doodle-color-range {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.doodle-color-range:disabled {
+  cursor: default;
+}
+
+.doodle-color-range::-webkit-slider-runnable-track {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--doodle-spectrum);
+  box-shadow: inset 0 0 0 1px var(--dn-line);
+}
+
+.doodle-color-range::-moz-range-track {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--doodle-spectrum);
+  box-shadow: inset 0 0 0 1px var(--dn-line);
+}
+
+.doodle-color-range::-webkit-slider-thumb {
+  width: 28px;
+  height: 28px;
+  margin-top: -8px;
+  border: 3px solid var(--dn-bg);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--dn-muted);
+  background: var(--doodle-color);
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.doodle-color-range::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--dn-bg);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--dn-muted);
+  background: var(--doodle-color);
+}
+
+.doodle-studio :is(button, input):focus-visible {
+  outline: 2px solid var(--dn-ink);
+  outline-offset: 2px;
+}
+
+@media (min-width: 560px) {
+  .doodle-toolbar {
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .doodle-title-center {
-    min-height: 50px;
-    padding: 0 2px;
+  .doodle-toolbar-actions {
+    grid-column: 1 / -1;
+    justify-content: space-between;
   }
 
-  .doodle-title-text {
-    font-size: 14px;
+  .doodle-tool-modes {
+    flex: 0 1 260px;
   }
 
-  .doodle-live-badge {
-    font-size: 10px;
-    padding: 2px 6px;
-  }
-
-  .doodle-tool-btn {
-    padding: 6px 7px;
-    font-size: 11px;
-    gap: 3px;
-  }
-  .brush-size-btn {
-    width: 23px;
-    height: 23px;
-  }
-  .action-icon-btn {
-    width: 29px;
-    height: 29px;
-    font-size: 14px;
-  }
-  .doodle-color-btn {
-    width: 27px;
-    height: 27px;
+  .doodle-color-control .doodle-control-label {
+    flex-basis: auto;
   }
 }
 
-@media (max-width: 390px) {
-  .doodle-actions-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "tools actions"
-      "sizes sizes";
-    row-gap: 6px;
+@media (min-width: 650px) and (max-height: 480px) and (orientation: landscape) {
+  .doodle-studio {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
-  .tool-mode-group {
-    grid-area: tools;
-    justify-self: start;
+  .doodle-header {
+    grid-column: 1 / -1;
   }
 
-  .brush-size-group {
-    grid-area: sizes;
-    justify-self: stretch;
-    justify-content: center;
-  }
-
-  .canvas-actions-group {
-    grid-area: actions;
+  .doodle-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+    align-self: end;
   }
 }
 </style>
