@@ -47,7 +47,7 @@ const props = defineProps<{
 }>()
 
 const { isFeatureEnabled } = useDuoPersonalization()
-const features = computed(() => props.sectionFeatures.filter(isFeatureEnabled))
+const features = computed(() => props.sectionFeatures.filter(feature => feature === 'drawing' || isFeatureEnabled(feature)))
 const descriptions: Record<SectionFeature, string> = {
   shopping: 'Wspólna lista zakupów',
   tasks: 'Rzeczy do zrobienia',
@@ -55,7 +55,8 @@ const descriptions: Record<SectionFeature, string> = {
   savings: 'Cele oszczędnościowe',
   calendar: 'Plany i ważne daty',
   movies: 'Wspólna lista do obejrzenia',
-  wishlist: 'Pomysły na prezenty i wspólne zakupy'
+  wishlist: 'Pomysły na prezenty i wspólne zakupy',
+  drawing: 'Wspólne płótno i archiwum rysunków'
 }
 </script>
 

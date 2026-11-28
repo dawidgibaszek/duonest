@@ -5,7 +5,7 @@ import {
 } from 'ionicons/icons'
 import type { DuoFeature, NestCard } from './duoPersonalization'
 
-export const FEATURE_DETAILS: Record<DuoFeature, { label: string; icon: string }> = {
+export const FEATURE_DETAILS: Record<DuoFeature | 'drawing', { label: string; icon: string }> = {
   shopping: { label: 'Zakupy', icon: cartOutline },
   tasks: { label: 'Zadania', icon: checkboxOutline },
   meals: { label: 'Obiady', icon: restaurantOutline },
@@ -13,7 +13,8 @@ export const FEATURE_DETAILS: Record<DuoFeature, { label: string; icon: string }
   pet: { label: 'Zwierzak', icon: pawOutline },
   calendar: { label: 'Terminarz', icon: calendarClearOutline },
   movies: { label: 'Filmy i seriale', icon: filmOutline },
-  wishlist: { label: 'Lista życzeń', icon: giftOutline }
+  wishlist: { label: 'Lista życzeń', icon: giftOutline },
+  drawing: { label: 'Dzienny rysunek', icon: brushOutline }
 }
 
 export const NEST_CARD_DETAILS: Record<NestCard, { label: string; icon: string; description: string }> = {

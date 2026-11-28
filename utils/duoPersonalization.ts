@@ -2,7 +2,7 @@ export const DUO_FEATURES = ['shopping', 'tasks', 'meals', 'savings', 'pet', 'ca
 export type DuoFeature = typeof DUO_FEATURES[number]
 
 export const DAILY_FEATURES = ['shopping', 'tasks', 'meals', 'savings', 'calendar'] as const
-export const LEISURE_FEATURES = ['movies', 'wishlist'] as const
+export const LEISURE_FEATURES = ['movies', 'wishlist', 'drawing'] as const
 
 export const NEST_CARDS = ['summary', 'points', 'rewards', 'mood', 'music', 'gestures', 'today', 'doodle', 'shortcuts', 'location'] as const
 export type NestCard = typeof NEST_CARDS[number]
@@ -30,6 +30,6 @@ export function starterNestCards(features: readonly DuoFeature[]): NestCard[] {
   ]
 }
 
-export function featurePath(feature: DuoFeature) {
+export function featurePath(feature: DuoFeature | 'drawing') {
   return feature === 'pet' ? '/tabs/tasks?view=pet' : `/tabs/${feature}`
 }

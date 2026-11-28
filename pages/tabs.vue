@@ -147,6 +147,7 @@ import TabMeals from '~/pages/tabs/meals.vue'
 import TabSavings from '~/pages/tabs/savings.vue'
 import TabCalendar from '~/pages/tabs/calendar.vue'
 import TabLeisure from '~/pages/tabs/leisure.vue'
+import TabDrawing from '~/pages/tabs/drawing.vue'
 import TabWishlist from '~/pages/tabs/wishlist.vue'
 import TabMovies from '~/pages/tabs/movies.vue'
 import TabRelationship from '~/pages/tabs/relationship.vue'
@@ -192,11 +193,12 @@ const dailySections = {
 } satisfies Record<typeof DAILY_FEATURES[number], Component>
 const leisureSections = {
   movies: TabMovies,
-  wishlist: TabWishlist
+  wishlist: TabWishlist,
+  drawing: TabDrawing
 } satisfies Record<typeof LEISURE_FEATURES[number], Component>
 const { isFeatureEnabled, enabledFeatures } = useDuoPersonalization()
 const dailyFeatures = computed(() => DAILY_FEATURES.filter(isFeatureEnabled))
-const leisureFeatures = computed(() => LEISURE_FEATURES.filter(isFeatureEnabled))
+const leisureFeatures = computed(() => LEISURE_FEATURES.filter(feature => feature === 'drawing' || isFeatureEnabled(feature)))
 const tabPath = computed(() => route.value.path.replace(/\/$/, ''))
 const dailyRouteFeature = computed(() => {
   const path = tabPath.value

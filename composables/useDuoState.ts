@@ -370,7 +370,7 @@ export const useDuoState = () => {
     isPartnerDrawing,
     partnerLiveStroke,
     saveDoodle: realtime.saveDoodle,
-    clearDoodle: realtime.clearDoodle,
+    readDoodleForDay: realtime.readDoodleForDay,
     broadcastLiveStroke: realtime.broadcastLiveStroke,
     broadcastDrawingStatus: realtime.broadcastDrawingStatus,
     broadcastToPartner: realtime.broadcastToPartner,

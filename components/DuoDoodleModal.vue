@@ -2,7 +2,7 @@
   <ion-modal
     :is-open="isOpen"
     :can-dismiss="canDismissDoodle"
-    aria-labelledby="doodle-title"
+    :aria-labelledby="titleId"
     class="duo-doodle-modal"
     @willPresent="handleModalWillPresent"
     @didPresent="handleModalPresented"
@@ -15,7 +15,7 @@
         </button>
 
         <div class="doodle-heading">
-          <h2 id="doodle-title">Wspólny rysunek</h2>
+          <h2 :id="titleId">{{ title ?? 'Wspólny rysunek' }}</h2>
           <p class="doodle-status" role="status" :class="{ drawing: isPartnerDrawing }">
             <span class="doodle-status-dot" aria-hidden="true"></span>
             {{ isPartnerDrawing ? 'Druga osoba rysuje' : isPartnerOnline ? 'Druga osoba online' : 'Druga osoba offline' }}
@@ -25,7 +25,7 @@
         <button
           type="button"
           class="dn-button-primary doodle-save-btn"
-          :disabled="isSavingDoodle || (strokes.length === 0 && !currentDoodle?.strokes.length)"
+          :disabled="isSavingDoodle || (!hasLocalChanges && strokes.length === 0)"
           @click="handleSave"
         >
           Gotowe
@@ -90,8 +90,8 @@
         </div>
 
         <div class="doodle-size-control">
-          <span id="doodle-size-label" class="doodle-control-label">Rozmiar</span>
-          <div class="doodle-segment doodle-sizes" role="group" aria-labelledby="doodle-size-label">
+          <span :id="sizeLabelId" class="doodle-control-label">Rozmiar</span>
+          <div class="doodle-segment doodle-sizes" role="group" :aria-labelledby="sizeLabelId">
             <button
               v-for="option in currentSizeOptions"
               :key="option.size"
@@ -111,9 +111,9 @@
         </div>
 
         <div class="doodle-color-control" :class="{ inactive: currentTool === 'eraser' }">
-          <label class="doodle-control-label" for="doodle-color">Kolor</label>
+          <label class="doodle-control-label" :for="colorId">Kolor</label>
           <input
-            id="doodle-color"
+            :id="colorId"
             v-model.number="colorPosition"
             class="doodle-color-range"
             type="range"
@@ -130,17 +130,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted, nextTick, useId } from 'vue'
 import { useDuoState } from '~/composables/useDuoState'
 import type { DuoDoodleStroke } from '~/types/duo'
 import { isStrokeContinued, newDocumentId } from '~/composables/duo/utils'
 import { trackDuoEvent } from '~/composables/useDuoAnalytics'
 import DuoIcon from '~/components/DuoIcon.vue'
 import { hslToHex } from '~/utils/duoColors'
-import { DOODLE_HEIGHT, DOODLE_WIDTH, drawDoodleStroke } from '~/utils/duoDoodle'
+import { DOODLE_HEIGHT, DOODLE_WIDTH, drawDoodleStroke, isDoodleOnDay, redrawDoodle } from '~/utils/duoDoodle'
 
 const props = defineProps<{
   isOpen: boolean
+  title?: string
 }>()
 
 const emit = defineEmits<{
@@ -156,11 +157,15 @@ const {
   partnerLiveStroke,
   triggerToast,
   saveDoodle,
-  clearDoodle,
   broadcastLiveStroke,
   broadcastDrawingStatus,
   broadcastToPartner
 } = useDuoState()
+const today = useDoodleToday()
+let editorDay = today.value
+const titleId = useId()
+const sizeLabelId = useId()
+const colorId = useId()
 
 // Elements
 const containerRef = ref<HTMLDivElement | null>(null)
@@ -287,26 +292,9 @@ const performSaveInternal = async (options: { silent?: boolean } = {}): Promise<
     return true
   }
 
-  if (strokes.value.length === 0) {
-    if (lastSavedStrokesJson && lastSavedStrokesJson !== '[]') {
-      const cleared = await clearDoodle({ silent: options.silent })
-      if (cleared) {
-        lastSavedStrokesJson = '[]'
-        hasLocalChanges.value = strokes.value.length > 0
-        savedSilentlyInSession = false
-        endDrawingSession(false)
-        return true
-      }
-      return false
-    }
-    lastSavedStrokesJson = '[]'
-    hasLocalChanges.value = false
-    return true
-  }
-
   const canvas = canvasRef.value
   let previewDataUrl: string | undefined = undefined
-  if (canvas) {
+  if (canvas && strokes.value.length) {
     try {
       previewDataUrl = canvas.toDataURL('image/png', 0.92)
     } catch (_) {}
@@ -315,11 +303,11 @@ const performSaveInternal = async (options: { silent?: boolean } = {}): Promise<
   const strokesSnapshot = JSON.parse(currentJson)
   savingStrokesJson = currentJson
   try {
-    const saved = await saveDoodle(strokesSnapshot, previewDataUrl, { silent: options.silent })
+    const saved = await saveDoodle(strokesSnapshot, previewDataUrl, { silent: options.silent, day: editorDay })
     if (!saved) return false
     lastSavedStrokesJson = currentJson
     hasLocalChanges.value = JSON.stringify(strokes.value) !== lastSavedStrokesJson
-    savedSilentlyInSession = Boolean(options.silent)
+    savedSilentlyInSession = strokesSnapshot.length > 0 && Boolean(options.silent)
     if (!isDrawingActive && !hasLocalChanges.value) {
       endDrawingSession(false)
     }
@@ -363,8 +351,9 @@ const loadStrokesFromDoodle = () => {
   drawingSessionBroadcasted = false
   savedSilentlyInSession = false
   hasLocalChanges.value = false
-  if (currentDoodle.value && Array.isArray(currentDoodle.value.strokes)) {
-    strokes.value = JSON.parse(JSON.stringify(currentDoodle.value.strokes))
+  const doodle = currentDoodle.value
+  if (doodle && isDoodleOnDay(doodle.updated_at, editorDay)) {
+    strokes.value = JSON.parse(JSON.stringify(doodle.strokes))
   } else {
     strokes.value = []
   }
@@ -372,18 +361,19 @@ const loadStrokesFromDoodle = () => {
 }
 
 const handleModalWillPresent = () => {
+  editorDay = today.value
   loadStrokesFromDoodle()
   void nextTick(redrawFullCanvas)
 }
 
 const handleModalPresented = () => {
-  loadStrokesFromDoodle()
   redrawFullCanvas()
 }
 
 // Sync with currentDoodle on modal open
 watch(() => props.isOpen, (open) => {
   if (open) {
+    editorDay = today.value
     loadStrokesFromDoodle()
     void nextTick(redrawFullCanvas)
   } else {
@@ -395,10 +385,17 @@ watch(() => props.isOpen, (open) => {
 })
 
 // Sync if currentDoodle updates in background while modal is open
-watch(() => currentDoodle.value, (newDoodle) => {
-  if (!props.isOpen) return
+watch(currentDoodle, (newDoodle, previousDoodle) => {
+  if (!props.isOpen || newDoodle?.id === previousDoodle?.id) return
+  if (newDoodle && !isDoodleOnDay(newDoodle.updated_at, editorDay)) return
 
-  if (!newDoodle || !Array.isArray(newDoodle.strokes) || newDoodle.strokes.length === 0) {
+  if (newDoodle && newDoodle.author_id === currentUser.value?.id && JSON.stringify(newDoodle.strokes) === savingStrokesJson) {
+    lastSavedStrokesJson = savingStrokesJson
+    hasLocalChanges.value = JSON.stringify(strokes.value) !== lastSavedStrokesJson
+    return
+  }
+
+  if (!newDoodle || newDoodle.strokes.length === 0) {
     cancelAutoSave()
     strokes.value = []
     lastSavedStrokesJson = '[]'
@@ -411,15 +408,7 @@ watch(() => currentDoodle.value, (newDoodle) => {
     return
   }
 
-  if (newDoodle.author_id === currentUser.value?.id && JSON.stringify(newDoodle.strokes) === savingStrokesJson) {
-    lastSavedStrokesJson = savingStrokesJson
-    hasLocalChanges.value = JSON.stringify(strokes.value) !== lastSavedStrokesJson
-    return
-  }
-
-  const incomingStrokes: DuoDoodleStroke[] = Array.isArray(newDoodle.strokes)
-    ? JSON.parse(JSON.stringify(newDoodle.strokes))
-    : []
+  const incomingStrokes: DuoDoodleStroke[] = JSON.parse(JSON.stringify(newDoodle.strokes))
 
   if (!hasLocalChanges.value && !isDrawingActive) {
     strokes.value = incomingStrokes
@@ -454,7 +443,7 @@ watch(() => currentDoodle.value, (newDoodle) => {
     hasLocalChanges.value = JSON.stringify(strokes.value) !== lastSavedStrokesJson
     if (added) redrawFullCanvas()
   }
-}, { deep: true })
+})
 
 // Setup ResizeObserver when containerRef is available
 const setupResizeObserver = (el: HTMLElement) => {
@@ -476,7 +465,7 @@ watch(containerRef, (el) => {
 
 // Listen to real-time strokes drawn by partner
 watch(() => partnerLiveStroke.value, (live) => {
-  if (live && live.stroke && props.isOpen) {
+  if (live && live.stroke && props.isOpen && editorDay === today.value) {
     const strokeCopy: DuoDoodleStroke = JSON.parse(JSON.stringify(live.stroke))
     let foundIdx = -1
     for (let i = strokes.value.length - 1; i >= 0; i--) {
@@ -515,15 +504,11 @@ const setSize = (size: number) => {
 }
 
 const redrawFullCanvas = () => {
-  const ctx = canvasRef.value?.getContext('2d')
-  if (!ctx) return
-
-  ctx.clearRect(0, 0, DOODLE_WIDTH, DOODLE_HEIGHT)
-  for (const stroke of strokes.value) drawDoodleStroke(ctx, stroke)
+  redrawDoodle(canvasRef.value, strokes.value)
 }
 
 const handlePointerDown = (e: PointerEvent) => {
-  if (isClosing.value || isDrawingActive) return
+  if (isClosing.value || isDrawingActive || editorDay !== today.value) return
   const canvas = canvasRef.value
   if (!canvas) return
 
@@ -577,7 +562,7 @@ const handlePointerMove = (e: PointerEvent) => {
   const now = Date.now()
   if (now - lastBroadcastTime > 50) {
     lastBroadcastTime = now
-    broadcastLiveStroke(currentActiveStroke)
+    if (editorDay === today.value) broadcastLiveStroke(currentActiveStroke)
   }
 }
 
@@ -593,7 +578,7 @@ const handlePointerUp = (e: PointerEvent) => {
   }
 
   if (currentActiveStroke) {
-    broadcastLiveStroke(currentActiveStroke)
+    if (editorDay === today.value) broadcastLiveStroke(currentActiveStroke)
     currentActiveStroke = null
   }
   scheduleAutoSave(IDLE_AUTO_SAVE_MS)
@@ -622,7 +607,7 @@ const flushBeforeClosing = async (options: { silent?: boolean } = { silent: true
     stopDrawingHeartbeat()
     if (isDrawingActive) {
       isDrawingActive = false
-      if (currentActiveStroke) broadcastLiveStroke(currentActiveStroke)
+      if (currentActiveStroke && editorDay === today.value) broadcastLiveStroke(currentActiveStroke)
       currentActiveStroke = null
     }
     await activeSavePromise
@@ -654,6 +639,10 @@ const handleClose = async () => {
   if (result.ok) emit('close')
 }
 
+watch(today, () => {
+  if (props.isOpen) void handleClose()
+})
+
 const handleSave = async () => {
   const wasSavedSilently = savedSilentlyInSession
   const result = await flushBeforeClosing({ silent: false })
@@ -675,7 +664,7 @@ const handleDocumentVisibilityChange = () => {
   stopDrawingHeartbeat()
   if (isDrawingActive) {
     isDrawingActive = false
-    if (currentActiveStroke) broadcastLiveStroke(currentActiveStroke)
+    if (currentActiveStroke && editorDay === today.value) broadcastLiveStroke(currentActiveStroke)
     currentActiveStroke = null
   }
   if (hasLocalChanges.value) {

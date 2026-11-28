@@ -563,7 +563,7 @@ import DuoDoodleModal from '~/components/DuoDoodleModal.vue'
 import { featurePath } from '~/utils/duoPersonalization'
 import { FEATURE_DETAILS } from '~/utils/duoPersonalizationUi'
 import { DUO_GESTURE_PRESETS } from '~/utils/duoGestures'
-import { DOODLE_HEIGHT, DOODLE_WIDTH, drawDoodleStroke } from '~/utils/duoDoodle'
+import { DOODLE_HEIGHT, DOODLE_WIDTH, isDoodleOnDay, redrawDoodle } from '~/utils/duoDoodle'
 
 const { ownAvatarImage, partnerAvatarImage } = useDuoAvatars()
 
@@ -601,7 +601,7 @@ const {
   claimMilestone,
   reactivateMilestone,
   initSupabaseSync,
-  currentDoodle,
+  currentDoodle: latestDoodle,
   isPartnerDrawing,
   partnerLiveStroke,
   partnerTitle,
@@ -630,6 +630,11 @@ const {
 } = useMusic()
 
 const isDoodleModalOpen = ref(false)
+const drawingToday = useDoodleToday()
+const currentDoodle = computed(() => {
+  const doodle = latestDoodle.value
+  return doodle && isDoodleOnDay(doodle.updated_at, drawingToday.value) ? doodle : null
+})
 const previewCanvasRef = ref<HTMLCanvasElement | null>(null)
 function setPreviewCanvas(value: unknown) {
   previewCanvasRef.value = value instanceof HTMLCanvasElement ? value : null
@@ -644,13 +649,13 @@ const hasDoodleContent = computed(() => {
 })
 
 const renderPreviewCanvas = () => {
-  const ctx = previewCanvasRef.value?.getContext('2d')
-  if (!ctx) return
-
-  ctx.clearRect(0, 0, DOODLE_WIDTH, DOODLE_HEIGHT)
-  for (const stroke of currentDoodle.value?.strokes ?? []) drawDoodleStroke(ctx, stroke)
-  for (const stroke of partnerLiveStrokes.value) drawDoodleStroke(ctx, stroke)
+  redrawDoodle(previewCanvasRef.value, [...(currentDoodle.value?.strokes ?? []), ...partnerLiveStrokes.value])
 }
+
+watch(drawingToday, () => {
+  partnerLiveStrokes.value = []
+  schedulePreviewRender()
+})
 
 watch(() => partnerLiveStroke.value, (live) => {
   if (live && live.stroke) {
