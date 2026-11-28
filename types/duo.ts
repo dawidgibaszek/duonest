@@ -38,7 +38,10 @@ export interface Partnership {
   nest_level: number
   anniversary_date?: string | null
   pet_name?: string | null
-  pet_headwear?: 'beret' | null
+  pet_fur?: 'cream' | 'white'
+  pet_headwear?: 'beret' | 'plum_snapback' | null
+  pet_eyewear?: 'smoke_shades' | null
+  pet_neckwear?: 'gold_chain' | null
   pet_care?: PetCareState
   created_at: string
 }

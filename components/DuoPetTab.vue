@@ -6,7 +6,7 @@
           <div class="header-action-row">
             <div class="dn-header-title">Zwierzak</div>
             <div class="briar-header-actions">
-              <button type="button" class="dn-header-btn dn-header-btn--soft briar-wardrobe-button" aria-haspopup="dialog" @click="openWardrobe">
+              <button type="button" class="dn-header-btn dn-header-btn--soft briar-wardrobe-button" aria-haspopup="dialog" @click="wardrobeOpen = true">
                 <ion-icon :icon="shirtOutline" aria-hidden="true" />
                 Garderoba
               </button>
@@ -144,34 +144,35 @@
       <ion-content class="ion-padding">
         <div class="bunny-wardrobe-categories" role="group" aria-label="Kategorie ubioru">
           <button
-            v-for="category in wardrobeCategories"
-            :key="category"
+            v-for="(category, field) in wardrobeCategories"
+            :key="field"
             type="button"
             class="dn-button-secondary"
-            :aria-pressed="wardrobeCategory === category"
-            @click="wardrobeCategory = category"
+            :aria-pressed="wardrobeCategory === field"
+            @click="selectWardrobeCategory(field)"
           >
-            {{ category }}
+            {{ category.label }}
           </button>
         </div>
-        <button
-          v-if="wardrobeCategory === 'Głowa'"
-          type="button"
-          class="bunny-wardrobe-item"
-          aria-label="Beret"
-          :aria-pressed="wearingBeret"
-          :aria-busy="savingHeadwear"
-          :disabled="!partnership || savingHeadwear"
-          @click="toggleBeret"
-        >
-          <img :src="beretUrl" class="bunny-wardrobe-thumbnail" alt="" width="64" height="48" />
-          <span class="bunny-wardrobe-item-name">Beret</span>
-          <span class="bunny-wardrobe-item-action">
-            {{ savingHeadwear ? 'Zapisywanie…' : wearingBeret ? 'Zdejmij' : 'Załóż' }}
-          </span>
-        </button>
+        <div v-if="wardrobeItems.length" class="bunny-wardrobe-items">
+          <button
+            v-for="item in wardrobeItems"
+            :key="item.id"
+            type="button"
+            class="bunny-wardrobe-item"
+            :aria-label="item.label"
+            :aria-pressed="selectedWardrobeItem === item.id"
+            :aria-busy="savingWardrobeItem === item.id"
+            :disabled="!partnership || savingWardrobeItem !== null || (wardrobeCategory === 'pet_fur' && selectedWardrobeItem === item.id)"
+            @click="selectWardrobeItem(item.id)"
+          >
+            <img :src="item.image" class="bunny-wardrobe-thumbnail" alt="" width="64" height="48" />
+            <span class="bunny-wardrobe-item-name">{{ item.label }}</span>
+            <span class="bunny-wardrobe-item-action">{{ wardrobeItemAction(item.id) }}</span>
+          </button>
+        </div>
         <p v-else class="bunny-wardrobe-empty" role="status">Brak dostępnych elementów.</p>
-        <p v-if="headwearSaveFailed" class="bunny-wardrobe-error" role="alert">Nie udało się zapisać ubioru. Spróbuj ponownie.</p>
+        <p v-if="wardrobeSaveFailed" class="bunny-wardrobe-error" role="alert">Nie udało się zapisać wyglądu. Spróbuj ponownie.</p>
       </ion-content>
     </ion-modal>
 
@@ -224,20 +225,67 @@ import fallbackWasmUrl from '@rive-app/canvas-lite/rive_fallback.wasm?url'
 import { closeOutline, flashOutline, gameControllerOutline, happyOutline, heartOutline, leafOutline, moonOutline, pawOutline, pencilOutline, restaurantOutline, shirtOutline, sparklesOutline, waterOutline } from 'ionicons/icons'
 import { useDuoState } from '~/composables/useDuoState'
 import { useDuoPetCare } from '~/composables/useDuoPetCare'
+import { loadFromStorage, saveToStorage } from '~/composables/duo/utils'
 import { getPetMood, PET_ACTIONS, PET_LIMITS, type PetActionType, type PetStats } from '~/functions/src/petCare'
+import type { Partnership } from '~/types/duo'
 import bunnyUrl from '~/assets/bunny.riv?url'
 import beretUrl from '~/assets/pet-beret.png?url'
+import creamFurUrl from '~/assets/pet-fur-cream.png?url'
+import whiteFurUrl from '~/assets/pet-fur-white.png?url'
+import snapbackUrl from '~/assets/pet-snapback.png?url'
+import sunglassesUrl from '~/assets/pet-sunglasses.png?url'
+import chainUrl from '~/assets/pet-chain.png?url'
 
 const props = defineProps<{ active: boolean }>()
-const { partnership, updatePartnershipSettings, triggerToast } = useDuoState()
+const { authUser, partnership, updatePartnershipSettings, triggerToast } = useDuoState()
 const petName = computed(() => partnership.value?.pet_name?.trim() || '')
 const displayName = computed(() => petName.value || 'Królik')
-const wearingBeret = computed(() => partnership.value?.pet_headwear === 'beret')
-const wardrobeCategories = ['Sierść', 'Głowa', 'Szyja', 'Ubranie'] as const
-const wardrobeCategory = ref<typeof wardrobeCategories[number]>('Głowa')
+type WardrobeField = 'pet_fur' | 'pet_headwear' | 'pet_eyewear' | 'pet_neckwear'
+type WardrobeItemId = NonNullable<Partnership[WardrobeField]>
+
+const wardrobeCategories = {
+  pet_fur: { label: 'Sierść', items: [
+    { id: 'cream', label: 'Kremowa sierść', image: creamFurUrl },
+    { id: 'white', label: 'Biała sierść', image: whiteFurUrl }
+  ] },
+  pet_headwear: { label: 'Głowa', items: [
+    { id: 'beret', label: 'Beret', image: beretUrl },
+    { id: 'plum_snapback', label: 'Czapka z daszkiem', image: snapbackUrl }
+  ] },
+  pet_eyewear: { label: 'Oczy', items: [
+    { id: 'smoke_shades', label: 'Okulary przeciwsłoneczne', image: sunglassesUrl }
+  ] },
+  pet_neckwear: { label: 'Szyja', items: [
+    { id: 'gold_chain', label: 'Złoty łańcuszek', image: chainUrl }
+  ] },
+  clothes: { label: 'Ubranie', items: [] }
+} as const satisfies {
+  [Field in WardrobeField]: { label: string; items: readonly { id: NonNullable<Partnership[Field]>; label: string; image: string }[] }
+} & { clothes: { label: string; items: readonly [] } }
+
+type WardrobeCategory = keyof typeof wardrobeCategories
+const defaultWardrobeCategory = 'pet_fur'
+const wardrobeCategory = ref<WardrobeCategory>(defaultWardrobeCategory)
+const wardrobeCategoryKey = computed(() => authUser.value?.id ? `duonest_wardrobe_category_${authUser.value.id}` : null)
+watch(wardrobeCategoryKey, (key) => {
+  const saved = key ? loadFromStorage<unknown>(key, null) : null
+  wardrobeCategory.value = typeof saved === 'string' && Object.prototype.hasOwnProperty.call(wardrobeCategories, saved)
+    ? saved as WardrobeCategory
+    : defaultWardrobeCategory
+}, { immediate: true })
+
+const wardrobeItems = computed(() => wardrobeCategories[wardrobeCategory.value].items)
+const outfit = computed(() => ({
+  pet_fur: partnership.value?.pet_fur ?? 'cream',
+  pet_headwear: partnership.value?.pet_headwear ?? null,
+  pet_eyewear: partnership.value?.pet_eyewear ?? null,
+  pet_neckwear: partnership.value?.pet_neckwear ?? null,
+  clothes: null
+}))
+const selectedWardrobeItem = computed(() => outfit.value[wardrobeCategory.value])
 const wardrobeOpen = ref(false)
-const savingHeadwear = ref(false)
-const headwearSaveFailed = ref(false)
+const savingWardrobeItem = ref<WardrobeItemId | null>(null)
+const wardrobeSaveFailed = ref(false)
 
 const statOptions = [
   { id: 'hunger', label: 'Najedzenie', icon: restaurantOutline },
@@ -329,22 +377,33 @@ function isNeglected(id: keyof PetStats, value: number) {
   return value <= (id === 'health' ? PET_LIMITS.sick : PET_LIMITS.needsCare)
 }
 
-function openWardrobe() {
-  wardrobeCategory.value = 'Głowa'
-  wardrobeOpen.value = true
+function selectWardrobeCategory(field: WardrobeCategory) {
+  wardrobeCategory.value = field
+  const key = wardrobeCategoryKey.value
+  if (key) saveToStorage(key, field)
 }
 
-async function toggleBeret() {
-  if (!partnership.value || savingHeadwear.value) return
+function wardrobeItemAction(id: WardrobeItemId) {
+  if (savingWardrobeItem.value === id) return 'Zapisywanie…'
+  const selected = selectedWardrobeItem.value === id
+  if (wardrobeCategory.value === 'pet_fur') return selected ? 'Wybrano' : 'Wybierz'
+  return selected ? 'Zdejmij' : 'Załóż'
+}
 
-  savingHeadwear.value = true
-  headwearSaveFailed.value = false
+async function selectWardrobeItem(id: WardrobeItemId) {
+  const field = wardrobeCategory.value
+  if (!partnership.value || savingWardrobeItem.value || field === 'clothes') return
+  const selected = selectedWardrobeItem.value === id
+  if (selected && field === 'pet_fur') return
+
+  savingWardrobeItem.value = id
+  wardrobeSaveFailed.value = false
   try {
-    headwearSaveFailed.value = !await updatePartnershipSettings({ pet_headwear: wearingBeret.value ? null : 'beret' })
+    wardrobeSaveFailed.value = !await updatePartnershipSettings({ [field]: selected ? null : id })
   } catch {
-    headwearSaveFailed.value = true
+    wardrobeSaveFailed.value = true
   } finally {
-    savingHeadwear.value = false
+    savingWardrobeItem.value = null
   }
 }
 
@@ -374,10 +433,32 @@ async function saveName() {
   }
 }
 
-watch(wearingBeret, equipped => {
-  const hat = player?.viewModelInstance?.boolean('wearHat')
-  if (hat) hat.value = equipped
-})
+function applyWardrobe() {
+  const viewModel = player?.viewModelInstance
+  if (!viewModel) return false
+
+  const equipped = outfit.value
+  const choices = {
+    wearHat: equipped.pet_headwear === 'beret',
+    wearCap: equipped.pet_headwear === 'plum_snapback',
+    whiteFur: equipped.pet_fur === 'white',
+    wearChain: equipped.pet_neckwear === 'gold_chain',
+    wearShades: equipped.pet_eyewear === 'smoke_shades'
+  }
+  for (const [name, value] of Object.entries(choices)) {
+    const property = viewModel.boolean(name)
+    if (!property) return false
+    if (property.value !== value) property.value = value
+  }
+  return true
+}
+
+watch([
+  () => outfit.value.pet_fur,
+  () => outfit.value.pet_headwear,
+  () => outfit.value.pet_eyewear,
+  () => outfit.value.pet_neckwear
+], applyWardrobe)
 
 watch([canvas, () => props.active], async ([surface, active]) => {
   if (player) {
@@ -411,15 +492,13 @@ watch([canvas, () => props.active], async ([surface, active]) => {
         if (!player) return
         const viewModel = player.viewModelInstance
         const mood = viewModel?.number('mood')
-        const hat = viewModel?.boolean('wearHat')
-        if (!mood || !hat) {
+        if (!mood || !applyWardrobe()) {
           status.value = 'error'
           player.stopRendering()
           return
         }
 
         mood.value = 0
-        hat.value = wearingBeret.value
         player.resizeDrawingSurfaceToCanvas()
         resizeObserver = new ResizeObserver(() => player?.resizeDrawingSurfaceToCanvas())
         resizeObserver.observe(surface)
@@ -819,7 +898,7 @@ onBeforeUnmount(() => {
 }
 
 .bunny-wardrobe {
-  --height: min(310px, 100%);
+  --height: min(350px, 100%);
 }
 
 .bunny-wardrobe-categories {
@@ -837,6 +916,11 @@ onBeforeUnmount(() => {
 .bunny-wardrobe-categories button[aria-pressed='true'] {
   background: var(--dn-ink);
   color: var(--dn-bg);
+}
+
+.bunny-wardrobe-items {
+  display: grid;
+  gap: 8px;
 }
 
 .bunny-wardrobe-item {
@@ -861,8 +945,11 @@ onBeforeUnmount(() => {
   border-color: var(--dn-cream-ink);
 }
 
-.bunny-wardrobe-item:disabled {
+.bunny-wardrobe-item:disabled:not([aria-pressed='true']) {
   opacity: 0.6;
+}
+
+.bunny-wardrobe-item:disabled {
   cursor: default;
 }
 
