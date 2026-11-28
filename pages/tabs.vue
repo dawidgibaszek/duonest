@@ -18,7 +18,7 @@
             <TabShopping v-if="isFeatureEnabled('shopping')" />
           </div>
           <div v-show="activeDailySubTab === 'tasks'" class="subtab-fill-container">
-            <TabTasks v-if="isFeatureEnabled('tasks') || isFeatureEnabled('pet')" />
+            <TabTasks v-if="isFeatureEnabled('tasks')" />
           </div>
           <div v-show="activeDailySubTab === 'meals'" class="subtab-fill-container">
             <TabMeals v-if="isFeatureEnabled('meals')" />
@@ -26,9 +26,12 @@
           <div v-show="activeDailySubTab === 'savings'" class="subtab-fill-container">
             <TabSavings v-if="isFeatureEnabled('savings')" />
           </div>
+          <div v-show="activeDailySubTab === 'calendar'" class="subtab-fill-container">
+            <TabCalendar v-if="isFeatureEnabled('calendar')" />
+          </div>
         </div>
         <div v-show="visibleTabs.includes(2)" class="tab-slide" :style="slideWidth" :inert="activeTabIndex !== 2" :class="{ 'is-active': activeTabIndex === 2 }">
-          <TabCalendar v-if="isFeatureEnabled('calendar')" />
+          <TabTasks v-if="isFeatureEnabled('pet')" pet-view :active="activeTabIndex === 2" />
         </div>
         <div v-show="visibleTabs.includes(3)" class="tab-slide" :style="slideWidth" :inert="activeTabIndex !== 3" :class="{ 'is-active': activeTabIndex === 3 }">
           <div v-show="activeLeisureSubTab === 'movies'" class="subtab-fill-container">
@@ -44,20 +47,19 @@
       </div>
     </div>
 
-    <!-- DuoNest bottom navigation: outline icons, active item in ink (inspiration/menu style.png) -->
     <div class="duo-tab-bar-wrapper">
-      <nav class="duo-native-tab-bar">
+      <nav class="duo-native-tab-bar" aria-label="Menu główne">
         <button
           type="button"
           id="tab-btn-nest"
           class="duo-tab-btn"
-          :class="{ 'is-active': activeTabIndex === 0 }"
+          :aria-current="activeTabIndex === 0 ? 'page' : undefined"
           @click="goToTab(0)"
         >
           <div class="tab-icon-wrap">
-            <ion-icon :icon="ioniconsHomeOutline" />
+            <ion-icon :icon="ioniconsHome" aria-hidden="true" />
           </div>
-          <span class="tab-title">Gniazdko</span>
+          <span class="ion-sr-only">Gniazdko</span>
         </button>
 
         <button
@@ -65,33 +67,30 @@
           v-if="visibleTabs.includes(1)"
           id="tab-btn-daily"
           class="duo-tab-btn"
-          :class="{ 'is-active': activeTabIndex === 1 }"
+          :aria-current="activeTabIndex === 1 ? 'page' : undefined"
           @click="handleDailyTabClick"
         >
           <div class="tab-icon-wrap">
-            <ion-icon :icon="dailyFeatures.length === 1 && dailyFeatures[0] ? FEATURE_DETAILS[dailyFeatures[0]].icon : ioniconsCheckboxOutline" />
-            <span v-if="dailyBadge > 0" class="tab-badge primary-badge">
+            <ion-icon :icon="dailyTabFeature ? featureTabIcons[dailyTabFeature] : ioniconsCheckbox" aria-hidden="true" />
+            <span v-if="dailyBadge > 0" class="tab-badge">
               {{ dailyBadge }}
             </span>
           </div>
-          <span class="tab-title">{{ dailyFeatures.length === 1 && dailyFeatures[0] ? FEATURE_DETAILS[dailyFeatures[0]].label : 'Organizacja' }}</span>
+          <span class="ion-sr-only">{{ dailyTabFeature ? FEATURE_DETAILS[dailyTabFeature].label : 'Organizacja' }}</span>
         </button>
 
         <button
           type="button"
           v-if="visibleTabs.includes(2)"
-          id="tab-btn-calendar"
+          id="tab-btn-pet"
           class="duo-tab-btn"
-          :class="{ 'is-active': activeTabIndex === 2 }"
+          :aria-current="activeTabIndex === 2 ? 'page' : undefined"
           @click="goToTab(2)"
         >
           <div class="tab-icon-wrap">
-            <ion-icon :icon="ioniconsCalendarClearOutline" />
-            <span v-if="todayEventsCount > 0" class="tab-badge primary-badge">
-              {{ todayEventsCount }}
-            </span>
+            <ion-icon :icon="ioniconsPaw" aria-hidden="true" />
           </div>
-          <span class="tab-title">Terminarz</span>
+          <span class="ion-sr-only">Zwierzak</span>
         </button>
 
         <button
@@ -99,29 +98,29 @@
           v-if="visibleTabs.includes(3)"
           id="tab-btn-leisure"
           class="duo-tab-btn"
-          :class="{ 'is-active': activeTabIndex === 3 }"
+          :aria-current="activeTabIndex === 3 ? 'page' : undefined"
           @click="handleLeisureTabClick"
         >
           <div class="tab-icon-wrap">
-            <ion-icon :icon="leisureFeatures.length === 1 && leisureFeatures[0] ? FEATURE_DETAILS[leisureFeatures[0]].icon : ioniconsFilmOutline" />
-            <span v-if="leisureBadge > 0" class="tab-badge primary-badge">
+            <ion-icon :icon="leisureTabFeature ? featureTabIcons[leisureTabFeature] : ioniconsFilm" aria-hidden="true" />
+            <span v-if="leisureBadge > 0" class="tab-badge">
               {{ leisureBadge }}
             </span>
           </div>
-          <span class="tab-title">{{ leisureFeatures.length === 1 && leisureFeatures[0] ? FEATURE_DETAILS[leisureFeatures[0]].label : 'Rozrywka' }}</span>
+          <span class="ion-sr-only">{{ leisureTabFeature ? FEATURE_DETAILS[leisureTabFeature].label : 'Rozrywka' }}</span>
         </button>
 
         <button
           type="button"
           id="tab-btn-relationship"
           class="duo-tab-btn"
-          :class="{ 'is-active': activeTabIndex === 4 }"
+          :aria-current="activeTabIndex === 4 ? 'page' : undefined"
           @click="goToTab(4)"
         >
           <div class="tab-icon-wrap">
-            <ion-icon :icon="ioniconsHeartOutline" />
+            <ion-icon :icon="ioniconsHeart" aria-hidden="true" />
           </div>
-          <span class="tab-title">Relacja</span>
+          <span class="ion-sr-only">Relacja</span>
         </button>
       </nav>
     </div>
@@ -133,7 +132,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { DAILY_FEATURES, LEISURE_FEATURES, featurePath } from '~/utils/duoPersonalization'
 import { FEATURE_DETAILS } from '~/utils/duoPersonalizationUi'
 import { useDuoState } from '~/composables/useDuoState'
-import { dailyFeature, selectDaily } from '~/composables/duo/state'
+import { selectDaily } from '~/composables/duo/state'
 
 import TabNest from '~/pages/tabs/nest.vue'
 import TabShopping from '~/pages/tabs/shopping.vue'
@@ -178,22 +177,34 @@ const pendingMoviesCount = computed(() => {
   return moviesList.value.filter(m => m.status === 'planned').length
 })
 
-const TABS = ['nest', 'daily', 'calendar', 'leisure', 'relationship']
+const TABS = ['nest', 'daily', 'pet', 'leisure', 'relationship']
 const { isFeatureEnabled, enabledFeatures } = useDuoPersonalization()
 const dailyFeatures = computed(() => DAILY_FEATURES.filter(isFeatureEnabled))
 const leisureFeatures = computed(() => LEISURE_FEATURES.filter(isFeatureEnabled))
+const dailyTabFeature = computed(() => dailyFeatures.value.length === 1 ? dailyFeatures.value[0] : undefined)
+const leisureTabFeature = computed(() => leisureFeatures.value.length === 1 ? leisureFeatures.value[0] : undefined)
+const featureTabIcons = {
+  shopping: ioniconsCart,
+  tasks: ioniconsCheckbox,
+  meals: ioniconsRestaurant,
+  savings: ioniconsWallet,
+  calendar: ioniconsCalendarClear,
+  movies: ioniconsFilm,
+  wishlist: ioniconsGift
+}
 const dailyBadge = computed(() => (isFeatureEnabled('shopping') ? pendingShoppingCount.value : 0)
-  + (isFeatureEnabled('tasks') ? pendingTasksCount.value : 0))
+  + (isFeatureEnabled('tasks') ? pendingTasksCount.value : 0)
+  + (isFeatureEnabled('calendar') ? todayEventsCount.value : 0))
 const leisureBadge = computed(() => (isFeatureEnabled('movies') ? pendingMoviesCount.value : 0)
   + (isFeatureEnabled('wishlist') ? pendingWishlistCount.value : 0))
 const visibleTabs = computed(() => [
-  0, ...(dailyFeatures.value.length ? [1] : []), ...(isFeatureEnabled('calendar') ? [2] : []),
+  0, ...(dailyFeatures.value.length ? [1] : []), ...(isFeatureEnabled('pet') ? [2] : []),
   ...(leisureFeatures.value.length ? [3] : []), 4
 ])
 const slideWidth = computed(() => ({ width: `${100 / visibleTabs.value.length}%` }))
 function normalizeSubTabs() {
   const firstDaily = dailyFeatures.value[0]
-  if (firstDaily && !isFeatureEnabled(dailyFeature.value)) selectDaily(firstDaily)
+  if (firstDaily && !isFeatureEnabled(activeDailySubTab.value)) selectDaily(firstDaily)
   const firstLeisure = leisureFeatures.value[0]
   if (firstLeisure && !isFeatureEnabled(activeLeisureSubTab.value)) activeLeisureSubTab.value = firstLeisure
 }
@@ -203,9 +214,10 @@ function tabPosition(index: number) {
 }
 
 function updateTabUrl(index: number) {
-  const target = index === 1 ? featurePath(dailyFeature.value)
+  const target = index === 1 ? featurePath(activeDailySubTab.value)
+    : index === 2 ? featurePath('pet')
     : index === 3 ? featurePath(activeLeisureSubTab.value)
-      : `/tabs/${TABS[index]}`
+    : `/tabs/${TABS[index]}`
   // Preserve contextual query parameters, such as the settings section.
   const currentPath = route.path
   const petChanged = currentPath === '/tabs/tasks' &&
@@ -528,7 +540,7 @@ const onContainerScroll = () => {
 
 const handleDailyTabClick = () => {
   if (activeTabIndex.value === 1) {
-    const next = dailyFeatures.value[(dailyFeatures.value.indexOf(dailyFeature.value) + 1) % dailyFeatures.value.length]
+    const next = dailyFeatures.value[(dailyFeatures.value.indexOf(activeDailySubTab.value) + 1) % dailyFeatures.value.length]
     if (next) selectDaily(next)
   } else {
     goToTab(1)
@@ -564,8 +576,12 @@ const syncTabFromRoute = (animate: boolean = false) => {
     idx = 1
     selectDaily('shopping')
   } else if (path.includes('tasks')) {
-    idx = 1
-    selectDaily(route.query.view === 'pet' ? 'pet' : 'tasks')
+    if (route.query.view === 'pet') {
+      idx = 2
+    } else {
+      idx = 1
+      selectDaily('tasks')
+    }
   } else if (path.includes('meals') || path.includes('dinner')) {
     idx = 1
     selectDaily('meals')
@@ -575,7 +591,8 @@ const syncTabFromRoute = (animate: boolean = false) => {
   } else if (path.includes('daily') || path.includes('organization') || path.includes('organizacja')) {
     idx = 1
   } else if (path.includes('calendar')) {
-    idx = 2
+    idx = 1
+    selectDaily('calendar')
   } else if (path.includes('movies')) {
     idx = 3
     activeLeisureSubTab.value = 'movies'
@@ -633,7 +650,7 @@ onUnmounted(() => {
 
 watch(() => route.fullPath, () => syncTabFromRoute(true))
 
-watch(dailyFeature, () => {
+watch(activeDailySubTab, () => {
   if (activeTabIndex.value === 1) updateTabUrl(1)
 })
 watch(activeLeisureSubTab, () => {
@@ -722,14 +739,11 @@ watch(enabledFeatures, () => {
   --padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
 }
 
-/* ── DOCKED BOTTOM TAB BAR (inspiration/menu style.png) ── */
-
 .duo-tab-bar-wrapper {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
+  bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  left: max(16px, env(safe-area-inset-left, 0px));
+  right: max(16px, env(safe-area-inset-right, 0px));
   z-index: 1000;
   display: flex;
   justify-content: center;
@@ -738,92 +752,90 @@ watch(enabledFeatures, () => {
 
 .duo-native-tab-bar {
   pointer-events: auto;
-  width: 100%;
+  box-sizing: border-box;
+  width: min(100%, 430px);
   display: flex;
-  align-items: flex-start;
-  justify-content: space-around;
-  padding: 10px 8px calc(8px + env(safe-area-inset-bottom, 0px));
-  background: #ffffff;
-  border-radius: 24px 24px 0 0;
-  box-shadow: 0 -1px 0 var(--dn-line), 0 -8px 24px rgba(28, 27, 25, 0.04);
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid var(--dn-line);
+  border-radius: 999px;
+  background: var(--dn-bg);
+  box-shadow: 0 8px 24px rgba(28, 27, 25, 0.09), 0 2px 6px rgba(28, 27, 25, 0.04);
 }
 
 .duo-tab-btn {
-  flex: 1;
-  max-width: 96px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  background: none;
+  --tab-surface: var(--dn-bg);
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 50px;
+  display: grid;
+  place-items: center;
+  background: var(--tab-surface);
   border: none;
-  padding: 2px 0;
+  border-radius: 999px;
+  padding: 0;
   cursor: pointer;
-  color: #b4b8c0;
-  transition: color 0.2s ease, transform 0.15s ease;
+  color: var(--dn-ink-soft);
+  touch-action: manipulation;
+  transition: background-color 0.2s ease, color 0.2s ease;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  position: relative;
+}
+
+.duo-tab-btn[aria-current="page"] {
+  --tab-surface: var(--dn-cream);
+  color: var(--dn-ink);
 }
 
 .duo-tab-btn:active {
-  transform: scale(0.94);
+  --tab-surface: var(--dn-soft-press);
 }
 
-.duo-tab-btn.is-active {
-  color: var(--dn-ink);
+.duo-tab-btn:focus-visible {
+  outline: 2px solid var(--dn-ink);
+  outline-offset: -2px;
 }
 
 .tab-icon-wrap {
   position: relative;
-  font-size: 24px;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 32px;
-  border-radius: 999px;
-  transition: background 0.2s ease;
+  display: grid;
+  place-items: center;
+  font-size: 25px;
 }
 
-/* Beige accent pill behind the active tab icon */
-.duo-tab-btn.is-active .tab-icon-wrap {
-  background: var(--dn-cream);
-}
-
-.tab-icon-wrap ion-icon {
-  --ionicon-stroke-width: 28px;
-}
-
-.tab-title {
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0;
-  line-height: 1.3;
-}
-
-.duo-tab-btn.is-active .tab-title {
-  font-weight: 600;
+.duo-tab-btn .ion-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .tab-badge {
   position: absolute;
-  top: -3px;
-  right: 8px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
+  top: -6px;
+  left: 17px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   border-radius: 999px;
-  color: #ffffff;
+  color: var(--dn-bg);
   background: var(--dn-ink);
-  box-shadow: 0 0 0 2px #ffffff;
+  box-shadow: 0 0 0 2px var(--tab-surface);
   line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .duo-tab-btn {
+    transition: none;
+  }
 }
 </style>

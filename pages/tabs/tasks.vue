@@ -1,13 +1,13 @@
 <template>
   <ion-page>
     <ion-header :translucent="true">
-      <DuoOrganizationNav />
+      <DuoOrganizationNav v-if="!petView" />
       <ion-toolbar>
         <div class="dn-page-header">
           <div class="header-action-row">
-            <div class="dn-header-title">{{ activeMainTab === 'tasks' ? 'Zadania' : 'Zwierzak' }}</div>
+            <div class="dn-header-title">{{ petView ? 'Zwierzak' : 'Zadania' }}</div>
             <button
-              v-if="activeMainTab === 'tasks'"
+              v-if="!petView"
               type="button"
               class="dn-header-btn"
               aria-label="Nowe zadanie"
@@ -39,7 +39,7 @@
       <!-- ============================================== -->
       <!-- TAB 1: LISTA ZADAŃ DOMOWYCH                    -->
       <!-- ============================================== -->
-      <div v-if="activeMainTab === 'tasks'" class="tasks-tab-content">
+      <div v-if="!petView" class="tasks-tab-content">
         <div class="dn-subtabs tasks-assignee-filter" role="group" aria-label="Filtruj zadania według osoby" data-no-swipe>
           <button
             v-for="seg in taskSegments"
@@ -134,23 +134,6 @@
           <p>Możecie odpocząć lub dodać nowe wspólne obowiązki.</p>
         </div>
 
-        <!-- Companion pet mini-bar -->
-        <button v-if="isFeatureEnabled('pet')" type="button" class="pt-mini" :class="{ 'pt-mini--invite': !hasPet }" @click="selectDaily('pet')">
-          <span class="pt-mini-sprite">
-            <PetSprite v-if="hasPet" :pet="petId" :animation="currentAnimation" :scale="1.3" :interactive="false" />
-            <ion-icon v-else :icon="ioniconsPawOutline" />
-          </span>
-          <span class="pt-mini-text">
-            <span class="pt-mini-title">{{ hasPet ? petName : 'Odbierzcie pupila' }}</span>
-            <span class="pt-mini-sub">
-              <template v-if="hasPet">Poziom {{ petLevel }} · {{ uncompletedTasksCount === 0 ? 'wszystko zrobione' : `${uncompletedTasksCount} do zrobienia` }}</template>
-              <template v-else>Wybierzcie go w zakładce Zwierzak.</template>
-            </span>
-          </span>
-          <span v-if="hasPet" class="pt-mini-bar"><span :style="{ width: Math.max(petLevelProgressPct, 4) + '%' }" /></span>
-          <ion-icon :icon="ioniconsChevronForwardOutline" class="pt-mini-arrow" />
-        </button>
-
         <!-- COMPLETED TASKS -->
         <div class="completed-tasks-wrapper" v-if="filteredCompletedTasks.length > 0">
           <div class="tasks-section-header">
@@ -203,7 +186,7 @@
       <!-- ============================================== -->
       <!-- TAB 2: WIDOK ZWIERZAKA (PET COMPANION VIEW)    -->
       <!-- ============================================== -->
-      <div v-else-if="activeMainTab === 'pet'" class="pt-page">
+      <div v-else class="pt-page">
         <!-- 1. CREATOR (no pet yet) -->
         <template v-if="!hasPet">
           <div class="pt-stage">
@@ -307,7 +290,7 @@
           <section class="pt-section">
             <div class="pt-section-head">
               <h2 class="pt-section-title">Misje domowe</h2>
-              <button type="button" class="pt-link" @click="selectDaily('tasks')">Wszystkie</button>
+              <NuxtLink v-if="isFeatureEnabled('tasks')" :to="featurePath('tasks')" class="pt-link">Wszystkie</NuxtLink>
             </div>
             <p class="pt-hint">Za ukończone zadania {{ petName }} zdobywa XP.</p>
 
@@ -497,6 +480,7 @@
 
       <!-- PET SETTINGS SHEET -->
       <ion-modal
+        v-if="petView"
         :is-open="showPetSettingsModal"
         @didDismiss="showPetSettingsModal = false"
         class="dn-form-sheet-modal"
@@ -592,18 +576,21 @@
 </template>
 
 <script setup lang="ts">
-import { selectDaily } from '~/composables/duo/state'
 import { ref, computed, watch, onMounted } from 'vue'
 import { useDuoState } from '~/composables/useDuoState'
 import type { TaskItem } from '~/types/duo'
 import { usePetState } from '~/composables/usePetState'
+import { featurePath } from '~/utils/duoPersonalization'
 import DuoIcon from '~/components/DuoIcon.vue'
 import PetSprite from '~/components/PetSprite.vue'
 
+const props = defineProps<{
+  petView?: boolean
+  active?: boolean
+}>()
+
 const {
   tasksList,
-  activeDailySubTab,
-  activeTasksMainTab,
   currentUser,
   partnerUser,
   currentUserAccentColor,
@@ -643,17 +630,14 @@ const {
   renamePet
 } = usePetState()
 
-// Main Tab Navigation: 'tasks' | 'pet' (synced with global activeTasksMainTab)
-const activeMainTab = activeTasksMainTab
-
 onMounted(async () => {
   try {
     await initSupabaseSync()
   } catch (_) {}
 })
 
-watch([activeDailySubTab, activeMainTab], ([tab, view]) => {
-  if (tab === 'tasks' && view === 'pet' && isFeatureEnabled('pet')) onEnterPetView()
+watch(() => props.petView && props.active, (visible) => {
+  if (visible) onEnterPetView()
 }, { immediate: true })
 
 // Custom speech bubble feedback override
@@ -1477,80 +1461,6 @@ const handleRefresh = async (event: any) => {
 }
 
 /* MAIN TABS SWITCHER (Zadania vs Zwierzak) */
-
-/* TASKS VIEW: PET COMPANION STATUS BAR */
-.tasks-pet-status-bar {
-  margin: 10px 16px 14px;
-  padding: 10px 14px;
-  background: #ffffff;
-  border: 1px solid var(--dn-line);
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.tasks-pet-status-bar:hover {
-  border-color: #d4d4d4;
-}
-
-.tasks-pet-status-bar:active {
-  transform: scale(0.98);
-}
-
-.pet-status-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.pet-status-texts {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.pet-status-name {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #1c1b19;
-}
-
-.pet-status-sub {
-  font-size: 11.5px;
-  color: #737373;
-  margin-top: 1px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.35;
-  padding-bottom: 1px;
-}
-
-.pet-status-adopt-icon {
-  font-size: 26px;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--dn-soft);
-  border-radius: 50%;
-}
-
-.pet-open-pill {
-  font-size: 11.5px;
-  font-weight: 500;
-  color: #1c1b19;
-  background: var(--dn-soft);
-  padding: 4px 10px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
 
 /* ============================================= */
 /* PET COMPANION VIEW STYLES                     */
@@ -2651,115 +2561,9 @@ ion-modal.dn-pet-settings-modal {
   max-width: 280px;
 }
 
-/* ===== Beige accent: pet companion bar ===== */
-.tasks-pet-status-bar {
-  background: var(--dn-cream) !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-.tasks-pet-status-bar .pet-status-adopt-icon {
-  background: #ffffff !important;
-}
-
-.tasks-pet-status-bar .pet-open-pill {
-  background: #ffffff !important;
-  border: none !important;
-  color: var(--dn-ink) !important;
-}
-
-.tasks-pet-status-bar .pet-status-sub {
-  color: var(--dn-cream-ink) !important;
-}
-
 .empty-icon-circle {
   background: var(--dn-cream) !important;
   color: var(--dn-cream-ink) !important;
-}
-
-/* =========================================================
-   PET – mini bar in tasks + pet tab + settings sheet (pt-*)
-   ========================================================= */
-.tasks-pet-status-bar { display: none !important; }
-
-.pt-mini {
-  width: calc(100% - 40px);
-  margin: 8px 20px 4px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px 10px 10px;
-  border: none;
-  border-radius: 20px;
-  background: var(--dn-cream);
-  font-family: inherit;
-  text-align: left;
-  color: var(--dn-ink);
-  cursor: pointer;
-}
-
-.pt-mini-sprite {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-  background: #ffffff;
-  color: var(--dn-cream-ink);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  font-size: 22px;
-  flex-shrink: 0;
-}
-
-.pt-mini-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.pt-mini-title {
-  font-size: 15px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pt-mini-sub {
-  font-size: 12.5px;
-  color: var(--dn-cream-ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pt-mini--invite .pt-mini-sub {
-  white-space: normal;
-}
-
-.pt-mini-bar {
-  width: 44px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--dn-cream-deep);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.pt-mini-bar span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--dn-ink);
-}
-
-.pt-mini-arrow {
-  font-size: 16px;
-  color: var(--dn-cream-ink);
-  flex-shrink: 0;
 }
 
 /* ---- Pet page ---- */
@@ -2989,6 +2793,7 @@ ion-modal.dn-pet-settings-modal {
   font-family: inherit;
   font-size: 14px;
   font-weight: 500;
+  text-decoration: none;
   color: var(--dn-muted);
   cursor: pointer;
 }

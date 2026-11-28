@@ -9,7 +9,7 @@
         :key="feature"
         type="button"
         class="organization-link"
-        :aria-current="feature === dailyFeature ? 'location' : undefined"
+        :aria-current="feature === activeDailySubTab ? 'location' : undefined"
         @click="selectDaily(feature)"
       >
         <ion-icon :icon="FEATURE_DETAILS[feature].icon" aria-hidden="true" />
@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { dailyFeature, selectDaily } from '~/composables/duo/state'
+import { activeDailySubTab, selectDaily } from '~/composables/duo/state'
 import { DAILY_FEATURES } from '~/utils/duoPersonalization'
 import { FEATURE_DETAILS } from '~/utils/duoPersonalizationUi'
 

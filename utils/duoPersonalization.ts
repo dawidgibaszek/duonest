@@ -1,7 +1,7 @@
 export const DUO_FEATURES = ['shopping', 'tasks', 'meals', 'savings', 'pet', 'calendar', 'movies', 'wishlist'] as const
 export type DuoFeature = typeof DUO_FEATURES[number]
 
-export const DAILY_FEATURES = ['shopping', 'tasks', 'meals', 'savings', 'pet'] as const
+export const DAILY_FEATURES = ['shopping', 'tasks', 'meals', 'savings', 'calendar'] as const
 export const LEISURE_FEATURES = ['movies', 'wishlist'] as const
 
 export const NEST_CARDS = ['summary', 'points', 'rewards', 'mood', 'music', 'gestures', 'today', 'doodle', 'shortcuts', 'location'] as const

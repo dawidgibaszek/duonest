@@ -58,7 +58,6 @@ export {
   isPartnerDrawing,
   activeDailySubTab,
   activeOrgSubTab,
-  activeTasksMainTab,
   activeLeisureSubTab,
   isAuthLoading,
   authRestoreFailed,
@@ -111,7 +110,6 @@ import {
   isPartnerDrawing,
   activeDailySubTab,
   activeOrgSubTab,
-  activeTasksMainTab,
   activeLeisureSubTab,
   isAuthLoading,
   authRestoreFailed,
@@ -442,7 +440,6 @@ export const useDuoState = () => {
     // Zakładki nawigacyjne
     activeDailySubTab,
     activeOrgSubTab,
-    activeTasksMainTab,
     activeLeisureSubTab
   }
 }
