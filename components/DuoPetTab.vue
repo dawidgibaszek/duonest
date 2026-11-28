@@ -5,10 +5,16 @@
         <div class="dn-page-header">
           <div class="header-action-row">
             <div class="dn-header-title">Zwierzak</div>
-            <button type="button" class="dn-header-btn" aria-label="Edytuj zwierzaka" @click="openEditor">
-              <ion-icon :icon="pencilOutline" aria-hidden="true" />
-              Edytuj
-            </button>
+            <div class="briar-header-actions">
+              <button type="button" class="dn-header-btn dn-header-btn--soft briar-wardrobe-button" aria-haspopup="dialog" @click="openWardrobe">
+                <ion-icon :icon="shirtOutline" aria-hidden="true" />
+                Garderoba
+              </button>
+              <button type="button" class="dn-header-btn briar-edit-button" aria-label="Edytuj zwierzaka" @click="openEditor">
+                <ion-icon :icon="pencilOutline" aria-hidden="true" />
+                <span>Edytuj</span>
+              </button>
+            </div>
           </div>
         </div>
       </ion-toolbar>
@@ -117,6 +123,59 @@
     </ion-content>
 
     <ion-modal
+      :is-open="wardrobeOpen"
+      class="dn-form-sheet-modal bunny-wardrobe"
+      :breakpoints="[0, 1]"
+      :initial-breakpoint="1"
+      aria-labelledby="bunny-wardrobe-title"
+      @didDismiss="wardrobeOpen = false"
+    >
+      <ion-header class="dn-form-sheet-header ion-no-border">
+        <div class="dn-form-sheet-handle-spacer" aria-hidden="true"></div>
+        <ion-toolbar>
+          <div class="dn-form-sheet-heading">
+            <h2 id="bunny-wardrobe-title" class="dn-form-sheet-title">Garderoba</h2>
+            <button type="button" class="dn-form-sheet-close" aria-label="Zamknij" @click="wardrobeOpen = false">
+              <ion-icon :icon="closeOutline" aria-hidden="true" />
+            </button>
+          </div>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <div class="bunny-wardrobe-categories" role="group" aria-label="Kategorie ubioru">
+          <button
+            v-for="category in wardrobeCategories"
+            :key="category"
+            type="button"
+            class="dn-button-secondary"
+            :aria-pressed="wardrobeCategory === category"
+            @click="wardrobeCategory = category"
+          >
+            {{ category }}
+          </button>
+        </div>
+        <button
+          v-if="wardrobeCategory === 'Głowa'"
+          type="button"
+          class="bunny-wardrobe-item"
+          aria-label="Beret"
+          :aria-pressed="wearingBeret"
+          :aria-busy="savingHeadwear"
+          :disabled="!partnership || savingHeadwear"
+          @click="toggleBeret"
+        >
+          <img :src="beretUrl" class="bunny-wardrobe-thumbnail" alt="" width="64" height="48" />
+          <span class="bunny-wardrobe-item-name">Beret</span>
+          <span class="bunny-wardrobe-item-action">
+            {{ savingHeadwear ? 'Zapisywanie…' : wearingBeret ? 'Zdejmij' : 'Załóż' }}
+          </span>
+        </button>
+        <p v-else class="bunny-wardrobe-empty" role="status">Brak dostępnych elementów.</p>
+        <p v-if="headwearSaveFailed" class="bunny-wardrobe-error" role="alert">Nie udało się zapisać ubioru. Spróbuj ponownie.</p>
+      </ion-content>
+    </ion-modal>
+
+    <ion-modal
       :is-open="editorOpen"
       class="dn-form-sheet-modal bunny-editor"
       :breakpoints="[0, 1]"
@@ -162,16 +221,23 @@
 import type { Rive } from '@rive-app/canvas-lite'
 import wasmUrl from '@rive-app/canvas-lite/rive.wasm?url'
 import fallbackWasmUrl from '@rive-app/canvas-lite/rive_fallback.wasm?url'
-import { closeOutline, flashOutline, gameControllerOutline, happyOutline, heartOutline, leafOutline, moonOutline, pawOutline, pencilOutline, restaurantOutline, sparklesOutline, waterOutline } from 'ionicons/icons'
+import { closeOutline, flashOutline, gameControllerOutline, happyOutline, heartOutline, leafOutline, moonOutline, pawOutline, pencilOutline, restaurantOutline, shirtOutline, sparklesOutline, waterOutline } from 'ionicons/icons'
 import { useDuoState } from '~/composables/useDuoState'
 import { useDuoPetCare } from '~/composables/useDuoPetCare'
 import { getPetMood, PET_ACTIONS, PET_LIMITS, type PetActionType, type PetStats } from '~/functions/src/petCare'
 import bunnyUrl from '~/assets/bunny.riv?url'
+import beretUrl from '~/assets/pet-beret.png?url'
 
 const props = defineProps<{ active: boolean }>()
 const { partnership, updatePartnershipSettings, triggerToast } = useDuoState()
 const petName = computed(() => partnership.value?.pet_name?.trim() || '')
 const displayName = computed(() => petName.value || 'Królik')
+const wearingBeret = computed(() => partnership.value?.pet_headwear === 'beret')
+const wardrobeCategories = ['Sierść', 'Głowa', 'Szyja', 'Ubranie'] as const
+const wardrobeCategory = ref<typeof wardrobeCategories[number]>('Głowa')
+const wardrobeOpen = ref(false)
+const savingHeadwear = ref(false)
+const headwearSaveFailed = ref(false)
 
 const statOptions = [
   { id: 'hunger', label: 'Najedzenie', icon: restaurantOutline },
@@ -263,6 +329,25 @@ function isNeglected(id: keyof PetStats, value: number) {
   return value <= (id === 'health' ? PET_LIMITS.sick : PET_LIMITS.needsCare)
 }
 
+function openWardrobe() {
+  wardrobeCategory.value = 'Głowa'
+  wardrobeOpen.value = true
+}
+
+async function toggleBeret() {
+  if (!partnership.value || savingHeadwear.value) return
+
+  savingHeadwear.value = true
+  headwearSaveFailed.value = false
+  try {
+    headwearSaveFailed.value = !await updatePartnershipSettings({ pet_headwear: wearingBeret.value ? null : 'beret' })
+  } catch {
+    headwearSaveFailed.value = true
+  } finally {
+    savingHeadwear.value = false
+  }
+}
+
 function openEditor() {
   draftName.value = petName.value
   nameSaveFailed.value = false
@@ -288,6 +373,11 @@ async function saveName() {
     savingName.value = false
   }
 }
+
+watch(wearingBeret, equipped => {
+  const hat = player?.viewModelInstance?.boolean('wearHat')
+  if (hat) hat.value = equipped
+})
 
 watch([canvas, () => props.active], async ([surface, active]) => {
   if (player) {
@@ -329,7 +419,7 @@ watch([canvas, () => props.active], async ([surface, active]) => {
         }
 
         mood.value = 0
-        hat.value = false
+        hat.value = wearingBeret.value
         player.resizeDrawingSurfaceToCanvas()
         resizeObserver = new ResizeObserver(() => player?.resizeDrawingSurfaceToCanvas())
         resizeObserver.observe(surface)
@@ -369,6 +459,40 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.briar-header-actions {
+  display: flex;
+  gap: 6px;
+}
+
+@media (max-width: 420px) {
+  .briar-wardrobe-button {
+    padding-inline: 11px;
+  }
+
+  .briar-edit-button {
+    width: 40px;
+    padding: 0;
+  }
+
+  .briar-edit-button span {
+    display: none;
+  }
+}
+
+@media (max-width: 360px) {
+  .dn-page-header {
+    padding-inline: 12px;
+  }
+
+  .header-action-row {
+    gap: 8px;
+  }
+
+  .dn-header-title {
+    font-size: 26px;
+  }
+}
+
 .briar-content {
   --padding-bottom: calc(105px + env(safe-area-inset-bottom, 0px));
 }
@@ -692,6 +816,84 @@ onBeforeUnmount(() => {
 
 .bunny-editor {
   --height: min(320px, 100%);
+}
+
+.bunny-wardrobe {
+  --height: min(310px, 100%);
+}
+
+.bunny-wardrobe-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.bunny-wardrobe-categories button {
+  min-height: 44px;
+  padding-inline: 12px;
+}
+
+.bunny-wardrobe-categories button[aria-pressed='true'] {
+  background: var(--dn-ink);
+  color: var(--dn-bg);
+}
+
+.bunny-wardrobe-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 54px;
+  padding: 8px 16px 8px 8px;
+  border: 1px solid var(--dn-cream-deep);
+  border-radius: 16px;
+  background: var(--dn-cream);
+  color: var(--dn-ink);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bunny-wardrobe-item[aria-pressed='true'] {
+  border-color: var(--dn-cream-ink);
+}
+
+.bunny-wardrobe-item:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.bunny-wardrobe-thumbnail {
+  flex: none;
+  width: 64px;
+  height: 48px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--dn-bg);
+  object-fit: contain;
+}
+
+.bunny-wardrobe-item-name {
+  flex: 1;
+}
+
+.bunny-wardrobe-item-action {
+  color: var(--dn-cream-ink);
+  font-size: 13px;
+}
+
+.bunny-wardrobe-empty,
+.bunny-wardrobe-error {
+  margin: 10px 0 0;
+  color: var(--dn-muted);
+  font-size: 13px;
+}
+
+.bunny-wardrobe-error {
+  color: var(--dn-danger);
 }
 
 .bunny-name-form {

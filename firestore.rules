@@ -108,12 +108,14 @@ service cloud.firestore {
     match /partnerships/{pid} {
       allow get: if inPartnership(pid);
       allow update: if inPartnership(pid)
-        && changedOnly(['nest_name', 'anniversary_date', 'pet_name', 'updated_at'])
+        && changedOnly(['nest_name', 'anniversary_date', 'pet_name', 'pet_headwear', 'updated_at'])
         && (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['pet_name']) ||
           (request.resource.data.pet_name is string
             && request.resource.data.pet_name.size() > 0 && request.resource.data.pet_name.size() <= 40)
-        );
+        )
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['pet_headwear'])
+          || request.resource.data.pet_headwear in [null, 'beret']);
       // Legacy per-partnership mirrors are private. Clients use top-level collections.
     }
 
