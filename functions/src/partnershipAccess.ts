@@ -30,7 +30,7 @@ export async function requirePartnership(tx: Transaction, db: Firestore, uid: st
       (partnership.partner1_id !== profileId && partnership.partner2_id !== profileId)) {
     throw new DuoDataError(403, 'Brak dostępu do Gniazdka.')
   }
-  return { profileId, partnershipId, profileRef, partnershipRef, profile, partnership }
+  return { profileId, partnershipId, profileRef, profile, partnership }
 }
 
 export type PartnershipAccess = Awaited<ReturnType<typeof requirePartnership>>

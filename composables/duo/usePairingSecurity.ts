@@ -325,10 +325,11 @@ export function usePairingSecurity(options: {
 
   const updatePartnershipSettings = async (updates: Partial<Partnership>) => {
     const pid = partnership.value?.id
+    const profileId = currentUser.value.id
     if (!pid) return false
     const { error } = await getDb().from('partnerships').update(updates).eq('id', pid)
     if (error) throw error
-    if (partnership.value?.id !== pid) return false
+    if (partnership.value?.id !== pid || currentUser.value.id !== profileId) return false
     partnership.value = { ...partnership.value, ...updates }
     saveToStorage('duonest_partnership', partnership.value)
 

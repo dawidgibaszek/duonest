@@ -304,7 +304,6 @@ export const useDuoState = () => {
     addTask: tasks.addTask,
     toggleTask: tasks.toggleTask,
     deleteTask: tasks.deleteTask,
-    updatePet: tasks.updatePet,
 
     // Kalendarz
     eventsList,

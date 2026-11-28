@@ -1,4 +1,5 @@
 import type { DuoFeature, NestCard, OnboardingStage } from '~/utils/duoPersonalization'
+import type { PetCareState } from '~/functions/src/petCare'
 
 export interface Profile {
   id: string
@@ -36,9 +37,8 @@ export interface Partnership {
   nest_name: string
   nest_level: number
   anniversary_date?: string | null
-  pet_id?: string | null
   pet_name?: string | null
-  pet_xp?: number
+  pet_care?: PetCareState
   created_at: string
 }
 

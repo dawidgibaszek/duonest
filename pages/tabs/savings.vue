@@ -647,7 +647,6 @@
 import { ref, computed } from 'vue'
 import { useDuoState } from '~/composables/useDuoState'
 import type { SavingsGoal, SavingsContribution } from '~/types/duo'
-import { usePetState } from '~/composables/usePetState'
 import { useConfirm } from '~/composables/useConfirm'
 import { playNotificationChime } from '~/composables/usePushNotifications'
 

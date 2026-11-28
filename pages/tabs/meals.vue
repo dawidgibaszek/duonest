@@ -1817,7 +1817,6 @@ import {
 import DuoActionSheet, { type DuoActionSheetButton } from '~/components/DuoActionSheet.vue'
 import { useDuoState } from '~/composables/useDuoState'
 import type { MealItem, MealIngredient } from '~/types/duo'
-import { usePetState } from '~/composables/usePetState'
 import { useConfirm } from '~/composables/useConfirm'
 
 const {

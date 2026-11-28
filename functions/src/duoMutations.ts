@@ -1,5 +1,6 @@
 import type { Firestore, Transaction, DocumentSnapshot, DocumentData } from 'firebase-admin/firestore'
 import { documentId, DuoDataError, requirePartnership, type PartnershipAccess } from './partnershipAccess'
+import { managePetCare } from './petCareMutations'
 
 function ownedDocument(snapshot: DocumentSnapshot, access: PartnershipAccess): DocumentData & { id: string } {
   const data = snapshot.data()
@@ -28,7 +29,7 @@ async function deleteTask(tx: Transaction, db: Firestore, access: PartnershipAcc
   if (!task || task.partnership_id !== access.partnershipId) {
     throw new DuoDataError(404, 'Element niedostępny.')
   }
-  // Keep the awarded points, pet XP and source record for completed tasks.
+  // Keep awarded points and their source record for completed tasks.
   if (!task.deleted_at) tx.update(ref, { deleted_at: now })
   return { success: true }
 }
@@ -37,7 +38,7 @@ async function setTaskCompleted(tx: Transaction, db: Firestore, access: Partners
   const ref = db.collection('tasks').doc(id)
   const task = ownedDocument(await tx.get(ref), access)
   const sameState = Boolean(task.is_completed) === completed
-  if (sameState) return { task, points: nonnegativePoints(access.profile.points), petXp: nonnegativePoints(access.partnership.pet_xp) }
+  if (sameState) return { task, points: nonnegativePoints(access.profile.points) }
 
   const members = [access.partnership.partner1_id, access.partnership.partner2_id]
   const previousScorer = members.includes(task.completed_by) ? task.completed_by : null
@@ -47,7 +48,6 @@ async function setTaskCompleted(tx: Transaction, db: Firestore, access: Partners
   const awarded = completed ? taskPoints(task.points) : Math.min(100, nonnegativePoints(task.points_awarded))
   const delta = completed ? awarded : -awarded
   const currentPoints = nonnegativePoints(access.profile.points)
-  const petXp = Math.max(0, nonnegativePoints(access.partnership.pet_xp) + delta)
   const updates = {
     is_completed: completed,
     completed_by: completed ? access.profileId : null,
@@ -58,9 +58,8 @@ async function setTaskCompleted(tx: Transaction, db: Firestore, access: Partners
   if (scorerRef && scorerData?.partnership_id === access.partnershipId) {
     tx.update(scorerRef, { points: Math.max(0, nonnegativePoints(scorerData.points) + delta) })
   }
-  tx.update(access.partnershipRef, { pet_xp: petXp })
   tx.update(ref, updates)
-  return { task: { ...task, ...updates }, points: scorer === access.profileId ? Math.max(0, currentPoints + delta) : currentPoints, petXp }
+  return { task: { ...task, ...updates }, points: scorer === access.profileId ? Math.max(0, currentPoints + delta) : currentPoints }
 }
 
 async function setMilestoneCompleted(tx: Transaction, db: Firestore, access: PartnershipAccess, id: string, completed: boolean, now: string) {
@@ -214,6 +213,8 @@ export function mutateDuoData(db: Firestore, uid: string, body: Record<string, a
   return db.runTransaction(async tx => {
     const access = await requirePartnership(tx, db, uid)
     switch (body.action) {
+      case 'pet/read':
+      case 'pet/care': return managePetCare(tx, db, access, id, body)
       case 'tasks/complete': return setTaskCompleted(tx, db, access, id, desiredState(body.completed), now)
       case 'tasks/delete': return deleteTask(tx, db, access, id, now)
       case 'milestones/complete': return setMilestoneCompleted(tx, db, access, id, desiredState(body.completed), now)

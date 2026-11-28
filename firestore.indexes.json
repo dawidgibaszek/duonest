@@ -135,6 +135,12 @@
       "indexes": []
     },
     {
+      "collectionGroup": "pet_care_requests",
+      "fieldPath": "expires_at",
+      "ttl": true,
+      "indexes": []
+    },
+    {
       "collectionGroup": "android_diagnostics",
       "fieldPath": "expiresAt",
       "ttl": true,

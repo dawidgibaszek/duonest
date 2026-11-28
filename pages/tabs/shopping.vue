@@ -429,7 +429,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { useDuoState } from '~/composables/useDuoState'
 import type { ShoppingItem } from '~/types/duo'
-import { usePetState } from '~/composables/usePetState'
 import { useConfirm } from '~/composables/useConfirm'
 import DuoIcon from '~/components/DuoIcon.vue'
 

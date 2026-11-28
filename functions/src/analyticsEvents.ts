@@ -2,7 +2,6 @@ export const featureEvents = {
   duo_doodle_saved: 'Zapisano wspólny rysunek',
   duo_task_added: 'Dodano zadanie',
   duo_task_completed: 'Ukończono zadanie',
-  duo_pet_created: 'Zaopiekowano się pupilem',
   duo_shopping_added: 'Dodano produkt do zakupów',
   duo_meal_planned: 'Zaplanowano obiad',
   duo_recipe_saved: 'Zapisano przepis',

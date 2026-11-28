@@ -61,7 +61,7 @@ export function useTasks(options: {
     const profileId = currentUser.value.id
     const partnershipId = partnership.value?.id
     try {
-      const result = await getDb().callApi<{ task: TaskItem; points: number; petXp: number }>('/api/duo/mutate', {
+      const result = await getDb().callApi<{ task: TaskItem; points: number }>('/api/duo/mutate', {
         action: 'tasks/complete', id, completed: !task.is_completed
       })
       if (currentUser.value.id !== profileId || partnership.value?.id !== partnershipId) return false
@@ -69,10 +69,8 @@ export function useTasks(options: {
       const updated = tasksList.value.find(item => item.id === id)
       if (updated) Object.assign(updated, result.task)
       currentUser.value.points = result.points
-      if (partnership.value) partnership.value.pet_xp = result.petXp
       syncTasksToStorage()
       saveToStorage('duonest_current_user', currentUser.value)
-      saveToStorage('duonest_partnership', partnership.value)
 
       options.broadcastToPartner('TASK_TOGGLE', result.task)
       if (result.task.is_completed) trackDuoEvent('duo_task_completed')
@@ -101,31 +99,9 @@ export function useTasks(options: {
     }
   }
 
-  const updatePet = async (petId: string, petName: string) => {
-    const pid = partnership.value?.id
-    const profileId = currentUser.value.id
-    const name = petName.trim().slice(0, 40)
-    if (!pid || !name) return false
-
-    try {
-      const updates = { pet_id: petId, pet_name: name }
-      const { error } = await getDb().from('partnerships').update(updates).eq('id', pid)
-      if (error) throw error
-      if (partnership.value?.id !== pid || currentUser.value.id !== profileId) return false
-      if (!partnership.value.pet_id && petId) trackDuoEvent('duo_pet_created')
-      Object.assign(partnership.value, updates)
-      saveToStorage('duonest_partnership', partnership.value)
-      return true
-    } catch {
-      options.triggerToast('Nie udało się zapisać pupila. Spróbuj ponownie.', { type: 'warning' })
-      return false
-    }
-  }
-
   return {
     addTask,
     toggleTask,
-    deleteTask,
-    updatePet
+    deleteTask
   }
 }

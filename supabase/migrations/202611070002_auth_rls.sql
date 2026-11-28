@@ -486,7 +486,7 @@ $$;
 
 revoke all on public.partnerships from public, anon, authenticated;
 grant select on public.partnerships to authenticated;
-grant update (nest_name, nest_level, anniversary_date, pet_id, pet_name, pet_xp, updated_at) on public.partnerships to authenticated;
+grant update (nest_name, nest_level, anniversary_date, pet_name, updated_at) on public.partnerships to authenticated;
 drop policy if exists "partnerships_member_select" on public.partnerships;
 drop policy if exists "partnerships_member_update" on public.partnerships;
 create policy "partnerships_member_select" on public.partnerships

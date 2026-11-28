@@ -40,9 +40,7 @@ create table if not exists public.partnerships (
   nest_name text not null default 'Nasze Ciepłe Gniazdko',
   nest_level integer not null default 1,
   anniversary_date text,
-  pet_id text default null,
   pet_name text default null,
-  pet_xp integer default 0,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -321,9 +319,7 @@ create index if not exists idx_push_partnership on public.push_subscriptions(par
 alter table public.push_subscriptions enable row level security;
 
 -- Partnerships Pet Migration
-alter table public.partnerships add column if not exists pet_id text default null;
 alter table public.partnerships add column if not exists pet_name text default null;
-alter table public.partnerships add column if not exists pet_xp integer default 0;
 -- Security Hardening: Revoke public anon and authenticated access to push_subscriptions
 -- Endpoints and cryptographic keys (p256dh, auth) must only be queried by backend service role
 revoke all on table public.push_subscriptions from anon, authenticated;

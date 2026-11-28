@@ -31,7 +31,7 @@
           </div>
         </div>
         <div v-show="visibleTabs.includes(2)" class="tab-slide" :style="slideWidth" :inert="activeTabIndex !== 2" :class="{ 'is-active': activeTabIndex === 2 }">
-          <TabTasks v-if="isFeatureEnabled('pet')" pet-view :active="activeTabIndex === 2" />
+          <DuoPetTab v-if="isFeatureEnabled('pet')" :active="activeTabIndex === 2" />
         </div>
         <div v-show="visibleTabs.includes(3)" class="tab-slide" :style="slideWidth" :inert="activeTabIndex !== 3" :class="{ 'is-active': activeTabIndex === 3 }">
           <div v-show="activeLeisureSubTab === 'movies'" class="subtab-fill-container">

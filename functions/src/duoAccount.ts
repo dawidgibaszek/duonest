@@ -8,6 +8,7 @@
  */
 
 import { randomInt, randomUUID } from 'node:crypto'
+import { createPetCareState } from './petCare'
 import { removeDuoLocationForPair } from './duoLocation'
 import { isCurrentPairingCode, normalizePairingCode, PAIRING_CODE_ALPHABET, PAIRING_CODE_LENGTH } from './pairingCode'
 import { DuoDataError } from './partnershipAccess'
@@ -303,9 +304,8 @@ export async function pairWithCode(
     nest_name: 'Nasze Ciepłe Gniazdko',
     nest_level: 1,
     anniversary_date: created.split('T')[0],
-    pet_id: null,
     pet_name: null,
-    pet_xp: 0,
+    pet_care: createPetCareState(Date.parse(created)),
     created_at: created
   }
 
