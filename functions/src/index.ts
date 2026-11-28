@@ -21,6 +21,7 @@ import { handleMusicAction, isMusicAction } from './musicCore'
 import { handleMoviesTrending, handleMoviesSearch, handleMoviesRandom } from './moviesCore'
 import { handleMealsCategories, handleMealsSearch, handleMealsLookup, handleMealsImport } from './mealsCore'
 import { requireDuoClient } from './clientAccess'
+import { rateLimit } from './rateLimit'
 import { readWidgetDoodle, readWidgetLocation, updateWidgetAccess } from './widgetAccess'
 import { storeNativeDiagnosticReports } from './nativeDiagnostics'
 import { createAdminRouter } from './adminAccess'
@@ -34,6 +35,7 @@ if (getApps().length === 0) {
 
 const db = getFirestore()
 const auth = getAuth()
+const limit = (scope: string, max: number, message: string) => rateLimit(db, scope, max, message)
 const apiServiceAccount = defineString('DUO_API_SERVICE_ACCOUNT', {
   default: 'duonest-api@duonest-38dc2.iam.gserviceaccount.com'
 })
@@ -42,8 +44,11 @@ const apiServiceAccount = defineString('DUO_API_SERVICE_ACCOUNT', {
 const getRtdb = () => {
   try {
     const app = getApp()
+    const project = app.options.projectId || process.env.GCLOUD_PROJECT
     const url = process.env.FIREBASE_DATABASE_URL || app.options.databaseURL ||
-      databaseUrlForProject(app.options.projectId || process.env.GCLOUD_PROJECT)
+      (process.env.FIREBASE_DATABASE_EMULATOR_HOST && project?.startsWith('demo-')
+        ? `https://${project}-default-rtdb.firebaseio.com`
+        : databaseUrlForProject(project))
     return url ? getDatabaseWithUrl(url, app) : null
   } catch (_) {
     return null
@@ -161,7 +166,7 @@ app.post('/api/auth/password-reset', async (req, res) => {
 // -----------------------------------------------------------------------------
 // 1. FILMY (TMDB)
 // -----------------------------------------------------------------------------
-app.get('/api/movies/trending', async (req, res) => {
+app.get('/api/movies/trending', limit('movie_trending', 40, 'Zbyt wiele zapytań o trendy filmowe. Spróbuj ponownie za chwilę.'), async (req, res) => {
   try {
     const requestKey = req.headers['x-tmdb-api-key'] as string | undefined
     const result = await handleMoviesTrending(req.query, requestKey)
@@ -171,7 +176,7 @@ app.get('/api/movies/trending', async (req, res) => {
   }
 })
 
-app.get('/api/movies/search', async (req, res) => {
+app.get('/api/movies/search', limit('movie_search', 40, 'Zbyt wiele zapytań o filmy. Spróbuj ponownie za chwilę.'), async (req, res) => {
   try {
     const requestKey = req.headers['x-tmdb-api-key'] as string | undefined
     const result = await handleMoviesSearch(req.query, requestKey)
@@ -181,7 +186,7 @@ app.get('/api/movies/search', async (req, res) => {
   }
 })
 
-app.get('/api/movies/random', async (req, res) => {
+app.get('/api/movies/random', limit('movie_random', 30, 'Zbyt wiele prób losowania. Spróbuj ponownie za chwilę.'), async (req, res) => {
   try {
     const requestKey = req.headers['x-tmdb-api-key'] as string | undefined
     const result = await handleMoviesRandom(req.query, requestKey)
@@ -203,7 +208,7 @@ app.get('/api/meals/categories', async (_req, res) => {
   }
 })
 
-app.get('/api/meals/search', async (req, res) => {
+app.get('/api/meals/search', limit('meals_search', 60, 'Zbyt wiele zapytań o przepisy. Spróbuj ponownie za chwilę.'), async (req, res) => {
   try {
     const result = await handleMealsSearch(req.query)
     res.json(result)
@@ -212,7 +217,7 @@ app.get('/api/meals/search', async (req, res) => {
   }
 })
 
-app.get('/api/meals/lookup', async (req, res) => {
+app.get('/api/meals/lookup', limit('meals_lookup', 60, 'Zbyt wiele zapytań o przepis. Spróbuj ponownie za chwilę.'), async (req, res) => {
   try {
     const result = await handleMealsLookup(req.query)
     res.json(result)
@@ -221,8 +226,7 @@ app.get('/api/meals/lookup', async (req, res) => {
   }
 })
 
-app.post('/api/meals/import', requireAuth, async (req: any, res) => {
-  if (!allowPush(`recipes:${req.user.uid}`, 20)) return res.status(429).json({ success: false, error: 'Zbyt wiele prób importu.' })
+app.post('/api/meals/import', requireAuth, limit('recipe_import', 20, 'Zbyt wiele prób importu przepisów. Odczekaj chwilę przed kolejną próbą.'), async (req: any, res) => {
   try {
     const result = await handleMealsImport(req.body)
     res.json(result)
@@ -257,8 +261,13 @@ app.post('/api/avatar', requireAuth, express.raw({ type: 'image/jpeg', limit: MA
   res.set('Cache-Control', 'no-store')
   if (!allowPush(`avatar:${req.user.uid}`, 10)) return res.status(429).json({ error: 'avatar_rate_limited' })
   try {
-    if (!Buffer.isBuffer(req.body)) throw new DuoDataError(400, 'Nie wybrano zdjęcia JPG.')
-    res.json(await writeProfileAvatar(db, req.user.uid, req.body))
+    if (req.get('Content-Type') !== 'image/jpeg') throw new DuoDataError(415, 'Wymagany format JPG.')
+    const image = req.rawBody ?? req.body
+    if (Number(req.get('Content-Length')) > MAX_AVATAR_BYTES || image?.length > MAX_AVATAR_BYTES) {
+      throw new DuoDataError(413, 'Zdjęcie jest za duże.')
+    }
+    if (!Buffer.isBuffer(image) || !image.length) throw new DuoDataError(400, 'Nie wybrano zdjęcia JPG.')
+    res.json(await writeProfileAvatar(db, req.user.uid, image))
   } catch (error) {
     respondToDataError(res, error)
   }
@@ -337,11 +346,8 @@ app.post('/api/diagnostics/:platform', requireAuth, async (req: any, res) => {
 })
 
 for (const action of PUSH_ACTIONS) {
-  app.post(`/api/push/${action}`, requireAuth, async (req: any, res: any) => {
+  app.post(`/api/push/${action}`, requireAuth, limit('push_' + action, PUSH_LIMITS[action], 'Zbyt wiele żądań. Odczekaj chwilę.'), async (req: any, res: any) => {
     try {
-      if (!allowPush(`${action}:${req.user.uid}`, PUSH_LIMITS[action])) {
-        return res.status(429).json({ success: false, error: 'Zbyt wiele żądań. Odczekaj chwilę.' })
-      }
       const profile = await resolveCallerProfile(db, decodedUser(req))
       if (!profile) return res.status(403).json({ success: false, error: 'No profile is linked to this account' })
       const result = await handlePushAction(db, getMessaging(), {
@@ -360,8 +366,7 @@ for (const action of PUSH_ACTIONS) {
   })
 }
 
-app.post('/api/wishlist/preview', requireAuth, async (req: any, res) => {
-  if (!allowPush(`wishlist:${req.user.uid}`, 15)) return res.status(429).json({ success: false, error: 'Zbyt wiele zapytań o podgląd.' })
+app.post('/api/wishlist/preview', requireAuth, limit('scrape', 15, 'Zbyt wiele zapytań podglądu linku. Odczekaj chwilę.'), async (req: any, res) => {
   const url = typeof req.body?.url === 'string' ? req.body.url.trim() : ''
   if (url.length > 2048) return res.status(400).json({ success: false, error: 'Link jest zbyt długi.' })
   try {

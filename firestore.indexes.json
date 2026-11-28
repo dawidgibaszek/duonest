@@ -111,6 +111,12 @@
       "indexes": []
     },
     {
+      "collectionGroup": "rate_limits",
+      "fieldPath": "expires_at",
+      "ttl": true,
+      "indexes": []
+    },
+    {
       "collectionGroup": "ios_diagnostics",
       "fieldPath": "expiresAt",
       "ttl": true,
