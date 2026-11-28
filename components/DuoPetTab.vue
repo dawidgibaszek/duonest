@@ -16,7 +16,19 @@
 
     <ion-content :fullscreen="true" class="briar-content">
       <div class="briar-view">
-        <div class="briar-stage" :aria-busy="status === 'loading'">
+        <section
+          class="briar-stage"
+          aria-label="Pokoje zwierzaka"
+          aria-describedby="briar-room-help"
+          :data-room="room.id"
+          data-no-swipe
+          tabindex="0"
+          @pointerdown="startRoomSwipe"
+          @pointerup="finishRoomSwipe"
+          @pointercancel="cancelRoomSwipe"
+          @keydown.left.prevent="changeRoom(-1)"
+          @keydown.right.prevent="changeRoom(1)"
+        >
           <div class="briar-identity">
             <h1 :title="displayName">{{ displayName }}</h1>
             <span v-if="stats" class="dn-pill briar-mood">
@@ -24,47 +36,52 @@
               {{ getPetMood(stats) }}
             </span>
           </div>
-          <button
-            type="button"
-            class="briar-pet"
-            :aria-label="`Pogłaszcz zwierzaka: ${displayName}`"
-            :disabled="status !== 'ready'"
-            @click="petBunny"
-          >
-            <canvas ref="canvas" aria-hidden="true" :class="{ 'is-ready': status === 'ready' }" />
-          </button>
-          <div v-if="status !== 'ready'" class="briar-status" role="status">
-            <div v-if="status === 'loading'" class="briar-loading">
-              <span class="briar-loading-icon" aria-hidden="true">
-                <ion-icon :icon="pawOutline" />
-              </span>
-              <span>Wczytywanie zwierzaka</span>
-              <ion-spinner name="dots" aria-hidden="true" />
-            </div>
-            <span v-else>Nie udało się wczytać animacji zwierzaka.</span>
-          </div>
-        </div>
-
-        <section class="dn-card briar-care" aria-labelledby="briar-care-title">
-          <h2 id="briar-care-title">Opieka</h2>
-          <div class="briar-care-actions">
+          <div class="briar-character">
             <button
-              v-for="action in careOptions"
-              :key="action.kind"
               type="button"
-              :disabled="!stats || !!busyAction || !!retryRequest || displayPercent(stats[PET_ACTIONS[action.kind].need]) >= PET_LIMITS.full"
-              :aria-busy="busyAction === action.kind"
-              @click="care(action.kind)"
+              class="briar-pet"
+              :aria-label="`Pogłaszcz zwierzaka: ${displayName}`"
+              :disabled="status !== 'ready'"
+              @click="petBunny"
             >
-              <ion-spinner v-if="busyAction === action.kind" name="crescent" aria-hidden="true" />
-              <ion-icon v-else :icon="action.icon" aria-hidden="true" />
-              <span>{{ action.label }}</span>
+              <canvas ref="canvas" aria-hidden="true" :class="{ 'is-ready': status === 'ready' }" />
+            </button>
+            <div v-if="status !== 'ready'" class="briar-status" role="status">
+              <div v-if="status === 'loading'" class="briar-loading">
+                <span class="briar-loading-icon" aria-hidden="true">
+                  <ion-icon :icon="pawOutline" />
+                </span>
+                <span>Wczytywanie zwierzaka</span>
+                <ion-spinner name="dots" aria-hidden="true" />
+              </div>
+              <span v-else>Nie udało się wczytać animacji zwierzaka.</span>
+            </div>
+          </div>
+          <div class="briar-room">
+            <div class="briar-room-label" aria-live="polite" aria-atomic="true">
+              <h2 :key="room.id">{{ room.label }}</h2>
+            </div>
+            <div class="briar-room-actions">
+              <button
+                v-for="kind in room.actions"
+                :key="kind"
+                type="button"
+                class="dn-button-secondary"
+                :disabled="!stats || !!busyAction || !!retryRequest || displayPercent(stats[PET_ACTIONS[kind].need]) >= PET_LIMITS.full"
+                :aria-busy="busyAction === kind"
+                @click="care(kind, $event)"
+              >
+                <ion-spinner v-if="busyAction === kind" name="crescent" aria-hidden="true" />
+                <ion-icon v-else :icon="careOptions[kind].icon" aria-hidden="true" />
+                {{ careOptions[kind].label }}
+              </button>
+            </div>
+            <p v-if="actionError" class="briar-action-error" role="alert">{{ actionError }}</p>
+            <button v-if="retryRequest && !busyAction" type="button" class="dn-button-secondary briar-action-retry" @click="care(retryRequest.kind, $event)">
+              Ponów akcję
             </button>
           </div>
-          <p v-if="actionError" class="briar-care-message is-error" role="alert">{{ actionError }}</p>
-          <button v-if="retryRequest && !busyAction" type="button" class="dn-button-secondary briar-care-retry" @click="care(retryRequest.kind)">
-            Ponów akcję
-          </button>
+          <span id="briar-room-help" hidden>Przesuń w lewo lub w prawo albo użyj strzałek, aby zmienić pokój.</span>
         </section>
 
         <section class="dn-card briar-stats" aria-labelledby="briar-stats-title" :aria-busy="loading">
@@ -90,10 +107,10 @@
               </div>
             </li>
           </ul>
-          <p v-else-if="!syncError" class="briar-care-message" role="status">Wczytywanie statystyk…</p>
+          <p v-else-if="!syncError" class="briar-stats-message" role="status">Wczytywanie statystyk…</p>
           <template v-if="syncError">
-            <p class="briar-care-message is-error" role="alert">Nie udało się pobrać aktualnego stanu zwierzaka.</p>
-            <button type="button" class="dn-button-secondary briar-care-retry" @click="refresh">Odśwież</button>
+            <p class="briar-stats-message is-error" role="alert">Nie udało się pobrać aktualnego stanu zwierzaka.</p>
+            <button type="button" class="dn-button-secondary briar-stats-retry" @click="refresh">Odśwież</button>
           </template>
         </section>
       </div>
@@ -165,16 +182,25 @@ const statOptions = [
   { id: 'health', label: 'Zdrowie', icon: heartOutline }
 ] as const
 
-const careOptions = [
-  { kind: 'feed', label: 'Nakarm', icon: restaurantOutline, animation: 'feed' },
-  { kind: 'hydrate', label: 'Napój', icon: waterOutline, animation: 'drink' },
-  { kind: 'clean', label: 'Umyj', icon: sparklesOutline, animation: 'wash' },
-  { kind: 'play', label: 'Pobaw się', icon: gameControllerOutline, animation: 'play' },
-  { kind: 'rest', label: 'Odpoczynek', icon: moonOutline, animation: 'pet' }
+const rooms = [
+  { id: 'dining-room', label: 'Jadalnia', actions: ['feed', 'hydrate'] },
+  { id: 'bathroom', label: 'Łazienka', actions: ['clean'] },
+  { id: 'game-room', label: 'Salon gier', actions: ['play'] },
+  { id: 'bedroom', label: 'Sypialnia', actions: ['rest'] }
 ] as const
+
+const careOptions = {
+  feed: { label: 'Nakarm', icon: restaurantOutline, animation: 'feed' },
+  hydrate: { label: 'Napój', icon: waterOutline, animation: 'drink' },
+  clean: { label: 'Umyj', icon: sparklesOutline, animation: 'wash' },
+  play: { label: 'Pobaw się', icon: gameControllerOutline, animation: 'play' },
+  rest: { label: 'Odpoczynek', icon: moonOutline, animation: 'pet' }
+} satisfies Record<PetActionType, { label: string; icon: string; animation: string }>
 
 const { stats, loading, syncError, actionError, busyAction, retryRequest, refresh, performCare } = useDuoPetCare(computed(() => props.active))
 
+const roomIndex = ref(0)
+const room = computed(() => rooms[roomIndex.value])
 const canvas = ref<HTMLCanvasElement | null>(null)
 const status = ref<'loading' | 'ready' | 'error'>('loading')
 const editorOpen = ref(false)
@@ -183,11 +209,50 @@ const savingName = ref(false)
 const nameSaveFailed = ref(false)
 let player: Rive | undefined
 let resizeObserver: ResizeObserver | undefined
+let roomSwipe: { pointerId: number; x: number; y: number } | undefined
+let swipedRoom = false
 
 const canDismissEditor = () => !savingName.value
 
-function petBunny() {
+function changeRoom(step: number) {
+  roomIndex.value = (roomIndex.value + step + rooms.length) % rooms.length
+}
+
+function startRoomSwipe(event: PointerEvent) {
+  if (!event.isPrimary || event.button !== 0) return
+  swipedRoom = false
+  roomSwipe = { pointerId: event.pointerId, x: event.clientX, y: event.clientY }
+  if (event.target instanceof Element) event.target.setPointerCapture(event.pointerId)
+}
+
+function finishRoomSwipe(event: PointerEvent) {
+  if (roomSwipe?.pointerId !== event.pointerId) return
+  const dx = event.clientX - roomSwipe.x
+  const dy = event.clientY - roomSwipe.y
+  roomSwipe = undefined
+  if (Math.abs(dx) < 40 || Math.abs(dx) <= Math.abs(dy) * 1.25) return
+
+  swipedRoom = true
+  changeRoom(dx > 0 ? -1 : 1)
+}
+
+function cancelRoomSwipe(event: PointerEvent) {
+  if (roomSwipe?.pointerId === event.pointerId) roomSwipe = undefined
+}
+
+function petBunny(event: MouseEvent) {
+  if (swipedRoom && event.detail > 0) return
   player?.viewModelInstance?.trigger('pet')?.trigger()
+}
+
+async function care(kind: PetActionType, event: MouseEvent) {
+  if (swipedRoom && event.detail > 0) return
+
+  const result = await performCare(kind)
+  if (!result || result.gained <= 0 || !props.active) return
+
+  if ('vibrate' in navigator) navigator.vibrate(15)
+  player?.viewModelInstance?.trigger(careOptions[kind].animation)?.trigger()
 }
 
 function displayPercent(value: number) {
@@ -196,15 +261,6 @@ function displayPercent(value: number) {
 
 function isNeglected(id: keyof PetStats, value: number) {
   return value <= (id === 'health' ? PET_LIMITS.sick : PET_LIMITS.needsCare)
-}
-
-async function care(kind: PetActionType) {
-  const result = await performCare(kind)
-  if (!result || result.gained <= 0 || !props.active) return
-
-  if ('vibrate' in navigator) navigator.vibrate(15)
-  const option = careOptions.find(action => action.kind === kind)
-  if (option) player?.viewModelInstance?.trigger(option.animation)?.trigger()
 }
 
 function openEditor() {
@@ -332,9 +388,15 @@ onBeforeUnmount(() => {
   align-content: end;
   isolation: isolate;
   overflow: hidden;
+  touch-action: pan-y;
   border: 1px solid var(--dn-cream-deep);
   border-radius: 30px;
   background: radial-gradient(ellipse at 50% 43%, var(--dn-bg), var(--dn-cream) 66%, var(--dn-cream-deep));
+}
+
+.briar-stage:focus-visible {
+  outline: 2px solid var(--dn-cream-ink);
+  outline-offset: 3px;
 }
 
 .briar-identity {
@@ -371,9 +433,15 @@ onBeforeUnmount(() => {
   font-size: 15px;
 }
 
-.briar-pet {
+.briar-character {
+  position: relative;
   width: min(100%, 330px);
   margin: 18px 0 -28px;
+}
+
+.briar-pet {
+  display: block;
+  width: 100%;
   padding: 0;
   border: 0;
   border-radius: 24px;
@@ -382,6 +450,10 @@ onBeforeUnmount(() => {
 
 .briar-pet:not(:disabled) {
   cursor: pointer;
+}
+
+.briar-pet:disabled {
+  pointer-events: none;
 }
 
 .briar-pet:focus-visible {
@@ -402,11 +474,70 @@ onBeforeUnmount(() => {
   opacity: 1;
 }
 
+.briar-room {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  padding: 0 16px 16px;
+  text-align: center;
+}
+
+.briar-room-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.briar-room-actions button,
+.briar-action-retry {
+  border: 1px solid var(--dn-cream-deep);
+  background: var(--dn-bg);
+  font-weight: 600;
+}
+
+.briar-room-actions button:disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.briar-room-actions ion-icon,
+.briar-room-actions ion-spinner {
+  width: 18px;
+  height: 18px;
+  --color: var(--dn-cream-ink);
+  color: var(--dn-cream-ink);
+}
+
+.briar-action-error {
+  margin: 0;
+  color: var(--dn-danger);
+  font-size: 13px;
+}
+
+.briar-action-retry {
+  justify-self: center;
+}
+
+.briar-room-label h2 {
+  margin: 0;
+  color: var(--dn-ink);
+  font: 600 22px / 1.2 var(--dn-serif);
+  animation: briar-room-appear 180ms ease-out;
+}
+
+@keyframes briar-room-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .briar-status {
   position: absolute;
-  inset: 76px 16px 16px;
+  inset: 54px 16px 28px;
   display: grid;
   place-items: center;
+  pointer-events: none;
   color: var(--dn-cream-ink);
   text-align: center;
 }
@@ -444,16 +575,18 @@ onBeforeUnmount(() => {
   .briar-loading ion-spinner {
     visibility: hidden;
   }
+
+  .briar-room-label h2 {
+    animation: none;
+  }
 }
 
-.briar-care,
 .briar-stats {
   margin: 0;
   padding: 16px;
   border-radius: 24px;
 }
 
-.briar-care h2,
 .briar-stats h2 {
   margin: 0 0 12px;
   color: var(--dn-ink);
@@ -461,63 +594,17 @@ onBeforeUnmount(() => {
   letter-spacing: -0.025em;
 }
 
-.briar-care-actions {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.briar-care-actions button {
-  display: grid;
-  grid-column: span 2;
-  justify-items: center;
-  align-content: center;
-  gap: 5px;
-  min-height: 62px;
-  padding: 6px 3px;
-  border: 1px solid var(--dn-cream-deep);
-  border-radius: 14px;
-  background: var(--dn-cream);
-  color: var(--dn-ink);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.briar-care-actions button:nth-last-child(-n + 2) {
-  grid-column: span 3;
-}
-
-.briar-care-actions button:disabled:not([aria-busy='true']) {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.briar-care-actions button:not(:disabled):active {
-  background: var(--dn-cream-deep);
-}
-
-.briar-care-actions ion-icon,
-.briar-care-actions ion-spinner {
-  width: 19px;
-  height: 19px;
-  --color: var(--dn-cream-ink);
-  color: var(--dn-cream-ink);
-  font-size: 19px;
-}
-
-.briar-care-message {
+.briar-stats-message {
   margin: 10px 0 0;
   color: var(--dn-muted);
   font-size: 13px;
 }
 
-.briar-care-message.is-error {
+.briar-stats-message.is-error {
   color: var(--dn-danger);
 }
 
-.briar-care-retry {
+.briar-stats-retry {
   margin-top: 8px;
 }
 
@@ -647,25 +734,15 @@ onBeforeUnmount(() => {
 @media (min-width: 680px) {
   .briar-view {
     grid-template-columns: 1.12fr 1fr;
-    grid-template-areas: 'pet stats' 'care stats';
     gap: 24px;
     padding-top: 18px;
   }
 
-  .briar-pet {
+  .briar-character {
     width: min(100%, 400px);
   }
 
-  .briar-stage {
-    grid-area: pet;
-  }
-
-  .briar-care {
-    grid-area: care;
-  }
-
   .briar-stats {
-    grid-area: stats;
     align-self: start;
   }
 }
