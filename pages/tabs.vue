@@ -102,7 +102,7 @@
           @click="handleLeisureTabClick"
         >
           <div class="tab-icon-wrap">
-            <ion-icon :icon="leisureTabFeature ? featureTabIcons[leisureTabFeature] : ioniconsFilm" aria-hidden="true" />
+            <ion-icon :icon="leisureTabFeature ? featureTabIcons[leisureTabFeature] : ioniconsSparkles" aria-hidden="true" />
             <span v-if="leisureBadge > 0" class="tab-badge">
               {{ leisureBadge }}
             </span>
