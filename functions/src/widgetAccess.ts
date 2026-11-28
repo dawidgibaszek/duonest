@@ -122,7 +122,7 @@ function readWidgetData(db: Firestore, auth: Auth, location: boolean): RequestHa
           .where('partnership_id', '==', session.partnershipId).orderBy('updated_at', 'desc').limit(1))
         const doc = snapshot.docs[0]
         const doodle = doc?.data()
-        return { doodle: doodle ? {
+        return { doodle: doodle?.strokes?.length ? {
           id: doc.id,
           updated_at: doodle.updated_at,
           author_name: doodle.author_name,

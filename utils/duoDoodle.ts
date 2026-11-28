@@ -4,6 +4,29 @@ import type { DuoDoodleStroke } from '~/types/duo'
 export const DOODLE_WIDTH = 768
 export const DOODLE_HEIGHT = 384
 
+export function doodleDayBounds(date: Date) {
+  const year = date.getFullYear()
+  const month = date.getMonth()
+  const day = date.getDate()
+  return {
+    start: new Date(year, month, day),
+    end: new Date(year, month, day + 1)
+  }
+}
+
+export function isDoodleOnDay(updatedAt: string, date: Date) {
+  const { start, end } = doodleDayBounds(date)
+  const time = Date.parse(updatedAt)
+  return time >= start.getTime() && time < end.getTime()
+}
+
+export function redrawDoodle(canvas: HTMLCanvasElement | null, strokes: readonly DuoDoodleStroke[]) {
+  const ctx = canvas?.getContext('2d')
+  if (!ctx) return
+  ctx.clearRect(0, 0, DOODLE_WIDTH, DOODLE_HEIGHT)
+  for (const stroke of strokes) drawDoodleStroke(ctx, stroke)
+}
+
 export function drawDoodleStroke(ctx: CanvasRenderingContext2D, stroke: DuoDoodleStroke) {
   const points = stroke.points
   if (!points || points.length < 2) return

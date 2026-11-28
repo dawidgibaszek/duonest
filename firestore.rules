@@ -224,7 +224,10 @@ service cloud.firestore {
     }
 
     match /{collection}/{id} {
-      allow read, delete: if isSharedCollection(collection) && inPartnership(resource.data.partnership_id);
+      allow read: if isSharedCollection(collection) && inPartnership(resource.data.partnership_id);
+      // Older clients clear the board by deleting every saved drawing.
+      allow delete: if collection != 'partnership_doodles'
+        && isSharedCollection(collection) && inPartnership(resource.data.partnership_id);
       allow create: if isSharedCollection(collection) && newShared(id);
       allow update: if isSharedCollection(collection) && samePartnership()
         && request.resource.data.get('id', null) == resource.data.get('id', null);

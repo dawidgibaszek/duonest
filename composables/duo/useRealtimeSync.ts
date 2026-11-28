@@ -40,6 +40,7 @@ import type { DuoDoodle, DuoDoodleStroke, SavingsContribution, SavingsGoal, Wish
 import { normalizeEventRecord } from '~/functions/src/eventRecord'
 import { combineWishlist, readWishlist, wishlistFilters } from './useWishlist'
 import { getPartnerNoun, conjugateVerbPast3rd, resolveGrammaticalGender } from './useGrammar'
+import { doodleDayBounds } from '~/utils/duoDoodle'
 
 let activePartnershipChannel: any = null
 let activePartnershipId: string | null = null
@@ -87,6 +88,15 @@ function normalizeStroke(raw: any, maxPoints = 100_000): DuoDoodleStroke | null 
 
 const byNewest = (a: { created_at?: string }, b: { created_at?: string }) =>
   String(b.created_at || '').localeCompare(String(a.created_at || ''))
+
+function normalizeDoodle(doc: DuoDoodle): DuoDoodle {
+  return {
+    ...doc,
+    strokes: Array.isArray(doc.strokes)
+      ? doc.strokes.map(stroke => normalizeStroke(stroke)).filter(stroke => stroke !== null)
+      : []
+  }
+}
 
 export function useRealtimeSync(options?: {
   loadPartnershipAndPartner?: (partnershipId: string, currentUserId: string) => Promise<boolean>
@@ -215,11 +225,15 @@ export function useRealtimeSync(options?: {
   const saveDoodle = async (
     strokes: DuoDoodleStroke[],
     previewSvg?: string,
-    options?: { silent?: boolean }
+    options?: { silent?: boolean; day?: Date }
   ): Promise<DuoDoodle | null> => {
     const pid = partnership.value?.id
     if (!pid) return null
     const now = new Date().toISOString()
+    const day = options?.day ?? new Date(now)
+    const { end } = doodleDayBounds(day)
+    // Keep a draft saved just after midnight on the day it was edited.
+    const updatedAt = new Date(Math.min(Date.parse(now), end.getTime() - 1)).toISOString()
     const doodle: DuoDoodle = {
       id: newDocumentId('doodle_'),
       partnership_id: pid,
@@ -228,7 +242,7 @@ export function useRealtimeSync(options?: {
       author_id: currentUser.value.id,
       author_name: currentUser.value.name || 'Ty',
       created_at: now,
-      updated_at: now
+      updated_at: updatedAt
     }
     const { error } = await getDb().from('partnership_doodles').insert(doodle)
     if (error) {
@@ -240,11 +254,14 @@ export function useRealtimeSync(options?: {
     if (partnership.value?.id !== pid) return null
     drawingPushActive = false
     lastDrawingPushAt = 0
-    if (!options?.silent) {
+    if (!options?.silent && strokes.length) {
       trackDuoEvent('duo_doodle_saved')
     }
-    setDoodle(doodle)
-    if (!options?.silent) {
+    if (!currentDoodle.value || currentDoodle.value.updated_at <= updatedAt) setDoodle(doodle)
+    if (strokes.length === 0) {
+      void sendPartnerPush('DOODLE_CLEAR', {})
+      if (!options?.silent) triggerToast('Wyczyszczono tablicę')
+    } else if (!options?.silent) {
       void broadcastToPartner('DOODLE_SAVE', { doodleId: doodle.id })
       triggerToast('Zapisano rysunek na tablicy', { type: 'love' })
     } else {
@@ -253,34 +270,19 @@ export function useRealtimeSync(options?: {
     return doodle
   }
 
-  const clearDoodle = async (options?: { silent?: boolean }) => {
-    const pid = partnership.value?.id
-    if (!pid) return false
-    try {
-      const bridge = getDb()
-      const { data, error } = await bridge.from('partnership_doodles').select('id').eq('partnership_id', pid)
-      if (error) throw error
-      await bridge.commitSharedBatch('partnership_doodles', (data || []).map((row: DuoDoodle) => ({ id: row.id })))
-      if (partnership.value?.id !== pid) return false
-      setDoodle(null)
-      drawingPushActive = false
-      lastDrawingPushAt = 0
-      await sendPartnerPush('DOODLE_CLEAR', {})
-      if (!options?.silent) {
-        triggerToast('Wyczyszczono tablicę')
-      }
-      return true
-    } catch {
-      if (!options?.silent) {
-        triggerToast('Nie udało się wyczyścić tablicy.', { type: 'warning' })
-      }
-      return false
-    }
+  const readDoodleForDay = async (pid: string, day: Date): Promise<DuoDoodle | null> => {
+    const { start, end } = doodleDayBounds(day)
+    const { data, error } = await getDb().from('partnership_doodles', true).select('*')
+      .eq('partnership_id', pid)
+      .gte('updated_at', start.toISOString()).lt('updated_at', end.toISOString())
+      .order('updated_at', { ascending: false }).limit(1).maybeSingle()
+    if (error) throw error
+    return data ? normalizeDoodle(data) : null
   }
 
   const setDoodle = (doc: any) => {
     const previousId = currentDoodle.value?.id
-    if (!doc && currentDoodle.value) {
+    if ((!doc || doc.strokes?.length === 0) && currentDoodle.value) {
       clearTimeout(partnerDrawingTimeout)
       partnerLiveStroke.value = null
       isPartnerDrawing.value = false
@@ -292,10 +294,7 @@ export function useRealtimeSync(options?: {
         isPartnerDrawing.value = false
       }
     }
-    currentDoodle.value = doc ? {
-      ...doc,
-      strokes: Array.isArray(doc.strokes) ? doc.strokes.map((stroke: unknown) => normalizeStroke(stroke)).filter(Boolean) : []
-    } : null
+    currentDoodle.value = doc ? normalizeDoodle(doc) : null
     saveToStorage('duonest_active_doodle', currentDoodle.value)
   }
 
@@ -483,6 +482,7 @@ export function useRealtimeSync(options?: {
       if (!isCurrent() || !partnerUser.value?.id || payload?.senderId !== partnerUser.value.id ||
           typeof ts !== 'number' || Date.now() - ts > 60000) return
       if (payload.action === 'DOODLE_LIVE_STROKE') {
+        if (ts < doodleDayBounds(new Date()).start.getTime()) return
         const stroke = normalizeStroke(payload.data?.stroke, 4096)
         if (!stroke) return
         partnerLiveStroke.value = { stroke, timestamp: Date.now() }
@@ -695,7 +695,7 @@ export function useRealtimeSync(options?: {
     broadcastLiveStroke,
     broadcastDrawingStatus,
     saveDoodle,
-    clearDoodle,
+    readDoodleForDay,
     subscribeToPartnershipRealtime,
     setNativeRealtimeActive,
     subscribeToSecurityChannel,

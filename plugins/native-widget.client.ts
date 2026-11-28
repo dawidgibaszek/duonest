@@ -45,7 +45,7 @@ export default defineNuxtPlugin(() => {
 
   function pushDoodle(verifyEmpty = false) {
     if (!activeWidgetSession()) return
-    const doodle = currentDoodle.value
+    const doodle = currentDoodle.value?.strokes.length ? currentDoodle.value : null
     if (doodle && doodle.partnership_id !== partnership.value?.id) return
     return DuoWidget.setDoodle({
       doodle: doodle
